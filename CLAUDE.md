@@ -21,3 +21,9 @@
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
 
 <!-- nx configuration end-->
+
+# Life Island
+
+- Follow `docs/architecture.md`; its principles are non-negotiable and every new module goes through its "New feature checklist".
+- Nx tags: `type:app | type:lib` and `scope:<module> | scope:shared`. Apps never import other apps.
+- Start local infrastructure with `npm run infra:up`; run integration tests with `npm run test:integration`.

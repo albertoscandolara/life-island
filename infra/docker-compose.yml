@@ -1,0 +1,63 @@
+name: life-island
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: life_island
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Only 01 and 02 run at init; 03 is the isolation check, run on demand.
+      - ./postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
+      - ./postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
+      - ./postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d life_island']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  storage:
+    image: chrislusf/seaweedfs:3.97
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024
+    ports:
+      - '${STORAGE_S3_PORT:-8333}:8333'
+    volumes:
+      - storage-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+
+  nats:
+    image: nats:2.11-alpine
+    command: -js -sd /data -m 8222
+    ports:
+      - '${NATS_PORT:-4222}:4222'
+      - '${NATS_MONITOR_PORT:-8222}:8222'
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-qO-',
+          'http://localhost:8222/healthz?js-enabled-only=true',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gateway:
+    image: caddy:2.10-alpine
+    ports:
+      - '${GATEWAY_PORT:-8080}:80'
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  postgres-data:
+  storage-data:
+  nats-data:

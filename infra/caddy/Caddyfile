@@ -1,0 +1,28 @@
+# Single origin for the front end. Each service is reached under /api/<service>/.
+# Services that are not running yet answer 502 until they exist.
+{
+	admin off
+}
+
+:80 {
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle_path /api/ingestion/* {
+		reverse_proxy svc-ingestion:3000
+	}
+	handle_path /api/review/* {
+		reverse_proxy svc-review:3000
+	}
+	handle_path /api/groceries/* {
+		reverse_proxy svc-groceries:3000
+	}
+	handle_path /api/tax730/* {
+		reverse_proxy svc-tax730:3000
+	}
+
+	handle {
+		respond "Life Island gateway" 200
+	}
+}
