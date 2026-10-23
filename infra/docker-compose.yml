@@ -1,5 +1,8 @@
 name: life-island
 
+# Paths are relative to the repository root. Run it through the npm scripts
+# (`npm run infra:up`), which pass `--project-directory .` so the root .env is read.
+
 services:
   postgres:
     image: pgvector/pgvector:pg17
@@ -12,9 +15,9 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Only 01 and 02 run at init; 03 is the isolation check, run on demand.
-      - ./postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
-      - ./postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
-      - ./postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
+      - ./infra/postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
+      - ./infra/postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
+      - ./infra/postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d life_island']
       interval: 5s
@@ -28,7 +31,7 @@ services:
       - '${STORAGE_S3_PORT:-8333}:8333'
     volumes:
       - storage-data:/data
-      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
 
   nats:
     image: nats:2.11-alpine
@@ -55,7 +58,7 @@ services:
     ports:
       - '${GATEWAY_PORT:-8080}:80'
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 
 volumes:
   postgres-data:

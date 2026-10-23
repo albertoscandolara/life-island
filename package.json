@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait",
-    "infra:down": "docker compose -f infra/docker-compose.yml down",
-    "infra:reset": "docker compose -f infra/docker-compose.yml down -v",
-    "db:check-isolation": "docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -d life_island -v ON_ERROR_STOP=1 -f /checks/03-check-isolation.sql",
+    "infra:up": "docker compose --project-directory . -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --project-directory . -f infra/docker-compose.yml down",
+    "infra:reset": "docker compose --project-directory . -f infra/docker-compose.yml down -v",
+    "db:check-isolation": "docker compose --project-directory . -f infra/docker-compose.yml exec -T postgres psql -U postgres -d life_island -v ON_ERROR_STOP=1 -f /checks/03-check-isolation.sql",
     "test:integration": "dotenv -e .env -- nx run-many -t test --skip-nx-cache"
   },
   "private": true,
