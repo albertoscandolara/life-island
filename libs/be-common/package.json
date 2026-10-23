@@ -1,0 +1,33 @@
+{
+  "name": "@life-island/be-common",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@life-island/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "name": "be-common",
+    "tags": [
+      "type:lib",
+      "scope:shared"
+    ]
+  },
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "pg": "^8.23.1",
+    "drizzle-orm": "^0.45.4",
+    "@nats-io/jetstream": "^3.4.0",
+    "@nats-io/transport-node": "^3.4.0",
+    "@life-island/contracts": "*"
+  }
+}
