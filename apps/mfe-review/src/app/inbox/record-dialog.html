@@ -1,0 +1,61 @@
+<ui-confirm-dialog
+  [(open)]="open"
+  [heading]="record.value()?.title ?? 'Record details'"
+  size="lg"
+  confirmLabel="Confirm"
+  cancelLabel="Cancel"
+  [busy]="saving()"
+  [confirmDisabled]="!canConfirm()"
+  (confirmed)="confirm()"
+  (closed)="onClosed()"
+>
+  @if (record.isLoading() && !record.value()) {
+  <p class="muted">Loading…</p>
+  } @else if (record.error()) {
+  <ui-alert tone="danger">The record could not be loaded.</ui-alert>
+  } @else if (record.value(); as rec) {
+  <div class="meta">
+    <ui-badge tone="info">{{ categoryLabel() }}</ui-badge>
+    <ui-status-dot
+      [tone]="statusView[rec.status].tone"
+      [label]="statusView[rec.status].label"
+    />
+    @if (rec.confidence !== null) {
+    <span class="muted">Confidence {{ rec.confidence | percent }}</span>
+    } @for (flag of rec.flags; track flag) {
+    <ui-badge tone="warning">{{ flagLabel(flag) }}</ui-badge>
+    }
+  </div>
+  @if (rec.description) {
+  <p class="description">{{ rec.description }}</p>
+  }
+  <p class="muted small">
+    Uploaded {{ rec.uploadedAt | date: 'dd MMM yyyy, HH:mm' }} @if
+    (rec.parsedAt) { · parsed {{ rec.parsedAt | date: 'dd MMM yyyy, HH:mm' }} }
+    · <code>{{ rec.targetKey }}</code> ·
+    <a [href]="fileUrl(rec)" target="_blank" rel="noopener">
+      Original file <ui-icon name="external" [size]="14" />
+    </a>
+  </p>
+
+  @if (rec.status === 'CONFIRMED' || rec.status === 'LOADED') {
+  <ui-alert tone="success" class="spaced">
+    Confirmed {{ rec.confirmedAt | date: 'dd MMM yyyy, HH:mm' }}. {{ rec.status
+    === 'LOADED' ? 'It is stored in the ' + categoryLabel() + ' module.' :
+    'Waiting for the ' + categoryLabel() + ' module to load it.' }}
+  </ui-alert>
+  } @if (rec.loadError) {
+  <ui-alert tone="danger" class="spaced"
+    >Loading failed: {{ rec.loadError }}. Confirm again to retry.</ui-alert
+  >
+  } @if (error()) {
+  <ui-alert tone="danger" class="spaced">{{ error() }}</ui-alert>
+  }
+
+  <app-details-view [details]="rec.details" [schema]="schema()" />
+  @if (canConfirm()) {
+  <p class="muted small spaced">
+    Confirming sends these details to the {{ categoryLabel() }} module.
+  </p>
+  } }
+</ui-confirm-dialog>

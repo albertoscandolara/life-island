@@ -1,0 +1,25 @@
+/* Character themes: each module re-tints the accent and nothing else. */
+[data-character='ptera'] {
+  /* review inbox */
+  --accent: var(--sky-600);
+  --accent-hover: var(--sky-400);
+  --accent-soft: var(--sky-50);
+}
+
+[data-character='trice'] {
+  /* groceries */
+  --accent: var(--jungle-500);
+  --accent-hover: var(--jungle-600);
+  --accent-soft: var(--jungle-50);
+}
+
+[data-character='ankylo'] {
+  /* 730 tax return */
+  --accent: var(--amber-700);
+  --accent-hover: var(--sun-600);
+  --accent-soft: var(--sun-50);
+}
+
+:root[data-theme='dark'] [data-character] {
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+}

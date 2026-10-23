@@ -17,8 +17,17 @@ jobs:
   main:
     runs-on: ubuntu-latest
     env:
+      # Integration tests run against the compose stack; values match .env.example.
+      INGESTION_DATABASE_URL: postgres://ingestion_svc:dev_ingestion@localhost:5432/life_island
+      REVIEW_DATABASE_URL: postgres://review_svc:dev_review@localhost:5432/life_island
       GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@localhost:5432/life_island
       NATS_URL: nats://localhost:4222
+      S3_ENDPOINT: http://localhost:8333
+      S3_ACCESS_KEY: dev_access_key
+      S3_SECRET_KEY: dev_secret_key
+      S3_REGION: us-east-1
+      S3_BUCKET: uploads
+      PARSER: fake
     steps:
       - uses: actions/checkout@v5
         with:
@@ -45,6 +54,7 @@ jobs:
 
       - run: npx nx format:check
       - run: npx nx sync:check
+      - run: npm run lint:styles
       - run: npx nx affected -t lint test build typecheck
 
       - name: Stop infrastructure

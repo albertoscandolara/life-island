@@ -1,0 +1,53 @@
+<button
+  type="button"
+  class="ui-dropdown__trigger"
+  role="combobox"
+  aria-haspopup="listbox"
+  [attr.aria-expanded]="expanded()"
+  [attr.aria-controls]="listId"
+  [attr.aria-label]="ariaLabel()"
+  [attr.aria-activedescendant]="expanded() && activeIndex() >= 0 ? listId + '-' + activeIndex() : null"
+  [disabled]="disabled()"
+  (click)="toggle()"
+  (keydown)="onKeydown($event)"
+>
+  @if (selected(); as option) { @if (option.tone) {
+  <ui-status-dot [tone]="option.tone" />
+  }
+  <span class="ui-dropdown__value">{{ option.label }}</span>
+  } @else {
+  <span class="ui-dropdown__placeholder">{{ placeholder() }}</span>
+  }
+  <ui-icon name="chevron-down" [size]="16" class="ui-dropdown__chevron" />
+</button>
+
+@if (expanded()) {
+<ul
+  class="ui-dropdown__list"
+  role="listbox"
+  [id]="listId"
+  [attr.aria-label]="ariaLabel()"
+>
+  @for (option of entries(); track $index) {
+  <!-- Options are reached with the keyboard through the combobox (aria-activedescendant). -->
+  <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+  <li
+    role="option"
+    class="ui-dropdown__option"
+    [id]="listId + '-' + $index"
+    [class.ui-dropdown__option--active]="$index === activeIndex()"
+    [attr.aria-selected]="option.value === value()"
+    (click)="choose(option)"
+    (mouseenter)="activeIndex.set($index)"
+  >
+    @if (option.tone) {
+    <ui-status-dot [tone]="option.tone" />
+    }
+    <span>{{ option.label }}</span>
+    @if (option.value === value()) {
+    <ui-icon name="check" [size]="16" class="ui-dropdown__check" />
+    }
+  </li>
+  }
+</ul>
+}
