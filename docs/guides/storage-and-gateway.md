@@ -9,7 +9,7 @@ Uploaded files never go into the database or through the API. The browser upload
 | Local       | [SeaweedFS](https://github.com/seaweedfs/seaweedfs) in Docker | `http://localhost:8333` |
 | Production  | Cloudflare R2                                                 | Set by `S3_ENDPOINT`    |
 
-Because both speak the S3 API, code uses the AWS SDK (`@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`, added with the upload flow in Week 3) and only the endpoint and credentials change.
+Because both speak the S3 API, code uses the AWS SDK (`@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`, wrapped by `ObjectStorage` in `@life-island/be-common`) and only the endpoint and credentials change. R2 has no egress fees and a free tier that covers a personal archive, which is why it is the production choice; any S3-compatible store (AWS S3, Backblaze B2, MinIO) works by changing the variables below.
 
 ### Local setup
 
@@ -33,7 +33,16 @@ aws --endpoint-url http://localhost:8333 s3 cp ./receipt.jpg s3://uploads/
 aws --endpoint-url http://localhost:8333 s3 ls s3://uploads/
 ```
 
-No bucket exists yet. The ingestion service will create its bucket at startup in Week 3, when the presigned upload flow described in [architecture.md](../architecture.md#upload-flow-presigned-urls-files-never-pass-through-the-api) is built.
+`svc-ingestion` creates the `S3_BUCKET` bucket (default `uploads`) at startup and sets its CORS rules from `STORAGE_CORS_ORIGINS`, so browsers on those origins can PUT files with presigned URLs. Objects are stored as `YYYY/MM/<uploadId>/<filename>`; the database row keeps that key, and `GET /api/ingestion/uploads/:id/file` redirects to a presigned GET for it.
+
+| Variable                                                   | Meaning                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `S3_ENDPOINT`                                              | Where services reach storage                                                   |
+| `S3_PUBLIC_ENDPOINT`                                       | Host put in presigned URLs, which the browser opens; defaults to `S3_ENDPOINT` |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET` | Credentials, region (`auto` on R2) and bucket                                  |
+| `STORAGE_CORS_ORIGINS`                                     | Comma-separated origins allowed to upload from the browser                     |
+
+For R2: create a bucket and an API token with object read and write, then set `S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`, `S3_REGION=auto` and the token's keys. R2 also supports bucket CORS, which the service sets for you.
 
 ## Gateway (Caddy)
 

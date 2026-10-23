@@ -1,0 +1,5 @@
+/* Add this file to an app's `styles` to get the tokens, themes and base styles. */
+@import './primitives.css';
+@import './semantic.css';
+@import './themes.css';
+@import './base.css';

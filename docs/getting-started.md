@@ -50,16 +50,19 @@ npm run test:integration   # also runs the tests that need Postgres and NATS
 
 `.env.example` holds safe local defaults. Copy it to `.env` and change only what you need, such as a port that clashes with something on your machine.
 
-| Variable                                                                                       | Default                                                     | Used by                                                                         |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`                                                           | `postgres` / `postgres`                                     | Postgres superuser, for admin work only                                         |
-| `POSTGRES_PORT`                                                                                | `5432`                                                      | Host port for Postgres                                                          |
-| `NATS_PORT`, `NATS_MONITOR_PORT`                                                               | `4222`, `8222`                                              | Host ports for NATS clients and the monitoring page                             |
-| `STORAGE_S3_PORT`                                                                              | `8333`                                                      | Host port for the S3 API                                                        |
-| `GATEWAY_PORT`                                                                                 | `8080`                                                      | Host port for Caddy                                                             |
-| `INGESTION_DATABASE_URL`, `REVIEW_DATABASE_URL`, `GROCERY_DATABASE_URL`, `TAX730_DATABASE_URL` | `postgres://<role>:<password>@localhost:5432/life_island`   | Each service's own connection; the integration tests use `GROCERY_DATABASE_URL` |
-| `NATS_URL`                                                                                     | `nats://localhost:4222`                                     | Services and integration tests                                                  |
-| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                                                | `http://localhost:8333`, `dev_access_key`, `dev_secret_key` | Upload flow (from Week 3)                                                       |
+| Variable                                                                                                                | Default                                                   | Used by                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`                                                                                    | `postgres` / `postgres`                                   | Postgres superuser, for admin work only                                         |
+| `POSTGRES_PORT`                                                                                                         | `5432`                                                    | Host port for Postgres                                                          |
+| `NATS_PORT`, `NATS_MONITOR_PORT`                                                                                        | `4222`, `8222`                                            | Host ports for NATS clients and the monitoring page                             |
+| `STORAGE_S3_PORT`                                                                                                       | `8333`                                                    | Host port for the S3 API                                                        |
+| `GATEWAY_PORT`                                                                                                          | `8080`                                                    | Host port for Caddy                                                             |
+| `INGESTION_DATABASE_URL`, `REVIEW_DATABASE_URL`, `GROCERY_DATABASE_URL`, `TAX730_DATABASE_URL`                          | `postgres://<role>:<password>@localhost:5432/life_island` | Each service's own connection; the integration tests use `GROCERY_DATABASE_URL` |
+| `NATS_URL`                                                                                                              | `nats://localhost:4222`                                   | Services and integration tests                                                  |
+| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, `S3_PUBLIC_ENDPOINT`, `STORAGE_CORS_ORIGINS` | `http://localhost:8333`, dev keys, `us-east-1`, `uploads` | Upload flow ([storage guide](guides/storage-and-gateway.md))                    |
+| `INGESTION_PORT`, `REVIEW_PORT`                                                                                         | `3001`, `3002`                                            | Local ports of `svc-ingestion` and `svc-review` (3000 in containers)            |
+| `PARSE_SCHEDULE`, `PARSE_TIMEZONE`, `PARSE_RUN_ON_START`                                                                | `0 3 * * *`, `Europe/Rome`, `true`                        | When the parse worker runs ([documents loader](guides/documents-loader.md))     |
+| `PARSER`, `ANTHROPIC_API_KEY`                                                                                           | `fake`, empty                                             | Parser used by the worker: `claude` needs the key                               |
 
 Every value here is for local development only. Production gets its secrets from the hosting platform's secret manager.
 
@@ -69,12 +72,12 @@ Every value here is for local development only. Production gets its secrets from
 
 **I changed an init script but nothing happened.** Postgres runs `infra/postgres/init/01-*.sql` and `02-*.sql` only when its volume is empty. Run `npm run infra:reset` and then `npm run infra:up`. This deletes all local data.
 
-**Integration tests are skipped.** They run only when `GROCERY_DATABASE_URL` and `NATS_URL` are set. Use `npm run test:integration`, which loads `.env`, or export the two variables yourself.
+**Integration tests are skipped.** They run only when their variables are set (`*_DATABASE_URL`, `NATS_URL`, `S3_ENDPOINT`). Use `npm run test:integration`, which loads `.env`, or export them yourself.
 
 **`nx` says the workspace is out of sync.** Run `npx nx sync` and commit the changed `tsconfig.json` files. CI runs `nx sync:check` and fails until you do.
 
 **The S3 endpoint answers 403.** That is expected for anonymous requests. Sign requests with the keys from `.env`.
 
-**The gateway answers 502 on `/api/...`.** The services behind those routes do not exist yet; the gateway itself is fine if `http://localhost:8080/healthz` answers `ok`.
+**The gateway answers 502 on `/api/...`.** The services behind those routes are not running in Docker. Start them with the `apps` profile (see the [documents loader guide](guides/documents-loader.md)), or use the apps' dev servers, which proxy to services started with `npx nx serve`. The gateway itself is fine if `http://localhost:8080/healthz` answers `ok`.
 
 **Results look stale.** Nx caches task results. Add `--skip-nx-cache` to a command, or run `npx nx reset` to clear the cache.

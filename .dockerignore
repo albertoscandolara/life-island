@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/out-tsc
+**/test-output
+.nx
+.angular
+.git
+.env
+tmp

@@ -1,0 +1,92 @@
+{
+  "name": "mfe-review",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/mfe-review/src",
+  "tags": ["type:app", "scope:review"],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/mfe-review",
+        "browser": "apps/mfe-review/src/main.ts",
+        "tsConfig": "apps/mfe-review/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/mfe-review/public"
+          }
+        ],
+        "styles": [
+          "libs/design-system/src/styles/index.css",
+          "apps/mfe-review/src/styles.css"
+        ]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4202,
+        "proxyConfig": "apps/mfe-review/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "mfe-review:build:production"
+        },
+        "development": {
+          "buildTarget": "mfe-review:build:development"
+        }
+      }
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"],
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "mfe-review:build",
+        "port": 4202,
+        "staticFilePath": "dist/apps/mfe-review/browser",
+        "spa": true
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "strict": true,
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "customConditions": ["@life-island/source"],
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "paths": {
+      "@life-island/contracts": ["./libs/contracts/src/index.ts"],
+      "@life-island/contracts/constants": [
+        "./libs/contracts/src/lib/constants.ts"
+      ],
+      "@life-island/design-system": ["./libs/design-system/src/index.ts"]
+    }
+  }
+}

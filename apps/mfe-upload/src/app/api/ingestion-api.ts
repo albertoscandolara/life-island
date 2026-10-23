@@ -1,0 +1,75 @@
+import {
+  HttpClient,
+  HttpEventType,
+  HttpHeaders,
+  HttpRequest,
+} from '@angular/common/http';
+import { inject, Injectable } from '@angular/core';
+import type {
+  CompleteUploadResponse,
+  CreateUploadRequest,
+  CreateUploadResponse,
+  Page,
+  UploadDto,
+} from '@life-island/contracts';
+import { filter, map, type Observable } from 'rxjs';
+
+export const INGESTION_API = '/api/ingestion';
+
+export type PutProgress =
+  { type: 'progress'; percent: number } | { type: 'done' };
+
+/** Client for svc-ingestion, reached through the gateway at /api/ingestion. */
+@Injectable({ providedIn: 'root' })
+export class IngestionApi {
+  private readonly http = inject(HttpClient);
+
+  createUpload(request: CreateUploadRequest): Observable<CreateUploadResponse> {
+    return this.http.post<CreateUploadResponse>(
+      `${INGESTION_API}/uploads`,
+      request,
+    );
+  }
+
+  /** PUTs the file straight to object storage with the presigned URL, reporting progress. */
+  putFile(target: CreateUploadResponse, file: Blob): Observable<PutProgress> {
+    const request = new HttpRequest('PUT', target.uploadUrl, file, {
+      reportProgress: true,
+      headers: new HttpHeaders(target.uploadHeaders),
+    });
+    return this.http.request(request).pipe(
+      filter(
+        (event) =>
+          event.type === HttpEventType.UploadProgress ||
+          event.type === HttpEventType.Response,
+      ),
+      map((event): PutProgress =>
+        event.type === HttpEventType.UploadProgress
+          ? {
+              type: 'progress',
+              percent: event.total
+                ? Math.round((100 * event.loaded) / event.total)
+                : 0,
+            }
+          : { type: 'done' },
+      ),
+    );
+  }
+
+  complete(uploadId: string): Observable<CompleteUploadResponse> {
+    return this.http.post<CompleteUploadResponse>(
+      `${INGESTION_API}/uploads/${uploadId}/complete`,
+      {},
+    );
+  }
+
+  list(limit = 10): Observable<Page<UploadDto>> {
+    return this.http.get<Page<UploadDto>>(`${INGESTION_API}/uploads`, {
+      params: { limit },
+    });
+  }
+
+  fileUrl(uploadId: string): string {
+    return `${INGESTION_API}/uploads/${uploadId}/file`;
+  }
+}

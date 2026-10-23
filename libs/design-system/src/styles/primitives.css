@@ -1,0 +1,67 @@
+/*
+ * Primitives: raw values. Only semantic.css and themes.css read them;
+ * components and apps never do.
+ */
+:root {
+  --jungle-50: #eef8f1;
+  --jungle-100: #d4eedd;
+  --jungle-500: #2f8f5b;
+  --jungle-600: #26774b;
+  --jungle-700: #1d5e3b;
+  --sand-0: #ffffff;
+  --sand-50: #fbf7ef;
+  --sand-100: #f3ecdf;
+  --sand-200: #e6dccb;
+  --sand-300: #d2c4ad;
+  --sand-500: #8f8068;
+  --sand-700: #574b39;
+  --sand-900: #2b241a;
+  --night-900: #14110c;
+  --night-800: #1f1a13;
+  --night-700: #2c251b;
+  --night-600: #3d3427;
+  --night-300: #a89a85;
+  --night-100: #f3ece0;
+  --lava-50: #fdecea;
+  --lava-500: #e2553f;
+  --lava-600: #c4402c;
+  --sky-50: #e9f3fc;
+  --sky-400: #5aa9e6;
+  --sky-600: #2f7fbf;
+  --leaf-400: #7cc36b;
+  --sun-50: #fdf5e1;
+  --sun-400: #f2b84b;
+  --sun-600: #b7801a;
+  --amber-700: #c08a3e;
+  --violet-50: #f1edfb;
+  --violet-500: #7c5cc4;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fredoka', 'Inter', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+}

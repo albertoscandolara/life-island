@@ -83,22 +83,24 @@ sequenceDiagram
   ING-->>FE: upload id + presigned PUT URL
   FE->>S3: PUT file directly
   FE->>ING: POST /uploads/:id/complete
-  ING->>ING: detect real MIME, SHA-256, status UPLOADED, NOTIFY uploads_ready
-  W->>W: LISTEN wakes it, claims the upload row (skip locked)
+  ING->>ING: detect real format, SHA-256, status UPLOADED
+  ING->>N: upload.completed (via outbox)
+  N->>REV: upload.completed, record shown as UPLOADED
+  W->>W: daily schedule (PARSE_SCHEDULE) claims ready uploads (skip locked)
   W->>S3: read file
   W->>W: classify (Haiku), extract (Sonnet), validate, self-correct
-  W->>N: document.extracted, one per target (via outbox)
-  N->>REV: document.extracted, stored as PENDING_REVIEW
-  You->>FE: review in Ptera's inbox, approve
-  FE->>REV: approve
+  W->>N: document.parsed with category and details (via outbox)
+  N->>REV: document.parsed, record shown as PARSED
+  You->>FE: open the details in Ptera's inbox, confirm
+  FE->>REV: POST /records/:id/confirm
   REV->>N: record.approved (via outbox)
-  N->>DOM: record.approved
-  DOM->>DOM: insert, unique source_staging_id
+  N->>DOM: record.approved (planned)
+  DOM->>DOM: insert, unique source_record_id
   DOM->>N: record.loaded (via outbox)
   N->>REV: record.loaded, mark LOADED
 ```
 
-The parse worker shares the `ingestion` schema with the upload API: it is the same service split into an HTTP process and a background process. Two rules shape this flow: **files never pass through the API** (the browser uploads straight to storage with a presigned URL) and **the AI never writes domain data** (it writes staged records; a human approves; the domain service loads them). The detailed design of each step, including the parse worker's claim loop and the AI extraction workflow, is in [architecture.md](architecture.md#ingestion-pipeline).
+The parse worker shares the `ingestion` schema with the upload API: it is the same service split into an HTTP process and a background process. Two rules shape this flow: **files never pass through the API** (the browser uploads straight to storage with a presigned URL) and **the AI never writes domain data** (it writes staged records; a human approves; the domain service loads them). The detailed design of each step is in [architecture.md](architecture.md#ingestion-pipeline); what is built, how to run it and where it differs from the plan is in the [documents loader guide](guides/documents-loader.md).
 
 ## Technology choices
 
@@ -108,43 +110,50 @@ The parse worker shares the `ingestion` schema with the upload API: it is the sa
 | Language           | TypeScript everywhere                                                | Shared contracts and types between front end and back end                                   | In place                                       |
 | Database           | PostgreSQL 17 with pgvector                                          | One instance to run and back up, real per-service boundaries through schemas and roles      | In place                                       |
 | Messaging          | NATS JetStream + transactional outbox                                | Lightweight, durable, built-in message dedupe                                               | In place                                       |
-| Contracts          | Zod 4 in `libs/contracts`                                            | One source of truth for events, AI target schemas and DTOs                                  | In place (events)                              |
-| File storage       | S3 API: SeaweedFS locally, Cloudflare R2 in production               | Files stay out of the database; presigned uploads                                           | In place (local)                               |
+| Contracts          | Zod 4 in `libs/contracts`                                            | One source of truth for events, AI target schemas and DTOs                                  | In place                                       |
+| File storage       | S3 API: SeaweedFS locally, Cloudflare R2 in production               | Files stay out of the database; presigned uploads                                           | In place (R2 by configuration)                 |
 | Gateway            | Caddy 2                                                              | One origin for the front end, automatic HTTPS in production                                 | In place                                       |
 | Tests              | Vitest                                                               | Fast, native ESM and TypeScript                                                             | In place                                       |
 | CI                 | GitHub Actions + `nx affected`                                       | Only changed projects are checked                                                           | In place                                       |
-| ORM and migrations | Drizzle ORM + drizzle-kit                                            | Close to SQL; one migrations folder per service                                             | Library installed; used from the first service |
-| Back end framework | NestJS                                                               | Structure, DI, OpenAPI                                                                      | Planned (from Week 3)                          |
-| Front end          | Angular 21+, zoneless, signals, Native Federation                    | Main learning goal; remotes deploy independently                                            | Planned (Week 2)                               |
-| AI                 | Claude API: Haiku to classify, Sonnet to extract, structured outputs | Cheap where possible, accurate where needed                                                 | Planned (Weeks 5–6)                            |
+| ORM and migrations | Drizzle ORM + drizzle-kit                                            | Close to SQL; one migrations folder per service                                             | In place                                       |
+| Back end framework | NestJS 12                                                            | Structure, DI, OpenAPI                                                                      | In place (OpenAPI planned)                     |
+| Front end          | Angular 22, zoneless, signals, Native Federation                     | Main learning goal; remotes deploy independently                                            | In place (standalone apps; federation planned) |
+| AI                 | Claude API: Haiku to classify, Sonnet to extract, structured outputs | Cheap where possible, accurate where needed                                                 | In place (evals planned)                       |
 | Observability      | OpenTelemetry + Langfuse                                             | One trace per upload; AI prompts, costs and evals                                           | Planned                                        |
 
 ## What exists today
 
 Week 1 of the [roadmap](architecture.md#roadmap) is complete:
 
-| Piece                                                                                                       | Where                                        | Guide                                                          |
-| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------- |
-| Nx workspace with tag-based module boundaries                                                               | `nx.json`, `eslint.config.mjs`               | [Nx workspace](guides/nx-workspace.md)                         |
-| Local stack: Postgres, SeaweedFS, NATS, Caddy                                                               | `infra/docker-compose.yml`                   | [Local infrastructure](guides/infrastructure.md)               |
-| Schemas `ingestion`, `review`, `grocery`, `tax730`, each with its own role, `outbox` and `processed_events` | `infra/postgres/init/`                       | [Database](guides/database.md)                                 |
-| Isolation check that fails if any role can reach another schema                                             | `infra/postgres/init/03-check-isolation.sql` | [Database](guides/database.md#the-isolation-check)             |
-| Event envelope and versioned contract names                                                                 | `libs/contracts`                             | [Events and the outbox](guides/events-and-outbox.md#contracts) |
-| Service DB factory, outbox writer, outbox relay, idempotent consumer                                        | `libs/be-common`                             | [Events and the outbox](guides/events-and-outbox.md)           |
-| CI: format, sync, isolation check, `nx affected` lint/test/build/typecheck                                  | `.github/workflows/ci.yml`                   | [Testing and CI](guides/testing-and-ci.md)                     |
+| Piece                                                                                                       | Where                                                            | Guide                                                                        |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Nx workspace with tag-based module boundaries                                                               | `nx.json`, `eslint.config.mjs`                                   | [Nx workspace](guides/nx-workspace.md)                                       |
+| Local stack: Postgres, SeaweedFS, NATS, Caddy                                                               | `infra/docker-compose.yml`                                       | [Local infrastructure](guides/infrastructure.md)                             |
+| Schemas `ingestion`, `review`, `grocery`, `tax730`, each with its own role, `outbox` and `processed_events` | `infra/postgres/init/`                                           | [Database](guides/database.md)                                               |
+| Isolation check that fails if any role can reach another schema                                             | `infra/postgres/init/03-check-isolation.sql`                     | [Database](guides/database.md#the-isolation-check)                           |
+| Event envelope and versioned contract names                                                                 | `libs/contracts`                                                 | [Events and the outbox](guides/events-and-outbox.md#contracts)               |
+| Service DB factory, outbox writer, outbox relay, idempotent consumer                                        | `libs/be-common`                                                 | [Events and the outbox](guides/events-and-outbox.md)                         |
+| CI: format, sync, styles, isolation check, `nx affected` lint/test/build/typecheck                          | `.github/workflows/ci.yml`                                       | [Testing and CI](guides/testing-and-ci.md)                                   |
+| Documents loader: upload API, scheduled AI parse worker, review inbox with confirm                          | `apps/svc-ingestion`, `apps/svc-parse-worker`, `apps/svc-review` | [Documents loader](guides/documents-loader.md)                               |
+| Upload and review front ends                                                                                | `apps/mfe-upload`, `apps/mfe-review`                             | [Documents loader](guides/documents-loader.md)                               |
+| Angular design system: tokens, character themes, base components                                            | `libs/design-system`                                             | `libs/design-system/README.md`                                               |
+| Target catalog: `grocery.receipt@1`, `tax730.expense@1`, `general.document@1`                               | `libs/contracts/src/lib/targets/`                                | [Documents loader](guides/documents-loader.md#categories-and-target-schemas) |
 
-The `apps/` folder is empty until Week 2 adds the shell and the first remotes.
+Not built yet: the shell with Native Federation and the 3D hub, the domain services that load confirmed records (`svc-groceries`, `svc-tax730`) and their front ends, editing details before confirming, and evals.
 
 ## Repository map
 
 ```
 life-island/
-├── apps/                          # deployable apps (empty until Week 2)
-│   ├── shell/  mfe-*/             #   Angular host and remotes
-│   └── svc-*/                     #   NestJS services and the parse worker
+├── apps/
+│   ├── mfe-upload/  mfe-review/   #   Angular front ends (shell planned)
+│   └── svc-ingestion/  svc-parse-worker/  svc-review/   # NestJS services
 ├── libs/
 │   ├── contracts/                 # Zod contracts shared by every app
-│   └── be-common/                 # back-end building blocks (DB, outbox, NATS)
+│   ├── be-common/                 # back-end building blocks (DB, migrations, outbox, NATS, S3)
+│   ├── be-nest/                   # NestJS glue (validation, events runtime)
+│   ├── ingestion-db/              # Drizzle schema of `ingestion`
+│   └── design-system/             # Angular components and CSS tokens
 ├── infra/
 │   ├── docker-compose.yml         # local stack
 │   ├── postgres/init/             # schemas, roles, outbox tables, isolation check
@@ -157,4 +166,4 @@ life-island/
 └── tsconfig.base.json             # shared TypeScript settings
 ```
 
-Later in the roadmap the plan adds `libs/design-system`, `libs/fe-common` and `tools/evals/`; see [architecture.md](architecture.md#repository-layout).
+Later in the roadmap the plan adds `libs/fe-common` and `tools/evals/`; see [architecture.md](architecture.md#repository-layout).

@@ -28,6 +28,8 @@
     "drizzle-orm": "^0.45.4",
     "@nats-io/jetstream": "^3.4.0",
     "@nats-io/transport-node": "^3.4.0",
-    "@life-island/contracts": "*"
+    "@life-island/contracts": "*",
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@aws-sdk/s3-request-presigner": "^3.1156.0"
   }
 }

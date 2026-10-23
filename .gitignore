@@ -56,3 +56,7 @@ vitest.config.*.timestamp*
 .env.*
 !.env.example
 test-output
+
+.angular
+
+__screenshots__/

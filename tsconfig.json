@@ -8,6 +8,21 @@
     },
     {
       "path": "./libs/be-common"
+    },
+    {
+      "path": "./libs/ingestion-db"
+    },
+    {
+      "path": "./libs/be-nest"
+    },
+    {
+      "path": "./apps/svc-parse-worker"
+    },
+    {
+      "path": "./apps/svc-ingestion"
+    },
+    {
+      "path": "./apps/svc-review"
     }
   ],
   "compilerOptions": {}

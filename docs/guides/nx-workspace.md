@@ -107,14 +107,16 @@ npx nx g @nx/js:lib libs/<name> --name=<name> --importPath=@life-island/<name> \
   --tags="type:lib,scope:shared" --useProjectJson=false
 ```
 
-**A NestJS service** (from Week 3; install `@nx/nest` first):
+**A NestJS service:** copy the layout of `apps/svc-review` (a `package.json` with the Nx name, tags and `serve` target, `tsconfig.app.json`, `vitest.config.mts`, `drizzle.config.ts`). Services are ESM and compiled with `tsc`, without `emitDecoratorMetadata`, so every constructor parameter needs an explicit `@Inject(TOKEN)`. Validate bodies and queries with `parseOrThrow` from `@life-island/be-nest` and the contract's Zod schema.
+
+**An Angular app or library:** Angular projects do not use the TypeScript project-references setup; they extend `tsconfig.angular.json` and are excluded from the `@nx/js/typescript` plugin in `nx.json`. Generate with:
 
 ```sh
-npm i -D @nx/nest
-npx nx g @nx/nest:app apps/svc-<module> --tags="type:app,scope:<module>"
+NX_IGNORE_UNSUPPORTED_TS_SETUP=true npx nx g @nx/angular:app apps/mfe-<module> \
+  --tags="type:app,scope:<module>" --unitTestRunner=vitest-angular
 ```
 
-**An Angular remote** (from Week 2): the shell and remotes use Native Federation; the setup is described in [architecture.md](../architecture.md#micro-frontends) and will be added here when the shell exists.
+then point its `tsconfig.json` at `../../tsconfig.angular.json`, add `libs/design-system/src/styles/index.css` to its build styles, and use design-system components only. Native Federation arrives with the shell ([architecture.md](../architecture.md#micro-frontends)).
 
 After generating, check the tags, run `npx nx sync`, and run `npx nx run-many -t lint test build typecheck`. A new module must also pass the [new-feature checklist](../architecture.md#new-feature-checklist).
 

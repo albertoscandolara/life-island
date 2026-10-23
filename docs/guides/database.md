@@ -112,7 +112,12 @@ await close();
 
 ## Migrations
 
-Each service will own a `drizzle/` folder inside its app and run `drizzle-kit migrate` with its own role at startup or in CI, touching only its own schema. Drizzle ORM and drizzle-kit are already installed; the first migrations arrive with the first service in Week 3. Until then, the init scripts define the only tables.
+Each service owns a `drizzle/` folder inside its app (`svc-ingestion`, `svc-review`) and applies it at startup with its own role, touching only its own schema.
+
+- Generate a migration after changing a schema file: `npx drizzle-kit generate --config apps/svc-<module>/drizzle.config.ts`.
+- Delete the `CREATE SCHEMA` line drizzle-kit writes at the top of a schema's first migration: the schema comes from the init scripts and service roles are not allowed to create schemas.
+- Migrations run through `migrateServiceSchema` from `@life-island/be-common`, not drizzle's own migrator (which always runs `CREATE SCHEMA`). It reads the same files, keeps the same `<schema>.__drizzle_migrations` table, and holds an advisory lock so two instances never migrate at once.
+- `ingestion` is shared by `svc-ingestion` and `svc-parse-worker` (one bounded context); its Drizzle schema lives in `libs/ingestion-db` and only `svc-ingestion` migrates it.
 
 Adding a new service's schema today means:
 

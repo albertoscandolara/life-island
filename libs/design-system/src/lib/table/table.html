@@ -1,0 +1,95 @@
+<div class="ui-table__scroll" [attr.aria-busy]="loading() || null">
+  <table class="ui-table">
+    @if (caption()) {
+    <caption class="ui-visually-hidden">
+      {{ caption() }}
+    </caption>
+    }
+    <thead>
+      <tr>
+        @for (column of columns(); track column.key) {
+        <th
+          scope="col"
+          [style.width]="column.width"
+          [class]="'ui-table__cell--' + (column.align ?? 'start')"
+          [attr.aria-sort]="ariaSort(column)"
+        >
+          @if (column.sortable) {
+          <button
+            type="button"
+            class="ui-table__sort"
+            (click)="toggleSort(column)"
+          >
+            {{ column.header }} @if (sort()?.key === column.key) {
+            <ui-icon
+              [name]="sort()?.direction === 'asc' ? 'arrow-up' : 'arrow-down'"
+              [size]="14"
+            />
+            }
+          </button>
+          } @else if (column.hideHeader) {
+          <span class="ui-visually-hidden">{{ column.header }}</span>
+          } @else { {{ column.header }} }
+        </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track keyOf(row, $index)) {
+      <tr>
+        @for (column of columns(); track column.key) {
+        <td
+          [class]="'ui-table__cell--' + (column.align ?? 'start')"
+          [attr.data-label]="column.header"
+        >
+          @if (templates().get(column.key); as template) {
+          <ng-container
+            *ngTemplateOutlet="template; context: { $implicit: row, row: row }"
+          />
+          } @else { {{ valueOf(row, column.key) }} }
+        </td>
+        }
+      </tr>
+      } @empty {
+      <tr>
+        <td class="ui-table__empty" [attr.colspan]="columns().length">
+          {{ loading() ? 'Loading…' : emptyMessage() }}
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+  @if (loading() && rows().length > 0) {
+  <div class="ui-table__loading" aria-hidden="true"></div>
+  }
+</div>
+
+@if ((total() ?? 0) > pageSize()) {
+<nav class="ui-table__pager" aria-label="Pages">
+  <span class="ui-table__range">{{ rangeLabel() }}</span>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    [iconOnly]="true"
+    type="button"
+    aria-label="Previous page"
+    [disabled]="page() === 0"
+    (click)="goTo(page() - 1)"
+  >
+    <ui-icon name="chevron-left" [size]="18" />
+  </button>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    [iconOnly]="true"
+    type="button"
+    aria-label="Next page"
+    [disabled]="page() >= pageCount() - 1"
+    (click)="goTo(page() + 1)"
+  >
+    <ui-icon name="chevron-right" [size]="18" />
+  </button>
+</nav>
+}

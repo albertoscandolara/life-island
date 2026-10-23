@@ -1,0 +1,83 @@
+/* Semantic tokens: the only variables components and apps use. */
+:root {
+  color-scheme: light;
+
+  --surface-page: var(--sand-50);
+  --surface-card: var(--sand-0);
+  --surface-sunken: var(--sand-100);
+  --surface-hover: var(--sand-100);
+  --surface-overlay: rgb(43 36 26 / 45%);
+
+  --text-primary: var(--sand-900);
+  --text-secondary: var(--sand-700);
+  --text-muted: var(--sand-500);
+  --text-on-accent: var(--sand-0);
+
+  --border-subtle: var(--sand-200);
+  --border-strong: var(--sand-300);
+
+  --accent: var(--jungle-500);
+  --accent-hover: var(--jungle-600);
+  --accent-soft: var(--jungle-50);
+  --accent-contrast: var(--sand-0);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  --danger: var(--lava-500);
+  --danger-hover: var(--lava-600);
+  --danger-soft: var(--lava-50);
+
+  /* Status tones: a dot, a badge or an alert picks one. */
+  --tone-neutral: var(--sand-500);
+  --tone-neutral-soft: var(--sand-100);
+  --tone-info: var(--sky-600);
+  --tone-info-soft: var(--sky-50);
+  --tone-progress: var(--violet-500);
+  --tone-progress-soft: var(--violet-50);
+  --tone-warning: var(--sun-600);
+  --tone-warning-soft: var(--sun-50);
+  --tone-success: var(--jungle-500);
+  --tone-success-soft: var(--jungle-50);
+  --tone-danger: var(--lava-500);
+  --tone-danger-soft: var(--lava-50);
+
+  --shadow-card: 0 1px 2px rgb(43 36 26 / 6%), 0 2px 8px rgb(43 36 26 / 6%);
+  --shadow-popover: 0 8px 24px rgb(43 36 26 / 16%);
+  --shadow-dialog: 0 24px 64px rgb(43 36 26 / 24%);
+
+  --control-height: 40px;
+  --control-height-sm: 32px;
+  --control-radius: var(--radius-sm);
+  --card-radius: var(--radius-md);
+  --dialog-radius: var(--radius-lg);
+
+  --layer-popover: 20;
+  --layer-dialog: 30;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-page: var(--night-900);
+  --surface-card: var(--night-800);
+  --surface-sunken: var(--night-700);
+  --surface-hover: var(--night-700);
+  --surface-overlay: rgb(0 0 0 / 60%);
+  --text-primary: var(--night-100);
+  --text-secondary: var(--night-300);
+  --text-muted: var(--sand-500);
+  --border-subtle: var(--night-700);
+  --border-strong: var(--night-600);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 18%, transparent);
+  --tone-neutral-soft: var(--night-700);
+  --tone-info: var(--sky-400);
+  --tone-info-soft: color-mix(in srgb, var(--sky-400) 18%, transparent);
+  --tone-progress-soft: color-mix(in srgb, var(--violet-500) 22%, transparent);
+  --tone-warning: var(--sun-400);
+  --tone-warning-soft: color-mix(in srgb, var(--sun-400) 18%, transparent);
+  --tone-success: var(--leaf-400);
+  --tone-success-soft: color-mix(in srgb, var(--leaf-400) 18%, transparent);
+  --tone-danger-soft: color-mix(in srgb, var(--lava-500) 20%, transparent);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 50%);
+  --shadow-dialog: 0 24px 64px rgb(0 0 0 / 60%);
+}

@@ -1,0 +1,34 @@
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.description {
+  margin: var(--space-3) 0 0;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: var(--text-sm);
+}
+
+.spaced {
+  display: block;
+  margin: var(--space-3) 0;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

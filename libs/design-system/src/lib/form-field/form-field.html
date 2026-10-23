@@ -1,0 +1,18 @@
+<!-- The control is projected inside the label, which associates them. -->
+<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+<label class="field">
+  <span class="field__label">{{ label() }}</span>
+  <ng-content />
+</label>
+@if (error()) {
+<span class="field__error" role="alert">{{ error() }}</span>
+} @else if (hint() || max()) {
+<span class="field__hint">
+  <span>{{ hint() }}</span>
+  @if (max()) {
+  <span [class.field__over]="(count() ?? 0) > max()!"
+    >{{ count() ?? 0 }}/{{ max() }}</span
+  >
+  }
+</span>
+}

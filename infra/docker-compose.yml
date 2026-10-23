@@ -60,6 +60,59 @@ services:
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 
+  # The services themselves, for running the stack without Node installed:
+  # `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`.
+  # During development run them with `npx nx serve <service>` instead.
+  svc-ingestion:
+    profiles: [apps]
+    build: &service-build
+      context: .
+      dockerfile: infra/docker/node-service.Dockerfile
+      args: { SERVICE: svc-ingestion }
+    environment: &service-env
+      PORT: 3000
+      INGESTION_DATABASE_URL: postgres://ingestion_svc:dev_ingestion@postgres:5432/life_island
+      REVIEW_DATABASE_URL: postgres://review_svc:dev_review@postgres:5432/life_island
+      NATS_URL: nats://nats:4222
+      S3_ENDPOINT: http://storage:8333
+      # Presigned URLs are opened by the browser, so they must name a host it can reach.
+      S3_PUBLIC_ENDPOINT: http://localhost:${STORAGE_S3_PORT:-8333}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev_access_key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-dev_secret_key}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-uploads}
+      STORAGE_CORS_ORIGINS: ${STORAGE_CORS_ORIGINS:-http://localhost:8080}
+    depends_on: &service-deps
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      storage: { condition: service_started }
+
+  svc-parse-worker:
+    profiles: [apps]
+    # svc-ingestion owns the schema; retry until its migrations have run.
+    restart: on-failure
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-parse-worker }
+    environment:
+      <<: *service-env
+      PARSE_SCHEDULE: ${PARSE_SCHEDULE:-0 3 * * *}
+      PARSE_TIMEZONE: ${PARSE_TIMEZONE:-Europe/Rome}
+      PARSE_RUN_ON_START: ${PARSE_RUN_ON_START:-false}
+      PARSER: ${PARSER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      <<: *service-deps
+      svc-ingestion: { condition: service_started }
+
+  svc-review:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-review }
+    environment: *service-env
+    depends_on: *service-deps
+
 volumes:
   postgres-data:
   storage-data:

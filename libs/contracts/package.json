@@ -13,6 +13,12 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./constants": {
+      "@life-island/source": "./src/lib/constants.ts",
+      "types": "./dist/lib/constants.d.ts",
+      "import": "./dist/lib/constants.js",
+      "default": "./dist/lib/constants.js"
     }
   },
   "nx": {
