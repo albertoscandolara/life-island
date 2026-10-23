@@ -1,11 +1,10 @@
 # be-common
 
-This library was generated with [Nx](https://nx.dev).
+Back-end building blocks: the per-service database factory, the transactional outbox, the outbox relay to NATS JetStream, and the idempotent event consumer.
 
-## Building
+Import it as `@life-island/be-common`. How it works and how to use it: [Events and the outbox](../../docs/guides/events-and-outbox.md) and [Database](../../docs/guides/database.md#connecting-from-code).
 
-Run `nx build be-common` to build the library.
-
-## Running unit tests
-
-Run `nx test be-common` to execute the unit tests via [Vitest](https://vitest.dev/).
+```sh
+npx nx test be-common    # unit tests (integration tests too when GROCERY_DATABASE_URL and NATS_URL are set)
+npx nx build be-common
+```

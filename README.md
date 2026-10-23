@@ -2,7 +2,20 @@
 
 A personal life-management platform: an Angular shell (a 3D island) hosts independent modules, each run by a character that handles one area of life. Documents you drop on the island are read by an AI service, reviewed by you, and only then loaded into the module that uses them.
 
-The architecture, rules and roadmap live in [docs/architecture.md](docs/architecture.md). Every feature follows it.
+## Documentation
+
+Full documentation lives in [`docs/`](docs/README.md):
+
+- [System overview](docs/overview.md): components, data ownership, how a document travels from upload to a module, technology choices, and what exists today
+- [Getting started](docs/getting-started.md): setup, everyday commands, settings and troubleshooting
+- Guides to each tool:
+  [Nx workspace](docs/guides/nx-workspace.md) ·
+  [Local infrastructure](docs/guides/infrastructure.md) ·
+  [Database](docs/guides/database.md) ·
+  [Events and the outbox](docs/guides/events-and-outbox.md) ·
+  [Storage and gateway](docs/guides/storage-and-gateway.md) ·
+  [Testing and CI](docs/guides/testing-and-ci.md)
+- [Architecture and ingestion plan](docs/architecture.md): the source-of-truth principles, AI pipeline and roadmap. Every feature follows it.
 
 ## Layout
 
@@ -35,10 +48,4 @@ npm run test:integration      # also runs the outbox → NATS → consumer tests
 
 `npm run infra:reset` deletes the volumes, so the database init scripts run again on the next `infra:up`.
 
-## Database isolation
-
-`infra/postgres/init` creates one schema and one login role per service (`ingestion`, `review`, `grocery`, `tax730`). Each role owns its schema, has its `search_path` pinned to it, and has no access to any other schema or to `public`. Every schema has an `outbox` and a `processed_events` table.
-
-## Events
-
-A service writes its domain change and `enqueueEvent(...)` in one transaction. `OutboxRelay` publishes unpublished rows to the `EVENTS` JetStream stream on `events.<domain>.<name>.v<version>`, using the outbox id as the message id so a retried publish is dropped. `startEventConsumer` records each event id in `processed_events` in the same transaction as the handler, so a redelivered event changes nothing.
+More detail, including settings and troubleshooting, is in [Getting started](docs/getting-started.md).
