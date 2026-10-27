@@ -52,20 +52,24 @@ The loader accepts files in four ways: drag and drop onto the page, the **Browse
 
 Each file gets a title (from its name, editable) and an optional description (at most 255 characters), then **Upload all** sends them with a progress bar each. Accepted formats are JPG, PNG, WEBP, PDF, XLSX, CSV, DOCX and TXT, up to 25 MB. The service checks the real format from the file's bytes, so a renamed file is rejected; an identical file uploaded twice is recognized and not stored again.
 
+Below the upload area, **Your documents** lists every upload, newest first and paged, with its status, categories (empty until parsed), upload and parse dates, and two buttons: **Preview** opens the file in a popup (images, PDF, text and CSV; Word and Excel offer the download instead) and **Download** saves it under its original name.
+
 The upload is three calls, so the file never passes through the API:
 
 | Call                                       | What happens                                                                             |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | `POST /api/ingestion/uploads`              | Validates name, type and size; creates the row as UPLOADING; returns a presigned PUT URL |
 | `PUT <presigned URL>`                      | The browser sends the file straight to storage                                           |
-| `POST /api/ingestion/uploads/:id/complete` | Checks size, real format and SHA-256; sets UPLOADED and emits `upload.completed@1`       |
-| `GET /api/ingestion/uploads`               | Recent uploads, paged, optional `status` filter                                          |
+| `POST /api/ingestion/uploads/:id/complete` | Checks size, real format and SHA-256; sets TO_BE_PARSED and emits `upload.completed@1`   |
+| `GET /api/ingestion/uploads`               | Documents, newest first, paged; optional `status` and `category` filters                 |
 | `GET /api/ingestion/uploads/:id`           | One upload, details included                                                             |
-| `GET /api/ingestion/uploads/:id/file`      | Redirects to a short-lived download URL for the original file                            |
+| `GET /api/ingestion/uploads/:id/preview`   | Streams the original file inline, for the browser to show                                |
+| `GET /api/ingestion/uploads/:id/download`  | Streams the original file as an attachment, under its original name                      |
+| `GET /api/ingestion/uploads/:id/file`      | Redirects to a short-lived presigned URL for the original file                           |
 
 ## The data model
 
-Everything about one document is in **one row of `ingestion.uploads`**: the columns you asked for (id, title, description, file format, status, upload date, parse date, category and the `details` JSON) plus what the system needs to run safely (storage key, real MIME type, SHA-256, size, attempts and lease for the worker, last error, confidence, flags, target key). The full definition is in `libs/ingestion-db/src/lib/schema.ts`.
+Everything about one document is in **one row of `ingestion.uploads`**: the columns you asked for (id, title, description, file format, status, upload date, parse date, categories and the `details` JSON) plus what the system needs to run safely (storage key, real MIME type, SHA-256, size, attempts and lease for the worker, last error, confidence, flags, target key). The full definition is in `libs/ingestion-db/src/lib/schema.ts`; the equivalent SQL, with what each column is for, is in [Document storage](../document-storage.md).
 
 The review service does not read that table: each service owns its schema ([principle 1](../architecture.md#architecture-principles)). It keeps its own copy in `review.staging_records`, filled from the ingestion events, and adds what only review knows: confirmed and loaded dates, the load error, the id of the record the domain created. Both tables describe the same document; each has one owner.
 
@@ -74,19 +78,19 @@ The review service does not read that table: each service owns its schema ([prin
 | Upload (`ingestion`) | Inbox (`review`) | Meaning                                                  |
 | -------------------- | ---------------- | -------------------------------------------------------- |
 | `UPLOADING`          | not listed yet   | Row created, file on its way to storage                  |
-| `UPLOADED`           | `UPLOADED`       | File stored and verified, waiting for the next parse run |
+| `TO_BE_PARSED`       | `UPLOADED`       | File stored and verified, waiting for the next parse run |
 | `PARSING`            | `PARSING`        | The worker is reading it                                 |
-| `PARSED`             | `PARSED`         | Category and details ready; can be confirmed             |
+| `PARSED`             | `PARSED`         | Categories and details ready; can be confirmed           |
 | `FAILED`             | `PARSE_FAILED`   | Rejected file, or parsing failed after every retry       |
 |                      | `CONFIRMED`      | You confirmed it; `record.approved` sent to the domain   |
 |                      | `LOADED`         | The domain service saved it in its own table             |
 |                      | `LOAD_FAILED`    | The domain refused it; it can be confirmed again         |
 
-The names are `UPLOADING`/`UPLOADED` rather than `LOADING`/`LOADED`, because `LOADED` means "loaded into its domain table" at the end of the flow.
+A document waiting for the worker is `TO_BE_PARSED`, with `parsed_at` null and `categories` empty; the worker fills both. The inbox calls the same state `UPLOADED`. `LOADING`/`LOADED` are avoided at the start of the flow because `LOADED` means "loaded into its domain table" at the end.
 
 ### Where files are stored
 
-Files go to S3-compatible object storage, never into the database: **SeaweedFS** locally (already in the compose stack) and **Cloudflare R2** in production (no egress fees, a free tier that fits a personal archive, S3 API). The row stores the object's `storage_key` (`YYYY/MM/<uploadId>/<filename>`); `GET /uploads/:id/file` turns it into a download URL. Switching to R2, AWS S3 or another S3 store is a change of environment variables only; see [Storage and gateway](storage-and-gateway.md).
+Files go to S3-compatible object storage, never into the database: **SeaweedFS** locally (already in the compose stack) and **Cloudflare R2** in production (no egress fees, a free tier that fits a personal archive, S3 API). The row stores the object's `storage_key` (`YYYY/MM/<uploadId>/<filename>`); `GET /uploads/:id/preview` and `/download` stream it back. [Document storage](../document-storage.md) explains the layout and why previews are streamed rather than redirected. Switching to R2, AWS S3 or another S3 store is a change of environment variables only; see [Storage and gateway](storage-and-gateway.md).
 
 ## Parsing on a schedule
 
@@ -112,7 +116,7 @@ A temporary error (rate limit, overload, network) retries the upload at the next
 2. **Classify** with the small model: which target in the catalog fits, a one-line description, the language and a confidence.
 3. **Extract** with the larger model, constrained to the target's JSON Schema.
 4. **Validate** with the target's Zod schema and its domain rules. If it fails, the model gets one chance to correct itself, with the errors listed.
-5. **Save** the details, category and confidence on the upload, log every model call in `ingestion.parse_runs` (tokens, latency, output), and emit `document.parsed@1`. Data that is still invalid is kept and flagged `needs_attention`; a confidence below 0.8 adds `low_confidence`.
+5. **Save** the details, categories and confidence on the upload, log every model call in `ingestion.parse_runs` (tokens, latency, output), and emit `document.parsed@1`. Data that is still invalid is kept and flagged `needs_attention`; a confidence below 0.8 adds `low_confidence`.
 
 The fake parser (`PARSER=fake`) classifies by keywords in the name, title and text and fills sample data that is valid for the target, flagged `fake_parser`. Use it for development and tests.
 
@@ -157,5 +161,6 @@ Parsed records show an eye button in the **Details** column. It opens a confirma
 | `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail and confirm; edit, bulk and reject later                               |
 | Domains publish their targets at startup                  | Catalog is static in `libs/contracts` and served by `GET /catalog`                                  |
 | Ajv for validation                                        | The targets' Zod schemas, which also hold the domain rules                                          |
-| Upload row without title, description or results          | Title, description, file format, category, target key, details, confidence and dates on the row     |
+| Upload row without title, description or results          | Title, description, file format, categories, target key, details, confidence and dates on the row   |
+| Upload status `UPLOADED`; presigned GET for previews      | `TO_BE_PARSED`; preview and download streamed by the service (SeaweedFS ignores header overrides)   |
 | HEIC, EML and ZIP                                         | Not yet                                                                                             |

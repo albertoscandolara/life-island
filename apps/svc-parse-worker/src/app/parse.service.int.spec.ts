@@ -54,7 +54,7 @@ describe.skipIf(!configured)(
       await svc?.close();
     });
 
-    /** An UPLOADED row old enough to be claimed before anything other tests create. */
+    /** A TO_BE_PARSED row old enough to be claimed before anything other tests create. */
     async function seed(
       text: string,
       filename = 'scontrino.txt',
@@ -71,7 +71,7 @@ describe.skipIf(!configured)(
           fileFormat: 'TXT',
           sizeBytes: text.length,
           storageKey: key,
-          status: 'UPLOADED',
+          status: 'TO_BE_PARSED',
           uploadedAt: new Date(),
           createdAt: new Date('2000-01-01T00:00:00Z'),
         });
@@ -107,7 +107,7 @@ describe.skipIf(!configured)(
       expect(await service.process(claimed)).toBe('parsed');
       expect(await row(id)).toMatchObject({
         status: 'PARSED',
-        category: 'groceries',
+        categories: ['groceries'],
         targetKey: 'grocery.receipt@1',
         flags: ['fake_parser'],
         lockedUntil: null,
@@ -131,7 +131,7 @@ describe.skipIf(!configured)(
       expect(await service.process(first)).toBe('retried');
       const retried = await row(id);
       expect(retried).toMatchObject({
-        status: 'UPLOADED',
+        status: 'TO_BE_PARSED',
         lastError: '503 overloaded',
       });
       expect(retried.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());

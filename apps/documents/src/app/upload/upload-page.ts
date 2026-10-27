@@ -14,6 +14,7 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import type { UploadDto, UploadStatus } from '@life-island/contracts';
 import {
   ACCEPTED_FILE_TYPES,
+  CATEGORY_LABELS,
   DESCRIPTION_MAX_LENGTH,
   MAX_UPLOAD_BYTES,
   TITLE_MAX_LENGTH,
@@ -38,15 +39,18 @@ import {
 import { concatMap, firstValueFrom, last, tap } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { CameraDialog } from './camera-dialog';
+import { PreviewDialog } from './preview-dialog';
 import { UploadItem } from './upload-item';
 
 const STATUS_VIEW: Record<UploadStatus, { label: string; tone: UiTone }> = {
   UPLOADING: { label: 'Uploading', tone: 'info' },
-  UPLOADED: { label: 'Waiting to be parsed', tone: 'neutral' },
+  TO_BE_PARSED: { label: 'To be parsed', tone: 'neutral' },
   PARSING: { label: 'Parsing', tone: 'progress' },
   PARSED: { label: 'Parsed', tone: 'success' },
   FAILED: { label: 'Failed', tone: 'danger' },
 };
+
+const PAGE_SIZE = 10;
 
 function errorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
@@ -70,6 +74,7 @@ function errorMessage(error: unknown): string {
     CameraDialog,
     DatePipe,
     DecimalPipe,
+    PreviewDialog,
     UiAlert,
     UiBadge,
     UiButton,
@@ -115,23 +120,35 @@ export class UploadPage {
       this.pending().every((item) => !item.invalidReason),
   );
 
-  protected readonly recent = rxResource({ stream: () => this.api.list(8) });
-  protected readonly recentColumns: UiTableColumn[] = [
+  protected readonly page = signal(0);
+  protected readonly pageSize = PAGE_SIZE;
+  protected readonly documents = rxResource({
+    params: () => this.page(),
+    stream: ({ params: page }) => this.api.list(PAGE_SIZE, page * PAGE_SIZE),
+  });
+  protected readonly documentColumns: UiTableColumn[] = [
     { key: 'title', header: 'Title' },
-    { key: 'fileFormat', header: 'Format', width: '6rem' },
-    { key: 'status', header: 'Status', width: '12rem' },
-    { key: 'uploadedAt', header: 'Uploaded', width: '11rem' },
+    { key: 'fileFormat', header: 'Format', width: '5rem' },
+    { key: 'status', header: 'Status', width: '10rem' },
+    { key: 'categories', header: 'Categories', width: '10rem' },
+    { key: 'uploadedAt', header: 'Uploaded', width: '10rem' },
+    { key: 'parsedAt', header: 'Parsed', width: '10rem' },
     {
-      key: 'file',
-      header: 'Open file',
+      key: 'actions',
+      header: 'Preview and download',
       hideHeader: true,
       align: 'end',
-      width: '4rem',
+      width: '6rem',
     },
   ];
-  protected readonly recentRows = computed<UploadDto[]>(
-    () => this.recent.value()?.items ?? [],
+  protected readonly documentRows = computed<UploadDto[]>(
+    () => this.documents.value()?.items ?? [],
   );
+  protected readonly documentTotal = computed(
+    () => this.documents.value()?.total ?? null,
+  );
+  protected readonly previewing = signal<UploadDto | null>(null);
+  protected readonly previewOpen = signal(false);
 
   constructor() {
     inject(DestroyRef).onDestroy(() =>
@@ -236,11 +253,25 @@ export class UploadPage {
       }
     }
     this.uploading.set(false);
-    this.recent.reload();
+    this.documents.reload();
   }
 
-  protected fileUrl(upload: UploadDto): string {
-    return this.api.fileUrl(upload.id);
+  /** Files exist in storage once the upload is complete, whatever happened after. */
+  protected hasFile(upload: UploadDto): boolean {
+    return upload.status !== 'UPLOADING' && upload.mimeType !== null;
+  }
+
+  protected preview(upload: UploadDto): void {
+    this.previewing.set(upload);
+    this.previewOpen.set(true);
+  }
+
+  protected downloadUrl(upload: UploadDto): string {
+    return this.api.downloadUrl(upload.id);
+  }
+
+  protected categoryLabel(category: string): string {
+    return CATEGORY_LABELS[category] ?? category;
   }
 
   protected formatSize(bytes: number): number {

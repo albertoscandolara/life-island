@@ -12,6 +12,7 @@ This folder explains how Life Island is built and how to work on it. Start with 
 | [Events and the outbox](guides/events-and-outbox.md) | Publish or consume events: contracts, the transactional outbox, the relay, idempotent consumers, delivery guarantees                                  |
 | [Storage and gateway](guides/storage-and-gateway.md) | Use S3 storage (SeaweedFS locally) and route the front end to services through Caddy                                                                  |
 | [Documents loader](guides/documents-loader.md)       | Run or change the upload, parse and review flow: data model, categories, schedule, parser, APIs, storage                                              |
+| [Document storage](document-storage.md)              | Know where uploaded files live, how they are retrieved by id, and the SQL of the documents table                                                      |
 | [Testing and CI](guides/testing-and-ci.md)           | Write unit and integration tests and understand what the GitHub Actions pipeline checks                                                               |
 | [Architecture and ingestion plan](architecture.md)   | Read the source-of-truth plan: principles, AI pipeline, review inbox, roadmap and the new-feature checklist                                           |
 

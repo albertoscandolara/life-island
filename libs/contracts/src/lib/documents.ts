@@ -70,9 +70,12 @@ export interface UploadDto {
   description: string | null;
   originalFilename: string;
   fileFormat: FileFormat | null;
+  /** MIME type detected from the stored bytes; null until the upload completes. */
+  mimeType: string | null;
   sizeBytes: number | null;
   status: UploadStatus;
-  category: string | null;
+  /** Filled by the parse worker; empty until the document is parsed. */
+  categories: string[];
   targetKey: string | null;
   details: unknown;
   lastError: string | null;
@@ -89,6 +92,7 @@ export interface CompleteUploadResponse {
 
 export const listUploadsQuerySchema = z.object({
   status: uploadStatusSchema.optional(),
+  category: z.string().trim().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });

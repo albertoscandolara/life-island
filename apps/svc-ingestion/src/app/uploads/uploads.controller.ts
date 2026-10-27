@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Redirect,
+  StreamableFile,
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
@@ -50,6 +51,18 @@ export class UploadsController {
     return this.uploads.get(id);
   }
 
+  /** Shows the original file in the browser (`Content-Disposition: inline`). */
+  @Get(':id/preview')
+  preview(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
+    return this.stream(id, 'inline');
+  }
+
+  /** Downloads the original file under its original name (`Content-Disposition: attachment`). */
+  @Get(':id/download')
+  download(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
+    return this.stream(id, 'attachment');
+  }
+
   /** Redirects to a short-lived presigned link to the original file. */
   @Get(':id/file')
   @Redirect()
@@ -57,5 +70,17 @@ export class UploadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ url: string; statusCode: number }> {
     return { url: await this.uploads.fileUrl(id), statusCode: 302 };
+  }
+
+  private async stream(
+    id: string,
+    disposition: 'inline' | 'attachment',
+  ): Promise<StreamableFile> {
+    const file = await this.uploads.openFile(id, disposition);
+    return new StreamableFile(file.body, {
+      type: file.contentType,
+      disposition: file.contentDisposition,
+      length: file.sizeBytes,
+    });
   }
 }

@@ -34,7 +34,7 @@ import {
   uploads,
   type UploadRow,
 } from '@life-island/ingestion-db';
-import { and, count, desc, eq, lt, ne } from 'drizzle-orm';
+import { and, arrayContains, count, desc, eq, lt, ne } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { z } from 'zod';
 import {
@@ -138,7 +138,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Step 2, after the browser PUT: check the stored bytes, detect the real
-   * format, hash it, and either mark it UPLOADED (emitting upload.completed)
+   * format, hash it, and either mark it TO_BE_PARSED (emitting upload.completed)
    * or, if the same file was uploaded before, drop this copy and return the earlier one.
    */
   async complete(id: string): Promise<CompleteUploadResponse> {
@@ -176,7 +176,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         const [saved] = await drizzle(client)
           .update(uploads)
           .set({
-            status: 'UPLOADED',
+            status: 'TO_BE_PARSED',
             fileFormat: inspected.format,
             detectedMime: inspected.mime,
             sizeBytes: bytes.length,
@@ -219,7 +219,12 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async list(query: ListUploads): Promise<Page<UploadDto>> {
-    const where = query.status ? eq(uploads.status, query.status) : undefined;
+    const where = and(
+      query.status ? eq(uploads.status, query.status) : undefined,
+      query.category
+        ? arrayContains(uploads.categories, [query.category])
+        : undefined,
+    );
     const [rows, [{ total }]] = await Promise.all([
       this.svc.db
         .select()
@@ -242,19 +247,39 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     return toUploadDto(await this.findRow(id));
   }
 
-  /** A short-lived link to the original file, for previews and downloads. */
+  /** A short-lived presigned link to the original file. */
   async fileUrl(id: string): Promise<string> {
-    const row = await this.findRow(id);
-    if (
-      row.status === 'UPLOADING' ||
-      (row.status === 'FAILED' && !row.sha256)
-    ) {
-      throw new NotFoundException('This upload has no stored file');
-    }
+    const row = await this.storedRow(id);
     return this.storage.presignGet(row.storageKey, {
       filename: row.originalFilename,
       contentType: row.detectedMime ?? undefined,
     });
+  }
+
+  /**
+   * The original file, streamed from storage with the headers the browser
+   * needs: `inline` shows it (preview), `attachment` saves it under its
+   * original name (download). Served by the API rather than a presigned
+   * redirect because not every S3 implementation honours the overridden
+   * headers (SeaweedFS ignores them), and so previews stay same-origin.
+   */
+  async openFile(id: string, disposition: 'inline' | 'attachment') {
+    const row = await this.storedRow(id);
+    const stored = await this.storage.getStream(row.storageKey);
+    if (!stored) throw new NotFoundException('The stored file is missing');
+    const mime = row.detectedMime ?? 'application/octet-stream';
+    return {
+      body: stored.body,
+      sizeBytes: stored.sizeBytes,
+      // Browsers download text/csv even inline; plain text they show.
+      contentType:
+        disposition === 'inline' && row.fileFormat === 'CSV'
+          ? 'text/plain; charset=utf-8'
+          : mime.startsWith('text/')
+            ? `${mime}; charset=utf-8`
+            : mime,
+      contentDisposition: `${disposition}; filename*=UTF-8''${encodeURIComponent(row.originalFilename)}`,
+    };
   }
 
   /** Marks uploads the browser never finished as FAILED. */
@@ -276,6 +301,15 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     if (stale.length)
       this.logger.log(`Marked ${stale.length} stale uploads as FAILED`);
     return stale.length;
+  }
+
+  /** The row of an upload whose file is in storage (completed, even if parsing failed later). */
+  private async storedRow(id: string): Promise<UploadRow> {
+    const row = await this.findRow(id);
+    if (row.status === 'UPLOADING' || !row.sha256) {
+      throw new NotFoundException('This upload has no stored file');
+    }
+    return row;
   }
 
   private async findRow(id: string): Promise<UploadRow> {
