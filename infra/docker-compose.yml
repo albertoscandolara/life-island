@@ -32,6 +32,12 @@ services:
     volumes:
       - storage-data:/data
       - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      # The S3 gateway answers /healthz only once its filer is reachable.
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8333/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
   nats:
     image: nats:2.11-alpine

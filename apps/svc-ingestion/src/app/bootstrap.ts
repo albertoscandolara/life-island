@@ -27,7 +27,7 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
   }
 }
 
-/** Storage has no health check in compose and can still be starting right after `infra:up`. */
+/** Storage can still be starting when the service boots (e.g. both started together in production). */
 async function ensureBucketWithRetry(
   storage: ObjectStorage,
   origins: string[],
