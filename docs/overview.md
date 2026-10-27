@@ -16,11 +16,13 @@ Further modules (sport, travel, bills, car) follow the same recipe: the "New fea
 
 ```mermaid
 flowchart TB
-  subgraph FE["Front end · Angular + Native Federation"]
-    shell["shell (host)<br/>3D hub, routing"]
-    mfeReview["mfe-review<br/>Ptera"]
-    mfeGroceries["mfe-groceries<br/>Trice"]
-    mfeTax["mfe-tax730<br/>Ankylo"]
+  subgraph FE["Front end · two Angular apps"]
+    documents["documents<br/>loader + Ptera's review"]
+    subgraph LI["Life Island app · Native Federation"]
+      shell["shell (host)<br/>3D hub, routing"]
+      mfeGroceries["mfe-groceries<br/>Trice"]
+      mfeTax["mfe-tax730<br/>Ankylo"]
+    end
   end
 
   storage[("Object storage<br/>S3 · SeaweedFS / R2")]
@@ -43,7 +45,7 @@ flowchart TB
 
   nats{{"NATS JetStream<br/>stream EVENTS"}}
 
-  FE -- "presigned upload" --> storage
+  documents -- "presigned upload" --> storage
   FE -- "/api/*" --> gateway
   gateway --> ingestion & review & groceries & tax
   worker -- reads files --> storage
@@ -135,18 +137,18 @@ Week 1 of the [roadmap](architecture.md#roadmap) is complete:
 | Service DB factory, outbox writer, outbox relay, idempotent consumer                                        | `libs/be-common`                                                 | [Events and the outbox](guides/events-and-outbox.md)                         |
 | CI: format, sync, styles, isolation check, `nx affected` lint/test/build/typecheck                          | `.github/workflows/ci.yml`                                       | [Testing and CI](guides/testing-and-ci.md)                                   |
 | Documents loader: upload API, scheduled AI parse worker, review inbox with confirm                          | `apps/svc-ingestion`, `apps/svc-parse-worker`, `apps/svc-review` | [Documents loader](guides/documents-loader.md)                               |
-| Upload and review front ends                                                                                | `apps/mfe-upload`, `apps/mfe-review`                             | [Documents loader](guides/documents-loader.md)                               |
+| Documents app (start screen, loader, review) and the Life Island app (shell with a 2D hub)                  | `apps/documents`, `apps/shell`                                   | [Documents loader](guides/documents-loader.md)                               |
 | Angular design system: tokens, character themes, base components                                            | `libs/design-system`                                             | `libs/design-system/README.md`                                               |
 | Target catalog: `grocery.receipt@1`, `tax730.expense@1`, `general.document@1`                               | `libs/contracts/src/lib/targets/`                                | [Documents loader](guides/documents-loader.md#categories-and-target-schemas) |
 
-Not built yet: the shell with Native Federation and the 3D hub, the domain services that load confirmed records (`svc-groceries`, `svc-tax730`) and their front ends, editing details before confirming, and evals.
+Not built yet: Native Federation and the 3D hub in the shell, the domain services that load confirmed records (`svc-groceries`, `svc-tax730`) and their front ends, editing details before confirming, and evals.
 
 ## Repository map
 
 ```
 life-island/
 ├── apps/
-│   ├── mfe-upload/  mfe-review/   #   Angular front ends (shell planned)
+│   ├── documents/  shell/         #   Angular apps: documents, and Life Island (module remotes planned)
 │   └── svc-ingestion/  svc-parse-worker/  svc-review/   # NestJS services
 ├── libs/
 │   ├── contracts/                 # Zod contracts shared by every app

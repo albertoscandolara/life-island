@@ -1,0 +1,28 @@
+<header class="topbar">
+  <a class="brand" routerLink="/">
+    <span class="brand__mark" aria-hidden="true">🏝️</span>
+    <span>Documents</span>
+  </a>
+  <nav class="nav" aria-label="Documents">
+    <a
+      routerLink="/upload"
+      routerLinkActive="nav__link--active"
+      ariaCurrentWhenActive="page"
+      class="nav__link"
+    >
+      <ui-icon name="upload" [size]="18" /> Loader
+    </a>
+    <a
+      routerLink="/review"
+      routerLinkActive="nav__link--active"
+      ariaCurrentWhenActive="page"
+      class="nav__link"
+    >
+      <ui-icon name="inbox" [size]="18" /> Review
+    </a>
+  </nav>
+  <a class="nav__link nav__link--external" [href]="shellUrl">
+    Life Island <ui-icon name="external" [size]="16" />
+  </a>
+</header>
+<main class="page"><router-outlet /></main>

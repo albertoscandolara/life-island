@@ -46,6 +46,8 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
 /** The inbox of uploaded documents, filterable, with a details popup per parsed record. */
 @Component({
   selector: 'app-inbox-page',
+  // Ptera's area: the character theme re-tints the accent for everything inside.
+  host: { 'data-character': 'ptera', class: 'inbox' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
@@ -67,7 +69,8 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
 export class InboxPage {
   private readonly api = inject(ReviewApi);
   private readonly router = inject(Router);
-  private readonly params = inject(ActivatedRoute).snapshot.queryParamMap;
+  private readonly route = inject(ActivatedRoute);
+  private readonly params = this.route.snapshot.queryParamMap;
 
   // Filters live in the URL, so a filtered view can be bookmarked or shared.
   protected readonly searchText = signal(this.params.get('q') ?? '');
@@ -174,6 +177,7 @@ export class InboxPage {
     effect(() => {
       const query = this.query();
       void this.router.navigate([], {
+        relativeTo: this.route,
         queryParams: {
           q: query.q,
           status: query.status,

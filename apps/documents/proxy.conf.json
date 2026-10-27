@@ -1,12 +1,12 @@
 {
-  "/api/review": {
-    "target": "http://localhost:3002",
-    "pathRewrite": { "^/api/review": "" },
-    "changeOrigin": true
-  },
   "/api/ingestion": {
     "target": "http://localhost:3001",
     "pathRewrite": { "^/api/ingestion": "" },
+    "changeOrigin": true
+  },
+  "/api/review": {
+    "target": "http://localhost:3002",
+    "pathRewrite": { "^/api/review": "" },
     "changeOrigin": true
   }
 }
