@@ -9,6 +9,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { Readable } from 'node:stream';
 
 export interface StorageOptions {
   /** S3 API endpoint the services use, e.g. `http://localhost:8333` (SeaweedFS) or the R2 endpoint. */
@@ -144,6 +145,25 @@ export class ObjectStorage {
     );
     if (!object.Body) throw new Error(`Object ${key} has no body`);
     return Buffer.from(await object.Body.transformToByteArray());
+  }
+
+  /** Streams one object, for services that serve files with their own headers. */
+  async getStream(
+    key: string,
+  ): Promise<{ body: Readable; sizeBytes?: number } | undefined> {
+    try {
+      const object = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      if (!object.Body) return undefined;
+      return {
+        body: object.Body as Readable,
+        sizeBytes: object.ContentLength,
+      };
+    } catch (error) {
+      if ((error as { name?: string }).name === 'NoSuchKey') return undefined;
+      throw error;
+    }
   }
 
   async put(key: string, body: Buffer, contentType: string): Promise<void> {

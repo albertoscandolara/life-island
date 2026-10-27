@@ -74,7 +74,7 @@ export class ParseService {
                 updated_at = now()
           where id in (
             select id from ingestion.uploads
-             where (status = 'UPLOADED' and next_attempt_at <= now())
+             where (status = 'TO_BE_PARSED' and next_attempt_at <= now())
                 or (status = 'PARSING' and locked_until < now())
              order by created_at
              limit $1
@@ -174,7 +174,7 @@ export class ParseService {
         .update(uploads)
         .set({
           status: 'PARSED',
-          category: result.category,
+          categories: [result.category],
           targetKey: result.targetKey,
           details: result.details,
           confidence: result.confidence,
@@ -224,7 +224,7 @@ export class ParseService {
       const [saved] = await db
         .update(uploads)
         .set({
-          status: giveUp ? 'FAILED' : 'UPLOADED',
+          status: giveUp ? 'FAILED' : 'TO_BE_PARSED',
           lastError: message.slice(0, 2000),
           lockedUntil: null,
           nextAttemptAt: new Date(

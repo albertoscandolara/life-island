@@ -33,7 +33,7 @@ aws --endpoint-url http://localhost:8333 s3 cp ./receipt.jpg s3://uploads/
 aws --endpoint-url http://localhost:8333 s3 ls s3://uploads/
 ```
 
-`svc-ingestion` creates the `S3_BUCKET` bucket (default `uploads`) at startup and sets its CORS rules from `STORAGE_CORS_ORIGINS`, so browsers on those origins can PUT files with presigned URLs. Objects are stored as `YYYY/MM/<uploadId>/<filename>`; the database row keeps that key, and `GET /api/ingestion/uploads/:id/file` redirects to a presigned GET for it.
+`svc-ingestion` creates the `S3_BUCKET` bucket (default `uploads`) at startup and sets its CORS rules from `STORAGE_CORS_ORIGINS`, so browsers on those origins can PUT files with presigned URLs. Objects are stored as `YYYY/MM/<uploadId>/<filename>`; the database row keeps that key. `GET /api/ingestion/uploads/:id/preview` and `/download` stream the file back with the right headers, and `/file` redirects to a presigned GET for it (see [Document storage](../document-storage.md)).
 
 | Variable                                                   | Meaning                                                                        |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |

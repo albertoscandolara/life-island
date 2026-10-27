@@ -153,61 +153,100 @@
     }
   </ui-card>
 
-  <ui-card heading="Recent uploads">
+  <ui-card heading="Your documents">
     <button
       uiCardActions
       uiButton
       variant="ghost"
       size="sm"
       type="button"
-      [loading]="recent.isLoading()"
-      (click)="recent.reload()"
+      [loading]="documents.isLoading()"
+      (click)="documents.reload()"
     >
       <ui-icon name="refresh" [size]="16" /> Refresh
     </button>
-    @if (recent.error()) {
-    <ui-alert tone="danger">Recent uploads could not be loaded.</ui-alert>
+    @if (documents.error()) {
+    <ui-alert tone="danger"
+      >Your documents could not be loaded. Is the ingestion service
+      running?</ui-alert
+    >
     } @else {
     <ui-table
-      [columns]="recentColumns"
-      [rows]="recentRows()"
-      [loading]="recent.isLoading()"
-      caption="Recent uploads"
+      [columns]="documentColumns"
+      [rows]="documentRows()"
+      [loading]="documents.isLoading()"
+      [(page)]="page"
+      [pageSize]="pageSize"
+      [total]="documentTotal()"
+      caption="Your documents"
       emptyMessage="Nothing uploaded yet."
     >
-      <ng-template uiCell="status" [uiCellOf]="recentRows()" let-row>
+      <ng-template uiCell="title" [uiCellOf]="documentRows()" let-row>
+        <span class="doc-title">{{ row.title }}</span>
+        <span class="doc-file">{{ row.originalFilename }}</span>
+      </ng-template>
+      <ng-template uiCell="status" [uiCellOf]="documentRows()" let-row>
         <ui-status-dot
           [tone]="statusView[row.status].tone"
           [label]="statusView[row.status].label"
           [pulse]="row.status === 'PARSING'"
         />
       </ng-template>
-      <ng-template uiCell="uploadedAt" [uiCellOf]="recentRows()" let-row>
+      <ng-template uiCell="categories" [uiCellOf]="documentRows()" let-row>
+        @for (category of row.categories; track category) {
+        <ui-badge tone="info">{{ categoryLabel(category) }}</ui-badge>
+        } @empty {
+        <span class="muted">–</span>
+        }
+      </ng-template>
+      <ng-template uiCell="uploadedAt" [uiCellOf]="documentRows()" let-row>
         {{ (row.uploadedAt ?? row.createdAt) | date: 'dd MMM yyyy, HH:mm' }}
       </ng-template>
-      <ng-template uiCell="fileFormat" [uiCellOf]="recentRows()" let-row>
+      <ng-template uiCell="parsedAt" [uiCellOf]="documentRows()" let-row>
+        @if (row.parsedAt) { {{ row.parsedAt | date: 'dd MMM yyyy, HH:mm' }} }
+        @else {
+        <span class="muted">Not yet</span>
+        }
+      </ng-template>
+      <ng-template uiCell="fileFormat" [uiCellOf]="documentRows()" let-row>
         {{ row.fileFormat ?? '–' }}
       </ng-template>
-      <ng-template uiCell="file" [uiCellOf]="recentRows()" let-row>
-        @if (row.status !== 'UPLOADING' && row.status !== 'FAILED') {
-        <a
-          uiButton
-          variant="ghost"
-          size="sm"
-          [iconOnly]="true"
-          [href]="fileUrl(row)"
-          target="_blank"
-          rel="noopener"
-          [attr.aria-label]="'Open ' + row.title"
-        >
-          <ui-icon name="external" [size]="16" />
-        </a>
+      <ng-template uiCell="actions" [uiCellOf]="documentRows()" let-row>
+        @if (hasFile(row)) {
+        <div class="row-actions">
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [attr.aria-label]="'Preview ' + row.title"
+            title="Preview"
+            (click)="preview(row)"
+          >
+            <ui-icon name="eye" [size]="16" />
+          </button>
+          <a
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            [href]="downloadUrl(row)"
+            download
+            [attr.aria-label]="'Download ' + row.title"
+            title="Download"
+          >
+            <ui-icon name="download" [size]="16" />
+          </a>
+        </div>
         }
       </ng-template>
     </ui-table>
     }
   </ui-card>
 </section>
+
+<app-preview-dialog [(open)]="previewOpen" [upload]="previewing()" />
 
 <app-camera-dialog
   [(open)]="cameraOpen"

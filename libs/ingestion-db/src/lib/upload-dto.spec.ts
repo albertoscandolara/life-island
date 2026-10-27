@@ -13,12 +13,12 @@ describe('toUploadDto', () => {
     sizeBytes: 1200,
     sha256: 'a'.repeat(64),
     storageKey: '2026/10/x/receipt.jpg',
-    status: 'UPLOADED',
+    status: 'TO_BE_PARSED',
     attempts: 0,
     nextAttemptAt: new Date('2026-10-01T00:00:00Z'),
     lockedUntil: null,
     lastError: null,
-    category: null,
+    categories: [],
     targetKey: null,
     details: null,
     confidence: null,
@@ -36,6 +36,8 @@ describe('toUploadDto', () => {
       uploadedAt: '2026-10-01T10:00:00.000Z',
       parsedAt: null,
       details: null,
+      mimeType: 'image/jpeg',
+      categories: [],
     });
     expect(dto).not.toHaveProperty('storageKey');
     expect(dto).not.toHaveProperty('sha256');

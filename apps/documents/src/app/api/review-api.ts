@@ -45,6 +45,6 @@ export class ReviewApi {
    * owns the files; this is a plain link the browser follows, not an API call.
    */
   originalFileUrl(uploadId: string): string {
-    return `/api/ingestion/uploads/${uploadId}/file`;
+    return `/api/ingestion/uploads/${uploadId}/preview`;
   }
 }

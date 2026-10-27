@@ -85,7 +85,7 @@ sequenceDiagram
   ING-->>FE: upload id + presigned PUT URL
   FE->>S3: PUT file directly
   FE->>ING: POST /uploads/:id/complete
-  ING->>ING: detect real format, SHA-256, status UPLOADED
+  ING->>ING: detect real format, SHA-256, status TO_BE_PARSED
   ING->>N: upload.completed (via outbox)
   N->>REV: upload.completed, record shown as UPLOADED
   W->>W: daily schedule (PARSE_SCHEDULE) claims ready uploads (skip locked)

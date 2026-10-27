@@ -48,8 +48,8 @@ const timestamps = {
 
 /**
  * One row per uploaded file. Holds the metadata (the file itself lives in
- * object storage under `storage_key`) and, once parsed, the category and the
- * details JSON extracted by the parser.
+ * object storage under `storage_key`) and, once parsed, the categories and
+ * the details JSON extracted by the parser.
  */
 export const uploads = ingestion.table(
   'uploads',
@@ -71,7 +71,7 @@ export const uploads = ingestion.table(
       .defaultNow(),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     lastError: text('last_error'),
-    category: text('category'),
+    categories: text('categories').array().notNull().default([]),
     targetKey: text('target_key'),
     details: jsonb('details'),
     confidence: numeric('confidence', {
@@ -87,6 +87,7 @@ export const uploads = ingestion.table(
   (table) => [
     index('uploads_claim_idx').on(table.status, table.nextAttemptAt),
     index('uploads_created_at_idx').on(table.createdAt),
+    index('uploads_categories_idx').using('gin', table.categories),
     uniqueIndex('uploads_sha256_idx').on(table.sha256),
   ],
 );

@@ -53,12 +53,25 @@ export const DESCRIPTION_MAX_LENGTH = 255;
 /** Lifecycle of a file in the ingestion service. */
 export const UPLOAD_STATUSES = [
   'UPLOADING', // row created, the browser is sending the file to storage
-  'UPLOADED', // file stored and verified, waiting for the parse run
+  'TO_BE_PARSED', // file stored and verified, waiting for the daily parse run
   'PARSING', // claimed by the parse worker
-  'PARSED', // classified and extracted; details are filled
+  'PARSED', // classified and extracted; categories and details are filled
   'FAILED', // rejected file, or parsing failed after every attempt
 ] as const;
 export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
+
+/**
+ * Formats a browser can show inline, so the loader offers an in-page preview;
+ * the others (Word, Excel) can only be downloaded.
+ */
+export const PREVIEWABLE_FORMATS: readonly FileFormat[] = [
+  'JPG',
+  'PNG',
+  'WEBP',
+  'PDF',
+  'CSV',
+  'TXT',
+];
 
 /** Lifecycle of a record in the review inbox (a superset of the upload lifecycle). */
 export const RECORD_STATUSES = [

@@ -63,13 +63,19 @@ export class IngestionApi {
     );
   }
 
-  list(limit = 10): Observable<Page<UploadDto>> {
+  list(limit = 20, offset = 0): Observable<Page<UploadDto>> {
     return this.http.get<Page<UploadDto>>(`${INGESTION_API}/uploads`, {
-      params: { limit },
+      params: { limit, offset },
     });
   }
 
-  fileUrl(uploadId: string): string {
-    return `${INGESTION_API}/uploads/${uploadId}/file`;
+  /** Shows the file in the browser (redirects to a short-lived storage link). */
+  previewUrl(uploadId: string): string {
+    return `${INGESTION_API}/uploads/${uploadId}/preview`;
+  }
+
+  /** Saves the file under its original name. */
+  downloadUrl(uploadId: string): string {
+    return `${INGESTION_API}/uploads/${uploadId}/download`;
   }
 }

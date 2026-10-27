@@ -84,8 +84,11 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
       title: 'scontrino',
       description: 'Weekly shopping',
       fileFormat: 'TXT',
-      status: 'UPLOADED',
+      mimeType: 'text/plain',
+      status: 'TO_BE_PARSED',
       sizeBytes: content.length,
+      categories: [],
+      parsedAt: null,
     });
 
     const { rows } = await svc.pool.query(
@@ -93,15 +96,46 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
       [done.body.upload.id],
     );
     expect(rows).toHaveLength(1);
+  });
 
-    const file = await fetch(`${base}/uploads/${done.body.upload.id}/file`, {
+  it('serves the stored file inline for previews and as an attachment for downloads', async () => {
+    const content = Buffer.from(`Bolletta luce\n${randomUUID()}`);
+    const done = await upload('bolletta luce.txt', 'text/plain', content);
+    const id = done.body.upload.id;
+
+    for (const [path, disposition] of [
+      ['preview', 'inline'],
+      ['download', 'attachment'],
+    ]) {
+      const file = await fetch(`${base}/uploads/${id}/${path}`);
+      expect(file.status).toBe(200);
+      expect(Buffer.from(await file.arrayBuffer()).equals(content)).toBe(true);
+      expect(file.headers.get('content-type')).toBe(
+        'text/plain; charset=utf-8',
+      );
+      expect(file.headers.get('content-disposition')).toBe(
+        `${disposition}; filename*=UTF-8''bolletta%20luce.txt`,
+      );
+    }
+
+    const redirect = await fetch(`${base}/uploads/${id}/file`, {
       redirect: 'manual',
     });
-    expect(file.status).toBe(302);
-    const download = await fetch(file.headers.get('location') as string);
-    expect(Buffer.from(await download.arrayBuffer()).equals(content)).toBe(
+    expect(redirect.status).toBe(302);
+    const presigned = await fetch(redirect.headers.get('location') as string);
+    expect(Buffer.from(await presigned.arrayBuffer()).equals(content)).toBe(
       true,
     );
+
+    const listed = await fetch(`${base}/uploads?status=TO_BE_PARSED&limit=100`)
+      .then((r) => r.json() as Promise<Page<UploadDto>>)
+      .then((page) => page.items.find((item) => item.id === id));
+    expect(listed).toMatchObject({ categories: [], parsedAt: null });
+
+    const missing = await fetch(`${base}/uploads/${randomUUID()}/download`, {
+      redirect: 'manual',
+    });
+    expect(missing.status).toBe(404);
   });
 
   it('returns the earlier upload when the same file is uploaded twice', async () => {
