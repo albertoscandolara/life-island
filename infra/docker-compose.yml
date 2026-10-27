@@ -33,8 +33,9 @@ services:
       - storage-data:/data
       - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      # The S3 gateway answers /healthz only once its filer is reachable.
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:8333/healthz']
+      # The S3 gateway answers /healthz only once its filer is reachable. It listens on IPv4
+      # only, and CI runners map localhost to ::1, so the address is explicit.
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8333/healthz']
       interval: 5s
       timeout: 3s
       retries: 30
