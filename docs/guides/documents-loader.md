@@ -3,26 +3,26 @@
 The documents loader takes any personal document (a receipt photo, a PDF invoice, a spreadsheet), stores it, has AI read and classify it once a day, and lets you check the result and confirm it before it is loaded into the right module.
 
 ```
-mfe-upload ──► svc-ingestion ──► object storage
+documents app: Loader ──► svc-ingestion ──► object storage
                     │ upload.completed
                     ▼
             svc-parse-worker  (daily, configurable)
                     │ document.parsed: category + details
                     ▼
-               svc-review ◄── mfe-review: list, filter, open details, Confirm
+               svc-review ◄── documents app: Review (list, filter, open details, Confirm)
                     │ record.approved
                     ▼
      svc-groceries / svc-tax730 (planned) load it into their own tables
 ```
 
-| Project            | Kind                    | Owns                                                      | Local port |
-| ------------------ | ----------------------- | --------------------------------------------------------- | ---------- |
-| `mfe-upload`       | Angular app             | The upload screen                                         | 4201       |
-| `mfe-review`       | Angular app             | The review table and details popup                        | 4202       |
-| `svc-ingestion`    | NestJS HTTP service     | Schema `ingestion` (migrations), the uploads bucket       | 3001       |
-| `svc-parse-worker` | NestJS app without HTTP | Nothing new: reads and updates `ingestion` on a schedule  | none       |
-| `svc-review`       | NestJS HTTP service     | Schema `review`: the inbox read model and the confirm API | 3002       |
-| `design-system`    | Angular library         | CSS tokens and the shared components both apps use        |            |
+| Project            | Kind                    | Owns                                                            | Local port |
+| ------------------ | ----------------------- | --------------------------------------------------------------- | ---------- |
+| `documents`        | Angular app             | Start screen, the loader (`/upload`) and the review (`/review`) | 4201       |
+| `shell`            | Angular app             | Life Island: the hub for the modules that use the data          | 4200       |
+| `svc-ingestion`    | NestJS HTTP service     | Schema `ingestion` (migrations), the uploads bucket             | 3001       |
+| `svc-parse-worker` | NestJS app without HTTP | Nothing new: reads and updates `ingestion` on a schedule        | none       |
+| `svc-review`       | NestJS HTTP service     | Schema `review`: the inbox read model and the confirm API       | 3002       |
+| `design-system`    | Angular library         | CSS tokens and the shared components both apps use              |            |
 
 ## Run it
 
@@ -32,11 +32,11 @@ npm run infra:up                  # Postgres, SeaweedFS, NATS, Caddy
 npx nx serve svc-ingestion        # creates the bucket and applies migrations
 npx nx serve svc-review
 npx nx serve svc-parse-worker     # with PARSE_RUN_ON_START=true it parses right away
-npx nx serve mfe-upload           # http://localhost:4201
-npx nx serve mfe-review           # http://localhost:4202
+npx nx serve documents            # http://localhost:4201
+npx nx serve shell                # http://localhost:4200 (optional: the Life Island hub)
 ```
 
-Run each `serve` in its own terminal, or `npx nx run-many -t serve -p svc-ingestion svc-review svc-parse-worker mfe-upload mfe-review`. The Angular dev servers proxy `/api/ingestion` and `/api/review` to the local services, the same paths the Caddy gateway uses.
+Run each `serve` in its own terminal, or `npx nx run-many -t serve -p svc-ingestion svc-review svc-parse-worker documents shell`. The Angular dev servers proxy `/api/ingestion` and `/api/review` to the local services, the same paths the Caddy gateway uses.
 
 Uploads made after the worker's last run wait for the next scheduled one. To parse them now, restart the worker (with `PARSE_RUN_ON_START=true`).
 
@@ -46,7 +46,9 @@ To use the real AI parser, set `ANTHROPIC_API_KEY` and `PARSER=claude` in `.env`
 
 ## Uploading
 
-`mfe-upload` accepts files in four ways: drag and drop onto the page, the **Browse files** button, pasting (Ctrl+V / Cmd+V) an image or file, and **Take a photo**, which opens the camera in a popup (on phones without camera access in the browser, it falls back to the native camera picker).
+The documents app opens on a start screen where you pick **Loader** or **Review** (the review card shows how many records wait for you); the top bar switches between them and links to the Life Island app.
+
+The loader accepts files in four ways: drag and drop onto the page, the **Browse files** button, pasting (Ctrl+V / Cmd+V) an image or file, and **Take a photo**, which opens the camera in a popup (on phones without camera access in the browser, it falls back to the native camera picker).
 
 Each file gets a title (from its name, editable) and an optional description (at most 255 characters), then **Upload all** sends them with a progress bar each. Accepted formats are JPG, PNG, WEBP, PDF, XLSX, CSV, DOCX and TXT, up to 25 MB. The service checks the real format from the file's bytes, so a renamed file is rejected; an identical file uploaded twice is recognized and not stored again.
 
@@ -130,7 +132,7 @@ To add a category: add a Zod schema there with a `targetKey` like `<module>.<ent
 
 ## Reviewing and confirming
 
-`mfe-review` lists every document with its title, description, status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
+The review lists every document with its title, description, status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
 
 Parsed records show an eye button in the **Details** column. It opens a confirmation popup with the category, confidence, flags, a link to the original file and the details laid out by the target schema (receipt items as a table). **Confirm** calls the confirm API; **Cancel** closes it.
 
@@ -157,4 +159,3 @@ Parsed records show an eye button in the **Details** column. It opens a confirma
 | Ajv for validation                                        | The targets' Zod schemas, which also hold the domain rules                                          |
 | Upload row without title, description or results          | Title, description, file format, category, target key, details, confidence and dates on the row     |
 | HEIC, EML and ZIP                                         | Not yet                                                                                             |
-| Native Federation shell                                   | Two standalone Angular apps with lazy routes, ready to become remotes                               |

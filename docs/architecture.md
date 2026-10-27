@@ -1,9 +1,9 @@
 # Life Island — Architecture & Ingestion Plan
 
-> Source of truth: the Claude doc at https://claude.ai/artifact/Livdq5mvafdV837hERPFQY (exported 2026-10-23).
+> Source of truth: the Claude doc at https://claude.ai/artifact/Livdq5mvafdV837hERPFQY (exported 2026-10-27).
 > When the doc changes, re-export it here so the repository and the doc stay in sync.
 
-Life Island is a personal life-management platform: an Angular shell (a 3D island) hosts independent modules, each run by a character that handles one area of life. Every feature in this project follows the rules in this document.
+Life Island is a personal life-management platform: two Angular apps. The documents app is where you load documents and review what was read from them; the Life Island app, a shell (a 3D island), hosts independent modules, each run by a character that handles one area of life. Every feature in this project follows the rules in this document.
 
 ## Vision
 
@@ -40,9 +40,10 @@ These rules are non-negotiable. Every new feature, service or module is checked 
 ```
 Each service owns one schema; events flow through NATS
 
-┌──────────────────────── Frontend · Angular + Native Federation ────────────────────────┐
-│ [Shell (host): 3D hub, routing] [mfe-review: Ptera] [mfe-groceries: Trice] [mfe-tax730: Ankylo] │
-└───────┬───────────────────────────────────────────────────────┬────────────────────────┘
+┌─ Documents app ──────┐ ┌──── Life Island app · the shell hosts module remotes ─────────────────┐
+│ [Loader + Review]    │ │ [Shell (host): 3D hub, routing] [mfe-groceries: Trice] [mfe-tax730: Ankylo] │
+│  Ptera · standalone  │ └────────────────────────────────┬──────────────────────────────────────┘
+└───────┬──────────────┘                                  │
         │ direct upload (presigned)                             │ /api/*
  ┌──────▼─────────┐                                    ┌────────▼────────┐
  │ Object storage │                                    │ Gateway (Caddy) │
@@ -85,10 +86,10 @@ One Nx monorepo named `life-island`, with independently built and deployed apps.
 ```
 life-island/
 ├── apps/
-│   ├── shell/                 # Angular host + 3D island hub
-│   ├── mfe-review/            # Angular remote — Ptera
-│   ├── mfe-groceries/         # Angular remote — Trice
-│   ├── mfe-tax730/            # Angular remote — Ankylo
+│   ├── documents/             # Angular app: start screen, loader, Ptera's review inbox
+│   ├── shell/                 # Angular host + 3D island hub (Life Island app)
+│   ├── mfe-groceries/         # Angular remote of the shell — Trice
+│   ├── mfe-tax730/            # Angular remote of the shell — Ankylo
 │   ├── svc-ingestion/         # Nest: upload API
 │   ├── svc-parse-worker/      # Nest standalone app (no HTTP): background AI processor
 │   ├── svc-review/            # Nest: target catalog, staging, approvals
@@ -209,9 +210,9 @@ All visual consistency comes from three tiers of CSS custom properties in `libs/
 - Storybook documents every component in light, dark and every character theme.
 - A new module adds only a `[data-character]` block; it never defines new primitives locally.
 
-## Micro-frontends
+## Front-end apps and micro-frontends
 
-The shell is a Native Federation host; every module is a remote that exposes a routes file and can also run standalone on its own port.
+The front end is two Angular apps, built and deployed separately and served on one origin by the gateway. The documents app (under /documents/) handles documents only: a start screen to choose the loader or the review, then each screen. The Life Island app (at /) is for using the data: its shell is a Native Federation host, and every domain module is a remote that exposes a routes file and can also run standalone on its own port. The two apps link to each other and share only libs (design system, contracts).
 
 ```ts
 // shell routes
@@ -221,7 +222,7 @@ The shell is a Native Federation host; every module is a remote that exposes a r
 
 - **Runtime manifest:** `shell/public/federation.manifest.json` maps remote names to URLs and is swapped per environment, so a remote redeploys without rebuilding the shell.
 - **Shared singletons:** Angular, RxJS and the design system. The shell loads the token CSS once; remotes import it themselves only in standalone mode.
-- **Shell responsibilities:** the island hub, routing, auth, the global drop-anywhere upload, toasts, theme switch.
+- **Shell responsibilities:** the island hub, routing, auth, a link to the documents app, toasts, theme switch.
 - **Communication:** URL first (`/review?upload=…`); cross-module notifications through a typed `window` CustomEvent bus in `fe-common`; no shared global store.
 - **Data:** a remote talks only to its own service through the gateway (`/api/<service>`), with clients generated from OpenAPI.
 
@@ -478,7 +479,7 @@ Modules are clean 2D screens on the design system; 3D appears in exactly three p
 
 ### Modules
 
-- **mfe-review (Ptera):** inbox grouped by upload; filter chips for category, target, flags, confidence; split view with the original file (zoomable image or PDF) beside an editable form generated from the target's JSON Schema with Signal Forms; diff badge on edited fields; checkboxes for approve selected, approve all high-confidence, reject; keys `j`/`k` move, `a` approve, `r` reject, `e` edit, `x` select; optimistic UI with signals; live status over SSE.
+- **documents app (Ptera):** a start screen to choose Loader or Review; the loader (camera, drag and drop, browse, paste, progress per file); the review inbox grouped by upload; filter chips for category, target, flags, confidence; split view with the original file (zoomable image or PDF) beside an editable form generated from the target's JSON Schema with Signal Forms; diff badge on edited fields; checkboxes for approve selected, approve all high-confidence, reject; keys `j`/`k` move, `a` approve, `r` reject, `e` edit, `x` select; optimistic UI with signals; live status over SSE.
 - **mfe-groceries (Trice):** receipts list and detail, spending by category per month, top items, price history per item.
 - **mfe-tax730 (Ankylo):** tax-year selector, deductible expenses by type, running totals against thresholds, warnings for missing data (e.g. non-traceable payment), CSV/PDF export for the CAF, a note to verify with a professional.
 
@@ -495,7 +496,7 @@ Three.js is lazy-loaded with `@defer`; `prefers-reduced-motion` gets a 2D hub; m
 Ten weeks to the first full loop; the 3D island comes last, once the data flow works.
 
 1. **Week 1 — Foundations:** Nx workspace, Docker Compose (Postgres, storage, NATS, Caddy), schemas and roles, outbox library, CI with `nx affected`. Done when each service user sees only its own schema.
-2. **Week 2 — Design system and shell:** tokens, base components, Storybook; Native Federation shell with three empty remotes and a 2D hub. Done when character themes apply and each remote also runs standalone.
+2. **Week 2 — Design system and shell:** tokens, base components, Storybook; the documents app with its start screen; the Native Federation shell with two empty remotes and a 2D hub. Done when character themes apply and each remote also runs standalone.
 3. **Week 3 — Uploads:** registry table, presigned flow, global drop zone. Done when 10 mixed files land in storage as UPLOADED with correct MIME and hash.
 4. **Week 4 — Catalog and worker:** domain services register targets; claim loop with a fake extractor. Done when a killed worker's job is recovered and a corrupt file ends FAILED with a readable error.
 5. **Weeks 5–6 — AI pipeline:** classify, extract, validate, self-correct, enrich, persist, evals. Done when a real receipt becomes a correct record in under ~15 s and evals pass.

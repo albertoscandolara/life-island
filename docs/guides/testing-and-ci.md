@@ -103,4 +103,4 @@ npx dotenv -e .env -- nx affected -t lint test build typecheck --base=origin/mai
 
 ## Front-end tests
 
-Angular projects (`design-system`, `mfe-upload`, `mfe-review`) run Vitest through `@angular/build:unit-test` in jsdom: `npx nx test design-system`. Test components through a small host component and signals, as in `libs/design-system/src/lib/dropdown/dropdown.spec.ts`. jsdom lacks `HTMLDialogElement.showModal`, so dialog specs add a two-line polyfill.
+Angular projects (`design-system`, `documents`, `shell`) run Vitest through `@angular/build:unit-test` in jsdom: `npx nx test design-system`. Test components through a small host component and signals, as in `libs/design-system/src/lib/dropdown/dropdown.spec.ts`. jsdom lacks `HTMLDialogElement.showModal`, so dialog specs add a two-line polyfill.

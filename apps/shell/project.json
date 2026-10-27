@@ -1,28 +1,28 @@
 {
-  "name": "mfe-review",
+  "name": "shell",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "prefix": "app",
-  "sourceRoot": "apps/mfe-review/src",
-  "tags": ["type:app", "scope:review"],
+  "sourceRoot": "apps/shell/src",
+  "tags": ["type:app", "scope:shell"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": "dist/apps/mfe-review",
-        "browser": "apps/mfe-review/src/main.ts",
-        "tsConfig": "apps/mfe-review/tsconfig.app.json",
+        "outputPath": "dist/apps/shell",
+        "browser": "apps/shell/src/main.ts",
+        "tsConfig": "apps/shell/tsconfig.app.json",
         "assets": [
           {
             "glob": "**/*",
-            "input": "apps/mfe-review/public"
+            "input": "apps/shell/public"
           }
         ],
         "styles": [
           "libs/design-system/src/styles/index.css",
-          "apps/mfe-review/src/styles.css"
+          "apps/shell/src/styles.css"
         ]
       },
       "configurations": {
@@ -39,7 +39,13 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/shell/src/environments/environment.ts",
+              "with": "apps/shell/src/environments/environment.prod.ts"
+            }
+          ]
         },
         "development": {
           "optimization": false,
@@ -56,15 +62,14 @@
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
       "options": {
-        "port": 4202,
-        "proxyConfig": "apps/mfe-review/proxy.conf.json"
+        "port": 4200
       },
       "configurations": {
         "production": {
-          "buildTarget": "mfe-review:build:production"
+          "buildTarget": "shell:build:production"
         },
         "development": {
-          "buildTarget": "mfe-review:build:development"
+          "buildTarget": "shell:build:development"
         }
       }
     },
@@ -82,9 +87,9 @@
       "dependsOn": ["build"],
       "executor": "@nx/web:file-server",
       "options": {
-        "buildTarget": "mfe-review:build",
-        "port": 4202,
-        "staticFilePath": "dist/apps/mfe-review/browser",
+        "buildTarget": "shell:build",
+        "port": 4200,
+        "staticFilePath": "dist/apps/shell/browser",
         "spa": true
       }
     }

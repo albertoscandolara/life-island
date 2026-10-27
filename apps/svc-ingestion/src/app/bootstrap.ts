@@ -27,12 +27,33 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
   }
 }
 
+/** Storage can still be starting when the service boots (e.g. both started together in production). */
+async function ensureBucketWithRetry(
+  storage: ObjectStorage,
+  origins: string[],
+  attempts = 10,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await storage.ensureBucket(origins);
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      Logger.warn(
+        `Storage not reachable yet (attempt ${attempt}/${attempts}), retrying`,
+        'Bootstrap',
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+}
+
 export async function createApp(
   config: IngestionConfig,
   options: { events?: boolean } = {},
 ): Promise<INestApplication> {
   await runMigrations(config.databaseUrl);
-  await new ObjectStorage(config.storage).ensureBucket(
+  await ensureBucketWithRetry(
+    new ObjectStorage(config.storage),
     config.storageCorsOrigins,
   );
   const app = await NestFactory.create(AppModule.forRoot(config, options), {

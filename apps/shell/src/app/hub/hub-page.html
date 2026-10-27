@@ -1,0 +1,38 @@
+<h1 class="title">Welcome to Life Island</h1>
+<p class="lead">
+  Each part of the island looks after one area of your life, using the documents
+  you loaded and confirmed.
+</p>
+
+<ul class="modules" role="list">
+  @for (module of modules; track module.name) {
+  <li [attr.data-character]="module.character">
+    @if (module.path) {
+    <a class="module" [routerLink]="module.path">
+      <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
+      <span class="module__name">{{ module.name }}</span>
+      <span class="module__mission">{{ module.mission }}</span>
+    </a>
+    } @else {
+    <div class="module module--planned">
+      <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
+      <span class="module__name">{{ module.name }}</span>
+      <span class="module__mission">{{ module.mission }}</span>
+      <ui-badge>Coming soon</ui-badge>
+    </div>
+    }
+  </li>
+  }
+</ul>
+
+<aside class="documents">
+  <div>
+    <h2 class="documents__title">Have new receipts or bills?</h2>
+    <p class="documents__text">
+      Load them in the documents app; once you confirm them they show up here.
+    </p>
+  </div>
+  <a class="documents__link" [href]="documentsUrl">
+    <ui-icon name="upload" [size]="18" /> Open documents
+  </a>
+</aside>

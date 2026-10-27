@@ -27,11 +27,12 @@ The scripts call `docker compose --project-directory . -f infra/docker-compose.y
 
 `--wait` returns only when every service with a health check is healthy:
 
-| Service              | Health check                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------------- |
-| `postgres`           | `pg_isready` on database `life_island`                                                                    |
-| `nats`               | `GET /healthz?js-enabled-only=true` on the monitoring port, so it is healthy only once JetStream is ready |
-| `storage`, `gateway` | None; they count as ready once started. SeaweedFS needs a few more seconds before its S3 API answers      |
+| Service    | Health check                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `postgres` | `pg_isready` on database `life_island`                                                                    |
+| `nats`     | `GET /healthz?js-enabled-only=true` on the monitoring port, so it is healthy only once JetStream is ready |
+| `storage`  | `GET /healthz` on the S3 port, so it is healthy only once the S3 gateway can reach its filer              |
+| `gateway`  | None; it counts as ready once started                                                                     |
 
 Useful extras:
 

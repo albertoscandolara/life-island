@@ -1,7 +1,0 @@
-{
-  "/api/ingestion": {
-    "target": "http://localhost:3001",
-    "pathRewrite": { "^/api/ingestion": "" },
-    "changeOrigin": true
-  }
-}

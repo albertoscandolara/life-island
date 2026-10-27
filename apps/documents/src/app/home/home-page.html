@@ -1,0 +1,27 @@
+<h1 class="title">What would you like to do?</h1>
+<p class="lead">
+  Load receipts, bills and other documents, or review what was read from them
+  before it is saved.
+</p>
+
+<div class="choices">
+  <a class="choice" routerLink="/upload">
+    <span class="choice__icon"><ui-icon name="upload" [size]="32" /></span>
+    <span class="choice__title">Loader</span>
+    <span class="choice__text">
+      Take a photo, drag files in or browse for them. They are read and sorted
+      on the next scheduled run.
+    </span>
+  </a>
+  <a class="choice" routerLink="/review" data-character="ptera">
+    <span class="choice__icon"><ui-icon name="inbox" [size]="32" /></span>
+    <span class="choice__title">Review</span>
+    <span class="choice__text">
+      Browse every document, open what was read from it and confirm it to load
+      it into its module.
+    </span>
+    @if (waitingCount(); as count) {
+    <span class="choice__badge">{{ count }} waiting for review</span>
+    }
+  </a>
+</div>

@@ -1,28 +1,28 @@
 {
-  "name": "mfe-upload",
+  "name": "documents",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "prefix": "app",
-  "sourceRoot": "apps/mfe-upload/src",
-  "tags": ["type:app", "scope:ingestion"],
+  "sourceRoot": "apps/documents/src",
+  "tags": ["type:app", "scope:documents"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": "dist/apps/mfe-upload",
-        "browser": "apps/mfe-upload/src/main.ts",
-        "tsConfig": "apps/mfe-upload/tsconfig.app.json",
+        "outputPath": "dist/apps/documents",
+        "browser": "apps/documents/src/main.ts",
+        "tsConfig": "apps/documents/tsconfig.app.json",
         "assets": [
           {
             "glob": "**/*",
-            "input": "apps/mfe-upload/public"
+            "input": "apps/documents/public"
           }
         ],
         "styles": [
           "libs/design-system/src/styles/index.css",
-          "apps/mfe-upload/src/styles.css"
+          "apps/documents/src/styles.css"
         ]
       },
       "configurations": {
@@ -39,7 +39,14 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/documents/src/environments/environment.ts",
+              "with": "apps/documents/src/environments/environment.prod.ts"
+            }
+          ],
+          "baseHref": "/documents/"
         },
         "development": {
           "optimization": false,
@@ -57,14 +64,14 @@
       "defaultConfiguration": "development",
       "options": {
         "port": 4201,
-        "proxyConfig": "apps/mfe-upload/proxy.conf.json"
+        "proxyConfig": "apps/documents/proxy.conf.json"
       },
       "configurations": {
         "production": {
-          "buildTarget": "mfe-upload:build:production"
+          "buildTarget": "documents:build:production"
         },
         "development": {
-          "buildTarget": "mfe-upload:build:development"
+          "buildTarget": "documents:build:development"
         }
       }
     },
@@ -82,9 +89,9 @@
       "dependsOn": ["build"],
       "executor": "@nx/web:file-server",
       "options": {
-        "buildTarget": "mfe-upload:build",
+        "buildTarget": "documents:build",
         "port": 4201,
-        "staticFilePath": "dist/apps/mfe-upload/browser",
+        "staticFilePath": "dist/apps/documents/browser",
         "spa": true
       }
     }

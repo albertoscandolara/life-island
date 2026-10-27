@@ -40,6 +40,15 @@ export default [
               onlyDependOnLibsWithTags: ['scope:ingestion', 'scope:shared'],
             },
             {
+              sourceTag: 'scope:documents',
+              onlyDependOnLibsWithTags: [
+                'scope:documents',
+                'scope:ingestion',
+                'scope:review',
+                'scope:shared',
+              ],
+            },
+            {
               sourceTag: 'scope:shell',
               onlyDependOnLibsWithTags: ['scope:shell', 'scope:shared'],
             },

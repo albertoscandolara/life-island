@@ -28,6 +28,8 @@
       "exclude": [
         "apps/svc-*/**/*",
         "apps/mfe-*/**/*",
+        "apps/documents/**/*",
+        "apps/shell/**/*",
         "libs/design-system/**/*"
       ]
     },
