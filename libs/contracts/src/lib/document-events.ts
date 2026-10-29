@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseStepSchema } from './categories.js';
 import { fileFormatSchema } from './documents.js';
 
 /**
@@ -45,6 +46,30 @@ export const documentParseFailedV1 = z.object({
   failedAt: z.iso.datetime({ offset: true }),
 });
 export type DocumentParseFailedV1 = z.infer<typeof documentParseFailedV1>;
+
+/**
+ * Parsing stopped before every step finished, and the document will be picked
+ * up again: the AI quota ran out, the provider rate-limited the worker, or a
+ * temporary error will be retried. Completed steps stay saved.
+ */
+export const DOCUMENT_PARSE_INTERRUPTED_EVENT = 'document.parse_interrupted@1';
+export const documentParseInterruptedV1 = z.object({
+  uploadId: z.uuid(),
+  reason: z.enum([
+    'QUOTA_EXHAUSTED',
+    'RATE_LIMITED',
+    'CREDENTIALS',
+    'TRANSIENT_ERROR',
+  ]),
+  completedSteps: z.array(parseStepSchema),
+  error: z.string(),
+  /** When parsing can resume; null when unknown. */
+  resumeAt: z.iso.datetime({ offset: true }).nullable(),
+  interruptedAt: z.iso.datetime({ offset: true }),
+});
+export type DocumentParseInterruptedV1 = z.infer<
+  typeof documentParseInterruptedV1
+>;
 
 /** Emitted by the review service when you confirm a record; domain services load it. */
 export const RECORD_APPROVED_EVENT = 'record.approved@1';

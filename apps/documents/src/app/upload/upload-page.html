@@ -187,8 +187,8 @@
       </ng-template>
       <ng-template uiCell="status" [uiCellOf]="documentRows()" let-row>
         <ui-status-dot
-          [tone]="statusView[row.status].tone"
-          [label]="statusView[row.status].label"
+          [tone]="statusView[row.processingState].tone"
+          [label]="statusView[row.processingState].label"
           [pulse]="row.status === 'PARSING'"
         />
       </ng-template>

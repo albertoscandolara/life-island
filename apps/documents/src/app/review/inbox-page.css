@@ -41,3 +41,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+.banner {
+  margin-bottom: var(--space-4);
+}

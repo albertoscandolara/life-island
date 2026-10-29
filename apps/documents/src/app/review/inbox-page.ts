@@ -9,7 +9,7 @@ import {
   untracked,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   FileFormat,
   ListRecordsQuery,
@@ -36,9 +36,11 @@ import {
   type UiTableColumn,
   type UiTableSort,
 } from '@life-island/design-system';
+import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
 import { RecordDialog } from './record-dialog';
-import { HAS_DETAILS, RECORD_STATUS_VIEW } from './record-status';
+import { QueueBanner } from './queue-banner';
+import { RECORD_STATUS_VIEW } from './record-status';
 
 const PAGE_SIZE = 20;
 type SortKey = NonNullable<ListRecordsQuery['sort']>;
@@ -51,7 +53,9 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    QueueBanner,
     RecordDialog,
+    RouterLink,
     UiAlert,
     UiButton,
     UiCellDef,
@@ -68,6 +72,14 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
 })
 export class InboxPage {
   private readonly api = inject(ReviewApi);
+  private readonly ingestion = inject(IngestionApi);
+  /** Category suggestions waiting for a decision; a hint, so errors just hide it. */
+  private readonly suggestions = rxResource({
+    stream: () => this.ingestion.suggestions({ status: 'PENDING' }),
+  });
+  protected readonly pendingSuggestions = computed(() =>
+    this.suggestions.hasValue() ? this.suggestions.value().length : 0,
+  );
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly params = this.route.snapshot.queryParamMap;
@@ -192,10 +204,6 @@ export class InboxPage {
         replaceUrl: true,
       });
     });
-  }
-
-  protected hasDetails(row: RecordDto): boolean {
-    return HAS_DETAILS.includes(row.status);
   }
 
   protected openDetails(row: RecordDto): void {

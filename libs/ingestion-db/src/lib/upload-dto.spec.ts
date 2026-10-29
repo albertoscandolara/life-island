@@ -1,4 +1,4 @@
-import { toUploadDto } from './upload-dto.js';
+import { processingStateOf, toUploadDto } from './upload-dto.js';
 import type { UploadRow } from './schema.js';
 
 describe('toUploadDto', () => {
@@ -17,8 +17,14 @@ describe('toUploadDto', () => {
     attempts: 0,
     nextAttemptAt: new Date('2026-10-01T00:00:00Z'),
     lockedUntil: null,
+    lockToken: null,
+    lastAttemptAt: null,
     lastError: null,
     categories: [],
+    completedSteps: [],
+    currentStep: null,
+    analysis: null,
+    extractedFields: null,
     targetKey: null,
     details: null,
     confidence: null,
@@ -41,5 +47,27 @@ describe('toUploadDto', () => {
     });
     expect(dto).not.toHaveProperty('storageKey');
     expect(dto).not.toHaveProperty('sha256');
+  });
+
+  it('tells a partially processed document from one that has not started', () => {
+    expect(processingStateOf(row)).toBe('PENDING');
+    const partial = { ...row, completedSteps: ['CLASSIFY' as const] };
+    expect(processingStateOf(partial)).toBe('PARTIAL');
+    expect(toUploadDto(partial)).toMatchObject({
+      processingState: 'PARTIAL',
+      completedSteps: ['CLASSIFY'],
+      remainingSteps: ['EXTRACT', 'DISCOVER'],
+      nextAttemptAt: '2026-10-01T00:00:00.000Z',
+    });
+    expect(
+      processingStateOf({ status: 'PAUSED_QUOTA', completedSteps: [] }),
+    ).toBe('PAUSED_QUOTA');
+    expect(
+      toUploadDto({
+        ...row,
+        status: 'PARSED',
+        completedSteps: ['CLASSIFY', 'EXTRACT', 'DISCOVER'],
+      }),
+    ).toMatchObject({ processingState: 'PROCESSED', remainingSteps: [] });
   });
 });

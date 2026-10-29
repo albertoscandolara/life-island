@@ -1,0 +1,163 @@
+@if (upload.value(); as doc) {
+<section class="panel" aria-label="AI processing">
+  <div class="head">
+    <h3>AI processing</h3>
+    <ui-status-dot
+      [tone]="view[doc.processingState].tone"
+      [label]="view[doc.processingState].label"
+      [pulse]="!!view[doc.processingState].pulse"
+    />
+  </div>
+
+  @if (doc.processingState !== 'PROCESSED' && reason()) {
+  <ui-alert
+    [tone]="doc.processingState === 'FAILED' ? 'danger' : doc.processingState === 'PENDING' || doc.processingState === 'PROCESSING' ? 'info' : 'warning'"
+  >
+    @if (doc.completedSteps.length && doc.processingState !== 'FAILED') {
+    <strong>Partially processed.</strong>
+    } {{ reason() }} @if (doc.nextAttemptAt && doc.processingState ===
+    'PARTIAL') { Next attempt after {{ doc.nextAttemptAt | date: 'dd MMM yyyy,
+    HH:mm' }}. } @if (doc.completedSteps.length) { Results below are what has
+    been saved so far. }
+  </ui-alert>
+  }
+
+  <ol class="steps">
+    @for (step of steps; track step) {
+    <li [attr.data-state]="stepState(doc, step)">
+      <span class="steps__mark" aria-hidden="true"
+        >{{ stepState(doc, step) === 'done' ? '✓' : stepState(doc, step) ===
+        'current' ? '…' : '○' }}</span
+      >
+      {{ stepLabels[step] }}
+      <span class="sr-only"
+        >{{ stepState(doc, step) === 'done' ? 'done' : stepState(doc, step) ===
+        'current' ? 'interrupted or in progress' : 'not done yet' }}</span
+      >
+    </li>
+    }
+  </ol>
+
+  @if (doc.analysis; as analysis) {
+  <dl class="analysis">
+    <div>
+      <dt>Type</dt>
+      <dd>{{ analysis.documentType }}</dd>
+    </div>
+    <div>
+      <dt>Purpose</dt>
+      <dd>{{ analysis.purpose }}</dd>
+    </div>
+    @if (analysis.issuer) {
+    <div>
+      <dt>Issuer</dt>
+      <dd>{{ analysis.issuer }}</dd>
+    </div>
+    } @if (analysis.characteristics.length) {
+    <div>
+      <dt>Characteristics</dt>
+      <dd>{{ analysis.characteristics.join(', ') }}</dd>
+    </div>
+    }
+  </dl>
+  }
+
+  <h4>Categories</h4>
+  @if (doc.categories.length) {
+  <div class="badges">
+    @for (id of doc.categories; track id) {
+    <ui-badge tone="info" [attr.title]="id">{{ categoryTitle(id) }}</ui-badge>
+    }
+  </div>
+  } @else {
+  <p class="muted">
+    {{ doc.completedSteps.includes('CLASSIFY') ? 'No existing category applies.'
+    : 'Not classified yet.' }}
+  </p>
+  }
+
+  <h4>Extracted information</h4>
+  @if (fields().length) {
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Field</th>
+          <th scope="col">Value</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (field of fields(); track field.key) {
+        <tr>
+          <td>
+            {{ field.label }}@if (field.required) {<span
+              class="muted"
+              title="Required by the template"
+              >*</span
+            >}
+          </td>
+          <td>
+            {{ field.display }} @if (field.candidates?.length) {
+            <div class="muted small">
+              Readings: {{ field.candidates!.join(' / ') }}
+            </div>
+            } @if (field.note && field.status !== 'found') {
+            <div class="muted small">{{ field.note }}</div>
+            }
+          </td>
+          <td>
+            <ui-badge [tone]="fieldStatus[field.status].tone"
+              >{{ fieldStatus[field.status].label }}</ui-badge
+            >
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if (doc.extractedFields?.warnings?.length) {
+  <ul class="warnings">
+    @for (warning of doc.extractedFields!.warnings; track $index) {
+    <li>{{ warning }}</li>
+    }
+  </ul>
+  } } @else {
+  <p class="muted">
+    {{ doc.completedSteps.includes('EXTRACT') ? 'The categories of this document
+    define no fields.' : 'Not extracted yet.' }}
+  </p>
+  }
+
+  <h4>Suggested new categories</h4>
+  @if (suggestions.value()?.length) {
+  <ul class="suggestions">
+    @for (suggestion of suggestions.value(); track suggestion.id) {
+    <li>
+      <ui-badge
+        [tone]="suggestion.status === 'APPROVED' ? 'success' : suggestion.status === 'REJECTED' ? 'neutral' : 'warning'"
+        >{{ suggestion.status === 'PENDING' ? 'To approve' :
+        suggestion.status.toLowerCase() }}</ui-badge
+      >
+      <strong>{{ suggestion.title }}</strong>
+      <code>{{ suggestion.categoryId }}</code>
+      @if (suggestion.reason) {
+      <span class="muted small">— {{ suggestion.reason }}</span>
+      }
+    </li>
+    }
+  </ul>
+  <a routerLink="/categories" class="small">Review suggestions</a>
+  } @else {
+  <p class="muted">
+    {{ doc.completedSteps.includes('DISCOVER') ? 'No new category suggested.' :
+    'Not looked for yet.' }}
+  </p>
+  }
+</section>
+} @else if (upload.error()) {
+<ui-alert tone="warning"
+  >The processing details could not be loaded from the ingestion
+  service.</ui-alert
+>
+}

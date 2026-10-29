@@ -9,9 +9,12 @@ import {
   TITLE_MAX_LENGTH,
   UPLOAD_STATUSES,
   type FileFormat,
+  type ParseStep,
+  type ProcessingState,
   type RecordStatus,
   type UploadStatus,
 } from './constants.js';
+import type { DocumentAnalysis, ExtractedFields } from './categories.js';
 
 export * from './constants.js';
 
@@ -74,10 +77,26 @@ export interface UploadDto {
   mimeType: string | null;
   sizeBytes: number | null;
   status: UploadStatus;
-  /** Filled by the parse worker; empty until the document is parsed. */
+  /** What the review UI shows: status and completed steps combined. */
+  processingState: ProcessingState;
+  /** Ids of the document categories assigned so far (see `/categories`). */
   categories: string[];
   targetKey: string | null;
+  /** Data for the target of `targetKey`, which the review inbox confirms. */
   details: unknown;
+  /** Type, purpose and characteristics; null until the CLASSIFY step is done. */
+  analysis: DocumentAnalysis | null;
+  /** Fields from the category templates; null until the EXTRACT step is done. */
+  extractedFields: ExtractedFields | null;
+  completedSteps: ParseStep[];
+  remainingSteps: ParseStep[];
+  /** The step running now, or the one that was interrupted. */
+  currentStep: ParseStep | null;
+  attempts: number;
+  lastAttemptAt: string | null;
+  /** When the worker may pick it up again (after a retry delay or a pause). */
+  nextAttemptAt: string | null;
+  flags: string[];
   lastError: string | null;
   createdAt: string;
   uploadedAt: string | null;

@@ -182,5 +182,52 @@ describe.skipIf(!configured)(
       expect((await get(`/records?status=NOPE`)).status).toBe(400);
       expect((await get(`/records/${randomUUID()}`)).status).toBe(404);
     });
+
+    it('shows a quota pause and partial progress, and cannot be confirmed until parsed', async () => {
+      const u = upload('bill');
+      await apply('upload.completed@1', u);
+      const started = {
+        uploadId: u.uploadId,
+        attempt: 1,
+        startedAt: new Date().toISOString(),
+      };
+      const interrupted = (reason: string, completedSteps: string[]) => ({
+        uploadId: u.uploadId,
+        reason,
+        completedSteps,
+        error: 'stopped',
+        resumeAt: null,
+        interruptedAt: new Date().toISOString(),
+      });
+      await apply('upload.parsing_started@1', started);
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('QUOTA_EXHAUSTED', ['CLASSIFY', 'EXTRACT']),
+      );
+      let record = await findByTitle(u.title);
+      expect(record.status).toBe('PAUSED_QUOTA');
+      const early = await fetch(`${base}/records/${record.id}/confirm`, {
+        method: 'POST',
+      });
+      expect(early.status).toBe(409);
+
+      await apply('upload.parsing_started@1', { ...started, attempt: 2 });
+      expect((await findByTitle(u.title)).status).toBe('PARSING');
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('TRANSIENT_ERROR', ['CLASSIFY']),
+      );
+      expect((await findByTitle(u.title)).status).toBe('PARTIALLY_PARSED');
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('RATE_LIMITED', ['CLASSIFY']),
+      );
+      expect((await findByTitle(u.title)).status).toBe('PAUSED_RATE_LIMIT');
+
+      await apply('upload.parsing_started@1', { ...started, attempt: 3 });
+      await apply('document.parsed@1', parsed(u));
+      record = await findByTitle(u.title);
+      expect(record.status).toBe('PARSED');
+    });
   },
 );

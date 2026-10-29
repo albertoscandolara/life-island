@@ -1,6 +1,8 @@
 import {
   bigint,
+  boolean,
   char,
+  check,
   index,
   integer,
   jsonb,
@@ -15,11 +17,21 @@ import {
 import {
   DESCRIPTION_MAX_LENGTH,
   fileFormatSchema,
+  parseQueueStatusSchema,
+  suggestionStatusSchema,
   TITLE_MAX_LENGTH,
   uploadStatusSchema,
+  type CategoryTemplate,
+  type DocumentAnalysis,
+  type ExtractedFields,
   type FileFormat,
+  type ParseQueueStatus,
+  type ParseStep,
+  type ProviderErrorDetails,
+  type SuggestionStatus,
   type UploadStatus,
 } from '@life-island/contracts';
+import { sql } from 'drizzle-orm';
 
 /**
  * Tables of the `ingestion` schema. svc-ingestion owns the migrations; the
@@ -35,6 +47,14 @@ export const uploadStatus = ingestion.enum(
 export const fileFormat = ingestion.enum(
   'file_format',
   fileFormatSchema.options as [FileFormat, ...FileFormat[]],
+);
+export const suggestionStatus = ingestion.enum(
+  'suggestion_status',
+  suggestionStatusSchema.options as [SuggestionStatus, ...SuggestionStatus[]],
+);
+export const parseQueueStatus = ingestion.enum(
+  'parse_queue_status',
+  parseQueueStatusSchema.options as [ParseQueueStatus, ...ParseQueueStatus[]],
 );
 
 const timestamps = {
@@ -70,8 +90,21 @@ export const uploads = ingestion.table(
       .notNull()
       .defaultNow(),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
+    /** Set on each claim; every write of the worker checks it, so a lost lease writes nothing. */
+    lockToken: uuid('lock_token'),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
     lastError: text('last_error'),
+    /** Ids of rows in `document_categories` (an array has no foreign key; the worker checks them). */
     categories: text('categories').array().notNull().default([]),
+    /** Parse steps whose results are saved; a resumed document skips them. */
+    completedSteps: text('completed_steps')
+      .array()
+      .$type<ParseStep[]>()
+      .notNull()
+      .default([]),
+    currentStep: text('current_step').$type<ParseStep>(),
+    analysis: jsonb('analysis').$type<DocumentAnalysis>(),
+    extractedFields: jsonb('extracted_fields').$type<ExtractedFields>(),
     targetKey: text('target_key'),
     details: jsonb('details'),
     confidence: numeric('confidence', {
@@ -111,6 +144,89 @@ export const parseRuns = ingestion.table('parse_runs', {
     .defaultNow(),
 });
 
+/**
+ * The category taxonomy (`WATER_BILL`, `INVOICE`, `LIDL`...). The AI assigns
+ * existing ones and suggests new ones; a suggestion becomes a row here only
+ * once you approve it (or when automatic approval is configured).
+ */
+export const documentCategories = ingestion.table(
+  'document_categories',
+  {
+    id: text('id').primaryKey(),
+    title: varchar('title', { length: 100 }).notNull(),
+    description: text('description').notNull(),
+    templateJson: jsonb('template_json')
+      .$type<CategoryTemplate>()
+      .notNull()
+      .default({ fields: [] }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'document_categories_id_format',
+      sql`${table.id} ~ '^[A-Z][A-Z0-9_]{1,63}$'`,
+    ),
+    uniqueIndex('document_categories_title_idx').on(sql`lower(${table.title})`),
+  ],
+);
+
+/**
+ * Categories the AI proposed. At most one PENDING row per proposed id, so
+ * documents that suggest the same category add themselves to `upload_ids`
+ * instead of creating duplicates.
+ */
+export const categorySuggestions = ingestion.table(
+  'category_suggestions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: text('category_id').notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
+    description: text('description').notNull(),
+    templateJson: jsonb('template_json').$type<CategoryTemplate>().notNull(),
+    reason: text('reason'),
+    status: suggestionStatus('status').notNull().default('PENDING'),
+    uploadIds: uuid('upload_ids').array().notNull().default([]),
+    approvedCategoryId: text('approved_category_id'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('category_suggestions_pending_idx')
+      .on(table.categoryId)
+      .where(sql`${table.status} = 'PENDING'`),
+    index('category_suggestions_upload_ids_idx').using('gin', table.uploadIds),
+  ],
+);
+
+/**
+ * The parse queue's durable state: one row (`id = 'documents'`). It records
+ * a quota or rate-limit pause and when to try again, so a restart neither
+ * forgets the pause nor hammers the provider.
+ */
+export const parseQueue = ingestion.table('parse_queue', {
+  id: text('id').primaryKey(),
+  status: parseQueueStatus('status').notNull().default('IDLE'),
+  pauseReason: text('pause_reason'),
+  providerError: jsonb('provider_error').$type<ProviderErrorDetails>(),
+  pausedAt: timestamp('paused_at', { withTimezone: true }),
+  resumeAt: timestamp('resume_at', { withTimezone: true }),
+  resumeAtReliable: boolean('resume_at_reliable').notNull().default(false),
+  /** Consecutive pauses without a successful AI call; spaces out blind retries. */
+  resumeAttempts: integer('resume_attempts').notNull().default(0),
+  runStartedAt: timestamp('run_started_at', { withTimezone: true }),
+  runFinishedAt: timestamp('run_finished_at', { withTimezone: true }),
+  nextScheduledRunAt: timestamp('next_scheduled_run_at', {
+    withTimezone: true,
+  }),
+  lastRunSummary: jsonb('last_run_summary').$type<Record<string, number>>(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type UploadRow = typeof uploads.$inferSelect;
+export type CategoryRow = typeof documentCategories.$inferSelect;
+export type CategorySuggestionRow = typeof categorySuggestions.$inferSelect;
+export type ParseQueueRow = typeof parseQueue.$inferSelect;
 export type NewUploadRow = typeof uploads.$inferInsert;
 export type ParseRunRow = typeof parseRuns.$inferInsert;

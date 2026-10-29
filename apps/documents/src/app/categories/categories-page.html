@@ -1,0 +1,184 @@
+<ui-page-header
+  heading="Categories"
+  subtitle="Labels the AI gives your documents, each with the fields worth extracting. New ones it suggests wait here for your approval."
+  emblem="🏷️"
+>
+  <button
+    uiPageActions
+    uiButton
+    variant="secondary"
+    type="button"
+    [loading]="suggestions.isLoading() || categories.isLoading()"
+    (click)="suggestions.reload(); categories.reload()"
+  >
+    <ui-icon name="refresh" [size]="18" /> Refresh
+  </button>
+</ui-page-header>
+
+@if (notice()) {
+<ui-alert tone="success" class="notice">{{ notice() }}</ui-alert>
+}
+
+<ui-card
+  [heading]="'Suggestions to approve' + (pending().length ? ' (' + pending().length + ')' : '')"
+  class="section"
+>
+  @if (suggestions.error()) {
+  <ui-alert tone="danger"
+    >The suggestions could not be loaded. Is the ingestion service
+    running?</ui-alert
+  >
+  } @else if (!pending().length && !suggestions.isLoading()) {
+  <ui-empty-state heading="No suggestions waiting" icon="check">
+    New categories the AI proposes while reading documents appear here.
+  </ui-empty-state>
+  }
+  <ul class="suggestions">
+    @for (suggestion of pending(); track suggestion.id) {
+    <li class="suggestion">
+      <div class="suggestion__head">
+        <h3>{{ suggestion.title }}</h3>
+        <code>{{ suggestion.categoryId }}</code>
+        <ui-badge tone="info"
+          >{{ suggestion.uploadIds.length }} document{{
+          suggestion.uploadIds.length === 1 ? '' : 's' }}</ui-badge
+        >
+      </div>
+      <p>{{ suggestion.description }}</p>
+      @if (suggestion.reason) {
+      <p class="muted small">Why: {{ suggestion.reason }}</p>
+      } @if (editing() === suggestion.id) {
+      <div class="edit">
+        <ui-form-field label="Id (UPPER_SNAKE_CASE)">
+          <input
+            uiInput
+            [value]="draft().id"
+            (input)="updateDraft('id', $event)"
+          />
+        </ui-form-field>
+        <ui-form-field label="Title">
+          <input
+            uiInput
+            [value]="draft().title"
+            (input)="updateDraft('title', $event)"
+          />
+        </ui-form-field>
+        <ui-form-field label="Description" class="edit__wide">
+          <textarea
+            uiInput
+            rows="2"
+            [value]="draft().description"
+            (input)="updateDraft('description', $event)"
+          ></textarea>
+        </ui-form-field>
+        <ui-form-field label="Template (JSON)" class="edit__wide">
+          <textarea
+            uiInput
+            rows="10"
+            class="mono"
+            [value]="draft().template"
+            (input)="updateDraft('template', $event)"
+          ></textarea>
+        </ui-form-field>
+      </div>
+      } @else {
+      <table class="fields">
+        <caption class="muted small">
+          Fields to extract
+        </caption>
+        <tbody>
+          @for (field of suggestion.template.fields; track field.key) {
+          <tr>
+            <td>
+              {{ field.label }}@if (field.required) {<span class="muted">*</span
+              >}
+            </td>
+            <td>
+              <code>{{ field.key }}</code>
+            </td>
+            <td class="muted">
+              {{ field.type }}{{ field.unit ? ' (' + field.unit + ')' : '' }}
+            </td>
+          </tr>
+          } @empty {
+          <tr>
+            <td class="muted">No fields</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+      } @if (errors()[suggestion.id]) {
+      <ui-alert tone="danger">{{ errors()[suggestion.id] }}</ui-alert>
+      }
+      <div class="actions">
+        @if (editing() !== suggestion.id) {
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          (click)="edit(suggestion)"
+        >
+          Edit
+        </button>
+        } @else {
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          (click)="editing.set(null)"
+        >
+          Cancel edits
+        </button>
+        }
+        <button
+          uiButton
+          variant="secondary"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="reject(suggestion)"
+        >
+          <ui-icon name="x" [size]="16" /> Reject
+        </button>
+        <button
+          uiButton
+          type="button"
+          [loading]="busy() === suggestion.id"
+          [disabled]="busy() !== null"
+          (click)="approve(suggestion)"
+        >
+          <ui-icon name="check" [size]="16" /> Approve
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+</ui-card>
+
+<ui-card
+  [heading]="'Categories in use' + (categories.value()?.length ? ' (' + categories.value()!.length + ')' : '')"
+  class="section"
+>
+  <ul class="categories">
+    @for (category of categories.value() ?? []; track category.id) {
+    <li>
+      <details>
+        <summary>
+          <span class="summary">
+            <strong>{{ category.title }}</strong>
+            <code>{{ category.id }}</code>
+            <span class="muted small"
+              >{{ category.template.fields.length }} field{{
+              category.template.fields.length === 1 ? '' : 's' }}</span
+            >
+          </span>
+        </summary>
+        <p class="small">{{ category.description }}</p>
+        <p class="muted small">
+          @for (field of category.template.fields; track field.key; let last =
+          $last) { {{ field.label }} ({{ field.type }}){{ last ? '' : ', ' }} }
+        </p>
+      </details>
+    </li>
+    }
+  </ul>
+</ui-card>
