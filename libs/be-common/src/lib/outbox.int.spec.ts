@@ -125,6 +125,45 @@ describe.skipIf(!databaseUrl || !natsUrl)(
       ).consumers.delete(EVENTS_STREAM, durableName);
     });
 
+    it('restarts a durable consumer that now handles one more event type', async () => {
+      const durableName = `int-test-${randomUUID().slice(0, 8)}`;
+      const first = `test.first_${durableName.slice(-8)}@1`;
+      const second = `test.second_${durableName.slice(-8)}@1`;
+      const consumer = (eventTypes: string[], received: string[]) =>
+        startEventConsumer({
+          pool: svc.pool,
+          nats: nc,
+          schema: 'grocery',
+          durableName,
+          eventTypes,
+          handle: async (event) => {
+            received.push(event.type);
+          },
+        });
+
+      await (await consumer([first], [])).close();
+      // The same durable with another subject list used to fail with
+      // "consumer already exists"; now its filter is updated.
+      const received: string[] = [];
+      const messages = await consumer([first, second], received);
+      await withTransaction(svc.pool, (client) =>
+        enqueueEvent(client, 'grocery', { type: second, payload: {} }),
+      );
+      await new OutboxRelay({
+        pool: svc.pool,
+        nats: nc,
+        schema: 'grocery',
+      }).publishBatch();
+      await vi.waitFor(() => expect(received).toEqual([second]), {
+        timeout: 5000,
+      });
+
+      await messages.close();
+      await (
+        await jetstreamManager(nc)
+      ).consumers.delete(EVENTS_STREAM, durableName);
+    });
+
     it('lets JetStream drop a republished outbox row', async () => {
       const eventType = 'test.dedupe@1';
       const id = await withTransaction(svc.pool, (client) =>

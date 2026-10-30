@@ -75,16 +75,19 @@ The review service does not read that table: each service owns its schema ([prin
 
 ### Statuses
 
-| Upload (`ingestion`) | Inbox (`review`) | Meaning                                                  |
-| -------------------- | ---------------- | -------------------------------------------------------- |
-| `UPLOADING`          | not listed yet   | Row created, file on its way to storage                  |
-| `TO_BE_PARSED`       | `UPLOADED`       | File stored and verified, waiting for the next parse run |
-| `PARSING`            | `PARSING`        | The worker is reading it                                 |
-| `PARSED`             | `PARSED`         | Categories and details ready; can be confirmed           |
-| `FAILED`             | `PARSE_FAILED`   | Rejected file, or parsing failed after every retry       |
-|                      | `CONFIRMED`      | You confirmed it; `record.approved` sent to the domain   |
-|                      | `LOADED`         | The domain service saved it in its own table             |
-|                      | `LOAD_FAILED`    | The domain refused it; it can be confirmed again         |
+| Upload (`ingestion`)                  | Inbox (`review`)    | Meaning                                                  |
+| ------------------------------------- | ------------------- | -------------------------------------------------------- |
+| `UPLOADING`                           | not listed yet      | Row created, file on its way to storage                  |
+| `TO_BE_PARSED`                        | `UPLOADED`          | File stored and verified, waiting for the next parse run |
+| `PARSING`                             | `PARSING`           | The worker is reading it                                 |
+| `TO_BE_PARSED` with `completed_steps` | `PARTIALLY_PARSED`  | Some steps saved; the rest runs on the next attempt      |
+| `PAUSED_QUOTA`                        | `PAUSED_QUOTA`      | Paused: the AI usage quota is exhausted                  |
+| `PAUSED_RATE_LIMIT`                   | `PAUSED_RATE_LIMIT` | Paused: the AI provider rate-limited the worker          |
+| `PARSED`                              | `PARSED`            | Categories and details ready; can be confirmed           |
+| `FAILED`                              | `PARSE_FAILED`      | Rejected file, or parsing failed after every retry       |
+|                                       | `CONFIRMED`         | You confirmed it; `record.approved` sent to the domain   |
+|                                       | `LOADED`            | The domain service saved it in its own table             |
+|                                       | `LOAD_FAILED`       | The domain refused it; it can be confirmed again         |
 
 A document waiting for the worker is `TO_BE_PARSED`, with `parsed_at` null and `categories` empty; the worker fills both. The inbox calls the same state `UPLOADED`. `LOADING`/`LOADED` are avoided at the start of the flow because `LOADED` means "loaded into its domain table" at the end.
 
@@ -94,31 +97,124 @@ Files go to S3-compatible object storage, never into the database: **SeaweedFS**
 
 ## Parsing on a schedule
 
-`svc-parse-worker` wakes up on a cron schedule, claims every upload that is ready, and processes them a few at a time.
+`svc-parse-worker` runs every day at a set time, and processes the documents that are ready **one at a time**. A document that fails for its own reasons (unreadable, a temporary error) does not stop the others.
 
-| Variable                                      | Default                                 | Meaning                                                             |
-| --------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------- |
-| `PARSE_SCHEDULE`                              | `0 3 * * *`                             | Cron expression: every day at 03:00. `0 */6 * * *` is every 6 hours |
-| `PARSE_TIMEZONE`                              | system time zone                        | Time zone of the schedule, e.g. `Europe/Rome`                       |
-| `PARSE_RUN_ON_START`                          | `false`                                 | Also run once when the worker starts                                |
-| `PARSE_BATCH_SIZE`                            | `10`                                    | Uploads claimed per database round                                  |
-| `PARSE_CONCURRENCY`                           | `4`                                     | Documents processed in parallel                                     |
-| `PARSE_MAX_ATTEMPTS`                          | `5`                                     | Attempts before an upload is marked FAILED                          |
-| `PARSE_LEASE_MINUTES`                         | `5`                                     | After this, a claim held by a crashed worker is taken over          |
-| `PARSER`                                      | `claude` with a key, else `fake`        | Which parser to use                                                 |
-| `PARSE_CLASSIFY_MODEL`, `PARSE_EXTRACT_MODEL` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Models for the two steps                                            |
+| Variable                                              | Default                                                      | Meaning                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `PARSE_SCHEDULE`                                      | `06:00`                                                      | Time of day of the daily run (`HH:MM`), or any cron expression (`0 */6 * * *`)          |
+| `PARSE_TIMEZONE`                                      | system time zone                                             | Time zone of the schedule, e.g. `Europe/Rome`                                           |
+| `PARSE_RUN_ON_START`                                  | `false`                                                      | Also run once when the worker starts                                                    |
+| `PARSE_MAX_ATTEMPTS`                                  | `5`                                                          | Attempts before a document is marked FAILED (pauses do not count)                       |
+| `PARSE_LEASE_MINUTES`                                 | `5`                                                          | A claim not renewed for this long (a crashed worker) is taken over                      |
+| `PARSE_QUOTA_RETRY_MINUTES`, `…_MAX_MINUTES`          | `360`, `1440`                                                | After a quota error without a reset time: first wait, doubled on each failed check, cap |
+| `PARSE_RATE_LIMIT_RETRY_SECONDS`                      | `60`                                                         | Wait after a rate limit that came without a retry time                                  |
+| `CATEGORY_AUTO_APPROVE`                               | `false`                                                      | Save suggested categories at once instead of waiting for your approval                  |
+| `PARSE_CHUNK_CHARS`                                   | `200000`                                                     | Size of the parts a too-long text is split into                                         |
+| `PARSER`                                              | `claude` with a key, else `fake`                             | Which analyzer to use                                                                   |
+| `PARSE_CLASSIFY_MODEL`, `…_EXTRACT_…`, `…_DISCOVER_…` | `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5-5` | Model of each step                                                                      |
+| `FAKE_QUOTA_STEPS`, `FAKE_QUOTA_PERIOD_MINUTES`       | `0` (off), `60`                                              | Fake parser only: simulate a usage quota, to try the pause and resume locally           |
 
-A temporary error (rate limit, overload, network) retries the upload at the next run after a growing delay (1, 4, 16, 64 minutes and so on, at most a day). A permanent one (the model declines the document, an unreadable file) fails it at once. Several workers can run side by side; `for update skip locked` keeps them from taking the same upload.
+Besides the daily run, the worker wakes up by itself when work becomes due: a pause that ends, a document whose retry delay has passed, or a document left behind by a worker that crashed. Those times are read from the database, so they survive a restart; a worker that was stopped mid-run resumes the run when it starts again.
 
 ### How a document is read
 
-1. **Normalize:** photos are rotated upright, scaled to at most 1600 px and sent as JPEG; PDFs are sent as documents; spreadsheets become markdown tables; Word files become text.
-2. **Classify** with the small model: which target in the catalog fits, a one-line description, the language and a confidence.
-3. **Extract** with the larger model, constrained to the target's JSON Schema.
-4. **Validate** with the target's Zod schema and its domain rules. If it fails, the model gets one chance to correct itself, with the errors listed.
-5. **Save** the details, categories and confidence on the upload, log every model call in `ingestion.parse_runs` (tokens, latency, output), and emit `document.parsed@1`. Data that is still invalid is kept and flagged `needs_attention`; a confidence below 0.8 adds `low_confidence`.
+Every document goes through three steps. Each step's result is committed, with the step's name in `completed_steps`, before the next one starts. A document picked up again (after a pause, an error or a crash) skips the steps it already has, so no completed AI work is repeated and nothing is duplicated.
 
-The fake parser (`PARSER=fake`) classifies by keywords in the name, title and text and fills sample data that is valid for the target, flagged `fake_parser`. Use it for development and tests.
+1. **Normalize** (no AI): photos are rotated upright, scaled to at most 1600 px and sent as JPEG; PDFs are sent as documents; spreadsheets become markdown tables; Word files become text.
+2. **CLASSIFY** (small model): the document's type, purpose, issuer and characteristics; **every existing category** that applies, with the evidence for each; the target its data goes to for review; a confidence. Only category ids that exist are saved.
+3. **EXTRACT** (larger model): the fields of the templates of the assigned categories, merged (see below), and the target's details, validated by its Zod schema with one correction round. Saved in `extracted_fields` and `details`.
+4. **DISCOVER** (larger model): categories that are missing from the table, **even when existing ones already matched**. Saved as suggestions, never as categories (unless `CATEGORY_AUTO_APPROVE=true`).
+5. **Finish:** the document becomes PARSED and `document.parsed@1` goes to the review inbox. Every model call is logged in `ingestion.parse_runs` (tokens, latency, output).
+
+The models are told to answer only from what the document shows. A field the document does not contain is stored as `missing`, never filled in.
+
+The fake parser (`PARSER=fake`) classifies by keywords, reads only totals, dates and currency with regular expressions, suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests.
+
+### Document categories
+
+Categories are rows of `ingestion.document_categories`: an id (`WATER_BILL`), a title, a description that says when it applies (the AI reads it), and a `template_json` listing the fields worth extracting. A document can have many: a water bill is `HOME`, `BILL`, `WATER_BILL`, `EXPENSE` and `ACQUE_VERONESI`. The migration seeds broad ones (EXPENSE, BILL, WATER_BILL, INVOICE, RECEIPT, GROCERIES, HOME, MEDICAL, TAX_DEDUCTIBLE), so a document always gets the broader categories even before specific ones exist.
+
+A template is a list of fields:
+
+```json
+{
+  "fields": [
+    {
+      "key": "invoice_number",
+      "label": "Invoice number",
+      "type": "string",
+      "required": true,
+      "description": "As printed"
+    },
+    {
+      "key": "supplier_vat_number",
+      "label": "Supplier VAT number",
+      "type": "string",
+      "pattern": "^(IT)?[0-9]{11}$",
+      "description": "Partita IVA"
+    },
+    {
+      "key": "total_amount",
+      "label": "Total amount",
+      "type": "amount",
+      "required": true,
+      "description": "Total to pay"
+    },
+    {
+      "key": "water_consumption",
+      "label": "Water consumption",
+      "type": "number",
+      "unit": "m3",
+      "description": ""
+    }
+  ]
+}
+```
+
+Types are `string`, `text`, `number`, `integer`, `amount`, `currency` (ISO 4217), `date` (`YYYY-MM-DD`), `datetime`, `period` (`YYYY-MM-DD/YYYY-MM-DD`), `boolean` and `enum` (with `options`). The schema is `categoryTemplateSchema` in `libs/contracts`.
+
+**Several categories, one set of fields.** Templates share keys for the same meaning (`total_amount`, `issue_date`, `due_date`, `provider`, `currency`). The worker merges the templates of all assigned categories by key, so a `BILL` that is also a `WATER_BILL` is asked for its total once; the stored field lists both categories. If two templates give one key different types, the first wins and the clash is reported in `warnings`.
+
+**Every field gets a status.** `found` (with a normalized value: ISO dates, numbers, upper-case currency), `missing`, `illegible`, `ambiguous` or `conflicting` (with the competing readings in `candidates`), or `invalid` when the value read does not fit the type. Nothing but `found` carries a value; conflicts and invalid values add the `needs_attention` flag and a warning instead of a guess.
+
+**Discovery.** The DISCOVER step sees the existing categories, the pending suggestions and the ids you rejected. The worker then normalizes each proposed id, drops anything that matches an existing category by id or title (also loosely: `BILLS` is `BILL`) or one you rejected, and when it matches a pending suggestion, adds the document to that suggestion instead of creating another. A pending id is unique in the table, so a resumed step or two similar documents never duplicate a suggestion.
+
+**Managing categories.** The **Categories** page of the documents app has two tables: suggested categories and confirmed ones, each with id, title and description. A suggestion has **Confirm**, which creates the category and adds it to the documents that suggested it (from the next document on, the AI matches it like any other), plus edit (id, title, description, fields) and delete, which rejects it so it is not suggested again. A confirmed category can be edited (not its id, which documents refer to) or deleted, which takes it off every document. **New category** adds one by hand.
+
+When a document gains a category, by your edit or a confirmed suggestion, that category's template fields are added to its extracted fields as `missing`, for you to fill in; fields no remaining category asks for are dropped unless they hold a value. The worker does not re-read the document for them yet.
+
+| Call                                                   | What happens                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `GET /api/ingestion/categories`                        | The categories and their templates                                              |
+| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`                        |
+| `PATCH /api/ingestion/categories/:id`                  | Edit title, description or template                                             |
+| `DELETE /api/ingestion/categories/:id`                 | Delete it and take it off every document                                        |
+| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`             |
+| `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                       |
+| `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category (body: optional `id`, `title`, `description`, `template`) |
+| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                   |
+| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key) |
+| `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                         |
+
+### AI usage quota, rate limits and other errors
+
+The worker sorts every provider error by what can fix it (`parsers/provider-errors.ts`):
+
+| Provider says                                          | Internal status             | What the worker does                                                                                                                                 |
+| ------------------------------------------------------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 402 billing, or a credit balance / usage limit message | `PAUSED_QUOTA`              | Stops sending AI requests, saves everything, pauses the queue until the quota is back (see below)                                                    |
+| 429 rate limit                                         | `PAUSED_RATE_LIMIT`         | Pauses until `retry-after` (or the rate-limit reset headers), then continues; the SDK has already retried twice                                      |
+| 401, 403, 404 (key, permissions, model)                | `BLOCKED_CREDENTIALS`       | Stops the run without spending attempts; tries again at the next scheduled run or restart                                                            |
+| 413, or 400 "prompt is too long" (context window)      | none: the document is split | Splits a text document into parts: classify and discover from the first, extract from all and merge the fields; PDFs and images that do not fit fail |
+| other 400, a refusal, an unreadable file               | document `FAILED`           | Fails this document only                                                                                                                             |
+| 5xx, 529 overloaded, network                           | document back to the queue  | Retries this document later with backoff (1, 4, 16 min...), keeping its finished steps                                                               |
+
+**When the usage quota runs out**, the document in progress keeps its finished steps and becomes `PAUSED_QUOTA` (it does not use up an attempt), the queue row records the provider's error, the reason and when to try again, and the run stops. No AI request leaves any worker while the pause lasts: the daily run and restarts check the queue first. The worker never switches keys, accounts or providers.
+
+- If the provider's message gives a reset time ("You will regain access on 2026-11-01 at 00:00 UTC"), processing resumes then, and the review UI shows that time.
+- Otherwise the worker checks again after `PARSE_QUOTA_RETRY_MINUTES` (6 h), and doubles the wait each time the quota is still exhausted, up to a day. A check is one request: the paused document is processed first and, if it works, the queue is running again. The UI says the resume time is unknown and shows only when the next check is.
+
+To see it locally without an API key: `FAKE_QUOTA_STEPS=7 FAKE_QUOTA_PERIOD_MINUTES=3 PARSE_RUN_ON_START=true npx nx serve svc-parse-worker` pauses after seven AI steps and resumes three minutes later.
 
 ## Categories and target schemas
 
@@ -136,16 +232,21 @@ To add a category: add a Zod schema there with a `targetKey` like `<module>.<ent
 
 ## Reviewing and confirming
 
-The review lists every document with its title, description, status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
+The review lists every document with its title, description, confirmed categories, suggested categories (waiting for you), status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
 
-Parsed records show an eye button in the **Details** column. It opens a confirmation popup with the category, confidence, flags, a link to the original file and the details laid out by the target schema (receipt items as a table). **Confirm** calls the confirm API; **Cancel** closes it.
+Above the list, a line says when the processing service last ran, what it did and when it runs next, and a banner shows the parse queue when it matters: running, waiting for the next run, paused because the AI usage quota is exhausted (with the provider's reset time when it gave one, or "unknown" otherwise), paused by a rate limit, or stopped because the API key was refused.
 
-| Call                                   | What happens                                                                                              |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET /api/review/records`              | `q`, `status`, `category`, `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
-| `GET /api/review/records/:id`          | One record with its details and errors                                                                    |
-| `POST /api/review/records/:id/confirm` | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED              |
-| `GET /api/review/catalog`              | The target catalog                                                                                        |
+**Editing a document.** The pencil button opens the editor: title, description, which confirmed categories it has (checkboxes), its suggested categories with a **Confirm** button each, every extracted field value (checked against the field's type; empty means not in the document) and, until you confirm the record, the details sent to its module as JSON (checked against the target schema). Title, description, categories and fields belong to the ingestion service, which saves them and sends `upload.updated@1`; the review inbox keeps its copy from that event. Your detail edits go to `reviewed_payload` in `svc-review`, and Confirm sends them instead of the AI's version, which stays in `ai_payload`.
+
+Every record has an eye button in the **Actions** column. The popup shows the **AI processing** of the document: which steps are done and which remain, why it is paused or partial, the type and purpose, the assigned categories, the extracted fields with their status, and the suggested categories. Then come the target details, laid out by the target schema (receipt items as a table). Only fully parsed records can be confirmed: **Confirm** calls the confirm API; **Cancel** closes it.
+
+| Call                                   | What happens                                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/review/records`              | `q`, `status`, `category`, `documentCategory`, `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
+| `GET /api/review/records/:id`          | One record with its details and errors                                                                                        |
+| `PATCH /api/review/records/:id`        | Save your `details`; 409 once confirmed, 422 if they do not fit the target schema                                             |
+| `POST /api/review/records/:id/confirm` | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED                                  |
+| `GET /api/review/catalog`              | The target catalog                                                                                                            |
 
 **Why confirm is a separate API from upload.** Uploading and confirming are different decisions, made at different times (days apart, with the daily schedule), about data owned by different services. Confirm lives in `svc-review`, which owns the review state, and it does not write into any domain table itself: in one transaction it marks the record CONFIRMED and queues `record.approved@1` with the category, target key and details. The service that owns that category's table (groceries, 730) consumes the event, saves the data in its own schema, and answers `record.loaded` or `record.load_failed`, which move the record to LOADED or LOAD_FAILED. Adding a module never changes the confirm API.
 
@@ -158,7 +259,7 @@ Parsed records show an eye button in the **Details** column. It opens a confirma
 | Worker woken by `LISTEN uploads_ready` plus a 30 s poll   | Worker runs on a configurable cron schedule (daily by default), as requested                        |
 | `document.extracted`, one per target                      | `document.parsed@1`, one target per document; several targets per document later                    |
 | Staging statuses `PENDING_REVIEW`, `APPROVED`, `REJECTED` | `UPLOADED`…`PARSED`, `CONFIRMED`, `LOADED`, `LOAD_FAILED`: the inbox lists documents from upload on |
-| `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail and confirm; edit, bulk and reject later                               |
+| `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail, edit and confirm; bulk and reject later                               |
 | Domains publish their targets at startup                  | Catalog is static in `libs/contracts` and served by `GET /catalog`                                  |
 | Ajv for validation                                        | The targets' Zod schemas, which also hold the domain rules                                          |
 | Upload row without title, description or results          | Title, description, file format, categories, target key, details, confidence and dates on the row   |

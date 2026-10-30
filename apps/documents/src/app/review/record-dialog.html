@@ -52,6 +52,9 @@
   <ui-alert tone="danger" class="spaced">{{ error() }}</ui-alert>
   }
 
+  <app-processing-panel [uploadId]="rec.uploadId" />
+
+  <h3 class="section-title">Details to confirm</h3>
   <app-details-view [details]="rec.details" [schema]="schema()" />
   @if (canConfirm()) {
   <p class="muted small spaced">

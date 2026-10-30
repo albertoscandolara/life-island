@@ -32,3 +32,8 @@ a {
   align-items: center;
   gap: var(--space-1);
 }
+
+.section-title {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-md);
+}

@@ -6,6 +6,7 @@ import type {
   RecordDetailDto,
   RecordDto,
   TargetCatalogEntryDto,
+  UpdateRecordRequest,
 } from '@life-island/contracts';
 import type { Observable } from 'rxjs';
 
@@ -27,6 +28,17 @@ export class ReviewApi {
 
   get(id: string): Observable<RecordDetailDto> {
     return this.http.get<RecordDetailDto>(`${REVIEW_API}/records/${id}`);
+  }
+
+  /** Saves your corrections to the details; Confirm then sends them. */
+  update(
+    id: string,
+    changes: UpdateRecordRequest,
+  ): Observable<RecordDetailDto> {
+    return this.http.patch<RecordDetailDto>(
+      `${REVIEW_API}/records/${id}`,
+      changes,
+    );
   }
 
   confirm(id: string): Observable<RecordDetailDto> {

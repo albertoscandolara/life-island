@@ -100,6 +100,74 @@ describe.skipIf(!configured)(
       return page.body.items[0];
     }
 
+    const send = async <T>(method: string, path: string, body: unknown) => {
+      const response = await fetch(`${base}${path}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return { status: response.status, body: (await response.json()) as T };
+    };
+
+    it('mirrors the document categories and keeps your edited details for confirmation', async () => {
+      const u = upload('acqua');
+      await apply('upload.completed@1', u);
+      await apply('document.parsed@1', parsed(u));
+      const { sizeBytes: _size, ...metadata } = u;
+      const newer = new Date();
+      await apply('upload.updated@1', {
+        ...metadata,
+        description: 'Acqua Q3',
+        categories: ['BILL', 'WATER_BILL'],
+        suggestedCategories: ['ACQUE_SPA'],
+        updatedAt: newer.toISOString(),
+      });
+      // An older snapshot arriving late changes nothing.
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: [],
+        suggestedCategories: [],
+        updatedAt: new Date(newer.getTime() - 60_000).toISOString(),
+      });
+
+      const page = await get<Page<RecordDto>>(
+        `/records?documentCategory=WATER_BILL&q=${encodeURIComponent(u.title)}`,
+      );
+      expect(page.body.items).toHaveLength(1);
+      const record = page.body.items[0];
+      expect(record).toMatchObject({
+        description: 'Acqua Q3',
+        categories: ['BILL', 'WATER_BILL'],
+        suggestedCategories: ['ACQUE_SPA'],
+        status: 'PARSED',
+      });
+
+      const invalid = await send('PATCH', `/records/${record.id}`, {
+        details: { summary: 42 },
+      });
+      expect(invalid.status).toBe(422);
+      const edited = { ...details, summary: 'Water bill, edited' };
+      const saved = await send<RecordDetailDto>(
+        'PATCH',
+        `/records/${record.id}`,
+        { details: edited },
+      );
+      expect(saved.status).toBe(200);
+      expect(saved.body).toMatchObject({ edited: true, details: edited });
+
+      await send('POST', `/records/${record.id}/confirm`, {});
+      const { rows } = await svc.pool.query<{ payload: { payload: unknown } }>(
+        `select payload from review.outbox
+          where event_type = 'record.approved@1' and payload->>'recordId' = $1`,
+        [record.id],
+      );
+      expect(rows[0].payload.payload).toEqual(edited);
+      expect(
+        (await send('PATCH', `/records/${record.id}`, { details: edited }))
+          .status,
+      ).toBe(409);
+    });
+
     it('follows a document from upload to confirmation, emitting record.approved', async () => {
       const u = upload('letter');
       await apply('upload.completed@1', u);
@@ -181,6 +249,53 @@ describe.skipIf(!configured)(
 
       expect((await get(`/records?status=NOPE`)).status).toBe(400);
       expect((await get(`/records/${randomUUID()}`)).status).toBe(404);
+    });
+
+    it('shows a quota pause and partial progress, and cannot be confirmed until parsed', async () => {
+      const u = upload('bill');
+      await apply('upload.completed@1', u);
+      const started = {
+        uploadId: u.uploadId,
+        attempt: 1,
+        startedAt: new Date().toISOString(),
+      };
+      const interrupted = (reason: string, completedSteps: string[]) => ({
+        uploadId: u.uploadId,
+        reason,
+        completedSteps,
+        error: 'stopped',
+        resumeAt: null,
+        interruptedAt: new Date().toISOString(),
+      });
+      await apply('upload.parsing_started@1', started);
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('QUOTA_EXHAUSTED', ['CLASSIFY', 'EXTRACT']),
+      );
+      let record = await findByTitle(u.title);
+      expect(record.status).toBe('PAUSED_QUOTA');
+      const early = await fetch(`${base}/records/${record.id}/confirm`, {
+        method: 'POST',
+      });
+      expect(early.status).toBe(409);
+
+      await apply('upload.parsing_started@1', { ...started, attempt: 2 });
+      expect((await findByTitle(u.title)).status).toBe('PARSING');
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('TRANSIENT_ERROR', ['CLASSIFY']),
+      );
+      expect((await findByTitle(u.title)).status).toBe('PARTIALLY_PARSED');
+      await apply(
+        'document.parse_interrupted@1',
+        interrupted('RATE_LIMITED', ['CLASSIFY']),
+      );
+      expect((await findByTitle(u.title)).status).toBe('PAUSED_RATE_LIMIT');
+
+      await apply('upload.parsing_started@1', { ...started, attempt: 3 });
+      await apply('document.parsed@1', parsed(u));
+      record = await findByTitle(u.title);
+      expect(record.status).toBe('PARSED');
     });
   },
 );

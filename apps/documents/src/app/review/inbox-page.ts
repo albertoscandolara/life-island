@@ -9,7 +9,7 @@ import {
   untracked,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   FileFormat,
   ListRecordsQuery,
@@ -17,12 +17,12 @@ import type {
   RecordStatus,
 } from '@life-island/contracts';
 import {
-  CATEGORY_LABELS,
   FILE_FORMATS,
   RECORD_STATUSES,
 } from '@life-island/contracts/constants';
 import {
   UiAlert,
+  UiBadge,
   UiButton,
   UiCellDef,
   UiDropdown,
@@ -37,8 +37,11 @@ import {
   type UiTableSort,
 } from '@life-island/design-system';
 import { ReviewApi } from '../api/review-api';
+import { CategoryStore } from '../categories/category-store';
+import { DocumentEditor, type DocumentChanges } from './document-editor';
 import { RecordDialog } from './record-dialog';
-import { HAS_DETAILS, RECORD_STATUS_VIEW } from './record-status';
+import { QueueBanner } from './queue-banner';
+import { RECORD_STATUS_VIEW } from './record-status';
 
 const PAGE_SIZE = 20;
 type SortKey = NonNullable<ListRecordsQuery['sort']>;
@@ -51,8 +54,12 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    DocumentEditor,
+    QueueBanner,
     RecordDialog,
+    RouterLink,
     UiAlert,
+    UiBadge,
     UiButton,
     UiCellDef,
     UiDropdown,
@@ -68,6 +75,11 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
 })
 export class InboxPage {
   private readonly api = inject(ReviewApi);
+  protected readonly store = inject(CategoryStore);
+  /** Category suggestions waiting for a decision; a hint, so errors just hide it. */
+  protected readonly pendingSuggestions = computed(() =>
+    this.store.suggested.hasValue() ? this.store.suggested.value().length : 0,
+  );
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly params = this.route.snapshot.queryParamMap;
@@ -96,6 +108,7 @@ export class InboxPage {
 
   protected readonly selectedId = signal<string | null>(null);
   protected readonly dialogOpen = signal(false);
+  protected readonly editorOpen = signal(false);
   protected readonly statusView = RECORD_STATUS_VIEW;
   protected readonly pageSize = PAGE_SIZE;
 
@@ -105,9 +118,12 @@ export class InboxPage {
       label: RECORD_STATUS_VIEW[value].label,
       tone: RECORD_STATUS_VIEW[value].tone,
     }));
-  protected readonly categoryOptions: UiOption<string>[] = Object.entries(
-    CATEGORY_LABELS,
-  ).map(([value, label]) => ({ value, label }));
+  protected readonly categoryOptions = computed<UiOption<string>[]>(() =>
+    (this.store.confirmed.value() ?? []).map((category) => ({
+      value: category.id,
+      label: category.title,
+    })),
+  );
   protected readonly formatOptions: UiOption<FileFormat>[] = FILE_FORMATS.map(
     (value) => ({ value, label: value }),
   );
@@ -115,16 +131,18 @@ export class InboxPage {
   protected readonly columns: UiTableColumn[] = [
     { key: 'title', header: 'Title', sortable: true },
     { key: 'description', header: 'Description' },
-    { key: 'status', header: 'Status', width: '12rem' },
-    { key: 'uploadedAt', header: 'Uploaded', sortable: true, width: '10rem' },
-    { key: 'parsedAt', header: 'Parsed', sortable: true, width: '10rem' },
-    { key: 'details', header: 'Details', align: 'center', width: '6rem' },
+    { key: 'categories', header: 'Categories' },
+    { key: 'suggested', header: 'Suggested categories' },
+    { key: 'status', header: 'Status', width: '11rem' },
+    { key: 'uploadedAt', header: 'Uploaded', sortable: true, width: '9rem' },
+    { key: 'parsedAt', header: 'Parsed', sortable: true, width: '9rem' },
+    { key: 'details', header: 'Actions', align: 'center', width: '6.5rem' },
   ];
 
   protected readonly query = computed<ListRecordsQuery>(() => ({
     q: this.search() || undefined,
     status: this.status() ?? undefined,
-    category: this.category() ?? undefined,
+    documentCategory: this.category() ?? undefined,
     fileFormat: this.fileFormat() ?? undefined,
     uploadedFrom: this.uploadedFrom() || undefined,
     uploadedTo: this.uploadedTo() || undefined,
@@ -181,7 +199,7 @@ export class InboxPage {
         queryParams: {
           q: query.q,
           status: query.status,
-          category: query.category,
+          category: query.documentCategory,
           fileFormat: query.fileFormat,
           uploadedFrom: query.uploadedFrom,
           uploadedTo: query.uploadedTo,
@@ -194,13 +212,43 @@ export class InboxPage {
     });
   }
 
-  protected hasDetails(row: RecordDto): boolean {
-    return HAS_DETAILS.includes(row.status);
-  }
-
   protected openDetails(row: RecordDto): void {
     this.selectedId.set(row.id);
     this.dialogOpen.set(true);
+  }
+
+  protected openEditor(row: RecordDto): void {
+    this.selectedId.set(row.id);
+    this.editorOpen.set(true);
+  }
+
+  /**
+   * Shows your edits at once: the review service learns about them through an
+   * event a moment later, so the list is reloaded shortly after.
+   */
+  protected applyChanges(changes: DocumentChanges): void {
+    this.records.update((page) =>
+      page
+        ? {
+            ...page,
+            items: page.items.map((row) =>
+              row.uploadId === changes.uploadId
+                ? {
+                    ...row,
+                    title: changes.title,
+                    description: changes.description,
+                    categories: changes.categories,
+                    suggestedCategories: row.suggestedCategories.filter(
+                      (id) => !changes.categories.includes(id),
+                    ),
+                  }
+                : row,
+            ),
+          }
+        : page,
+    );
+    this.store.reload();
+    setTimeout(() => this.records.reload(), 1500);
   }
 
   protected clearFilters(): void {

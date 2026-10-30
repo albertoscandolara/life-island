@@ -11,10 +11,9 @@ import {
   viewChild,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import type { UploadDto, UploadStatus } from '@life-island/contracts';
+import type { UploadDto } from '@life-island/contracts';
 import {
   ACCEPTED_FILE_TYPES,
-  CATEGORY_LABELS,
   DESCRIPTION_MAX_LENGTH,
   MAX_UPLOAD_BYTES,
   TITLE_MAX_LENGTH,
@@ -34,21 +33,13 @@ import {
   UiStatusDot,
   UiTable,
   type UiTableColumn,
-  type UiTone,
 } from '@life-island/design-system';
 import { concatMap, firstValueFrom, last, tap } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { PROCESSING_VIEW } from '../review/record-status';
 import { CameraDialog } from './camera-dialog';
 import { PreviewDialog } from './preview-dialog';
 import { UploadItem } from './upload-item';
-
-const STATUS_VIEW: Record<UploadStatus, { label: string; tone: UiTone }> = {
-  UPLOADING: { label: 'Uploading', tone: 'info' },
-  TO_BE_PARSED: { label: 'To be parsed', tone: 'neutral' },
-  PARSING: { label: 'Parsing', tone: 'progress' },
-  PARSED: { label: 'Parsed', tone: 'success' },
-  FAILED: { label: 'Failed', tone: 'danger' },
-};
 
 const PAGE_SIZE = 10;
 
@@ -99,7 +90,11 @@ export class UploadPage {
   protected readonly accept = ACCEPTED_FILE_TYPES;
   protected readonly titleMax = TITLE_MAX_LENGTH;
   protected readonly descriptionMax = DESCRIPTION_MAX_LENGTH;
-  protected readonly statusView = STATUS_VIEW;
+  protected readonly statusView = PROCESSING_VIEW;
+  /** Category titles by id, for the badges; until they load, the ids show. */
+  private readonly categories = rxResource({
+    stream: () => this.api.categories(),
+  });
 
   protected readonly items = signal<UploadItem[]>([]);
   protected readonly uploading = signal(false);
@@ -129,7 +124,7 @@ export class UploadPage {
   protected readonly documentColumns: UiTableColumn[] = [
     { key: 'title', header: 'Title' },
     { key: 'fileFormat', header: 'Format', width: '5rem' },
-    { key: 'status', header: 'Status', width: '10rem' },
+    { key: 'status', header: 'Status', width: '12rem' },
     { key: 'categories', header: 'Categories', width: '10rem' },
     { key: 'uploadedAt', header: 'Uploaded', width: '10rem' },
     { key: 'parsedAt', header: 'Parsed', width: '10rem' },
@@ -270,8 +265,11 @@ export class UploadPage {
     return this.api.downloadUrl(upload.id);
   }
 
-  protected categoryLabel(category: string): string {
-    return CATEGORY_LABELS[category] ?? category;
+  protected categoryLabel(id: string): string {
+    return (
+      this.categories.value()?.find((category) => category.id === id)?.title ??
+      id
+    );
   }
 
   protected formatSize(bytes: number): number {

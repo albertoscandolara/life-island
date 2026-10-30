@@ -15,6 +15,8 @@ export function toRecordDto(row: StagingRecordRow): RecordDto {
     status: row.status,
     category: row.category,
     targetKey: row.targetKey,
+    categories: row.categories,
+    suggestedCategories: row.suggestedCategories,
     confidence: row.confidence,
     flags: row.flags,
     uploadedAt: row.uploadedAt.toISOString(),
@@ -28,6 +30,7 @@ export function toRecordDetailDto(row: StagingRecordRow): RecordDetailDto {
   return {
     ...toRecordDto(row),
     details: row.reviewedPayload ?? row.aiPayload ?? null,
+    edited: row.reviewedPayload !== null,
     parseError: row.parseError,
     loadError: row.loadError,
   };

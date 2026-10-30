@@ -5,6 +5,8 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
+import { CategoriesController } from './categories/categories.controller.js';
+import { CategoriesService } from './categories/categories.service.js';
 import { CONFIG, SERVICE_DB, STORAGE, type IngestionConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { UploadsController } from './uploads/uploads.controller.js';
@@ -23,12 +25,13 @@ export class AppModule {
     const storage = new ObjectStorage(config.storage);
     return {
       module: AppModule,
-      controllers: [HealthController, UploadsController],
+      controllers: [HealthController, UploadsController, CategoriesController],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         { provide: STORAGE, useValue: storage },
         UploadsService,
+        CategoriesService,
         ...(options.events === false
           ? []
           : [

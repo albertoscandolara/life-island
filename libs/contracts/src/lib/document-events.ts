@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseStepSchema } from './categories.js';
 import { fileFormatSchema } from './documents.js';
 
 /**
@@ -17,6 +18,24 @@ export const uploadCompletedV1 = z.object({
   uploadedAt: z.iso.datetime({ offset: true }),
 });
 export type UploadCompletedV1 = z.infer<typeof uploadCompletedV1>;
+
+/**
+ * A document's editable metadata changed: title, description, its categories
+ * or the categories suggested for it (by the parser, an approval, a deletion
+ * or your edits). It is a full snapshot, so consumers keep the newest one by
+ * `updatedAt` and need nothing else.
+ */
+export const UPLOAD_UPDATED_EVENT = 'upload.updated@1';
+export const uploadUpdatedV1 = uploadCompletedV1
+  .omit({ sizeBytes: true })
+  .extend({
+    /** Confirmed document category ids, in the order they were assigned. */
+    categories: z.array(z.string()),
+    /** Ids of categories the AI suggested for this document, still awaiting your decision. */
+    suggestedCategories: z.array(z.string()),
+    updatedAt: z.iso.datetime({ offset: true }),
+  });
+export type UploadUpdatedV1 = z.infer<typeof uploadUpdatedV1>;
 
 export const UPLOAD_PARSING_STARTED_EVENT = 'upload.parsing_started@1';
 export const uploadParsingStartedV1 = z.object({
@@ -45,6 +64,30 @@ export const documentParseFailedV1 = z.object({
   failedAt: z.iso.datetime({ offset: true }),
 });
 export type DocumentParseFailedV1 = z.infer<typeof documentParseFailedV1>;
+
+/**
+ * Parsing stopped before every step finished, and the document will be picked
+ * up again: the AI quota ran out, the provider rate-limited the worker, or a
+ * temporary error will be retried. Completed steps stay saved.
+ */
+export const DOCUMENT_PARSE_INTERRUPTED_EVENT = 'document.parse_interrupted@1';
+export const documentParseInterruptedV1 = z.object({
+  uploadId: z.uuid(),
+  reason: z.enum([
+    'QUOTA_EXHAUSTED',
+    'RATE_LIMITED',
+    'CREDENTIALS',
+    'TRANSIENT_ERROR',
+  ]),
+  completedSteps: z.array(parseStepSchema),
+  error: z.string(),
+  /** When parsing can resume; null when unknown. */
+  resumeAt: z.iso.datetime({ offset: true }).nullable(),
+  interruptedAt: z.iso.datetime({ offset: true }),
+});
+export type DocumentParseInterruptedV1 = z.infer<
+  typeof documentParseInterruptedV1
+>;
 
 /** Emitted by the review service when you confirm a record; domain services load it. */
 export const RECORD_APPROVED_EVENT = 'record.approved@1';

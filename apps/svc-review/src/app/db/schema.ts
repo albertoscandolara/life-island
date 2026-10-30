@@ -26,8 +26,8 @@ export const recordStatus = review.enum(
 /**
  * The review inbox: one record per uploaded document, built from the
  * ingestion events (it never reads the ingestion schema). `ai_payload` is what
- * the parser produced and is never modified; `reviewed_payload` will hold your
- * edits once editing exists, so every correction becomes eval data.
+ * the parser produced and is never modified; `reviewed_payload` holds your
+ * edits, so every correction becomes eval data.
  */
 export const stagingRecords = review.table(
   'staging_records',
@@ -41,6 +41,15 @@ export const stagingRecords = review.table(
     status: recordStatus('status').notNull().default('UPLOADED'),
     category: text('category'),
     targetKey: text('target_key'),
+    /** Confirmed document category ids, mirrored from ingestion's `upload.updated`. */
+    categories: text('categories').array().notNull().default([]),
+    /** Category ids the AI suggested for the document, awaiting a decision. */
+    suggestedCategories: text('suggested_categories')
+      .array()
+      .notNull()
+      .default([]),
+    /** `updatedAt` of the last `upload.updated` applied; older snapshots are ignored. */
+    metadataUpdatedAt: timestamp('metadata_updated_at', { withTimezone: true }),
     aiPayload: jsonb('ai_payload'),
     reviewedPayload: jsonb('reviewed_payload'),
     confidence: numeric('confidence', {

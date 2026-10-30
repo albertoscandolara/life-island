@@ -26,6 +26,7 @@ import {
 import { firstValueFrom, of } from 'rxjs';
 import { ReviewApi } from '../api/review-api';
 import { DetailsView, humanize, type SchemaShape } from './details-view';
+import { ProcessingPanel } from './processing-panel';
 import { RECORD_STATUS_VIEW } from './record-status';
 
 /**
@@ -40,6 +41,7 @@ import { RECORD_STATUS_VIEW } from './record-status';
     DatePipe,
     DetailsView,
     PercentPipe,
+    ProcessingPanel,
     UiAlert,
     UiBadge,
     UiConfirmDialog,

@@ -55,13 +55,16 @@ The loader in the documents app lists the records with a **Preview** button (ima
 ```
 UPLOADING ──complete──► TO_BE_PARSED ──daily run──► PARSING ──► PARSED
                               ▲                        │
-                              └── error, with backoff ─┤
-                                                       └── unreadable, or 5th failure ──► FAILED
+                              ├── error, with backoff ─┤   (finished steps stay saved)
+                              │                        ├── unreadable, or 5th failure ──► FAILED
+             PAUSED_QUOTA ◄───┼── AI quota exhausted ──┤
+        PAUSED_RATE_LIMIT ◄───┴── rate-limited ────────┘
+   (both go back to PARSING by themselves when the pause ends)
 ```
 
 `UPLOADING` also ends in `FAILED` when the file never arrives or is not a supported format.
 
-A document that is not parsed yet has `parsed_at = null` and `categories = '{}'`. The parse worker runs every day (`PARSE_SCHEDULE`, default 03:00 Europe/Rome), claims every `TO_BE_PARSED` row with `for update skip locked`, and on success fills `categories`, `target_key`, `details`, `confidence`, `flags` and `parsed_at` and sets `PARSED`.
+A document that is not parsed yet has `parsed_at = null` and `categories = '{}'`. The parse worker runs every day (`PARSE_SCHEDULE`, default 06:00 Europe/Rome), claims ready rows one at a time with `for update skip locked`, and runs three steps on each (CLASSIFY, EXTRACT, DISCOVER). Each step commits its result and its name in `completed_steps` before the next starts, so an interrupted document resumes where it stopped. When all three are done it sets `parsed_at` and `PARSED`. The [documents loader guide](guides/documents-loader.md#parsing-on-a-schedule) explains the steps, the categories and the quota pause.
 
 ## The table
 
@@ -95,10 +98,17 @@ create table ingestion.uploads (
   locked_until      timestamptz,                   -- worker lease, recovers crashed runs
   last_error        text,
 
-  -- filled by the parse worker
-  categories        text[] not null default '{}',  -- e.g. {groceries,tax730}; empty until parsed
+  lock_token        uuid,                          -- set on each claim; every worker write checks it
+  last_attempt_at   timestamptz,
+
+  -- filled by the parse worker, step by step
+  completed_steps   text[] not null default '{}',  -- CLASSIFY, EXTRACT, DISCOVER as each is saved
+  current_step      text,                          -- the step running, or the one interrupted
+  categories        text[] not null default '{}',  -- ids in document_categories, e.g. {BILL,WATER_BILL,EXPENSE}
+  analysis          jsonb,                         -- type, purpose, characteristics, evidence per category
+  extracted_fields  jsonb,                         -- fields of the categories' templates, with a status each
   target_key        text,                          -- e.g. 'grocery.receipt@1'
-  details           jsonb,                         -- the extracted data
+  details           jsonb,                         -- the data for that target, confirmed in the review inbox
   confidence        numeric(3, 2),
   flags             text[] not null default '{}',  -- low_confidence, needs_attention, …
 
@@ -115,7 +125,37 @@ create index uploads_categories_idx on ingestion.uploads using gin (categories);
 create unique index uploads_sha256_idx on ingestion.uploads (sha256);
 ```
 
-Next to it, `ingestion.parse_runs` keeps one row per AI call (model, tokens, latency, raw output) for cost tracking and evals.
+Next to it, `ingestion.parse_runs` keeps one row per AI call (model, tokens, latency, raw output) for cost tracking and evals, and three tables added with the category service:
+
+```sql
+create table ingestion.document_categories (
+  id            text primary key check (id ~ '^[A-Z][A-Z0-9_]{1,63}$'),  -- WATER_BILL
+  title         varchar(100) not null,               -- unique, case-insensitive
+  description   text not null,                       -- when to use it; read by the AI
+  template_json jsonb not null default '{"fields":[]}',
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create type ingestion.suggestion_status as enum ('PENDING', 'APPROVED', 'REJECTED');
+create table ingestion.category_suggestions (       -- proposed by the AI, approved by you
+  id                   uuid primary key default gen_random_uuid(),
+  category_id          text not null,                -- the proposed id
+  title, description, template_json, reason,
+  status               ingestion.suggestion_status not null default 'PENDING',
+  upload_ids           uuid[] not null default '{}', -- documents that proposed it
+  approved_category_id text,
+  reviewed_at, created_at, updated_at
+);
+create unique index on ingestion.category_suggestions (category_id) where status = 'PENDING';
+
+create table ingestion.parse_queue (                 -- one row: 'documents'
+  id text primary key,
+  status ingestion.parse_queue_status not null default 'IDLE',  -- RUNNING, PAUSED_QUOTA, PAUSED_RATE_LIMIT, BLOCKED_CREDENTIALS
+  pause_reason, provider_error jsonb, paused_at, resume_at, resume_at_reliable boolean, resume_attempts int,
+  run_started_at, run_finished_at, next_scheduled_run_at, last_run_summary jsonb, updated_at
+);
+```
 
 ### Why these columns
 
@@ -123,5 +163,6 @@ Next to it, `ingestion.parse_runs` keeps one row per AI call (model, tokens, lat
 - **`detected_mime` vs `declared_mime`**: the browser's claim is kept for debugging, but only the detected type decides how a file is parsed and served.
 - **`sha256`**: the same receipt uploaded twice is stored once.
 - **`attempts`, `next_attempt_at`, `locked_until`, `last_error`**: let the daily worker retry with backoff, recover a job from a crashed worker, and show why a document failed.
-- **`categories` as an array**: one document can feed several modules (a pharmacy receipt is both groceries and a 730 deduction). The GIN index makes `?category=tax730` fast.
+- **`categories` as an array**: one document has several categories (a water bill is `HOME`, `BILL`, `WATER_BILL`, `EXPENSE`). The GIN index makes `?category=WATER_BILL` fast. Arrays cannot have foreign keys, so the worker only ever writes ids that exist in `document_categories`. The module a document's data goes to is decided by `target_key`, not by its categories.
+- **`completed_steps` and `lock_token`**: the durable progress of a document. A restart, a pause or another worker never repeats a saved step, and a worker whose lease expired cannot overwrite the one that took over.
 - **`uploaded_at` vs `created_at`**: `created_at` is when the row was registered, `uploaded_at` when the file was verified in storage.

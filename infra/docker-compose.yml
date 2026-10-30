@@ -103,9 +103,12 @@ services:
       args: { SERVICE: svc-parse-worker }
     environment:
       <<: *service-env
-      PARSE_SCHEDULE: ${PARSE_SCHEDULE:-0 3 * * *}
+      PARSE_SCHEDULE: ${PARSE_SCHEDULE:-06:00}
       PARSE_TIMEZONE: ${PARSE_TIMEZONE:-Europe/Rome}
       PARSE_RUN_ON_START: ${PARSE_RUN_ON_START:-false}
+      PARSE_QUOTA_RETRY_MINUTES: ${PARSE_QUOTA_RETRY_MINUTES:-360}
+      PARSE_QUOTA_RETRY_MAX_MINUTES: ${PARSE_QUOTA_RETRY_MAX_MINUTES:-1440}
+      CATEGORY_AUTO_APPROVE: ${CATEGORY_AUTO_APPROVE:-false}
       PARSER: ${PARSER:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:

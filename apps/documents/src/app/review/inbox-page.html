@@ -3,17 +3,23 @@
   subtitle="Ptera keeps everything you uploaded. Open a parsed record to check what was read, then confirm it."
   emblem="🦅"
 >
+  <a uiPageActions uiButton variant="secondary" routerLink="/categories">
+    <ui-icon name="folder" [size]="18" /> Categories @if (pendingSuggestions())
+    { ({{ pendingSuggestions() }} to approve) }
+  </a>
   <button
     uiPageActions
     uiButton
     variant="secondary"
     type="button"
     [loading]="records.isLoading()"
-    (click)="records.reload()"
+    (click)="records.reload(); banner.reload(); store.reload()"
   >
     <ui-icon name="refresh" [size]="18" /> Refresh
   </button>
 </ui-page-header>
+
+<app-queue-banner #banner class="banner" />
 
 <form class="filters" role="search" (submit)="$event.preventDefault()">
   <ui-form-field label="Search" class="filters__search">
@@ -37,7 +43,7 @@
   </ui-form-field>
   <ui-form-field label="Category">
     <ui-dropdown
-      [options]="categoryOptions"
+      [options]="categoryOptions()"
       [(value)]="category"
       [clearable]="true"
       clearLabel="Any category"
@@ -109,6 +115,26 @@
   <ng-template uiCell="description" [uiCellOf]="rows()" let-row>
     <span class="description">{{ row.description ?? '–' }}</span>
   </ng-template>
+  <ng-template uiCell="categories" [uiCellOf]="rows()" let-row>
+    <span class="badges">
+      @for (id of row.categories; track id) {
+      <ui-badge tone="info" [attr.title]="id">{{ store.titleOf(id) }}</ui-badge>
+      } @empty {
+      <span class="muted">–</span>
+      }
+    </span>
+  </ng-template>
+  <ng-template uiCell="suggested" [uiCellOf]="rows()" let-row>
+    <span class="badges">
+      @for (id of row.suggestedCategories; track id) {
+      <ui-badge tone="warning" [attr.title]="id + ' (to confirm)'"
+        >{{ store.titleOf(id) }}</ui-badge
+      >
+      } @empty {
+      <span class="muted">–</span>
+      }
+    </span>
+  </ng-template>
   <ng-template uiCell="status" [uiCellOf]="rows()" let-row>
     <ui-status-dot
       [tone]="statusView[row.status].tone"
@@ -123,7 +149,17 @@
     {{ row.parsedAt ? (row.parsedAt | date: 'dd MMM yyyy, HH:mm') : '–' }}
   </ng-template>
   <ng-template uiCell="details" [uiCellOf]="rows()" let-row>
-    @if (hasDetails(row)) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      [iconOnly]="true"
+      type="button"
+      [attr.aria-label]="'Edit ' + row.title"
+      (click)="openEditor(row)"
+    >
+      <ui-icon name="edit" [size]="18" />
+    </button>
     <button
       uiButton
       variant="ghost"
@@ -135,7 +171,6 @@
     >
       <ui-icon name="eye" [size]="18" />
     </button>
-    }
   </ng-template>
 </ui-table>
 
@@ -143,4 +178,10 @@
   [recordId]="selectedId()"
   [(open)]="dialogOpen"
   (confirmedRecord)="records.reload()"
+/>
+
+<app-document-editor
+  [recordId]="selectedId()"
+  [(open)]="editorOpen"
+  (saved)="applyChanges($event)"
 />

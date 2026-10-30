@@ -1,0 +1,236 @@
+<ui-page-header
+  heading="Categories"
+  subtitle="Labels the AI gives your documents, each with the fields worth extracting. Suggested ones wait for you to confirm them."
+  emblem="🏷️"
+>
+  <button
+    uiPageActions
+    uiButton
+    variant="secondary"
+    type="button"
+    [loading]="store.confirmed.isLoading() || store.suggested.isLoading()"
+    (click)="store.reload()"
+  >
+    <ui-icon name="refresh" [size]="18" /> Refresh
+  </button>
+  <button uiPageActions uiButton type="button" (click)="startNew()">
+    <ui-icon name="plus" [size]="18" /> New category
+  </button>
+</ui-page-header>
+
+@if (notice()) {
+<ui-alert tone="success" class="notice">{{ notice() }}</ui-alert>
+} @if (error()) {
+<ui-alert tone="danger" class="notice">{{ error() }}</ui-alert>
+}
+
+<ui-card
+  [heading]="'Suggested categories' + (suggested().length ? ' (' + suggested().length + ')' : '')"
+  class="section"
+>
+  @if (store.suggested.error()) {
+  <ui-alert tone="danger"
+    >The suggestions could not be loaded. Is the ingestion service
+    running?</ui-alert
+  >
+  } @else {
+  <ui-table
+    [columns]="suggestedColumns"
+    [rows]="suggested()"
+    [loading]="store.suggested.isLoading()"
+    caption="Categories the AI suggested"
+    emptyMessage="No suggestions waiting. New categories the AI proposes while reading documents appear here."
+  >
+    <ng-template uiCell="id" [uiCellOf]="suggested()" let-row>
+      <code>{{ row.categoryId }}</code>
+    </ng-template>
+    <ng-template uiCell="title" [uiCellOf]="suggested()" let-row>
+      <strong>{{ row.title }}</strong>
+    </ng-template>
+    <ng-template uiCell="description" [uiCellOf]="suggested()" let-row>
+      {{ row.description }} @if (row.reason) {
+      <div class="muted small">Why: {{ row.reason }}</div>
+      }
+      <div class="muted small">Fields: {{ fieldList(row.template) }}</div>
+    </ng-template>
+    <ng-template uiCell="documents" [uiCellOf]="suggested()" let-row>
+      {{ row.uploadIds.length }}
+    </ng-template>
+    <ng-template uiCell="actions" [uiCellOf]="suggested()" let-row>
+      <div class="actions">
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [loading]="busy() === row.id"
+          [disabled]="busy() !== null"
+          (click)="confirm(row)"
+        >
+          <ui-icon name="check" [size]="16" /> Confirm
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Edit ' + row.title"
+          (click)="editSuggested(row)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Delete ' + row.title"
+          (click)="askDelete({ kind: 'suggested', suggestion: row })"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </ng-template>
+  </ui-table>
+  }
+</ui-card>
+
+<ui-card
+  [heading]="'Confirmed categories' + (confirmed().length ? ' (' + confirmed().length + ')' : '')"
+  class="section"
+>
+  @if (store.confirmed.error()) {
+  <ui-alert tone="danger"
+    >The categories could not be loaded. Is the ingestion service
+    running?</ui-alert
+  >
+  } @else {
+  <ui-table
+    [columns]="confirmedColumns"
+    [rows]="confirmed()"
+    [loading]="store.confirmed.isLoading()"
+    caption="Confirmed categories"
+    emptyMessage="No categories yet."
+  >
+    <ng-template uiCell="id" [uiCellOf]="confirmed()" let-row>
+      <code>{{ row.id }}</code>
+    </ng-template>
+    <ng-template uiCell="title" [uiCellOf]="confirmed()" let-row>
+      <strong>{{ row.title }}</strong>
+    </ng-template>
+    <ng-template uiCell="description" [uiCellOf]="confirmed()" let-row>
+      {{ row.description }}
+    </ng-template>
+    <ng-template uiCell="fields" [uiCellOf]="confirmed()" let-row>
+      <span [attr.title]="fieldList(row.template)"
+        >{{ row.template.fields.length }}</span
+      >
+    </ng-template>
+    <ng-template uiCell="actions" [uiCellOf]="confirmed()" let-row>
+      <div class="actions">
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Edit ' + row.title"
+          (click)="editConfirmed(row)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Delete ' + row.title"
+          (click)="askDelete({ kind: 'confirmed', category: row })"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </ng-template>
+  </ui-table>
+  }
+</ui-card>
+
+<ui-confirm-dialog
+  [(open)]="editorOpen"
+  [heading]="editorHeading()"
+  size="lg"
+  confirmLabel="Save"
+  [busy]="busy() === 'editor'"
+  (confirmed)="save()"
+>
+  <div class="edit">
+    <ui-form-field
+      label="Id (UPPER_SNAKE_CASE)"
+      [hint]="editing()?.kind === 'confirmed' ? 'Documents refer to a category by its id, so it cannot change.' : ''"
+    >
+      <input
+        uiInput
+        [value]="draft().id"
+        [readOnly]="editing()?.kind === 'confirmed'"
+        placeholder="WATER_BILL"
+        (input)="updateDraft('id', $event)"
+      />
+    </ui-form-field>
+    <ui-form-field label="Title">
+      <input
+        uiInput
+        [value]="draft().title"
+        placeholder="Water bill"
+        (input)="updateDraft('title', $event)"
+      />
+    </ui-form-field>
+    <ui-form-field label="Description" class="edit__wide">
+      <textarea
+        uiInput
+        rows="3"
+        [value]="draft().description"
+        (input)="updateDraft('description', $event)"
+      ></textarea>
+    </ui-form-field>
+    <ui-form-field
+      label="Fields to extract (JSON)"
+      hint="Each field: key, label, type (string, text, number, integer, amount, currency, date, datetime, period, boolean, enum), description, required."
+      class="edit__wide"
+    >
+      <textarea
+        uiInput
+        rows="12"
+        class="mono"
+        [value]="draft().template"
+        (input)="updateDraft('template', $event)"
+      ></textarea>
+    </ui-form-field>
+  </div>
+  @if (editorError()) {
+  <ui-alert tone="danger" class="spaced">{{ editorError() }}</ui-alert>
+  }
+</ui-confirm-dialog>
+
+<ui-confirm-dialog
+  [(open)]="deleteOpen"
+  [heading]="deleteHeading()"
+  confirmLabel="Delete"
+  tone="danger"
+  [busy]="busy() === 'delete'"
+  (confirmed)="remove()"
+>
+  @if (deleting(); as target) { @if (target.kind === 'confirmed') {
+  <p>
+    <code>{{ target.category.id }}</code> is removed from every document that
+    has it, with the fields only this category asked for (unless they hold a
+    value). This cannot be undone.
+  </p>
+  } @else {
+  <p>
+    The suggestion leaves the documents it was suggested for, and the AI will
+    not suggest <code>{{ target.suggestion.categoryId }}</code> again.
+  </p>
+  } }
+</ui-confirm-dialog>

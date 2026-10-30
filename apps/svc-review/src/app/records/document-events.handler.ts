@@ -1,20 +1,24 @@
 import {
   DOCUMENT_PARSE_FAILED_EVENT,
+  DOCUMENT_PARSE_INTERRUPTED_EVENT,
   DOCUMENT_PARSED_EVENT,
   documentParsedV1,
   documentParseFailedV1,
+  documentParseInterruptedV1,
   RECORD_LOAD_FAILED_EVENT,
   RECORD_LOADED_EVENT,
   recordLoadedV1,
   recordLoadFailedV1,
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
+  UPLOAD_UPDATED_EVENT,
   uploadCompletedV1,
   uploadParsingStartedV1,
+  uploadUpdatedV1,
   type EventEnvelope,
   type RecordStatus,
 } from '@life-island/contracts';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { stagingRecords } from '../db/schema.js';
@@ -22,8 +26,10 @@ import { stagingRecords } from '../db/schema.js';
 export const HANDLED_EVENTS = [
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
+  UPLOAD_UPDATED_EVENT,
   DOCUMENT_PARSED_EVENT,
   DOCUMENT_PARSE_FAILED_EVENT,
+  DOCUMENT_PARSE_INTERRUPTED_EVENT,
   RECORD_LOADED_EVENT,
   RECORD_LOAD_FAILED_EVENT,
 ];
@@ -32,9 +38,26 @@ export const HANDLED_EVENTS = [
 const BEFORE_REVIEW: RecordStatus[] = [
   'UPLOADED',
   'PARSING',
+  'PARTIALLY_PARSED',
+  'PAUSED_QUOTA',
+  'PAUSED_RATE_LIMIT',
   'PARSED',
   'PARSE_FAILED',
 ];
+
+/** Waiting for the parser to start or continue. */
+const WAITING: RecordStatus[] = [
+  'UPLOADED',
+  'PARTIALLY_PARSED',
+  'PAUSED_QUOTA',
+  'PAUSED_RATE_LIMIT',
+  'PARSE_FAILED',
+];
+
+const INTERRUPTED_STATUS = {
+  QUOTA_EXHAUSTED: 'PAUSED_QUOTA',
+  RATE_LIMITED: 'PAUSED_RATE_LIMIT',
+} as const;
 
 /**
  * Applies one event to the inbox. Runs inside the consumer's transaction, after
@@ -64,6 +87,37 @@ export async function applyDocumentEvent(
         .onConflictDoNothing({ target: stagingRecords.uploadId });
       return;
     }
+    case UPLOAD_UPDATED_EVENT: {
+      // A snapshot of the document's metadata: the newest one wins, in any
+      // status (you can recategorize a confirmed document too).
+      const e = uploadUpdatedV1.parse(event.payload);
+      const metadata = {
+        title: e.title,
+        description: e.description,
+        categories: e.categories,
+        suggestedCategories: e.suggestedCategories,
+        metadataUpdatedAt: new Date(e.updatedAt),
+        updatedAt: now,
+      };
+      await db
+        .insert(stagingRecords)
+        .values({
+          uploadId: e.uploadId,
+          originalFilename: e.originalFilename,
+          fileFormat: e.fileFormat,
+          uploadedAt: new Date(e.uploadedAt),
+          ...metadata,
+        })
+        .onConflictDoUpdate({
+          target: stagingRecords.uploadId,
+          set: metadata,
+          setWhere: or(
+            isNull(stagingRecords.metadataUpdatedAt),
+            lte(stagingRecords.metadataUpdatedAt, metadata.metadataUpdatedAt),
+          ),
+        });
+      return;
+    }
     case UPLOAD_PARSING_STARTED_EVENT: {
       const e = uploadParsingStartedV1.parse(event.payload);
       await db
@@ -72,7 +126,26 @@ export async function applyDocumentEvent(
         .where(
           and(
             eq(stagingRecords.uploadId, e.uploadId),
-            inArray(stagingRecords.status, ['UPLOADED', 'PARSE_FAILED']),
+            inArray(stagingRecords.status, WAITING),
+          ),
+        );
+      return;
+    }
+    case DOCUMENT_PARSE_INTERRUPTED_EVENT: {
+      const e = documentParseInterruptedV1.parse(event.payload);
+      const status: RecordStatus =
+        e.reason === 'QUOTA_EXHAUSTED' || e.reason === 'RATE_LIMITED'
+          ? INTERRUPTED_STATUS[e.reason]
+          : e.completedSteps.length > 0
+            ? 'PARTIALLY_PARSED'
+            : 'UPLOADED';
+      await db
+        .update(stagingRecords)
+        .set({ status, parseError: e.error, updatedAt: now })
+        .where(
+          and(
+            eq(stagingRecords.uploadId, e.uploadId),
+            inArray(stagingRecords.status, ['PARSING', ...WAITING]),
           ),
         );
       return;
@@ -117,7 +190,7 @@ export async function applyDocumentEvent(
         .where(
           and(
             eq(stagingRecords.uploadId, e.uploadId),
-            inArray(stagingRecords.status, ['UPLOADED', 'PARSING']),
+            inArray(stagingRecords.status, ['PARSING', ...WAITING]),
           ),
         );
       return;

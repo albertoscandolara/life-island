@@ -18,5 +18,11 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./review/inbox-page').then((m) => m.InboxPage),
     title: 'Review documents · Life Island',
   },
+  {
+    path: 'categories',
+    loadComponent: () =>
+      import('./categories/categories-page').then((m) => m.CategoriesPage),
+    title: 'Document categories · Life Island',
+  },
   { path: '**', redirectTo: '' },
 ];

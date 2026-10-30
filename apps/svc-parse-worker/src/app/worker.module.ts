@@ -15,16 +15,27 @@ import {
 } from './config.js';
 import { ParseService } from './parse.service.js';
 import { ClaudeParser } from './parsers/claude-parser.js';
-import type { DocumentParser } from './parsers/document-parser.js';
+import type { DocumentAnalyzer } from './parsers/document-parser.js';
 import { FakeParser } from './parsers/fake-parser.js';
 import { ParseScheduler } from './scheduler.js';
 
-function createParser(config: WorkerConfig): DocumentParser {
-  if (config.parser === 'fake') return new FakeParser();
-  return new ClaudeParser(new Anthropic(), {
-    classify: config.classifyModel,
-    extract: config.extractModel,
-  });
+function createParser(config: WorkerConfig): DocumentAnalyzer {
+  if (config.parser === 'fake')
+    return new FakeParser({
+      steps: config.fakeQuotaSteps,
+      periodMinutes: config.fakeQuotaPeriodMinutes,
+    });
+  // The SDK retries 408/409/429/5xx twice, honouring retry-after; usage-quota
+  // errors (400/402) are not retried, so an exhausted quota is never hammered.
+  return new ClaudeParser(
+    new Anthropic({ maxRetries: 2 }),
+    {
+      classify: config.classifyModel,
+      extract: config.extractModel,
+      discover: config.discoverModel,
+    },
+    { chunkChars: config.chunkChars },
+  );
 }
 
 /** No HTTP: the worker only talks to its database, object storage and NATS. */
