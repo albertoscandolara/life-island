@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -14,8 +15,10 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveSuggestionRequestSchema,
   categoryIdSchema,
+  createCategoryRequestSchema,
   listSuggestionsQuerySchema,
   updateCategoryRequestSchema,
+  updateSuggestionRequestSchema,
   type CategoryDto,
   type CategorySuggestionDto,
   type ParseQueueDto,
@@ -33,6 +36,21 @@ export class CategoriesController {
     return this.categories.list();
   }
 
+  /** Add a category by hand. */
+  @Post('categories')
+  create(@Body() body: unknown): Promise<CategoryDto> {
+    return this.categories.create(
+      parseOrThrow(createCategoryRequestSchema, body),
+    );
+  }
+
+  /** Delete a category; documents that had it lose it. */
+  @Delete('categories/:id')
+  @HttpCode(204)
+  remove(@Param('id') id: string): Promise<void> {
+    return this.categories.remove(parseOrThrow(categoryIdSchema, id));
+  }
+
   /** Edit a category's title, description or extraction template. */
   @Patch('categories/:id')
   update(@Param('id') id: string, @Body() body: unknown): Promise<CategoryDto> {
@@ -46,6 +64,18 @@ export class CategoriesController {
   suggestions(@Query() query: unknown): Promise<CategorySuggestionDto[]> {
     return this.categories.listSuggestions(
       parseOrThrow(listSuggestionsQuerySchema, query),
+    );
+  }
+
+  /** Edit a pending suggestion: its proposed id, title, description or template. */
+  @Patch('category-suggestions/:id')
+  updateSuggestion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<CategorySuggestionDto> {
+    return this.categories.updateSuggestion(
+      id,
+      parseOrThrow(updateSuggestionRequestSchema, body),
     );
   }
 

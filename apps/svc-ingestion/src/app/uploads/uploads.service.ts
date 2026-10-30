@@ -22,6 +22,7 @@ import {
   fileFormatFromMime,
   listUploadsQuerySchema,
   MAX_UPLOAD_BYTES,
+  updateUploadRequestSchema,
   UPLOAD_COMPLETED_EVENT,
   type CompleteUploadResponse,
   type CreateUploadResponse,
@@ -30,11 +31,25 @@ import {
   type UploadDto,
 } from '@life-island/contracts';
 import {
+  documentCategories,
+  editFieldValues,
+  enqueueUploadUpdated,
+  FieldEditError,
+  syncTemplateFields,
   toUploadDto,
   uploads,
   type UploadRow,
 } from '@life-island/ingestion-db';
-import { and, arrayContains, count, desc, eq, lt, ne } from 'drizzle-orm';
+import {
+  and,
+  arrayContains,
+  count,
+  desc,
+  eq,
+  inArray,
+  lt,
+  ne,
+} from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { z } from 'zod';
 import {
@@ -47,6 +62,7 @@ import { inspectFile } from './file-inspection.js';
 
 type CreateUpload = z.output<typeof createUploadRequestSchema>;
 type ListUploads = z.output<typeof listUploadsQuerySchema>;
+type UpdateUpload = z.output<typeof updateUploadRequestSchema>;
 
 function titleFromFilename(filename: string): string {
   const base = filename
@@ -245,6 +261,90 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
 
   async get(id: string): Promise<UploadDto> {
     return toUploadDto(await this.findRow(id));
+  }
+
+  /**
+   * Your edits to a document: title, description, its confirmed categories
+   * and extracted field values. One transaction saves them and tells the
+   * review inbox through `upload.updated`. Changing the categories adds the
+   * new ones' template fields as missing, for you to fill in.
+   */
+  async update(id: string, request: UpdateUpload): Promise<UploadDto> {
+    return withTransaction(this.svc.pool, async (client) => {
+      const db = drizzle(client);
+      const [row] = await db
+        .select()
+        .from(uploads)
+        .where(eq(uploads.id, id))
+        .for('update');
+      if (!row) throw new NotFoundException(`Upload ${id} not found`);
+      if (row.status === 'UPLOADING' || !row.fileFormat)
+        throw new ConflictException('This upload has no stored file to edit');
+      if (row.status === 'PARSING' && (request.categories || request.fields))
+        throw new ConflictException(
+          'The AI is processing this document right now; change its categories and fields once it finishes',
+        );
+
+      const categoryIds = request.categories
+        ? [...new Set(request.categories)]
+        : row.categories;
+      const assigned = categoryIds.length
+        ? await db
+            .select()
+            .from(documentCategories)
+            .where(inArray(documentCategories.id, categoryIds))
+        : [];
+      const unknown = categoryIds.filter(
+        (categoryId) =>
+          !assigned.some((category) => category.id === categoryId),
+      );
+      if (request.categories && unknown.length)
+        throw new UnprocessableEntityException(
+          `Unknown categories: ${unknown.join(', ')}`,
+        );
+      // Keep the order you gave.
+      const ordered = categoryIds.flatMap((categoryId) =>
+        assigned
+          .filter((category) => category.id === categoryId)
+          .map((category) => ({
+            id: category.id,
+            template: category.templateJson,
+          })),
+      );
+
+      let extractedFields = row.extractedFields;
+      if (request.categories)
+        extractedFields = syncTemplateFields(extractedFields, ordered);
+      if (request.fields && Object.keys(request.fields).length) {
+        try {
+          extractedFields = editFieldValues(
+            extractedFields,
+            request.fields,
+            ordered.flatMap((category) => category.template.fields),
+          );
+        } catch (error) {
+          if (error instanceof FieldEditError)
+            throw new UnprocessableEntityException(error.message);
+          throw error;
+        }
+      }
+
+      const [saved] = await db
+        .update(uploads)
+        .set({
+          ...(request.title !== undefined ? { title: request.title } : {}),
+          ...(request.description !== undefined
+            ? { description: request.description }
+            : {}),
+          ...(request.categories ? { categories: categoryIds } : {}),
+          extractedFields,
+          updatedAt: new Date(),
+        })
+        .where(eq(uploads.id, id))
+        .returning();
+      await enqueueUploadUpdated(client, this.svc.schema, [id]);
+      return toUploadDto(saved);
+    });
   }
 
   /** A short-lived presigned link to the original file. */

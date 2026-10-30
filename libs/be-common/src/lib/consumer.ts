@@ -50,16 +50,32 @@ export interface EventConsumerOptions {
   onError?: (error: unknown, subject: string) => void;
 }
 
-/** Subscribes a durable JetStream consumer and handles each event idempotently. */
+/**
+ * Subscribes a durable JetStream consumer and handles each event idempotently.
+ * An existing consumer gets the current event types: a service that starts
+ * handling a new event keeps its position and receives the new type from then on.
+ */
 export async function startEventConsumer(
   options: EventConsumerOptions,
 ): Promise<ConsumerMessages> {
   const jsm = await jetstreamManager(options.nats);
-  await jsm.consumers.add(EVENTS_STREAM, {
-    durable_name: options.durableName,
-    ack_policy: AckPolicy.Explicit,
-    filter_subjects: options.eventTypes.map(subjectFor),
-  });
+  const filterSubjects = options.eventTypes.map(subjectFor);
+  const existing = await jsm.consumers
+    .info(EVENTS_STREAM, options.durableName)
+    .catch(() => null);
+  if (!existing)
+    await jsm.consumers.add(EVENTS_STREAM, {
+      durable_name: options.durableName,
+      ack_policy: AckPolicy.Explicit,
+      filter_subjects: filterSubjects,
+    });
+  else if (
+    [...(existing.config.filter_subjects ?? [])].sort().join() !==
+    [...filterSubjects].sort().join()
+  )
+    await jsm.consumers.update(EVENTS_STREAM, options.durableName, {
+      filter_subjects: filterSubjects,
+    });
   const consumer = await jetstream(options.nats).consumers.get(
     EVENTS_STREAM,
     options.durableName,

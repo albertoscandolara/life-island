@@ -13,7 +13,7 @@
     variant="secondary"
     type="button"
     [loading]="records.isLoading()"
-    (click)="records.reload(); banner.reload()"
+    (click)="records.reload(); banner.reload(); store.reload()"
   >
     <ui-icon name="refresh" [size]="18" /> Refresh
   </button>
@@ -43,7 +43,7 @@
   </ui-form-field>
   <ui-form-field label="Category">
     <ui-dropdown
-      [options]="categoryOptions"
+      [options]="categoryOptions()"
       [(value)]="category"
       [clearable]="true"
       clearLabel="Any category"
@@ -115,6 +115,26 @@
   <ng-template uiCell="description" [uiCellOf]="rows()" let-row>
     <span class="description">{{ row.description ?? '–' }}</span>
   </ng-template>
+  <ng-template uiCell="categories" [uiCellOf]="rows()" let-row>
+    <span class="badges">
+      @for (id of row.categories; track id) {
+      <ui-badge tone="info" [attr.title]="id">{{ store.titleOf(id) }}</ui-badge>
+      } @empty {
+      <span class="muted">–</span>
+      }
+    </span>
+  </ng-template>
+  <ng-template uiCell="suggested" [uiCellOf]="rows()" let-row>
+    <span class="badges">
+      @for (id of row.suggestedCategories; track id) {
+      <ui-badge tone="warning" [attr.title]="id + ' (to confirm)'"
+        >{{ store.titleOf(id) }}</ui-badge
+      >
+      } @empty {
+      <span class="muted">–</span>
+      }
+    </span>
+  </ng-template>
   <ng-template uiCell="status" [uiCellOf]="rows()" let-row>
     <ui-status-dot
       [tone]="statusView[row.status].tone"
@@ -135,6 +155,17 @@
       size="sm"
       [iconOnly]="true"
       type="button"
+      [attr.aria-label]="'Edit ' + row.title"
+      (click)="openEditor(row)"
+    >
+      <ui-icon name="edit" [size]="18" />
+    </button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      [iconOnly]="true"
+      type="button"
       [attr.aria-label]="'Show details of ' + row.title"
       (click)="openDetails(row)"
     >
@@ -147,4 +178,10 @@
   [recordId]="selectedId()"
   [(open)]="dialogOpen"
   (confirmedRecord)="records.reload()"
+/>
+
+<app-document-editor
+  [recordId]="selectedId()"
+  [(open)]="editorOpen"
+  (saved)="applyChanges($event)"
 />

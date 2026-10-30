@@ -14,7 +14,12 @@ import {
   type RecordStatus,
   type UploadStatus,
 } from './constants.js';
-import type { DocumentAnalysis, ExtractedFields } from './categories.js';
+import {
+  categoryIdSchema,
+  FIELD_KEY_PATTERN,
+  type DocumentAnalysis,
+  type ExtractedFields,
+} from './categories.js';
 
 export * from './constants.js';
 
@@ -58,6 +63,31 @@ export const createUploadRequestSchema = z.object({
   description: trimmedOptional(DESCRIPTION_MAX_LENGTH),
 });
 export type CreateUploadRequest = z.input<typeof createUploadRequestSchema>;
+
+/**
+ * Your edits to a document. Every key is optional; what you send replaces
+ * what is stored. `categories` is the full list of confirmed category ids.
+ * `fields` sets extracted values by field key (null clears one); each value is
+ * checked against its field type.
+ */
+export const updateUploadRequestSchema = z.object({
+  title: z.string().trim().min(1).max(TITLE_MAX_LENGTH).optional(),
+  description: z
+    .string()
+    .trim()
+    .max(DESCRIPTION_MAX_LENGTH)
+    .nullable()
+    .optional()
+    .transform((value) => (value === '' ? null : value)),
+  categories: z.array(categoryIdSchema).max(50).optional(),
+  fields: z
+    .record(
+      z.string().regex(FIELD_KEY_PATTERN),
+      z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]),
+    )
+    .optional(),
+});
+export type UpdateUploadRequest = z.input<typeof updateUploadRequestSchema>;
 
 export interface CreateUploadResponse {
   uploadId: string;
@@ -127,6 +157,8 @@ export const listRecordsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
   status: recordStatusSchema.optional(),
   category: z.string().trim().max(64).optional(),
+  /** A confirmed document category id, e.g. `WATER_BILL`. */
+  documentCategory: z.string().trim().max(64).optional(),
   fileFormat: fileFormatSchema.optional(),
   uploadedFrom: optionalDate,
   uploadedTo: optionalDate,
@@ -146,6 +178,10 @@ export interface RecordDto {
   status: RecordStatus;
   category: string | null;
   targetKey: string | null;
+  /** Confirmed document category ids. */
+  categories: string[];
+  /** Category ids the AI suggested for the document, awaiting your decision. */
+  suggestedCategories: string[];
   confidence: number | null;
   flags: string[];
   uploadedAt: string;
@@ -154,9 +190,17 @@ export interface RecordDto {
   loadedAt: string | null;
 }
 
+/** Your corrections to a record's details, checked against its target schema. */
+export const updateRecordRequestSchema = z.object({
+  details: z.unknown().refine((value) => value !== undefined, 'required'),
+});
+export type UpdateRecordRequest = z.input<typeof updateRecordRequestSchema>;
+
 export interface RecordDetailDto extends RecordDto {
-  /** The details extracted by the parser, shaped by the target schema of `targetKey`. */
+  /** The details to confirm: your edits if any, else what the parser extracted, shaped by the target schema of `targetKey`. */
   details: unknown;
+  /** True once you edited the details. */
+  edited: boolean;
   parseError: string | null;
   loadError: string | null;
 }

@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -6,70 +5,88 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
 import type {
-  ApproveSuggestionRequest,
+  CategoryDto,
   CategorySuggestionDto,
   CategoryTemplate,
+  UpdateCategoryRequest,
+  UpdateSuggestionRequest,
 } from '@life-island/contracts';
 import {
   UiAlert,
-  UiBadge,
   UiButton,
   UiCard,
-  UiEmptyState,
+  UiCellDef,
+  UiConfirmDialog,
   UiFormField,
   UiIcon,
   UiInput,
   UiPageHeader,
+  UiTable,
+  type UiTableColumn,
 } from '@life-island/design-system';
 import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { CategoryStore, errorMessage } from './category-store';
 
-interface Draft {
+export interface Draft {
   id: string;
   title: string;
   description: string;
   template: string;
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof HttpErrorResponse) {
-    const body = error.error as {
-      message?: string;
-      issues?: { path: string; message: string }[];
-    } | null;
-    if (body?.issues?.length)
-      return body.issues
-        .map(
-          (issue) => `${issue.path ? `${issue.path}: ` : ''}${issue.message}`,
-        )
-        .join('; ');
-    if (typeof body?.message === 'string') return body.message;
-  }
-  return 'The request failed. Try again.';
+type Editing =
+  | { kind: 'new' }
+  | { kind: 'confirmed'; category: CategoryDto }
+  | { kind: 'suggested'; suggestion: CategorySuggestionDto };
+
+type Deleting =
+  | { kind: 'confirmed'; category: CategoryDto }
+  | { kind: 'suggested'; suggestion: CategorySuggestionDto };
+
+const EMPTY_TEMPLATE: CategoryTemplate = { fields: [] };
+
+function draftOf(
+  id: string,
+  title: string,
+  description: string,
+  template: CategoryTemplate,
+): Draft {
+  return {
+    id,
+    title,
+    description,
+    template: JSON.stringify(template, null, 2),
+  };
 }
 
-/** Only the fields you changed are sent, so an untouched suggestion is saved as proposed. */
+/** Only the fields you changed are sent, so an untouched value stays as it is. */
 export function editsOf(
-  suggestion: CategorySuggestionDto,
+  original: {
+    id: string;
+    title: string;
+    description: string;
+    template: CategoryTemplate;
+  },
   draft: Draft,
-): ApproveSuggestionRequest {
-  const edits: ApproveSuggestionRequest = {};
-  if (draft.id.trim() !== suggestion.categoryId) edits.id = draft.id.trim();
-  if (draft.title.trim() !== suggestion.title) edits.title = draft.title.trim();
-  if (draft.description.trim() !== suggestion.description)
+): UpdateSuggestionRequest {
+  const edits: UpdateSuggestionRequest = {};
+  if (draft.id.trim() !== original.id) edits.id = draft.id.trim();
+  if (draft.title.trim() !== original.title) edits.title = draft.title.trim();
+  if (draft.description.trim() !== original.description)
     edits.description = draft.description.trim();
   const template = JSON.parse(draft.template) as CategoryTemplate;
-  if (JSON.stringify(template) !== JSON.stringify(suggestion.template))
+  if (JSON.stringify(template) !== JSON.stringify(original.template))
     edits.template = template;
   return edits;
 }
 
 /**
- * The category taxonomy: AI suggestions waiting for your decision, and the
- * categories in use with their extraction templates. An approved suggestion
- * becomes a category at once and is assigned to the documents that proposed it.
+ * Manage the categories: the confirmed ones the AI assigns, and the ones it
+ * suggested, which wait for you. Confirming a suggestion makes it a category
+ * and adds it to the documents that suggested it; deleting a category takes it
+ * off every document.
  */
 @Component({
   selector: 'app-categories-page',
@@ -77,48 +94,96 @@ export function editsOf(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     UiAlert,
-    UiBadge,
     UiButton,
     UiCard,
-    UiEmptyState,
+    UiCellDef,
+    UiConfirmDialog,
     UiFormField,
     UiIcon,
     UiInput,
     UiPageHeader,
+    UiTable,
   ],
   templateUrl: './categories-page.html',
   styleUrl: './categories-page.css',
 })
 export class CategoriesPage {
   private readonly api = inject(IngestionApi);
+  protected readonly store = inject(CategoryStore);
 
-  protected readonly suggestions = rxResource({
-    stream: () => this.api.suggestions({ status: 'PENDING' }),
-  });
-  protected readonly categories = rxResource({
-    stream: () => this.api.categories(),
-  });
-  protected readonly pending = computed(() => this.suggestions.value() ?? []);
+  protected readonly confirmed = computed(
+    () => this.store.confirmed.value() ?? [],
+  );
+  protected readonly suggested = computed(
+    () => this.store.suggested.value() ?? [],
+  );
 
-  protected readonly editing = signal<string | null>(null);
-  protected readonly draft = signal<Draft>({
-    id: '',
-    title: '',
-    description: '',
-    template: '',
-  });
+  protected readonly confirmedColumns: UiTableColumn[] = [
+    { key: 'id', header: 'Id', width: '12rem' },
+    { key: 'title', header: 'Title', width: '12rem' },
+    { key: 'description', header: 'Description' },
+    { key: 'fields', header: 'Fields', width: '6rem' },
+    { key: 'actions', header: 'Actions', align: 'end', width: '7rem' },
+  ];
+  protected readonly suggestedColumns: UiTableColumn[] = [
+    { key: 'id', header: 'Id', width: '12rem' },
+    { key: 'title', header: 'Title', width: '12rem' },
+    { key: 'description', header: 'Description' },
+    { key: 'documents', header: 'Documents', width: '7rem' },
+    { key: 'actions', header: 'Actions', align: 'end', width: '14rem' },
+  ];
+
+  protected readonly editing = signal<Editing | null>(null);
+  protected readonly editorOpen = signal(false);
+  protected readonly draft = signal<Draft>(draftOf('', '', '', EMPTY_TEMPLATE));
+  protected readonly editorError = signal('');
+
+  protected readonly deleting = signal<Deleting | null>(null);
+  protected readonly deleteOpen = signal(false);
+
+  /** Id of the suggestion being confirmed, or of the dialog action running. */
   protected readonly busy = signal<string | null>(null);
-  protected readonly errors = signal<Record<string, string>>({});
+  protected readonly error = signal('');
   protected readonly notice = signal('');
 
-  protected edit(suggestion: CategorySuggestionDto): void {
-    this.editing.set(suggestion.id);
-    this.draft.set({
-      id: suggestion.categoryId,
-      title: suggestion.title,
-      description: suggestion.description,
-      template: JSON.stringify(suggestion.template, null, 2),
-    });
+  protected readonly editorHeading = computed(() => {
+    const editing = this.editing();
+    if (!editing || editing.kind === 'new') return 'New category';
+    return editing.kind === 'confirmed'
+      ? `Edit ${editing.category.title}`
+      : `Edit suggestion ${editing.suggestion.title}`;
+  });
+
+  protected fieldList(template: CategoryTemplate): string {
+    return template.fields.map((field) => field.label).join(', ') || 'None';
+  }
+
+  protected startNew(): void {
+    this.openEditor({ kind: 'new' }, draftOf('', '', '', EMPTY_TEMPLATE));
+  }
+
+  protected editConfirmed(category: CategoryDto): void {
+    this.openEditor(
+      { kind: 'confirmed', category },
+      draftOf(
+        category.id,
+        category.title,
+        category.description,
+        category.template,
+      ),
+    );
+  }
+
+  protected editSuggested(suggestion: CategorySuggestionDto): void {
+    this.openEditor(
+      { kind: 'suggested', suggestion },
+      draftOf(
+        suggestion.categoryId,
+        suggestion.title,
+        suggestion.description,
+        suggestion.template,
+      ),
+    );
   }
 
   protected updateDraft(key: keyof Draft, event: Event): void {
@@ -126,54 +191,122 @@ export class CategoriesPage {
     this.draft.update((draft) => ({ ...draft, [key]: value }));
   }
 
-  protected async approve(suggestion: CategorySuggestionDto): Promise<void> {
-    let edits: ApproveSuggestionRequest = {};
-    if (this.editing() === suggestion.id) {
-      try {
-        edits = editsOf(suggestion, this.draft());
-      } catch {
-        this.setError(suggestion.id, 'The template is not valid JSON.');
-        return;
-      }
-    }
-    await this.run(suggestion, async () => {
-      const approved = await firstValueFrom(
-        this.api.approveSuggestion(suggestion.id, edits),
-      );
-      this.notice.set(
-        `${approved.title} is now a category${approved.uploadIds.length ? ` and was added to ${approved.uploadIds.length} document${approved.uploadIds.length === 1 ? '' : 's'}` : ''}.`,
-      );
-    });
-  }
-
-  protected async reject(suggestion: CategorySuggestionDto): Promise<void> {
-    await this.run(suggestion, async () => {
-      await firstValueFrom(this.api.rejectSuggestion(suggestion.id));
-      this.notice.set(
-        `${suggestion.title} was rejected; it will not be suggested again.`,
-      );
-    });
-  }
-
-  private async run(
-    suggestion: CategorySuggestionDto,
-    action: () => Promise<void>,
-  ): Promise<void> {
-    this.busy.set(suggestion.id);
-    this.setError(suggestion.id, '');
+  protected async save(): Promise<void> {
+    const editing = this.editing();
+    if (!editing) return;
+    const draft = this.draft();
+    let template: CategoryTemplate;
     try {
-      await action();
-      this.editing.set(null);
-      this.suggestions.reload();
-      this.categories.reload();
+      template = JSON.parse(draft.template) as CategoryTemplate;
+    } catch {
+      this.editorError.set('The fields are not valid JSON.');
+      return;
+    }
+    this.busy.set('editor');
+    this.editorError.set('');
+    try {
+      if (editing.kind === 'new') {
+        const created = await firstValueFrom(
+          this.api.createCategory({
+            id: draft.id.trim(),
+            title: draft.title.trim(),
+            description: draft.description.trim(),
+            template,
+          }),
+        );
+        this.notice.set(`${created.title} was added.`);
+      } else if (editing.kind === 'confirmed') {
+        // The id of a confirmed category is fixed (documents refer to it).
+        const edits: UpdateCategoryRequest = editsOf(editing.category, {
+          ...draft,
+          id: editing.category.id,
+        });
+        await firstValueFrom(
+          this.api.updateCategory(editing.category.id, edits),
+        );
+        this.notice.set(`${draft.title.trim()} was saved.`);
+      } else {
+        const { suggestion } = editing;
+        await firstValueFrom(
+          this.api.updateSuggestion(
+            suggestion.id,
+            editsOf({ ...suggestion, id: suggestion.categoryId }, draft),
+          ),
+        );
+        this.notice.set(`The suggestion ${draft.title.trim()} was saved.`);
+      }
+      this.editorOpen.set(false);
+      this.store.reload();
     } catch (error) {
-      this.setError(suggestion.id, errorMessage(error));
+      this.editorError.set(errorMessage(error));
     } finally {
       this.busy.set(null);
     }
   }
 
-  private setError(id: string, message: string): void {
-    this.errors.update((errors) => ({ ...errors, [id]: message }));
+  /** Makes a suggestion a category; the documents that suggested it get it. */
+  protected async confirm(suggestion: CategorySuggestionDto): Promise<void> {
+    this.busy.set(suggestion.id);
+    this.error.set('');
+    try {
+      const approved = await firstValueFrom(
+        this.api.approveSuggestion(suggestion.id),
+      );
+      const count = approved.uploadIds.length;
+      this.notice.set(
+        `${approved.title} is now a confirmed category${count ? ` and was added to ${count} document${count === 1 ? '' : 's'}` : ''}.`,
+      );
+      this.store.reload();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(null);
+    }
+  }
+
+  protected askDelete(deleting: Deleting): void {
+    this.deleting.set(deleting);
+    this.error.set('');
+    this.deleteOpen.set(true);
+  }
+
+  protected deleteHeading(): string {
+    const deleting = this.deleting();
+    if (!deleting) return '';
+    return deleting.kind === 'confirmed'
+      ? `Delete ${deleting.category.title}?`
+      : `Delete the suggestion ${deleting.suggestion.title}?`;
+  }
+
+  protected async remove(): Promise<void> {
+    const deleting = this.deleting();
+    if (!deleting) return;
+    this.busy.set('delete');
+    this.error.set('');
+    try {
+      if (deleting.kind === 'confirmed') {
+        await firstValueFrom(this.api.deleteCategory(deleting.category.id));
+        this.notice.set(`${deleting.category.title} was deleted.`);
+      } else {
+        await firstValueFrom(this.api.rejectSuggestion(deleting.suggestion.id));
+        this.notice.set(
+          `The suggestion ${deleting.suggestion.title} was deleted; it will not be suggested again.`,
+        );
+      }
+      this.deleteOpen.set(false);
+      this.store.reload();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+      this.deleteOpen.set(false);
+    } finally {
+      this.busy.set(null);
+    }
+  }
+
+  private openEditor(editing: Editing, draft: Draft): void {
+    this.editing.set(editing);
+    this.draft.set(draft);
+    this.editorError.set('');
+    this.editorOpen.set(true);
   }
 }

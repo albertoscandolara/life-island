@@ -21,6 +21,7 @@ import {
 import {
   categorySuggestions,
   documentCategories,
+  enqueueUploadUpdated,
   parseRuns,
   uploads,
   type UploadRow,
@@ -359,23 +360,30 @@ export class ParseService {
     const categoryIds = [...new Set(result.categoryIds)].filter((id) =>
       known.has(id),
     );
-    await this.writeStep(progress, runs, {
-      analysis: {
-        ...result.analysis,
-        categoryEvidence: result.analysis.categoryEvidence.filter((item) =>
-          known.has(item.id),
-        ),
+    await this.writeStep(
+      progress,
+      runs,
+      {
+        analysis: {
+          ...result.analysis,
+          categoryEvidence: result.analysis.categoryEvidence.filter((item) =>
+            known.has(item.id),
+          ),
+        },
+        categories: categoryIds,
+        targetKey: result.targetKey,
+        confidence: result.analysis.confidence,
+        flags: this.mergeFlags(progress, result.flags),
+        description:
+          progress.upload.description ??
+          result.description?.slice(0, 255) ??
+          null,
+        completedSteps: this.withStep(progress, 'CLASSIFY'),
       },
-      categories: categoryIds,
-      targetKey: result.targetKey,
-      confidence: result.analysis.confidence,
-      flags: this.mergeFlags(progress, result.flags),
-      description:
-        progress.upload.description ??
-        result.description?.slice(0, 255) ??
-        null,
-      completedSteps: this.withStep(progress, 'CLASSIFY'),
-    });
+      // The inbox shows the categories as soon as they are known.
+      (client) =>
+        enqueueUploadUpdated(client, this.svc.schema, [progress.upload.id]),
+    );
   }
 
   private async saveExtraction(
@@ -478,6 +486,7 @@ export class ParseService {
               where id = $1`,
             [uploadId, autoApproved],
           );
+        await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
       },
     );
     if (autoApproved.length)

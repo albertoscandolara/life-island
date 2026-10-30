@@ -275,9 +275,25 @@ describe.skipIf(!configured)(
           .from(documentCategories)
           .where(inArray(documentCategories.id, ['ENEL', 'ELECTRICITY_BILL'])),
       ).toEqual([]);
+      // The inbox hears about the categories after CLASSIFY and the suggestions after DISCOVER.
       expect(await events(id)).toEqual([
         'upload.parsing_started@1',
+        'upload.updated@1',
+        'upload.updated@1',
         'document.parsed@1',
+      ]);
+      const { rows } = await svc.pool.query<{
+        payload: { categories: string[]; suggestedCategories: string[] };
+      }>(
+        `select payload from ingestion.outbox
+          where event_type = 'upload.updated@1' and payload->>'uploadId' = $1
+          order by created_at desc limit 1`,
+        [id],
+      );
+      expect(rows[0].payload.categories).toEqual(saved.categories);
+      expect([...rows[0].payload.suggestedCategories].sort()).toEqual([
+        'ELECTRICITY_BILL',
+        'ENEL',
       ]);
     });
 

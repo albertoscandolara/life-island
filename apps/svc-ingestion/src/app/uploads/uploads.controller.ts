@@ -6,6 +6,7 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Redirect,
@@ -15,6 +16,7 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   createUploadRequestSchema,
   listUploadsQuerySchema,
+  updateUploadRequestSchema,
   type CompleteUploadResponse,
   type CreateUploadResponse,
   type Page,
@@ -49,6 +51,18 @@ export class UploadsController {
   @Get(':id')
   get(@Param('id', ParseUUIDPipe) id: string): Promise<UploadDto> {
     return this.uploads.get(id);
+  }
+
+  /** Edit the title, description, categories or extracted field values. */
+  @Patch(':id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<UploadDto> {
+    return this.uploads.update(
+      id,
+      parseOrThrow(updateUploadRequestSchema, body),
+    );
   }
 
   /** Shows the original file in the browser (`Content-Disposition: inline`). */

@@ -1,5 +1,5 @@
 import type { ParseQueueDto } from '@life-island/contracts';
-import { queueMessage } from './queue-banner';
+import { lastRunText, queueMessage } from './queue-banner';
 
 const base: ParseQueueDto = {
   status: 'IDLE',
@@ -55,6 +55,40 @@ describe('queueMessage', () => {
     expect(queueMessage({ ...base, pendingDocuments: 0 })).toBeNull();
     expect(queueMessage(base, format)?.lines[0]).toContain(
       'next scheduled run is on 2026-10-30T05:00',
+    );
+  });
+});
+
+describe('lastRunText', () => {
+  it('says when the service last ran, what it did and when it runs next', () => {
+    expect(
+      lastRunText(
+        {
+          ...base,
+          runStartedAt: '2026-10-29T05:00:00.000Z',
+          runFinishedAt: '2026-10-29T05:03:00.000Z',
+          lastRunSummary: { parsed: 4, retried: 0, failed: 1, paused: 0 },
+        },
+        format,
+      ),
+    ).toBe(
+      'Last run 2026-10-29T05:00, finished 2026-10-29T05:03: 4 processed, 1 failed. Next scheduled run 2026-10-30T05:00.',
+    );
+  });
+
+  it('says a run is in progress, or that there was none yet', () => {
+    expect(
+      lastRunText(
+        {
+          ...base,
+          status: 'RUNNING',
+          runStartedAt: '2026-10-30T05:00:00.000Z',
+        },
+        format,
+      ),
+    ).toMatch(/^Running since 2026-10-30T05:00\./);
+    expect(lastRunText({ ...base, nextScheduledRunAt: null }, format)).toBe(
+      'The processing service has not run yet.',
     );
   });
 });

@@ -1,0 +1,144 @@
+<ui-confirm-dialog
+  [(open)]="open"
+  [heading]="'Edit ' + (upload.value()?.title ?? 'document')"
+  size="lg"
+  confirmLabel="Save"
+  [busy]="saving()"
+  [confirmDisabled]="!upload.value()"
+  (confirmed)="save()"
+  (closed)="onClosed()"
+>
+  @if (record.error() || upload.error()) {
+  <ui-alert tone="danger">The document could not be loaded.</ui-alert>
+  } @else if (!upload.value()) {
+  <p class="muted">Loading…</p>
+  } @else {
+  <div class="form">
+    <ui-form-field label="Title">
+      <input
+        uiInput
+        maxlength="200"
+        [value]="title()"
+        (input)="title.set(text($event))"
+      />
+    </ui-form-field>
+    <ui-form-field label="Description">
+      <textarea
+        uiInput
+        rows="2"
+        maxlength="255"
+        [value]="description()"
+        (input)="description.set(text($event))"
+      ></textarea>
+    </ui-form-field>
+  </div>
+
+  <h3 class="section-title">Confirmed categories</h3>
+  @if (upload.value()?.status === 'PARSING') {
+  <p class="muted small">
+    The AI is processing this document; categories and fields can be changed
+    once it finishes.
+  </p>
+  }
+  <fieldset class="categories">
+    <legend class="sr-only">Categories of this document</legend>
+    @for (category of store.confirmed.value() ?? []; track category.id) {
+    <label class="category">
+      <input
+        type="checkbox"
+        [checked]="categories().includes(category.id)"
+        [disabled]="upload.value()?.status === 'PARSING'"
+        (change)="toggleCategory(category.id, $event)"
+      />
+      <span>{{ category.title }}</span>
+      <code class="muted">{{ category.id }}</code>
+    </label>
+    } @empty {
+    <p class="muted small">No categories yet.</p>
+    }
+  </fieldset>
+  <p class="muted small">
+    New categories' fields are added below as missing, for you to fill in.
+  </p>
+
+  @if (suggestions().length) {
+  <h3 class="section-title">Suggested categories</h3>
+  <ul class="suggestions">
+    @for (suggestion of suggestions(); track suggestion.id) {
+    <li>
+      <span class="suggestion">
+        <strong>{{ suggestion.title }}</strong>
+        <code class="muted">{{ suggestion.categoryId }}</code>
+      </span>
+      <button
+        uiButton
+        size="sm"
+        variant="secondary"
+        type="button"
+        [loading]="confirming() === suggestion.id"
+        [disabled]="confirming() !== null"
+        (click)="confirmSuggestion(suggestion)"
+      >
+        <ui-icon name="check" [size]="16" /> Confirm
+      </button>
+    </li>
+    }
+  </ul>
+  <p class="muted small">
+    Confirming makes it a category for every document that suggested it.
+  </p>
+  }
+
+  <h3 class="section-title">Extracted information</h3>
+  @if (fields().length) {
+  <div class="fields">
+    @for (field of fields(); track field.key) {
+    <ui-form-field
+      [label]="field.label + (field.required ? ' *' : '') + (field.unit ? ' (' + field.unit + ')' : '')"
+      [hint]="field.status !== 'found' && field.note ? field.note : field.editedAt ? 'Edited by you' : ''"
+    >
+      <input
+        uiInput
+        [type]="inputTypes[field.type] ?? 'text'"
+        [value]="fieldValues()[field.key] ?? ''"
+        [placeholder]="placeholders[field.type] ?? ''"
+        [disabled]="upload.value()?.status === 'PARSING'"
+        (input)="setField(field.key, $event)"
+      />
+    </ui-form-field>
+    }
+  </div>
+  <p class="muted small">
+    Leave a field empty to mark it as not in the document.
+  </p>
+  } @else {
+  <p class="muted small">
+    {{ upload.value()?.completedSteps?.includes('EXTRACT') ? 'The categories of
+    this document define no fields.' : 'Nothing extracted yet.' }}
+  </p>
+  }
+
+  <h3 class="section-title">Details sent on confirm</h3>
+  @if (detailsEditable()) {
+  <ui-form-field
+    label="Details (JSON)"
+    hint="Checked against the module's schema when you save."
+  >
+    <textarea
+      uiInput
+      rows="10"
+      class="mono"
+      [value]="details()"
+      (input)="details.set(text($event))"
+    ></textarea>
+  </ui-form-field>
+  } @else {
+  <p class="muted small">
+    {{ record.value()?.status === 'CONFIRMED' || record.value()?.status ===
+    'LOADED' ? 'Already confirmed: the module owns these details now.' : 'Not
+    available until the document is processed.' }}
+  </p>
+  } @if (error()) {
+  <ui-alert tone="danger" class="spaced">{{ error() }}</ui-alert>
+  } }
+</ui-confirm-dialog>

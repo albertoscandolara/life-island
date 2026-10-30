@@ -4,58 +4,12 @@
   margin-bottom: var(--space-4);
 }
 
-.suggestions,
-.categories {
-  display: grid;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.categories {
-  gap: var(--space-2);
-}
-
-.suggestion {
-  display: grid;
-  gap: var(--space-2);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.suggestion:last-child {
-  border-bottom: 0;
-}
-
-.suggestion__head {
-  display: flex;
-  flex-wrap: wrap;
+.actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-2);
-}
-
-h3 {
-  margin: 0;
-  font-size: var(--text-md);
-}
-
-p {
-  margin: 0;
-}
-
-.fields {
-  width: auto;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.fields caption {
-  text-align: start;
-}
-
-.fields td {
-  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  justify-content: flex-end;
+  gap: var(--space-1);
 }
 
 .edit {
@@ -73,22 +27,13 @@ p {
   font-size: var(--text-xs);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
+.spaced {
+  display: block;
+  margin-top: var(--space-3);
 }
 
-summary {
-  cursor: pointer;
-}
-
-.summary {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2);
+p {
+  margin: 0;
 }
 
 code {

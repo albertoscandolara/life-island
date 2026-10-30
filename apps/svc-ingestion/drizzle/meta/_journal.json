@@ -22,6 +22,13 @@
       "when": 1793313886184,
       "tag": "0002_categories_and_resumable_parsing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793345877699,
+      "tag": "0003_backfill_upload_updated",
+      "breakpoints": true
     }
   ]
 }

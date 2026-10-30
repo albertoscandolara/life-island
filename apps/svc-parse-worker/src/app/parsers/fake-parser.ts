@@ -292,7 +292,7 @@ export class FakeParser implements DocumentAnalyzer {
     if (targetKey === 'grocery.receipt@1') {
       details = {
         merchant: { name: 'Demo Market', address: 'Via Roma 1, Milano' },
-        purchasedAt: `${today}T10:30:00Z`,
+        purchasedAt: `${today}T00:00:00Z`,
         currency: 'EUR',
         total: 7.47,
         paymentMethod: 'card',

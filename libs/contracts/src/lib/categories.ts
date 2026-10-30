@@ -104,6 +104,15 @@ export const updateCategoryRequestSchema = z.object({
 });
 export type UpdateCategoryRequest = z.input<typeof updateCategoryRequestSchema>;
 
+/** A category you add yourself, without waiting for the AI to suggest it. */
+export const createCategoryRequestSchema = z.object({
+  id: categoryIdSchema,
+  title: z.string().trim().min(1).max(100),
+  description: z.string().trim().min(1).max(1000),
+  template: categoryTemplateSchema.default({ fields: [] }),
+});
+export type CreateCategoryRequest = z.input<typeof createCategoryRequestSchema>;
+
 export interface CategorySuggestionDto {
   id: string;
   /** The proposed category id, e.g. `ELECTRICITY_BILL`. */
@@ -127,15 +136,20 @@ export const listSuggestionsQuerySchema = z.object({
   uploadId: z.uuid().optional(),
 });
 
+/** Edits to a pending suggestion: its proposed id, title, description or template. */
+export const updateSuggestionRequestSchema = z.object({
+  id: categoryIdSchema.optional(),
+  title: z.string().trim().min(1).max(100).optional(),
+  description: z.string().trim().min(1).max(1000).optional(),
+  template: categoryTemplateSchema.optional(),
+});
+export type UpdateSuggestionRequest = z.input<
+  typeof updateSuggestionRequestSchema
+>;
+
 /** Approve a suggestion as is, or with your edits to any field. */
-export const approveSuggestionRequestSchema = z
-  .object({
-    id: categoryIdSchema.optional(),
-    title: z.string().trim().min(1).max(100).optional(),
-    description: z.string().trim().min(1).max(1000).optional(),
-    template: categoryTemplateSchema.optional(),
-  })
-  .default({});
+export const approveSuggestionRequestSchema =
+  updateSuggestionRequestSchema.default({});
 export type ApproveSuggestionRequest = z.input<
   typeof approveSuggestionRequestSchema
 >;
@@ -175,6 +189,8 @@ export interface ExtractedField {
   required: boolean;
   /** Categories whose templates ask for this field. */
   categories: string[];
+  /** Set when you changed the value by hand; the AI's reading stays in `raw`. */
+  editedAt?: string | null;
 }
 
 /** Result of the EXTRACT step, stored in `uploads.extracted_fields`. */

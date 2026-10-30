@@ -10,11 +10,15 @@ import type {
   CategoryDto,
   CategorySuggestionDto,
   CompleteUploadResponse,
+  CreateCategoryRequest,
   CreateUploadRequest,
   CreateUploadResponse,
   Page,
   ParseQueueDto,
   SuggestionStatus,
+  UpdateCategoryRequest,
+  UpdateSuggestionRequest,
+  UpdateUploadRequest,
   UploadDto,
 } from '@life-island/contracts';
 import { filter, map, type Observable } from 'rxjs';
@@ -78,9 +82,49 @@ export class IngestionApi {
     return this.http.get<UploadDto>(`${INGESTION_API}/uploads/${uploadId}`);
   }
 
+  /** Your edits to a document: title, description, categories, field values. */
+  updateUpload(
+    uploadId: string,
+    changes: UpdateUploadRequest,
+  ): Observable<UploadDto> {
+    return this.http.patch<UploadDto>(
+      `${INGESTION_API}/uploads/${uploadId}`,
+      changes,
+    );
+  }
+
   /** The document categories, with their extraction templates. */
   categories(): Observable<CategoryDto[]> {
     return this.http.get<CategoryDto[]>(`${INGESTION_API}/categories`);
+  }
+
+  createCategory(category: CreateCategoryRequest): Observable<CategoryDto> {
+    return this.http.post<CategoryDto>(`${INGESTION_API}/categories`, category);
+  }
+
+  updateCategory(
+    id: string,
+    changes: UpdateCategoryRequest,
+  ): Observable<CategoryDto> {
+    return this.http.patch<CategoryDto>(
+      `${INGESTION_API}/categories/${id}`,
+      changes,
+    );
+  }
+
+  /** Deletes a category and removes it from every document that has it. */
+  deleteCategory(id: string): Observable<void> {
+    return this.http.delete<void>(`${INGESTION_API}/categories/${id}`);
+  }
+
+  updateSuggestion(
+    id: string,
+    changes: UpdateSuggestionRequest,
+  ): Observable<CategorySuggestionDto> {
+    return this.http.patch<CategorySuggestionDto>(
+      `${INGESTION_API}/category-suggestions/${id}`,
+      changes,
+    );
   }
 
   suggestions(

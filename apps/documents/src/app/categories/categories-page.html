@@ -1,6 +1,6 @@
 <ui-page-header
   heading="Categories"
-  subtitle="Labels the AI gives your documents, each with the fields worth extracting. New ones it suggests wait here for your approval."
+  subtitle="Labels the AI gives your documents, each with the fields worth extracting. Suggested ones wait for you to confirm them."
   emblem="🏷️"
 >
   <button
@@ -8,177 +8,229 @@
     uiButton
     variant="secondary"
     type="button"
-    [loading]="suggestions.isLoading() || categories.isLoading()"
-    (click)="suggestions.reload(); categories.reload()"
+    [loading]="store.confirmed.isLoading() || store.suggested.isLoading()"
+    (click)="store.reload()"
   >
     <ui-icon name="refresh" [size]="18" /> Refresh
+  </button>
+  <button uiPageActions uiButton type="button" (click)="startNew()">
+    <ui-icon name="plus" [size]="18" /> New category
   </button>
 </ui-page-header>
 
 @if (notice()) {
 <ui-alert tone="success" class="notice">{{ notice() }}</ui-alert>
+} @if (error()) {
+<ui-alert tone="danger" class="notice">{{ error() }}</ui-alert>
 }
 
 <ui-card
-  [heading]="'Suggestions to approve' + (pending().length ? ' (' + pending().length + ')' : '')"
+  [heading]="'Suggested categories' + (suggested().length ? ' (' + suggested().length + ')' : '')"
   class="section"
 >
-  @if (suggestions.error()) {
+  @if (store.suggested.error()) {
   <ui-alert tone="danger"
     >The suggestions could not be loaded. Is the ingestion service
     running?</ui-alert
   >
-  } @else if (!pending().length && !suggestions.isLoading()) {
-  <ui-empty-state heading="No suggestions waiting" icon="check">
-    New categories the AI proposes while reading documents appear here.
-  </ui-empty-state>
-  }
-  <ul class="suggestions">
-    @for (suggestion of pending(); track suggestion.id) {
-    <li class="suggestion">
-      <div class="suggestion__head">
-        <h3>{{ suggestion.title }}</h3>
-        <code>{{ suggestion.categoryId }}</code>
-        <ui-badge tone="info"
-          >{{ suggestion.uploadIds.length }} document{{
-          suggestion.uploadIds.length === 1 ? '' : 's' }}</ui-badge
-        >
-      </div>
-      <p>{{ suggestion.description }}</p>
-      @if (suggestion.reason) {
-      <p class="muted small">Why: {{ suggestion.reason }}</p>
-      } @if (editing() === suggestion.id) {
-      <div class="edit">
-        <ui-form-field label="Id (UPPER_SNAKE_CASE)">
-          <input
-            uiInput
-            [value]="draft().id"
-            (input)="updateDraft('id', $event)"
-          />
-        </ui-form-field>
-        <ui-form-field label="Title">
-          <input
-            uiInput
-            [value]="draft().title"
-            (input)="updateDraft('title', $event)"
-          />
-        </ui-form-field>
-        <ui-form-field label="Description" class="edit__wide">
-          <textarea
-            uiInput
-            rows="2"
-            [value]="draft().description"
-            (input)="updateDraft('description', $event)"
-          ></textarea>
-        </ui-form-field>
-        <ui-form-field label="Template (JSON)" class="edit__wide">
-          <textarea
-            uiInput
-            rows="10"
-            class="mono"
-            [value]="draft().template"
-            (input)="updateDraft('template', $event)"
-          ></textarea>
-        </ui-form-field>
-      </div>
-      } @else {
-      <table class="fields">
-        <caption class="muted small">
-          Fields to extract
-        </caption>
-        <tbody>
-          @for (field of suggestion.template.fields; track field.key) {
-          <tr>
-            <td>
-              {{ field.label }}@if (field.required) {<span class="muted">*</span
-              >}
-            </td>
-            <td>
-              <code>{{ field.key }}</code>
-            </td>
-            <td class="muted">
-              {{ field.type }}{{ field.unit ? ' (' + field.unit + ')' : '' }}
-            </td>
-          </tr>
-          } @empty {
-          <tr>
-            <td class="muted">No fields</td>
-          </tr>
-          }
-        </tbody>
-      </table>
-      } @if (errors()[suggestion.id]) {
-      <ui-alert tone="danger">{{ errors()[suggestion.id] }}</ui-alert>
+  } @else {
+  <ui-table
+    [columns]="suggestedColumns"
+    [rows]="suggested()"
+    [loading]="store.suggested.isLoading()"
+    caption="Categories the AI suggested"
+    emptyMessage="No suggestions waiting. New categories the AI proposes while reading documents appear here."
+  >
+    <ng-template uiCell="id" [uiCellOf]="suggested()" let-row>
+      <code>{{ row.categoryId }}</code>
+    </ng-template>
+    <ng-template uiCell="title" [uiCellOf]="suggested()" let-row>
+      <strong>{{ row.title }}</strong>
+    </ng-template>
+    <ng-template uiCell="description" [uiCellOf]="suggested()" let-row>
+      {{ row.description }} @if (row.reason) {
+      <div class="muted small">Why: {{ row.reason }}</div>
       }
+      <div class="muted small">Fields: {{ fieldList(row.template) }}</div>
+    </ng-template>
+    <ng-template uiCell="documents" [uiCellOf]="suggested()" let-row>
+      {{ row.uploadIds.length }}
+    </ng-template>
+    <ng-template uiCell="actions" [uiCellOf]="suggested()" let-row>
       <div class="actions">
-        @if (editing() !== suggestion.id) {
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [loading]="busy() === row.id"
+          [disabled]="busy() !== null"
+          (click)="confirm(row)"
+        >
+          <ui-icon name="check" [size]="16" /> Confirm
+        </button>
         <button
           uiButton
           variant="ghost"
+          size="sm"
+          [iconOnly]="true"
           type="button"
-          (click)="edit(suggestion)"
+          [attr.aria-label]="'Edit ' + row.title"
+          (click)="editSuggested(row)"
         >
-          Edit
+          <ui-icon name="edit" [size]="16" />
         </button>
-        } @else {
         <button
           uiButton
           variant="ghost"
+          size="sm"
+          [iconOnly]="true"
           type="button"
-          (click)="editing.set(null)"
+          [attr.aria-label]="'Delete ' + row.title"
+          (click)="askDelete({ kind: 'suggested', suggestion: row })"
         >
-          Cancel edits
-        </button>
-        }
-        <button
-          uiButton
-          variant="secondary"
-          type="button"
-          [disabled]="busy() !== null"
-          (click)="reject(suggestion)"
-        >
-          <ui-icon name="x" [size]="16" /> Reject
-        </button>
-        <button
-          uiButton
-          type="button"
-          [loading]="busy() === suggestion.id"
-          [disabled]="busy() !== null"
-          (click)="approve(suggestion)"
-        >
-          <ui-icon name="check" [size]="16" /> Approve
+          <ui-icon name="trash" [size]="16" />
         </button>
       </div>
-    </li>
-    }
-  </ul>
+    </ng-template>
+  </ui-table>
+  }
 </ui-card>
 
 <ui-card
-  [heading]="'Categories in use' + (categories.value()?.length ? ' (' + categories.value()!.length + ')' : '')"
+  [heading]="'Confirmed categories' + (confirmed().length ? ' (' + confirmed().length + ')' : '')"
   class="section"
 >
-  <ul class="categories">
-    @for (category of categories.value() ?? []; track category.id) {
-    <li>
-      <details>
-        <summary>
-          <span class="summary">
-            <strong>{{ category.title }}</strong>
-            <code>{{ category.id }}</code>
-            <span class="muted small"
-              >{{ category.template.fields.length }} field{{
-              category.template.fields.length === 1 ? '' : 's' }}</span
-            >
-          </span>
-        </summary>
-        <p class="small">{{ category.description }}</p>
-        <p class="muted small">
-          @for (field of category.template.fields; track field.key; let last =
-          $last) { {{ field.label }} ({{ field.type }}){{ last ? '' : ', ' }} }
-        </p>
-      </details>
-    </li>
-    }
-  </ul>
+  @if (store.confirmed.error()) {
+  <ui-alert tone="danger"
+    >The categories could not be loaded. Is the ingestion service
+    running?</ui-alert
+  >
+  } @else {
+  <ui-table
+    [columns]="confirmedColumns"
+    [rows]="confirmed()"
+    [loading]="store.confirmed.isLoading()"
+    caption="Confirmed categories"
+    emptyMessage="No categories yet."
+  >
+    <ng-template uiCell="id" [uiCellOf]="confirmed()" let-row>
+      <code>{{ row.id }}</code>
+    </ng-template>
+    <ng-template uiCell="title" [uiCellOf]="confirmed()" let-row>
+      <strong>{{ row.title }}</strong>
+    </ng-template>
+    <ng-template uiCell="description" [uiCellOf]="confirmed()" let-row>
+      {{ row.description }}
+    </ng-template>
+    <ng-template uiCell="fields" [uiCellOf]="confirmed()" let-row>
+      <span [attr.title]="fieldList(row.template)"
+        >{{ row.template.fields.length }}</span
+      >
+    </ng-template>
+    <ng-template uiCell="actions" [uiCellOf]="confirmed()" let-row>
+      <div class="actions">
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Edit ' + row.title"
+          (click)="editConfirmed(row)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Delete ' + row.title"
+          (click)="askDelete({ kind: 'confirmed', category: row })"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </ng-template>
+  </ui-table>
+  }
 </ui-card>
+
+<ui-confirm-dialog
+  [(open)]="editorOpen"
+  [heading]="editorHeading()"
+  size="lg"
+  confirmLabel="Save"
+  [busy]="busy() === 'editor'"
+  (confirmed)="save()"
+>
+  <div class="edit">
+    <ui-form-field
+      label="Id (UPPER_SNAKE_CASE)"
+      [hint]="editing()?.kind === 'confirmed' ? 'Documents refer to a category by its id, so it cannot change.' : ''"
+    >
+      <input
+        uiInput
+        [value]="draft().id"
+        [readOnly]="editing()?.kind === 'confirmed'"
+        placeholder="WATER_BILL"
+        (input)="updateDraft('id', $event)"
+      />
+    </ui-form-field>
+    <ui-form-field label="Title">
+      <input
+        uiInput
+        [value]="draft().title"
+        placeholder="Water bill"
+        (input)="updateDraft('title', $event)"
+      />
+    </ui-form-field>
+    <ui-form-field label="Description" class="edit__wide">
+      <textarea
+        uiInput
+        rows="3"
+        [value]="draft().description"
+        (input)="updateDraft('description', $event)"
+      ></textarea>
+    </ui-form-field>
+    <ui-form-field
+      label="Fields to extract (JSON)"
+      hint="Each field: key, label, type (string, text, number, integer, amount, currency, date, datetime, period, boolean, enum), description, required."
+      class="edit__wide"
+    >
+      <textarea
+        uiInput
+        rows="12"
+        class="mono"
+        [value]="draft().template"
+        (input)="updateDraft('template', $event)"
+      ></textarea>
+    </ui-form-field>
+  </div>
+  @if (editorError()) {
+  <ui-alert tone="danger" class="spaced">{{ editorError() }}</ui-alert>
+  }
+</ui-confirm-dialog>
+
+<ui-confirm-dialog
+  [(open)]="deleteOpen"
+  [heading]="deleteHeading()"
+  confirmLabel="Delete"
+  tone="danger"
+  [busy]="busy() === 'delete'"
+  (confirmed)="remove()"
+>
+  @if (deleting(); as target) { @if (target.kind === 'confirmed') {
+  <p>
+    <code>{{ target.category.id }}</code> is removed from every document that
+    has it, with the fields only this category asked for (unless they hold a
+    value). This cannot be undone.
+  </p>
+  } @else {
+  <p>
+    The suggestion leaves the documents it was suggested for, and the AI will
+    not suggest <code>{{ target.suggestion.categoryId }}</code> again.
+  </p>
+  } }
+</ui-confirm-dialog>

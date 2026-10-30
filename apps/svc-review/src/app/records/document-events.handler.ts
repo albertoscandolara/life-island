@@ -11,12 +11,14 @@ import {
   recordLoadFailedV1,
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
+  UPLOAD_UPDATED_EVENT,
   uploadCompletedV1,
   uploadParsingStartedV1,
+  uploadUpdatedV1,
   type EventEnvelope,
   type RecordStatus,
 } from '@life-island/contracts';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { stagingRecords } from '../db/schema.js';
@@ -24,6 +26,7 @@ import { stagingRecords } from '../db/schema.js';
 export const HANDLED_EVENTS = [
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
+  UPLOAD_UPDATED_EVENT,
   DOCUMENT_PARSED_EVENT,
   DOCUMENT_PARSE_FAILED_EVENT,
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
@@ -82,6 +85,37 @@ export async function applyDocumentEvent(
           uploadedAt: new Date(e.uploadedAt),
         })
         .onConflictDoNothing({ target: stagingRecords.uploadId });
+      return;
+    }
+    case UPLOAD_UPDATED_EVENT: {
+      // A snapshot of the document's metadata: the newest one wins, in any
+      // status (you can recategorize a confirmed document too).
+      const e = uploadUpdatedV1.parse(event.payload);
+      const metadata = {
+        title: e.title,
+        description: e.description,
+        categories: e.categories,
+        suggestedCategories: e.suggestedCategories,
+        metadataUpdatedAt: new Date(e.updatedAt),
+        updatedAt: now,
+      };
+      await db
+        .insert(stagingRecords)
+        .values({
+          uploadId: e.uploadId,
+          originalFilename: e.originalFilename,
+          fileFormat: e.fileFormat,
+          uploadedAt: new Date(e.uploadedAt),
+          ...metadata,
+        })
+        .onConflictDoUpdate({
+          target: stagingRecords.uploadId,
+          set: metadata,
+          setWhere: or(
+            isNull(stagingRecords.metadataUpdatedAt),
+            lte(stagingRecords.metadataUpdatedAt, metadata.metadataUpdatedAt),
+          ),
+        });
       return;
     }
     case UPLOAD_PARSING_STARTED_EVENT: {

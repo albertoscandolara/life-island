@@ -19,6 +19,24 @@ export const uploadCompletedV1 = z.object({
 });
 export type UploadCompletedV1 = z.infer<typeof uploadCompletedV1>;
 
+/**
+ * A document's editable metadata changed: title, description, its categories
+ * or the categories suggested for it (by the parser, an approval, a deletion
+ * or your edits). It is a full snapshot, so consumers keep the newest one by
+ * `updatedAt` and need nothing else.
+ */
+export const UPLOAD_UPDATED_EVENT = 'upload.updated@1';
+export const uploadUpdatedV1 = uploadCompletedV1
+  .omit({ sizeBytes: true })
+  .extend({
+    /** Confirmed document category ids, in the order they were assigned. */
+    categories: z.array(z.string()),
+    /** Ids of categories the AI suggested for this document, still awaiting your decision. */
+    suggestedCategories: z.array(z.string()),
+    updatedAt: z.iso.datetime({ offset: true }),
+  });
+export type UploadUpdatedV1 = z.infer<typeof uploadUpdatedV1>;
+
 export const UPLOAD_PARSING_STARTED_EVENT = 'upload.parsing_started@1';
 export const uploadParsingStartedV1 = z.object({
   uploadId: z.uuid(),

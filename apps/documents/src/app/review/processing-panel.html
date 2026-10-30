@@ -102,7 +102,7 @@
             <div class="muted small">
               Readings: {{ field.candidates!.join(' / ') }}
             </div>
-            } @if (field.note && field.status !== 'found') {
+            } @if (field.note && (field.status !== 'found' || field.editedAt)) {
             <div class="muted small">{{ field.note }}</div>
             }
           </td>

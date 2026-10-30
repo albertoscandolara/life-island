@@ -179,15 +179,21 @@ Types are `string`, `text`, `number`, `integer`, `amount`, `currency` (ISO 4217)
 
 **Discovery.** The DISCOVER step sees the existing categories, the pending suggestions and the ids you rejected. The worker then normalizes each proposed id, drops anything that matches an existing category by id or title (also loosely: `BILLS` is `BILL`) or one you rejected, and when it matches a pending suggestion, adds the document to that suggestion instead of creating another. A pending id is unique in the table, so a resumed step or two similar documents never duplicate a suggestion.
 
-**Approval.** Suggestions wait on the **Categories** page of the documents app, with their fields. **Approve** (optionally after editing the id, title, description or template) creates the category and adds it to the documents that suggested it; from the next document on, the AI matches it like any other. **Reject** keeps it from being suggested again.
+**Managing categories.** The **Categories** page of the documents app has two tables: suggested categories and confirmed ones, each with id, title and description. A suggestion has **Confirm**, which creates the category and adds it to the documents that suggested it (from the next document on, the AI matches it like any other), plus edit (id, title, description, fields) and delete, which rejects it so it is not suggested again. A confirmed category can be edited (not its id, which documents refer to) or deleted, which takes it off every document. **New category** adds one by hand.
+
+When a document gains a category, by your edit or a confirmed suggestion, that category's template fields are added to its extracted fields as `missing`, for you to fill in; fields no remaining category asks for are dropped unless they hold a value. The worker does not re-read the document for them yet.
 
 | Call                                                   | What happens                                                                    |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `GET /api/ingestion/categories`                        | The categories and their templates                                              |
+| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`                        |
 | `PATCH /api/ingestion/categories/:id`                  | Edit title, description or template                                             |
+| `DELETE /api/ingestion/categories/:id`                 | Delete it and take it off every document                                        |
+| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`             |
 | `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                       |
 | `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category (body: optional `id`, `title`, `description`, `template`) |
-| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject it                                                                       |
+| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                   |
+| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key) |
 | `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                         |
 
 ### AI usage quota, rate limits and other errors
@@ -226,18 +232,21 @@ To add a category: add a Zod schema there with a `targetKey` like `<module>.<ent
 
 ## Reviewing and confirming
 
-The review lists every document with its title, description, status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
+The review lists every document with its title, description, confirmed categories, suggested categories (waiting for you), status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
 
-Above the list, a banner shows the parse queue when it matters: running, waiting for the next run, paused because the AI usage quota is exhausted (with the provider's reset time when it gave one, or "unknown" otherwise), paused by a rate limit, or stopped because the API key was refused.
+Above the list, a line says when the processing service last ran, what it did and when it runs next, and a banner shows the parse queue when it matters: running, waiting for the next run, paused because the AI usage quota is exhausted (with the provider's reset time when it gave one, or "unknown" otherwise), paused by a rate limit, or stopped because the API key was refused.
 
-Every record has an eye button in the **Details** column. The popup shows the **AI processing** of the document: which steps are done and which remain, why it is paused or partial, the type and purpose, the assigned categories, the extracted fields with their status, and the suggested categories. Then come the target details, laid out by the target schema (receipt items as a table). Only fully parsed records can be confirmed: **Confirm** calls the confirm API; **Cancel** closes it.
+**Editing a document.** The pencil button opens the editor: title, description, which confirmed categories it has (checkboxes), its suggested categories with a **Confirm** button each, every extracted field value (checked against the field's type; empty means not in the document) and, until you confirm the record, the details sent to its module as JSON (checked against the target schema). Title, description, categories and fields belong to the ingestion service, which saves them and sends `upload.updated@1`; the review inbox keeps its copy from that event. Your detail edits go to `reviewed_payload` in `svc-review`, and Confirm sends them instead of the AI's version, which stays in `ai_payload`.
 
-| Call                                   | What happens                                                                                              |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET /api/review/records`              | `q`, `status`, `category`, `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
-| `GET /api/review/records/:id`          | One record with its details and errors                                                                    |
-| `POST /api/review/records/:id/confirm` | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED              |
-| `GET /api/review/catalog`              | The target catalog                                                                                        |
+Every record has an eye button in the **Actions** column. The popup shows the **AI processing** of the document: which steps are done and which remain, why it is paused or partial, the type and purpose, the assigned categories, the extracted fields with their status, and the suggested categories. Then come the target details, laid out by the target schema (receipt items as a table). Only fully parsed records can be confirmed: **Confirm** calls the confirm API; **Cancel** closes it.
+
+| Call                                   | What happens                                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/review/records`              | `q`, `status`, `category`, `documentCategory`, `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
+| `GET /api/review/records/:id`          | One record with its details and errors                                                                                        |
+| `PATCH /api/review/records/:id`        | Save your `details`; 409 once confirmed, 422 if they do not fit the target schema                                             |
+| `POST /api/review/records/:id/confirm` | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED                                  |
+| `GET /api/review/catalog`              | The target catalog                                                                                                            |
 
 **Why confirm is a separate API from upload.** Uploading and confirming are different decisions, made at different times (days apart, with the daily schedule), about data owned by different services. Confirm lives in `svc-review`, which owns the review state, and it does not write into any domain table itself: in one transaction it marks the record CONFIRMED and queues `record.approved@1` with the category, target key and details. The service that owns that category's table (groceries, 730) consumes the event, saves the data in its own schema, and answers `record.loaded` or `record.load_failed`, which move the record to LOADED or LOAD_FAILED. Adding a module never changes the confirm API.
 
@@ -250,7 +259,7 @@ Every record has an eye button in the **Details** column. The popup shows the **
 | Worker woken by `LISTEN uploads_ready` plus a 30 s poll   | Worker runs on a configurable cron schedule (daily by default), as requested                        |
 | `document.extracted`, one per target                      | `document.parsed@1`, one target per document; several targets per document later                    |
 | Staging statuses `PENDING_REVIEW`, `APPROVED`, `REJECTED` | `UPLOADED`…`PARSED`, `CONFIRMED`, `LOADED`, `LOAD_FAILED`: the inbox lists documents from upload on |
-| `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail and confirm; edit, bulk and reject later                               |
+| `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail, edit and confirm; bulk and reject later                               |
 | Domains publish their targets at startup                  | Catalog is static in `libs/contracts` and served by `GET /catalog`                                  |
 | Ajv for validation                                        | The targets' Zod schemas, which also hold the domain rules                                          |
 | Upload row without title, description or results          | Title, description, file format, categories, target key, details, confidence and dates on the row   |

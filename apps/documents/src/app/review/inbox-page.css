@@ -45,3 +45,13 @@
 .banner {
   margin-bottom: var(--space-4);
 }
+
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.muted {
+  color: var(--text-muted);
+}

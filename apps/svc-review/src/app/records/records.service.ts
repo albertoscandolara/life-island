@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   enqueueEvent,
@@ -11,15 +12,18 @@ import {
 } from '@life-island/be-common';
 import {
   CONFIRMABLE_STATUSES,
+  findTarget,
   listRecordsQuerySchema,
   RECORD_APPROVED_EVENT,
   type Page,
   type RecordApprovedV1,
   type RecordDetailDto,
   type RecordDto,
+  type updateRecordRequestSchema,
 } from '@life-island/contracts';
 import {
   and,
+  arrayContains,
   asc,
   count,
   desc,
@@ -39,6 +43,7 @@ import { stagingRecords, type StagingRecordRow } from '../db/schema.js';
 import { toRecordDetailDto, toRecordDto } from './record-dto.js';
 
 type ListRecords = z.output<typeof listRecordsQuerySchema>;
+type UpdateRecord = z.output<typeof updateRecordRequestSchema>;
 
 function nextDay(date: string): Date {
   const day = new Date(`${date}T00:00:00Z`);
@@ -70,6 +75,10 @@ export class RecordsService {
     if (query.status) conditions.push(eq(stagingRecords.status, query.status));
     if (query.category)
       conditions.push(eq(stagingRecords.category, query.category));
+    if (query.documentCategory)
+      conditions.push(
+        arrayContains(stagingRecords.categories, [query.documentCategory]),
+      );
     if (query.fileFormat)
       conditions.push(eq(stagingRecords.fileFormat, query.fileFormat));
     if (query.uploadedFrom) {
@@ -115,6 +124,50 @@ export class RecordsService {
 
   async get(id: string): Promise<RecordDetailDto> {
     return toRecordDetailDto(await this.findRow(id));
+  }
+
+  /**
+   * Saves your corrections to the details. The parser's version stays in
+   * `ai_payload`; yours goes to `reviewed_payload` and is what Confirm sends.
+   * Only before confirming: once sent, the domain owns the data.
+   */
+  async update(id: string, request: UpdateRecord): Promise<RecordDetailDto> {
+    const current = await this.findRow(id);
+    if (current.status === 'CONFIRMED' || current.status === 'LOADED')
+      throw new ConflictException(
+        'This record is already confirmed; its details belong to its module now',
+      );
+    const target = current.targetKey
+      ? findTarget(current.targetKey)
+      : undefined;
+    if (!target)
+      throw new ConflictException(
+        'This record has no parsed details to edit yet',
+      );
+    const parsed = target.schema.safeParse(request.details);
+    if (!parsed.success)
+      throw new UnprocessableEntityException(
+        parsed.error.issues
+          .map(
+            (issue) => `${issue.path.join('.') || 'details'}: ${issue.message}`,
+          )
+          .join('; '),
+      );
+    const [row] = await this.svc.db
+      .update(stagingRecords)
+      .set({ reviewedPayload: parsed.data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(stagingRecords.id, id),
+          inArray(stagingRecords.status, [...CONFIRMABLE_STATUSES]),
+        ),
+      )
+      .returning();
+    if (!row)
+      throw new ConflictException(
+        `Only parsed records can be edited; this one is ${current.status}`,
+      );
+    return toRecordDetailDto(row);
   }
 
   /**

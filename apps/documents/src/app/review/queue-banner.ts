@@ -89,12 +89,47 @@ export function queueMessage(
   }
 }
 
-/** The parse queue's state above the inbox: paused, running or waiting, and why. */
+const OUTCOME_LABELS: Record<string, string> = {
+  parsed: 'processed',
+  retried: 'to retry',
+  failed: 'failed',
+  paused: 'paused',
+  blocked: 'blocked',
+  lost: 'handed over',
+};
+
+/** When the processing service last ran, what it did, and when it runs next. */
+export function lastRunText(
+  queue: ParseQueueDto,
+  format: (iso: string) => string = formatTime,
+): string {
+  const parts: string[] = [];
+  if (queue.status === 'RUNNING' && queue.runStartedAt)
+    parts.push(`Running since ${format(queue.runStartedAt)}.`);
+  else if (queue.runStartedAt) {
+    const counts = Object.entries(queue.lastRunSummary ?? {})
+      .filter(([, count]) => count > 0)
+      .map(
+        ([outcome, count]) => `${count} ${OUTCOME_LABELS[outcome] ?? outcome}`,
+      );
+    parts.push(
+      `Last run ${format(queue.runStartedAt)}${queue.runFinishedAt ? `, finished ${format(queue.runFinishedAt)}` : ''}: ${counts.length ? counts.join(', ') : 'nothing to process'}.`,
+    );
+  } else parts.push('The processing service has not run yet.');
+  if (queue.nextScheduledRunAt)
+    parts.push(`Next scheduled run ${format(queue.nextScheduledRunAt)}.`);
+  return parts.join(' ');
+}
+
+/** The parse queue's state above the inbox: when it last ran, and whether it is paused, running or waiting, and why. */
 @Component({
   selector: 'app-queue-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiAlert],
   template: `
+    @if (lastRun(); as line) {
+      <p class="last-run">{{ line }}</p>
+    }
     @if (message(); as m) {
       <ui-alert [tone]="m.tone">
         <strong class="heading">{{ m.heading }}</strong>
@@ -111,6 +146,11 @@ export function queueMessage(
     :host:empty {
       display: none;
     }
+    .last-run {
+      margin: 0 0 var(--space-2);
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+    }
     .heading {
       display: block;
     }
@@ -122,6 +162,9 @@ export function queueMessage(
 export class QueueBanner {
   private readonly api = inject(IngestionApi);
   private readonly queue = rxResource({ stream: () => this.api.parseQueue() });
+  protected readonly lastRun = computed(() =>
+    this.queue.hasValue() ? lastRunText(this.queue.value()) : null,
+  );
   protected readonly message = computed(() =>
     this.queue.hasValue() ? queueMessage(this.queue.value()) : null,
   );
