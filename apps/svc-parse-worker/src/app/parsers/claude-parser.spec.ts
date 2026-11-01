@@ -278,6 +278,8 @@ describe('ClaudeParser', () => {
               title: 'Enel',
               description: 'Documents issued by Enel',
               reason: 'Issued by ENEL Energia',
+              dimension: 'ISSUER',
+              parentId: null,
               fields: [],
             },
           ],
@@ -301,7 +303,13 @@ describe('ClaudeParser', () => {
       unit: 'kWh',
     });
     const prompt = JSON.stringify(requests[0]);
+    expect(result.suggestions[1]).toMatchObject({
+      dimension: 'ISSUER',
+      parentId: null,
+    });
     expect(prompt).toContain('It already has these categories: BILL, EXPENSE');
+    expect(prompt).toContain('Issued by: ');
+    expect(prompt).toContain('ISSUER: who issued it');
     expect(prompt).toContain('Never propose these rejected ids: ELETTRICITA');
     expect(prompt).toContain('total_amount (amount)');
   });

@@ -163,6 +163,7 @@ export class CategoriesPage {
   protected readonly suggestedColumns: UiTableColumn[] = [
     { key: 'id', header: 'Id', width: '12rem' },
     { key: 'title', header: 'Title', width: '12rem' },
+    { key: 'placement', header: 'Kind', width: '11rem' },
     { key: 'description', header: 'Description' },
     { key: 'documents', header: 'Documents', width: '7rem' },
     { key: 'actions', header: 'Actions', align: 'end', width: '14rem' },
@@ -244,8 +245,9 @@ export class CategoriesPage {
   /** Parents the category in the editor can have. */
   protected readonly draftParentOptions = computed<UiOption<string>[]>(() => {
     const editing = this.editing();
-    if (!editing || editing.kind === 'suggested') return [];
-    if (editing.kind === 'new') return this.optionsFor(null, new Set());
+    if (!editing) return [];
+    if (editing.kind === 'new' || editing.kind === 'suggested')
+      return this.optionsFor(null, new Set());
     const { category } = editing;
     return this.optionsFor(
       category,
@@ -455,8 +457,10 @@ export class CategoriesPage {
         suggestion.description,
         suggestion.template,
       ),
-      null,
-      null,
+      suggestion.parentId && this.tree().get(suggestion.parentId)
+        ? suggestion.parentId
+        : null,
+      suggestion.dimension,
     );
   }
 
@@ -508,12 +512,14 @@ export class CategoriesPage {
         this.notice.set(`${draft.title.trim()} was saved.`);
       } else {
         const { suggestion } = editing;
-        await firstValueFrom(
-          this.api.updateSuggestion(
-            suggestion.id,
-            editsOf({ ...suggestion, id: suggestion.categoryId }, draft),
-          ),
+        const edits = editsOf(
+          { ...suggestion, id: suggestion.categoryId },
+          draft,
         );
+        if (parentId !== suggestion.parentId) edits.parentId = parentId;
+        if (dimension !== undefined && dimension !== suggestion.dimension)
+          edits.dimension = dimension;
+        await firstValueFrom(this.api.updateSuggestion(suggestion.id, edits));
         this.notice.set(`The suggestion ${draft.title.trim()} was saved.`);
       }
       this.editorOpen.set(false);

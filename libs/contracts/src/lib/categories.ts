@@ -170,6 +170,10 @@ export interface CategorySuggestionDto {
   template: CategoryTemplate;
   /** Why the AI proposed it, from the first document that did. */
   reason: string | null;
+  /** The existing category the AI would put it under; null for the top level. */
+  parentId: string | null;
+  /** The metadata dimension it belongs to (issuer, property...); null for a general category. */
+  dimension: CategoryDimension | null;
   status: SuggestionStatus;
   /** Documents that led to the suggestion; they get the category when it is approved. */
   uploadIds: string[];
@@ -184,12 +188,17 @@ export const listSuggestionsQuerySchema = z.object({
   uploadId: z.uuid().optional(),
 });
 
-/** Edits to a pending suggestion: its proposed id, title, description or template. */
+/**
+ * Edits to a pending suggestion: its proposed id, title, description,
+ * template, parent or dimension.
+ */
 export const updateSuggestionRequestSchema = z.object({
   id: categoryIdSchema.optional(),
   title: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().min(1).max(1000).optional(),
   template: categoryTemplateSchema.optional(),
+  parentId: parentIdSchema.optional(),
+  dimension: categoryDimensionSchema.nullable().optional(),
 });
 export type UpdateSuggestionRequest = z.input<
   typeof updateSuggestionRequestSchema
@@ -203,13 +212,12 @@ export type DismissSuggestionRequest = z.input<
   typeof dismissSuggestionRequestSchema
 >;
 
-/** Approve a suggestion as is, or with your edits to any field, optionally under a parent. */
-export const approveSuggestionRequestSchema = updateSuggestionRequestSchema
-  .extend({
-    parentId: parentIdSchema.optional(),
-    dimension: categoryDimensionSchema.nullable().optional(),
-  })
-  .default({});
+/**
+ * Approve a suggestion as is (under the parent and in the dimension the AI
+ * proposed), or with your edits to any field.
+ */
+export const approveSuggestionRequestSchema =
+  updateSuggestionRequestSchema.default({});
 export type ApproveSuggestionRequest = z.input<
   typeof approveSuggestionRequestSchema
 >;

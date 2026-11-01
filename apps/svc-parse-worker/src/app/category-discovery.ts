@@ -1,11 +1,14 @@
 import {
+  CATEGORY_DIMENSIONS,
   CATEGORY_ID_PATTERN,
   templateFieldSchema,
+  type CategoryDimension,
   type CategoryTemplate,
   type TemplateField,
 } from '@life-island/contracts';
 import type {
   CategoryDefinition,
+  DiscoveryContext,
   ProposedCategory,
 } from './parsers/document-parser.js';
 
@@ -44,6 +47,112 @@ export function cleanTemplate(template: {
       fields.push(parsed.data);
   }
   return { fields: fields.slice(0, 40) };
+}
+
+/**
+ * Where a proposal goes: under an existing category (taking its dimension,
+ * as every subcategory does), or at the top level in the dimension it
+ * names. An unknown parent or dimension is dropped, never invented.
+ */
+function placementOf(
+  proposal: Pick<CategoryDefinition, 'parentId' | 'dimension'>,
+  categories: CategoryDefinition[],
+  id: string,
+): { parentId: string | null; dimension: CategoryDimension | null } {
+  const parentId = proposal.parentId
+    ? normalizeCategoryId(proposal.parentId)
+    : null;
+  const parent =
+    parentId && parentId !== id
+      ? categories.find((category) => category.id === parentId)
+      : undefined;
+  if (parent)
+    return { parentId: parent.id, dimension: parent.dimension ?? null };
+  const dimension = (CATEGORY_DIMENSIONS as readonly string[]).includes(
+    proposal.dimension ?? '',
+  )
+    ? (proposal.dimension as CategoryDimension)
+    : null;
+  return { parentId: null, dimension };
+}
+
+/** Legal forms that are not part of a company's name: `S.p.A.`, `S.c.a r.l.`, `GmbH`... */
+const LEGAL_FORMS = new Set(
+  'SPA SRL SRLS SAPA SCARL SCRL SCPA SC SNC SAS SS COOP ONLUS SA AG GMBH LTD LLC INC PLC BV NV SL SARL'.split(
+    ' ',
+  ),
+);
+
+/** `Acque Veronesi S.c.a r.l.` → `Acque Veronesi`: the name without its legal form. */
+export function issuerName(printed: string): string {
+  const words = printed
+    .trim()
+    .replace(/[\s,;]+$/, '')
+    .split(/\s+/);
+  let changed = true;
+  while (changed && words.length > 1) {
+    changed = false;
+    for (let take = Math.min(4, words.length - 1); take >= 1; take--) {
+      const tail = words
+        .slice(-take)
+        .join('')
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '');
+      if (LEGAL_FORMS.has(tail)) {
+        words.splice(-take);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return words.join(' ').replace(/[\s,;.-]+$/, '');
+}
+
+/**
+ * The safety net for the issuer (the ENEL / ACQUE_VERONESI case): when the
+ * classifier read who issued the document, none of its categories is an
+ * issuer and the model proposed none, the issuer is proposed anyway, as an
+ * ISSUER category named as printed. filterSuggestions still drops it when it
+ * exists already (by id or title) or you rejected it.
+ */
+export function withIssuerFallback(
+  proposed: ProposedCategory[],
+  context: Pick<DiscoveryContext, 'categories' | 'analysis' | 'assignedIds'>,
+): ProposedCategory[] {
+  const printed = context.analysis.issuer?.trim();
+  if (!printed) return proposed;
+  const assignedIssuer = context.categories.some(
+    (category) =>
+      category.dimension === 'ISSUER' &&
+      context.assignedIds.includes(category.id),
+  );
+  if (assignedIssuer || proposed.some((item) => item.dimension === 'ISSUER'))
+    return proposed;
+  const title = issuerName(printed).slice(0, 100);
+  const id = normalizeCategoryId(title);
+  if (!id) return proposed;
+  return [
+    ...proposed,
+    {
+      id,
+      title,
+      description: `Documents issued by ${title}.`,
+      reason: `The document is issued by ${printed}`,
+      dimension: 'ISSUER',
+      parentId: null,
+      template: {
+        fields: [
+          {
+            key: 'customer_id',
+            label: 'Customer or account id',
+            type: 'string',
+            description: `Your customer, contract or account code with ${title}`,
+            required: false,
+          },
+        ],
+      },
+    },
+  ];
 }
 
 export interface DiscoveryFilterContext {
@@ -117,6 +226,11 @@ export function filterSuggestions(
         .slice(0, 1000),
       template: pending?.template ?? cleanTemplate(suggestion.template),
       reason: suggestion.reason.trim().slice(0, 1000),
+      ...placementOf(
+        pending?.parentId || pending?.dimension ? pending : suggestion,
+        context.categories,
+        finalId,
+      ),
     });
   }
   return { accepted, dropped };

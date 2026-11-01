@@ -415,8 +415,24 @@ export class CategoriesService {
           );
         const id = request.id ?? suggestion.categoryId;
         const tree = await this.lockedHierarchy(client);
-        const parentId = request.parentId ?? null;
-        const dimension = this.placement(tree, id, parentId, request.dimension);
+        // Your choice of parent is checked strictly; the AI's is a proposal,
+        // dropped (keeping its dimension) if that parent is gone since.
+        const proposedParent =
+          suggestion.parentId && tree.get(suggestion.parentId)
+            ? suggestion.parentId
+            : null;
+        const parentId =
+          request.parentId !== undefined ? request.parentId : proposedParent;
+        const dimension = this.placement(
+          tree,
+          id,
+          parentId,
+          request.dimension !== undefined
+            ? request.dimension
+            : parentId
+              ? undefined
+              : suggestion.dimension,
+        );
         const inserted = await db
           .insert(documentCategories)
           .values({
@@ -571,9 +587,36 @@ export class CategoriesService {
               `A category with id ${request.id} already exists`,
             );
         }
+        const placement: {
+          parentId?: string | null;
+          dimension?: CategoryDimension | null;
+        } = {};
+        if (request.parentId !== undefined || request.dimension !== undefined) {
+          const [current] = await db
+            .select()
+            .from(categorySuggestions)
+            .where(eq(categorySuggestions.id, suggestionId));
+          if (!current) throw await this.notPending(suggestionId);
+          const parentId =
+            request.parentId !== undefined
+              ? request.parentId
+              : current.parentId;
+          placement.parentId = parentId;
+          placement.dimension = this.placement(
+            await this.lockedHierarchy(client),
+            request.id ?? current.categoryId,
+            parentId,
+            request.dimension !== undefined
+              ? request.dimension
+              : parentId
+                ? undefined
+                : current.dimension,
+          );
+        }
         const [row] = await db
           .update(categorySuggestions)
           .set({
+            ...placement,
             ...(request.id ? { categoryId: request.id } : {}),
             ...(request.title ? { title: request.title } : {}),
             ...(request.description

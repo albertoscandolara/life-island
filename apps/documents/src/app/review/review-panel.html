@@ -127,7 +127,9 @@
       <span class="suggestion__text">
         <ui-badge tone="warning">Suggested</ui-badge>
         <strong>{{ suggestion.title }}</strong>
-        @if (suggestion.reason) {
+        @if (placementOf(suggestion); as placement) {
+        <ui-badge tone="info">{{ placement }}</ui-badge>
+        } @if (suggestion.reason) {
         <span class="muted small-inline">{{ suggestion.reason }}</span>
         }
       </span>

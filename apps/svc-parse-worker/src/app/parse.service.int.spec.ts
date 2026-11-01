@@ -5,7 +5,10 @@ import {
   storageOptionsFromEnv,
   type ServiceDb,
 } from '@life-island/be-common';
-import type { ProviderErrorDetails } from '@life-island/contracts';
+import type {
+  CategoryDimension,
+  ProviderErrorDetails,
+} from '@life-island/contracts';
 import {
   categorySuggestions,
   documentCategories,
@@ -51,7 +54,12 @@ class ScriptedAnalyzer implements DocumentAnalyzer {
     discover: 0,
   };
   failures: Partial<Record<Step, () => Error>> = {};
-  suggestions?: { id: string; title: string }[];
+  suggestions?: {
+    id: string;
+    title: string;
+    dimension?: CategoryDimension | null;
+    parentId?: string | null;
+  }[];
   private readonly inner = new FakeParser();
 
   private check(step: Step) {
@@ -268,6 +276,19 @@ describe.skipIf(!configured)(
         'ENEL',
       ]);
       expect(suggested.every((s) => s.status === 'PENDING')).toBe(true);
+      // Each says what kind of metadata it is and where it goes.
+      expect(
+        suggested
+          .map(({ categoryId, parentId, dimension }) => ({
+            categoryId,
+            parentId,
+            dimension,
+          }))
+          .sort((a, b) => a.categoryId.localeCompare(b.categoryId)),
+      ).toEqual([
+        { categoryId: 'ELECTRICITY_BILL', parentId: 'BILL', dimension: null },
+        { categoryId: 'ENEL', parentId: null, dimension: 'ISSUER' },
+      ]);
       expect(suggested[0].templateJson.fields.length).toBeGreaterThan(0);
       expect(
         await db()
@@ -527,7 +548,14 @@ describe.skipIf(!configured)(
       const id = `TEST_AUTO_${randomUUID().slice(0, 8).toUpperCase()}`;
       createdCategories.push(id);
       const analyzer = new ScriptedAnalyzer();
-      analyzer.suggestions = [{ id, title: `Auto ${id}` }];
+      analyzer.suggestions = [
+        {
+          id,
+          title: `Auto ${id}`,
+          dimension: 'ISSUER',
+          parentId: 'NO_SUCH_PARENT',
+        },
+      ];
       const service = new ParseService(svc, storage, analyzer, {
         ...config,
         autoApproveCategories: true,
@@ -535,12 +563,14 @@ describe.skipIf(!configured)(
       const upload = await seed(ENEL);
       await service.process(await claim(service, upload));
       expect((await row(upload)).categories).toContain(id);
-      expect(
-        await db()
-          .select()
-          .from(documentCategories)
-          .where(eq(documentCategories.id, id)),
-      ).toHaveLength(1);
+      const saved = await db()
+        .select()
+        .from(documentCategories)
+        .where(eq(documentCategories.id, id));
+      // An unknown parent is dropped; the dimension stays.
+      expect(saved).toEqual([
+        expect.objectContaining({ parentId: null, dimension: 'ISSUER' }),
+      ]);
       expect(
         (await suggestionsFor(upload)).find((s) => s.categoryId === id),
       ).toMatchObject({

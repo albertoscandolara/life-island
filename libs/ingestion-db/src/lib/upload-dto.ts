@@ -113,6 +113,8 @@ export function toSuggestionDto(
     description: row.description,
     template: row.templateJson,
     reason: row.reason,
+    parentId: row.parentId,
+    dimension: row.dimension,
     status: row.status,
     uploadIds: row.uploadIds,
     approvedCategoryId: row.approvedCategoryId,

@@ -33,7 +33,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
-import { filterSuggestions } from './category-discovery.js';
+import { filterSuggestions, withIssuerFallback } from './category-discovery.js';
 import {
   CONFIG,
   PARSER,
@@ -261,7 +261,10 @@ export class ParseService {
       };
       const output = await this.analyzer.discover(input, context);
       await this.queue.markHealthy();
-      const filtered = filterSuggestions(output.result.suggestions, context);
+      const filtered = filterSuggestions(
+        withIssuerFallback(output.result.suggestions, context),
+        context,
+      );
       for (const drop of filtered.dropped)
         this.logger.debug(`Suggestion ${drop.id} dropped: ${drop.reason}`);
       await this.saveDiscovery(progress, filtered.accepted, output.runs);
@@ -301,6 +304,8 @@ export class ParseService {
         title: row.title,
         description: row.description,
         template: row.templateJson,
+        parentId: row.parentId,
+        dimension: row.dimension,
       })),
       rejectedIds: rejected.map((row) => row.id),
     };
@@ -455,14 +460,19 @@ export class ParseService {
         for (const suggestion of suggestions) {
           if (this.config.autoApproveCategories) {
             const inserted = await client.query(
-              `insert into ingestion.document_categories (id, title, description, template_json)
-               values ($1, $2, $3, $4)
+              `insert into ingestion.document_categories
+                 (id, title, description, template_json, parent_id, dimension)
+               select $1, $2, $3, $4, p.id, coalesce(p.dimension, $6::ingestion.category_dimension)
+                 from (select 1) as one
+                 left join ingestion.document_categories p on p.id = $5
                on conflict do nothing`,
               [
                 suggestion.id,
                 suggestion.title,
                 suggestion.description,
                 JSON.stringify(suggestion.template),
+                suggestion.parentId ?? null,
+                suggestion.dimension ?? null,
               ],
             );
             if (inserted.rowCount) {
@@ -470,8 +480,8 @@ export class ParseService {
               await client.query(
                 `insert into ingestion.category_suggestions
                    (category_id, title, description, template_json, reason, status,
-                    upload_ids, approved_category_id, reviewed_at)
-                 values ($1, $2, $3, $4, $5, 'APPROVED', array[$6]::uuid[], $1, now())`,
+                    upload_ids, approved_category_id, reviewed_at, parent_id, dimension)
+                 values ($1, $2, $3, $4, $5, 'APPROVED', array[$6]::uuid[], $1, now(), $7, $8)`,
                 [
                   suggestion.id,
                   suggestion.title,
@@ -479,6 +489,8 @@ export class ParseService {
                   JSON.stringify(suggestion.template),
                   suggestion.reason,
                   uploadId,
+                  suggestion.parentId ?? null,
+                  suggestion.dimension ?? null,
                 ],
               );
               continue;
@@ -486,13 +498,16 @@ export class ParseService {
           }
           await client.query(
             `insert into ingestion.category_suggestions
-               (category_id, title, description, template_json, reason, upload_ids)
-             values ($1, $2, $3, $4, $5, array[$6]::uuid[])
+               (category_id, title, description, template_json, reason, upload_ids,
+                parent_id, dimension)
+             values ($1, $2, $3, $4, $5, array[$6]::uuid[], $7, $8)
              on conflict (category_id) where status = 'PENDING'
              do update set
                upload_ids = category_suggestions.upload_ids || array(
                  select id from unnest(excluded.upload_ids) as id
                   where id <> all(category_suggestions.upload_ids)),
+               parent_id = coalesce(category_suggestions.parent_id, excluded.parent_id),
+               dimension = coalesce(category_suggestions.dimension, excluded.dimension),
                updated_at = now()`,
             [
               suggestion.id,
@@ -501,6 +516,8 @@ export class ParseService {
               JSON.stringify(suggestion.template),
               suggestion.reason,
               uploadId,
+              suggestion.parentId ?? null,
+              suggestion.dimension ?? null,
             ],
           );
         }
