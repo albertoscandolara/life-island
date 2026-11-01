@@ -79,12 +79,25 @@ export function toUploadDto(row: UploadRow): UploadDto {
   };
 }
 
-export function toCategoryDto(row: CategoryRow): CategoryDto {
+/** Document counts of a category; zero when not given. */
+export interface CategoryCounts {
+  documentCount: number;
+  totalDocumentCount: number;
+}
+
+export function toCategoryDto(
+  row: CategoryRow,
+  counts: CategoryCounts = { documentCount: 0, totalDocumentCount: 0 },
+): CategoryDto {
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     template: row.templateJson,
+    parentId: row.parentId,
+    dimension: row.dimension,
+    documentCount: counts.documentCount,
+    totalDocumentCount: counts.totalDocumentCount,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

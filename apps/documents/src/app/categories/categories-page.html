@@ -1,6 +1,6 @@
 <ui-page-header
   heading="Categories"
-  subtitle="Labels the AI gives your documents, each with the fields worth extracting. Suggested ones wait for you to confirm them."
+  subtitle="Labels the AI gives your documents, each with the fields worth extracting. Categories form trees: a document in a subcategory also belongs to every category above it."
   emblem="🏷️"
 >
   <button
@@ -105,55 +105,292 @@
     >The categories could not be loaded. Is the ingestion service
     running?</ui-alert
   >
+  } @else if (store.confirmed.isLoading() && !confirmed().length) {
+  <p class="muted">Loading categories…</p>
+  } @else if (!confirmed().length) {
+  <ui-empty-state heading="No categories yet" icon="folder">
+    <p class="small">Add one with New category, or confirm a suggestion.</p>
+  </ui-empty-state>
   } @else {
-  <ui-table
-    [columns]="confirmedColumns"
-    [rows]="confirmed()"
-    [loading]="store.confirmed.isLoading()"
-    caption="Confirmed categories"
-    emptyMessage="No categories yet."
-  >
-    <ng-template uiCell="id" [uiCellOf]="confirmed()" let-row>
-      <code>{{ row.id }}</code>
-    </ng-template>
-    <ng-template uiCell="title" [uiCellOf]="confirmed()" let-row>
-      <strong>{{ row.title }}</strong>
-    </ng-template>
-    <ng-template uiCell="description" [uiCellOf]="confirmed()" let-row>
-      {{ row.description }}
-    </ng-template>
-    <ng-template uiCell="fields" [uiCellOf]="confirmed()" let-row>
-      <span [attr.title]="fieldList(row.template)"
-        >{{ row.template.fields.length }}</span
-      >
-    </ng-template>
-    <ng-template uiCell="actions" [uiCellOf]="confirmed()" let-row>
-      <div class="actions">
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          [iconOnly]="true"
-          type="button"
-          [attr.aria-label]="'Edit ' + row.title"
-          (click)="editConfirmed(row)"
-        >
-          <ui-icon name="edit" [size]="16" />
-        </button>
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          [iconOnly]="true"
-          type="button"
-          [attr.aria-label]="'Delete ' + row.title"
-          (click)="askDelete({ kind: 'confirmed', category: row })"
-        >
-          <ui-icon name="trash" [size]="16" />
-        </button>
+  <div class="layout">
+    <section class="tree-pane" aria-label="Category hierarchy">
+      <div class="tree-tools">
+        <input
+          uiInput
+          type="search"
+          placeholder="Find a category"
+          aria-label="Find a category"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+        />
+        <div class="actions">
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="expandAll()"
+          >
+            Expand all
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="collapseAll()"
+          >
+            Collapse all
+          </button>
+        </div>
       </div>
-    </ng-template>
-  </ui-table>
+      <ul class="tree" role="tree" aria-label="Categories">
+        @for (row of rows(); track row.key) { @if (row.kind === 'heading') {
+        <li class="tree__heading" role="presentation">{{ row.label }}</li>
+        } @else {
+        <li
+          class="tree__node"
+          role="treeitem"
+          [attr.aria-level]="row.depth + 1"
+          [attr.aria-expanded]="row.hasChildren ? row.expanded : null"
+          [attr.aria-selected]="row.key === selectedId()"
+          [style.--depth]="row.depth"
+        >
+          @if (row.hasChildren) {
+          <button
+            type="button"
+            class="expander"
+            tabindex="-1"
+            [attr.aria-label]="(row.expanded ? 'Collapse ' : 'Expand ') + row.category.title"
+            [disabled]="!!search().trim()"
+            (click)="toggleExpanded(row.key)"
+          >
+            <ui-icon
+              [name]="row.expanded ? 'chevron-down' : 'chevron-right'"
+              [size]="14"
+            />
+          </button>
+          } @else {
+          <span class="expander" aria-hidden="true"></span>
+          }
+          <button
+            type="button"
+            class="node"
+            [class.node--selected]="row.key === selectedId()"
+            [attr.data-node]="row.key"
+            [attr.tabindex]="row.key === selectedId() || (!selectedId() && $first) ? 0 : -1"
+            (click)="select(row.key)"
+            (keydown)="onTreeKeydown($event, row)"
+          >
+            <span class="node__title">{{ row.category.title }}</span>
+            <span
+              class="node__count"
+              [attr.title]="row.category.totalDocumentCount + ' documents in this category or below it'"
+              >{{ row.category.totalDocumentCount }}</span
+            >
+          </button>
+        </li>
+        } } @empty {
+        <li class="muted small">No category matches.</li>
+        }
+      </ul>
+    </section>
+
+    <section class="details" aria-live="polite">
+      @if (selected(); as category) {
+      <nav class="path" aria-label="Path from the top">
+        <ol>
+          @for (ancestor of ancestors(); track ancestor.id) {
+          <li>
+            <button type="button" class="link" (click)="select(ancestor.id)">
+              {{ ancestor.title }}
+            </button>
+            <ui-icon name="chevron-right" [size]="14" class="muted" />
+          </li>
+          }
+          <li>
+            <span class="path__current" aria-current="true"
+              >{{ category.title }}</span
+            >
+          </li>
+        </ol>
+      </nav>
+
+      <div class="details__head">
+        <div>
+          <h3 class="details__title">{{ category.title }}</h3>
+          <code>{{ category.id }}</code>
+        </div>
+        <div class="actions">
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="startNew(category.id)"
+          >
+            <ui-icon name="plus" [size]="16" /> Subcategory
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [attr.aria-label]="'Edit ' + category.title"
+            (click)="editConfirmed(category)"
+          >
+            <ui-icon name="edit" [size]="16" />
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [attr.aria-label]="'Delete ' + category.title"
+            (click)="askDelete({ kind: 'confirmed', category })"
+          >
+            <ui-icon name="trash" [size]="16" />
+          </button>
+        </div>
+      </div>
+
+      <p class="muted">{{ category.description }}</p>
+
+      <dl class="facts">
+        <div>
+          <dt>Documents</dt>
+          <dd>
+            {{ category.documentCount }} @if (category.totalDocumentCount !==
+            category.documentCount) {
+            <span class="muted small"
+              >· {{ category.totalDocumentCount }} with subcategories</span
+            >
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Fields</dt>
+          <dd [attr.title]="fieldList(category.template)">
+            {{ category.template.fields.length }}
+          </dd>
+        </div>
+        <div>
+          <dt>Dimension</dt>
+          <dd><ui-badge>{{ dimensionLabel(category.dimension) }}</ui-badge></dd>
+        </div>
+      </dl>
+
+      <!-- Re-created after each change, so a refused move shows the real parent again. -->
+      @for (revision of [revision()]; track revision) {
+      <div class="controls">
+        <ui-form-field
+          label="Parent"
+          hint="Moving keeps its id and its documents; its subcategories move with it."
+        >
+          <ui-dropdown
+            [options]="parentOptions()"
+            [value]="category.parentId"
+            [clearable]="true"
+            clearLabel="None (top level)"
+            placeholder="None (top level)"
+            aria-label="Parent category"
+            [disabled]="busy() === 'move'"
+            (valueChange)="move(category, $event)"
+          />
+        </ui-form-field>
+        @if (category.parentId) {
+        <ui-form-field
+          label="Dimension"
+          hint="Subcategories share their parent's dimension."
+        >
+          <p class="inherited">
+            {{ dimensionLabel(category.dimension) }}, from
+            <button
+              type="button"
+              class="link"
+              (click)="select(tree().root(category.id)!.id)"
+            >
+              {{ tree().root(category.id)?.title }}
+            </button>
+          </p>
+        </ui-form-field>
+        } @else {
+        <ui-form-field
+          label="Dimension"
+          hint="Applies to the whole tree below it."
+        >
+          <ui-dropdown
+            [options]="dimensionOptions"
+            [value]="category.dimension"
+            [clearable]="true"
+            clearLabel="General (no dimension)"
+            placeholder="General (no dimension)"
+            aria-label="Dimension"
+            [disabled]="busy() === 'dimension'"
+            (valueChange)="setDimension(category, $event)"
+          />
+        </ui-form-field>
+        }
+      </div>
+      }
+
+      <h4 class="section-title">
+        Subcategories @if (children().length) { ({{ children().length }}) }
+      </h4>
+      @if (children().length) {
+      <ul class="chips">
+        @for (child of children(); track child.id) {
+        <li>
+          <button type="button" class="chip" (click)="select(child.id)">
+            {{ child.title }}
+            <span class="muted small">{{ child.totalDocumentCount }}</span>
+          </button>
+        </li>
+        }
+      </ul>
+      @if (descendants().length > children().length) {
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-expanded]="showDescendants()"
+        (click)="showDescendants.set(!showDescendants())"
+      >
+        <ui-icon
+          [name]="showDescendants() ? 'chevron-down' : 'chevron-right'"
+          [size]="14"
+        />
+        {{ showDescendants() ? 'Hide' : 'Show' }} all {{ descendants().length }}
+        below
+      </button>
+      @if (showDescendants()) {
+      <ul class="descendants">
+        @for (item of descendants(); track item.category.id) {
+        <li [style.--depth]="item.depth">
+          <button type="button" class="link" (click)="select(item.category.id)">
+            {{ item.category.title }}
+          </button>
+          <code class="muted">{{ item.category.id }}</code>
+        </li>
+        }
+      </ul>
+      } } } @else {
+      <p class="muted small">
+        None. Add one with Subcategory, or move another category under this one.
+      </p>
+      } } @else {
+      <ui-empty-state heading="Select a category" icon="folder">
+        <p class="small">
+          See its place in the hierarchy, its subcategories and its documents,
+          and move it under another parent.
+        </p>
+      </ui-empty-state>
+      }
+    </section>
+  </div>
   }
 </ui-card>
 
@@ -186,6 +423,35 @@
         (input)="updateDraft('title', $event)"
       />
     </ui-form-field>
+    @if (editing()?.kind !== 'suggested') {
+    <ui-form-field label="Parent">
+      <ui-dropdown
+        [options]="draftParentOptions()"
+        [(value)]="draftParent"
+        [clearable]="true"
+        clearLabel="None (top level)"
+        placeholder="None (top level)"
+        aria-label="Parent category"
+      />
+    </ui-form-field>
+    <ui-form-field
+      label="Dimension"
+      [hint]="draftParent() ? 'Taken from the parent.' : 'What kind of metadata it is; optional.'"
+    >
+      @if (draftParent()) {
+      <p class="inherited">{{ dimensionLabel(inheritedDimension()) }}</p>
+      } @else {
+      <ui-dropdown
+        [options]="dimensionOptions"
+        [(value)]="draftDimension"
+        [clearable]="true"
+        clearLabel="General (no dimension)"
+        placeholder="General (no dimension)"
+        aria-label="Dimension"
+      />
+      }
+    </ui-form-field>
+    }
     <ui-form-field label="Description" class="edit__wide">
       <textarea
         uiInput
@@ -222,11 +488,76 @@
   (confirmed)="remove()"
 >
   @if (deleting(); as target) { @if (target.kind === 'confirmed') {
-  <p>
-    <code>{{ target.category.id }}</code> is removed from every document that
-    has it, with the fields only this category asked for (unless they hold a
-    value). This cannot be undone.
-  </p>
+  <div class="delete">
+    @if (deletingChildren().length; as count) {
+    <fieldset class="choice">
+      <legend>
+        Its {{ count }} subcategor{{ count === 1 ? 'y' : 'ies' }} ({{
+        store.titleOf(deletingChildren()[0].id) }}{{ count > 1 ? '…' : '' }})
+      </legend>
+      @if (deletingParent(); as parent) {
+      <label>
+        <input
+          type="radio"
+          name="children"
+          value="MOVE_TO_PARENT"
+          [checked]="deleteChildren() === 'MOVE_TO_PARENT'"
+          (change)="deleteChildren.set($any(radio($event)))"
+        />
+        Move up under {{ parent.title }}
+      </label>
+      }
+      <label>
+        <input
+          type="radio"
+          name="children"
+          value="MAKE_ROOT"
+          [checked]="deleteChildren() === 'MAKE_ROOT' || !deletingParent()"
+          (change)="deleteChildren.set($any(radio($event)))"
+        />
+        Make {{ count === 1 ? 'it a' : 'them' }} top-level categor{{ count === 1
+        ? 'y' : 'ies' }}
+      </label>
+      <p class="muted small">
+        Subcategories keep their ids and documents either way.
+      </p>
+    </fieldset>
+    } @if (target.category.documentCount) {
+    <fieldset class="choice">
+      <legend>
+        Its {{ target.category.documentCount }} document{{
+        target.category.documentCount === 1 ? '' : 's' }}
+      </legend>
+      <label>
+        <input
+          type="radio"
+          name="documents"
+          value="REMOVE"
+          [checked]="deleteDocuments() === 'REMOVE'"
+          (change)="deleteDocuments.set($any(radio($event)))"
+        />
+        Take <code>{{ target.category.id }}</code> off them, with the fields
+        only it asked for (unless they hold a value)
+      </label>
+      @if (deletingParent(); as parent) {
+      <label>
+        <input
+          type="radio"
+          name="documents"
+          value="MOVE_TO_PARENT"
+          [checked]="deleteDocuments() === 'MOVE_TO_PARENT'"
+          (change)="deleteDocuments.set($any(radio($event)))"
+        />
+        Give them {{ parent.title }} instead
+      </label>
+      }
+      <p class="muted small">The documents themselves are never deleted.</p>
+    </fieldset>
+    } @else {
+    <p>No document has <code>{{ target.category.id }}</code>.</p>
+    }
+    <p class="muted small">This cannot be undone.</p>
+  </div>
   } @else {
   <p>
     The suggestion leaves the documents it was suggested for, and the AI will

@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  type AnyPgColumn,
   char,
   check,
   index,
@@ -15,12 +16,14 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import {
+  categoryDimensionSchema,
   DESCRIPTION_MAX_LENGTH,
   fileFormatSchema,
   parseQueueStatusSchema,
   suggestionStatusSchema,
   TITLE_MAX_LENGTH,
   uploadStatusSchema,
+  type CategoryDimension,
   type CategoryTemplate,
   type DocumentAnalysis,
   type ExtractedFields,
@@ -51,6 +54,13 @@ export const fileFormat = ingestion.enum(
 export const suggestionStatus = ingestion.enum(
   'suggestion_status',
   suggestionStatusSchema.options as [SuggestionStatus, ...SuggestionStatus[]],
+);
+export const categoryDimension = ingestion.enum(
+  'category_dimension',
+  categoryDimensionSchema.options as [
+    CategoryDimension,
+    ...CategoryDimension[],
+  ],
 );
 export const parseQueueStatus = ingestion.enum(
   'parse_queue_status',
@@ -148,6 +158,12 @@ export const parseRuns = ingestion.table('parse_runs', {
  * The category taxonomy (`WATER_BILL`, `INVOICE`, `LIDL`...). The AI assigns
  * existing ones and suggests new ones; a suggestion becomes a row here only
  * once you approve it (or when automatic approval is configured).
+ *
+ * Categories form trees: `parent_id` points at the direct parent (null for a
+ * root). The foreign key keeps a parent from being deleted under its
+ * children, and a trigger (migration 0004) rejects cycles. `dimension` says
+ * which metadata dimension a tree belongs to (document type, subject,
+ * property...); a child always has its parent's.
  */
 export const documentCategories = ingestion.table(
   'document_categories',
@@ -159,6 +175,11 @@ export const documentCategories = ingestion.table(
       .$type<CategoryTemplate>()
       .notNull()
       .default({ fields: [] }),
+    parentId: text('parent_id').references(
+      (): AnyPgColumn => documentCategories.id,
+      { onDelete: 'restrict' },
+    ),
+    dimension: categoryDimension('dimension'),
     ...timestamps,
   },
   (table) => [
@@ -166,7 +187,12 @@ export const documentCategories = ingestion.table(
       'document_categories_id_format',
       sql`${table.id} ~ '^[A-Z][A-Z0-9_]{1,63}$'`,
     ),
+    check(
+      'document_categories_not_own_parent',
+      sql`${table.parentId} is null or ${table.parentId} <> ${table.id}`,
+    ),
     uniqueIndex('document_categories_title_idx').on(sql`lower(${table.title})`),
+    index('document_categories_parent_idx').on(table.parentId),
   ],
 );
 

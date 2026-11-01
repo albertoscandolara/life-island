@@ -23,6 +23,17 @@
   border: 0;
 }
 
+.categories + .categories {
+  margin-top: var(--space-3);
+}
+
+.group {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
 .category {
   display: flex;
   align-items: baseline;

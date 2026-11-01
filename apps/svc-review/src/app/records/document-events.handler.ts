@@ -1,4 +1,6 @@
 import {
+  CATEGORY_CHANGED_EVENT,
+  categoryChangedV1,
   DOCUMENT_PARSE_FAILED_EVENT,
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
   DOCUMENT_PARSED_EVENT,
@@ -21,7 +23,7 @@ import {
 import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
-import { stagingRecords } from '../db/schema.js';
+import { categoryTree, stagingRecords } from '../db/schema.js';
 
 export const HANDLED_EVENTS = [
   UPLOAD_COMPLETED_EVENT,
@@ -32,6 +34,7 @@ export const HANDLED_EVENTS = [
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
   RECORD_LOADED_EVENT,
   RECORD_LOAD_FAILED_EVENT,
+  CATEGORY_CHANGED_EVENT,
 ];
 
 /** Statuses the parser may still move; once you confirm, its events no longer apply. */
@@ -212,6 +215,27 @@ export async function applyDocumentEvent(
             inArray(stagingRecords.status, ['CONFIRMED', 'LOAD_FAILED']),
           ),
         );
+      return;
+    }
+    case CATEGORY_CHANGED_EVENT: {
+      // The category hierarchy, for filters that include descendants. The
+      // newest change per category wins; a deletion stays as a tombstone.
+      const e = categoryChangedV1.parse(event.payload);
+      const values = {
+        title: e.title,
+        parentId: e.parentId,
+        dimension: e.dimension,
+        deleted: e.deleted,
+        changedAt: new Date(e.changedAt),
+      };
+      await db
+        .insert(categoryTree)
+        .values({ id: e.id, ...values })
+        .onConflictDoUpdate({
+          target: categoryTree.id,
+          set: values,
+          setWhere: lte(categoryTree.changedAt, values.changedAt),
+        });
       return;
     }
     case RECORD_LOAD_FAILED_EVENT: {

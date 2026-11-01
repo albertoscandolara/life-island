@@ -90,3 +90,34 @@ describe('list records query', () => {
     ).toBe(false);
   });
 });
+
+describe('listRecordsQuerySchema category filter', () => {
+  it('accepts one category, a comma-separated list or a repeated parameter', () => {
+    expect(
+      listRecordsQuerySchema.parse({ documentCategory: 'BILL' })
+        .documentCategory,
+    ).toEqual(['BILL']);
+    expect(
+      listRecordsQuerySchema.parse({ documentCategory: 'BILL, MEDICAL,BILL' })
+        .documentCategory,
+    ).toEqual(['BILL', 'MEDICAL']);
+    expect(
+      listRecordsQuerySchema.parse({ documentCategory: ['BILL', 'HOME'] })
+        .documentCategory,
+    ).toEqual(['BILL', 'HOME']);
+    expect(
+      listRecordsQuerySchema.parse({ documentCategory: '' }).documentCategory,
+    ).toBeUndefined();
+    expect(() =>
+      listRecordsQuerySchema.parse({ documentCategory: 'not an id' }),
+    ).toThrow();
+  });
+
+  it('includes subcategories unless told not to', () => {
+    expect(listRecordsQuerySchema.parse({}).includeSubcategories).toBe(true);
+    expect(
+      listRecordsQuerySchema.parse({ includeSubcategories: 'false' })
+        .includeSubcategories,
+    ).toBe(false);
+  });
+});

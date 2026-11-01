@@ -1,6 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type {
+  CategoryCountDto,
+  CategoryCountsQuery,
   ListRecordsQuery,
   Page,
   RecordDetailDto,
@@ -12,18 +14,35 @@ import type { Observable } from 'rxjs';
 
 export const REVIEW_API = '/api/review';
 
+/** Query parameters without the empty ones; a list becomes `A,B`. */
+function toParams(query: object): HttpParams {
+  let params = new HttpParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (Array.isArray(value)) {
+      if (value.length) params = params.set(key, value.join(','));
+    } else if (value !== undefined && value !== null && value !== '')
+      params = params.set(key, String(value));
+  }
+  return params;
+}
+
 /** Client for svc-review, reached through the gateway at /api/review. */
 @Injectable({ providedIn: 'root' })
 export class ReviewApi {
   private readonly http = inject(HttpClient);
 
   list(query: ListRecordsQuery): Observable<Page<RecordDto>> {
-    let params = new HttpParams();
-    for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined && value !== null && value !== '')
-        params = params.set(key, String(value));
-    }
-    return this.http.get<Page<RecordDto>>(`${REVIEW_API}/records`, { params });
+    return this.http.get<Page<RecordDto>>(`${REVIEW_API}/records`, {
+      params: toParams(query),
+    });
+  }
+
+  /** Records per category under the other filters (`total` includes descendants). */
+  categoryCounts(query: CategoryCountsQuery): Observable<CategoryCountDto[]> {
+    return this.http.get<CategoryCountDto[]>(
+      `${REVIEW_API}/records/category-counts`,
+      { params: toParams(query) },
+    );
   }
 
   get(id: string): Observable<RecordDetailDto> {

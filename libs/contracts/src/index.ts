@@ -1,4 +1,5 @@
 export * from './lib/categories.js';
+export * from './lib/category-tree.js';
 export * from './lib/document-events.js';
 export * from './lib/documents.js';
 export * from './lib/event-envelope.js';

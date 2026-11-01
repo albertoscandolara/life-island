@@ -11,6 +11,7 @@ import {
 import { rxResource } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
+  CategoryCountsQuery,
   FileFormat,
   ListRecordsQuery,
   RecordDto,
@@ -38,6 +39,7 @@ import {
 } from '@life-island/design-system';
 import { ReviewApi } from '../api/review-api';
 import { CategoryStore } from '../categories/category-store';
+import { CategoryFilter } from './category-filter';
 import { DocumentEditor, type DocumentChanges } from './document-editor';
 import { RecordDialog } from './record-dialog';
 import { QueueBanner } from './queue-banner';
@@ -53,6 +55,7 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
   host: { 'data-character': 'ptera', class: 'inbox' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CategoryFilter,
     DatePipe,
     DocumentEditor,
     QueueBanner,
@@ -90,8 +93,9 @@ export class InboxPage {
   protected readonly status = signal<RecordStatus | null>(
     (this.params.get('status') as RecordStatus) || null,
   );
-  protected readonly category = signal<string | null>(
-    this.params.get('category') || null,
+  /** Selected category ids; each includes its subcategories. */
+  protected readonly categories = signal<string[]>(
+    (this.params.get('category') ?? '').split(',').filter(Boolean),
   );
   protected readonly fileFormat = signal<FileFormat | null>(
     (this.params.get('fileFormat') as FileFormat) || null,
@@ -118,12 +122,6 @@ export class InboxPage {
       label: RECORD_STATUS_VIEW[value].label,
       tone: RECORD_STATUS_VIEW[value].tone,
     }));
-  protected readonly categoryOptions = computed<UiOption<string>[]>(() =>
-    (this.store.confirmed.value() ?? []).map((category) => ({
-      value: category.id,
-      label: category.title,
-    })),
-  );
   protected readonly formatOptions: UiOption<FileFormat>[] = FILE_FORMATS.map(
     (value) => ({ value, label: value }),
   );
@@ -139,13 +137,18 @@ export class InboxPage {
     { key: 'details', header: 'Actions', align: 'center', width: '6.5rem' },
   ];
 
-  protected readonly query = computed<ListRecordsQuery>(() => ({
+  /** Every filter but the category one: what the category counts are computed under. */
+  private readonly otherFilters = computed<CategoryCountsQuery>(() => ({
     q: this.search() || undefined,
     status: this.status() ?? undefined,
-    documentCategory: this.category() ?? undefined,
     fileFormat: this.fileFormat() ?? undefined,
     uploadedFrom: this.uploadedFrom() || undefined,
     uploadedTo: this.uploadedTo() || undefined,
+  }));
+
+  protected readonly query = computed<ListRecordsQuery>(() => ({
+    ...this.otherFilters(),
+    documentCategory: this.categories().length ? this.categories() : undefined,
     sort: (this.sort()?.key as SortKey) ?? 'uploadedAt',
     order: this.sort()?.direction ?? 'desc',
     limit: PAGE_SIZE,
@@ -156,6 +159,11 @@ export class InboxPage {
     params: () => this.query(),
     stream: ({ params }) => this.api.list(params),
   });
+  /** How many records each category would show; a hint, so errors just hide the counts. */
+  protected readonly categoryCounts = rxResource({
+    params: () => this.otherFilters(),
+    stream: ({ params }) => this.api.categoryCounts(params),
+  });
   protected readonly rows = computed<RecordDto[]>(
     () => this.records.value()?.items ?? [],
   );
@@ -165,7 +173,7 @@ export class InboxPage {
       !!(
         this.search() ||
         this.status() ||
-        this.category() ||
+        this.categories().length ||
         this.fileFormat() ||
         this.uploadedFrom() ||
         this.uploadedTo()
@@ -184,7 +192,7 @@ export class InboxPage {
     effect(() => {
       this.search();
       this.status();
-      this.category();
+      this.categories();
       this.fileFormat();
       this.uploadedFrom();
       this.uploadedTo();
@@ -199,7 +207,7 @@ export class InboxPage {
         queryParams: {
           q: query.q,
           status: query.status,
-          category: query.documentCategory,
+          category: this.categories().join(',') || undefined,
           fileFormat: query.fileFormat,
           uploadedFrom: query.uploadedFrom,
           uploadedTo: query.uploadedTo,
@@ -248,14 +256,17 @@ export class InboxPage {
         : page,
     );
     this.store.reload();
-    setTimeout(() => this.records.reload(), 1500);
+    setTimeout(() => {
+      this.records.reload();
+      this.categoryCounts.reload();
+    }, 1500);
   }
 
   protected clearFilters(): void {
     this.searchText.set('');
     this.search.set('');
     this.status.set(null);
-    this.category.set(null);
+    this.categories.set([]);
     this.fileFormat.set(null);
     this.uploadedFrom.set('');
     this.uploadedTo.set('');

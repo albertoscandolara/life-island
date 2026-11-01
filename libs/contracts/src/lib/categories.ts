@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import {
+  CATEGORY_DIMENSIONS,
+  DELETE_CHILDREN_OPTIONS,
+  DELETE_DOCUMENTS_OPTIONS,
   FIELD_STATUSES,
   PARSE_QUEUE_STATUSES,
   PARSE_STEPS,
   SUGGESTION_STATUSES,
   TEMPLATE_FIELD_TYPES,
+  type CategoryDimension,
   type FieldStatus,
   type ParseQueueStatus,
   type ParseStep,
@@ -28,6 +32,7 @@ export const parseQueueStatusSchema = z.enum(PARSE_QUEUE_STATUSES);
 export const suggestionStatusSchema = z.enum(SUGGESTION_STATUSES);
 export const fieldStatusSchema = z.enum(FIELD_STATUSES);
 export const templateFieldTypeSchema = z.enum(TEMPLATE_FIELD_TYPES);
+export const categoryDimensionSchema = z.enum(CATEGORY_DIMENSIONS);
 
 export const categoryIdSchema = z
   .string()
@@ -93,25 +98,68 @@ export interface CategoryDto {
   title: string;
   description: string;
   template: CategoryTemplate;
+  /** The direct parent; null for a top-level (root) category. */
+  parentId: string | null;
+  /** The metadata dimension (shared by the whole tree); null for a general category. */
+  dimension: CategoryDimension | null;
+  /** Documents that have this category itself. */
+  documentCount: number;
+  /** Documents that have this category or any of its descendants (each counted once). */
+  totalDocumentCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
+/** A parent reference: a category id, or null for the top level. */
+const parentIdSchema = categoryIdSchema.nullable();
+
+/**
+ * Edits to a category. `parentId` moves it (with its whole subtree; null makes
+ * it a root); its id and its documents stay the same. `dimension` can change
+ * only on a root and applies to its whole tree.
+ */
 export const updateCategoryRequestSchema = z.object({
   title: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().min(1).max(1000).optional(),
   template: categoryTemplateSchema.optional(),
+  parentId: parentIdSchema.optional(),
+  dimension: categoryDimensionSchema.nullable().optional(),
 });
 export type UpdateCategoryRequest = z.input<typeof updateCategoryRequestSchema>;
 
-/** A category you add yourself, without waiting for the AI to suggest it. */
+/**
+ * A category you add yourself, without waiting for the AI to suggest it.
+ * Under a parent it takes the parent's dimension.
+ */
 export const createCategoryRequestSchema = z.object({
   id: categoryIdSchema,
   title: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1).max(1000),
   template: categoryTemplateSchema.default({ fields: [] }),
+  parentId: parentIdSchema.default(null),
+  dimension: categoryDimensionSchema.nullable().default(null),
 });
 export type CreateCategoryRequest = z.input<typeof createCategoryRequestSchema>;
+
+/**
+ * Deleting a category: what happens to its subcategories (required when it
+ * has some) and to its documents. Documents are never deleted.
+ */
+export const deleteCategoryQuerySchema = z.object({
+  children: z.enum(DELETE_CHILDREN_OPTIONS).optional(),
+  documents: z.enum(DELETE_DOCUMENTS_OPTIONS).default('REMOVE'),
+});
+export type DeleteCategoryQuery = z.input<typeof deleteCategoryQuerySchema>;
+
+/** Where a category sits: the path from its root, its children and everything below it. */
+export interface CategoryHierarchyDto {
+  category: CategoryDto;
+  /** From the root down to the direct parent; empty for a root. */
+  ancestors: CategoryDto[];
+  children: CategoryDto[];
+  /** Every category below it, depth first. */
+  descendants: CategoryDto[];
+}
 
 export interface CategorySuggestionDto {
   id: string;
@@ -147,9 +195,13 @@ export type UpdateSuggestionRequest = z.input<
   typeof updateSuggestionRequestSchema
 >;
 
-/** Approve a suggestion as is, or with your edits to any field. */
-export const approveSuggestionRequestSchema =
-  updateSuggestionRequestSchema.default({});
+/** Approve a suggestion as is, or with your edits to any field, optionally under a parent. */
+export const approveSuggestionRequestSchema = updateSuggestionRequestSchema
+  .extend({
+    parentId: parentIdSchema.optional(),
+    dimension: categoryDimensionSchema.nullable().optional(),
+  })
+  .default({});
 export type ApproveSuggestionRequest = z.input<
   typeof approveSuggestionRequestSchema
 >;

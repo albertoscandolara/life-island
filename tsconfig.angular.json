@@ -18,6 +18,9 @@
     "noUnusedLocals": true,
     "paths": {
       "@life-island/contracts": ["./libs/contracts/src/index.ts"],
+      "@life-island/contracts/category-tree": [
+        "./libs/contracts/src/lib/category-tree.ts"
+      ],
       "@life-island/contracts/constants": [
         "./libs/contracts/src/lib/constants.ts"
       ],

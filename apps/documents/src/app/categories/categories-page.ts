@@ -2,31 +2,45 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import type {
   CategoryDto,
   CategorySuggestionDto,
   CategoryTemplate,
+  DeleteChildrenOption,
+  DeleteDocumentsOption,
   UpdateCategoryRequest,
   UpdateSuggestionRequest,
 } from '@life-island/contracts';
 import {
+  CATEGORY_DIMENSION_LABELS,
+  CATEGORY_DIMENSIONS,
+  type CategoryDimension,
+} from '@life-island/contracts/constants';
+import {
   UiAlert,
+  UiBadge,
   UiButton,
   UiCard,
   UiCellDef,
   UiConfirmDialog,
+  UiDropdown,
+  UiEmptyState,
   UiFormField,
   UiIcon,
   UiInput,
   UiPageHeader,
   UiTable,
+  type UiOption,
   type UiTableColumn,
 } from '@life-island/design-system';
 import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { categoryRows, textMatch, type CategoryRow } from './category-rows';
 import { CategoryStore, errorMessage } from './category-store';
 
 export interface Draft {
@@ -37,7 +51,7 @@ export interface Draft {
 }
 
 type Editing =
-  | { kind: 'new' }
+  | { kind: 'new'; parentId: string | null }
   | { kind: 'confirmed'; category: CategoryDto }
   | { kind: 'suggested'; suggestion: CategorySuggestionDto };
 
@@ -83,10 +97,32 @@ export function editsOf(
 }
 
 /**
- * Manage the categories: the confirmed ones the AI assigns, and the ones it
- * suggested, which wait for you. Confirming a suggestion makes it a category
- * and adds it to the documents that suggested it; deleting a category takes it
- * off every document.
+ * Where `category` may move: anywhere but itself and its own subtree, under
+ * a parent of the same dimension (a general category may go anywhere and
+ * takes its new parent's dimension).
+ */
+export function parentCandidates(
+  categories: readonly CategoryDto[],
+  category: CategoryDto | null,
+  excluded: ReadonlySet<string>,
+): CategoryDto[] {
+  return categories.filter(
+    (candidate) =>
+      !excluded.has(candidate.id) &&
+      (!category ||
+        category.dimension === null ||
+        candidate.dimension === category.dimension),
+  );
+}
+
+const dimensionLabel = (dimension: CategoryDimension | null) =>
+  dimension ? CATEGORY_DIMENSION_LABELS[dimension] : 'General';
+
+/**
+ * Manage the categories: the hierarchy of confirmed ones the AI assigns, and
+ * the ones it suggested, which wait for you. Select a category in the tree to
+ * see where it sits (its path from the top, its children and everything
+ * below), move it under another parent or to the top level, edit or delete it.
  */
 @Component({
   selector: 'app-categories-page',
@@ -94,10 +130,13 @@ export function editsOf(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     UiAlert,
+    UiBadge,
     UiButton,
     UiCard,
     UiCellDef,
     UiConfirmDialog,
+    UiDropdown,
+    UiEmptyState,
     UiFormField,
     UiIcon,
     UiInput,
@@ -110,6 +149,8 @@ export function editsOf(
 export class CategoriesPage {
   private readonly api = inject(IngestionApi);
   protected readonly store = inject(CategoryStore);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly confirmed = computed(
     () => this.store.confirmed.value() ?? [],
@@ -117,14 +158,8 @@ export class CategoriesPage {
   protected readonly suggested = computed(
     () => this.store.suggested.value() ?? [],
   );
+  protected readonly tree = this.store.hierarchy;
 
-  protected readonly confirmedColumns: UiTableColumn[] = [
-    { key: 'id', header: 'Id', width: '12rem' },
-    { key: 'title', header: 'Title', width: '12rem' },
-    { key: 'description', header: 'Description' },
-    { key: 'fields', header: 'Fields', width: '6rem' },
-    { key: 'actions', header: 'Actions', align: 'end', width: '7rem' },
-  ];
   protected readonly suggestedColumns: UiTableColumn[] = [
     { key: 'id', header: 'Id', width: '12rem' },
     { key: 'title', header: 'Title', width: '12rem' },
@@ -133,33 +168,268 @@ export class CategoriesPage {
     { key: 'actions', header: 'Actions', align: 'end', width: '14rem' },
   ];
 
+  // --- Tree and selection -------------------------------------------------
+
+  /** The selected category id, kept in the URL so a category can be linked to. */
+  protected readonly selectedId = signal<string | null>(
+    this.route.snapshot.queryParamMap.get('category'),
+  );
+  protected readonly search = signal('');
+  protected readonly expanded = signal<ReadonlySet<string>>(new Set());
+  protected readonly showDescendants = signal(false);
+
+  protected readonly rows = computed<CategoryRow[]>(() => {
+    const text = this.search().trim();
+    return categoryRows(
+      this.tree(),
+      this.expanded(),
+      text ? textMatch(text) : undefined,
+    );
+  });
+
+  protected readonly selected = computed(() => {
+    const id = this.selectedId();
+    return id ? (this.tree().get(id) ?? null) : null;
+  });
+  protected readonly ancestors = computed(() => {
+    const id = this.selectedId();
+    return id ? this.tree().ancestors(id) : [];
+  });
+  protected readonly children = computed(() => {
+    const id = this.selectedId();
+    return id ? this.tree().children(id) : [];
+  });
+  /** Everything below the selected category, with depths relative to it. */
+  protected readonly descendants = computed(() => {
+    const selected = this.selected();
+    if (!selected) return [];
+    const base = this.ancestors().length + 1;
+    return this.tree()
+      .descendants(selected.id)
+      .map((category) => ({
+        category,
+        depth: this.tree().ancestors(category.id).length - base,
+      }));
+  });
+
+  /** Where the selected category can move: never under itself or its descendants. */
+  protected readonly parentOptions = computed<UiOption<string>[]>(() => {
+    const selected = this.selected();
+    if (!selected) return [];
+    const excluded = new Set([
+      selected.id,
+      ...this.tree()
+        .descendants(selected.id)
+        .map((category) => category.id),
+    ]);
+    return this.optionsFor(selected, excluded);
+  });
+
+  protected readonly dimensionOptions: UiOption<CategoryDimension>[] =
+    CATEGORY_DIMENSIONS.map((value) => ({
+      value,
+      label: CATEGORY_DIMENSION_LABELS[value],
+    }));
+  protected readonly dimensionLabel = dimensionLabel;
+
+  // --- Editing ------------------------------------------------------------
+
   protected readonly editing = signal<Editing | null>(null);
   protected readonly editorOpen = signal(false);
   protected readonly draft = signal<Draft>(draftOf('', '', '', EMPTY_TEMPLATE));
+  protected readonly draftParent = signal<string | null>(null);
+  protected readonly draftDimension = signal<CategoryDimension | null>(null);
   protected readonly editorError = signal('');
+
+  /** Parents the category in the editor can have. */
+  protected readonly draftParentOptions = computed<UiOption<string>[]>(() => {
+    const editing = this.editing();
+    if (!editing || editing.kind === 'suggested') return [];
+    if (editing.kind === 'new') return this.optionsFor(null, new Set());
+    const { category } = editing;
+    return this.optionsFor(
+      category,
+      new Set([
+        category.id,
+        ...this.tree()
+          .descendants(category.id)
+          .map((item) => item.id),
+      ]),
+    );
+  });
+  /** Under a parent, the dimension is the parent's. */
+  protected readonly inheritedDimension = computed(() => {
+    const parentId = this.draftParent();
+    return parentId ? (this.tree().get(parentId)?.dimension ?? null) : null;
+  });
+
+  // --- Deleting -----------------------------------------------------------
 
   protected readonly deleting = signal<Deleting | null>(null);
   protected readonly deleteOpen = signal(false);
+  protected readonly deleteChildren =
+    signal<DeleteChildrenOption>('MOVE_TO_PARENT');
+  protected readonly deleteDocuments = signal<DeleteDocumentsOption>('REMOVE');
+  protected readonly deletingChildren = computed(() => {
+    const deleting = this.deleting();
+    return deleting?.kind === 'confirmed'
+      ? this.tree().children(deleting.category.id)
+      : [];
+  });
+  protected readonly deletingParent = computed(() => {
+    const deleting = this.deleting();
+    return deleting?.kind === 'confirmed' && deleting.category.parentId
+      ? (this.tree().get(deleting.category.parentId) ?? null)
+      : null;
+  });
 
-  /** Id of the suggestion being confirmed, or of the dialog action running. */
+  /** Bumped after every move or dimension change, to redraw the controls from the saved state. */
+  protected readonly revision = signal(0);
+
+  /** Id of the suggestion being confirmed, or of the action running. */
   protected readonly busy = signal<string | null>(null);
   protected readonly error = signal('');
   protected readonly notice = signal('');
 
   protected readonly editorHeading = computed(() => {
     const editing = this.editing();
-    if (!editing || editing.kind === 'new') return 'New category';
+    if (!editing) return '';
+    if (editing.kind === 'new')
+      return editing.parentId
+        ? `New subcategory of ${this.store.titleOf(editing.parentId)}`
+        : 'New category';
     return editing.kind === 'confirmed'
       ? `Edit ${editing.category.title}`
       : `Edit suggestion ${editing.suggestion.title}`;
   });
 
+  constructor() {
+    // Keep the selection in the URL, and open the tree down to it.
+    effect(() => {
+      const id = this.selectedId();
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { category: id ?? undefined },
+        replaceUrl: true,
+      });
+    });
+    effect(() => {
+      const id = this.selectedId();
+      const path = id ? this.tree().ancestors(id) : [];
+      if (path.some((category) => !this.expanded().has(category.id)))
+        this.expanded.update(
+          (ids) => new Set([...ids, ...path.map((category) => category.id)]),
+        );
+    });
+  }
+
   protected fieldList(template: CategoryTemplate): string {
     return template.fields.map((field) => field.label).join(', ') || 'None';
   }
 
-  protected startNew(): void {
-    this.openEditor({ kind: 'new' }, draftOf('', '', '', EMPTY_TEMPLATE));
+  protected select(id: string): void {
+    this.selectedId.set(id);
+    this.showDescendants.set(false);
+  }
+
+  protected toggleExpanded(id: string): void {
+    this.expanded.update((ids) => {
+      const next = new Set(ids);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  protected expandAll(): void {
+    this.expanded.set(
+      new Set(
+        this.confirmed()
+          .filter((category) => this.tree().children(category.id).length)
+          .map((category) => category.id),
+      ),
+    );
+  }
+
+  protected collapseAll(): void {
+    this.expanded.set(new Set());
+  }
+
+  /** Arrow keys move through the tree; left and right collapse and expand. */
+  protected onTreeKeydown(event: KeyboardEvent, row: CategoryRow): void {
+    if (row.kind !== 'category') return;
+    const nodes = this.rows().filter((item) => item.kind === 'category');
+    const index = nodes.findIndex((item) => item.key === row.key);
+    const focus = (target?: CategoryRow) => {
+      if (!target) return;
+      event.preventDefault();
+      this.select(target.key);
+      queueMicrotask(() =>
+        document
+          .querySelector<HTMLElement>(`[data-node="${target.key}"]`)
+          ?.focus(),
+      );
+    };
+    switch (event.key) {
+      case 'ArrowDown':
+        return focus(nodes[index + 1]);
+      case 'ArrowUp':
+        return focus(nodes[index - 1]);
+      case 'ArrowRight':
+        if (row.hasChildren && !row.expanded) {
+          event.preventDefault();
+          this.toggleExpanded(row.key);
+        } else if (row.expanded) focus(nodes[index + 1]);
+        return;
+      case 'ArrowLeft':
+        if (row.expanded) {
+          event.preventDefault();
+          this.toggleExpanded(row.key);
+        } else if (row.category.parentId)
+          focus(nodes.find((item) => item.key === row.category.parentId));
+        return;
+    }
+  }
+
+  // --- Parent and dimension, from the details panel ------------------------
+
+  protected async move(
+    category: CategoryDto,
+    parentId: string | null,
+  ): Promise<void> {
+    if (parentId === category.parentId) return;
+    await this.run('move', async () => {
+      await firstValueFrom(this.api.updateCategory(category.id, { parentId }));
+      this.notice.set(
+        parentId
+          ? `${category.title} is now under ${this.store.pathOf(parentId)}.`
+          : `${category.title} is now a top-level category.`,
+      );
+    });
+  }
+
+  protected async setDimension(
+    category: CategoryDto,
+    dimension: CategoryDimension | null,
+  ): Promise<void> {
+    if (dimension === category.dimension) return;
+    await this.run('dimension', async () => {
+      await firstValueFrom(this.api.updateCategory(category.id, { dimension }));
+      const below = this.tree().descendants(category.id).length;
+      this.notice.set(
+        `${category.title}${below ? ` and its ${below} subcategor${below === 1 ? 'y' : 'ies'}` : ''} ${below ? 'are' : 'is'} now ${dimension ? CATEGORY_DIMENSION_LABELS[dimension].toLowerCase() : 'general'}.`,
+      );
+    });
+  }
+
+  // --- Editor ---------------------------------------------------------------
+
+  protected startNew(parentId: string | null = null): void {
+    this.openEditor(
+      { kind: 'new', parentId },
+      draftOf('', '', '', EMPTY_TEMPLATE),
+      parentId,
+      null,
+    );
   }
 
   protected editConfirmed(category: CategoryDto): void {
@@ -171,6 +441,8 @@ export class CategoriesPage {
         category.description,
         category.template,
       ),
+      category.parentId,
+      category.dimension,
     );
   }
 
@@ -183,6 +455,8 @@ export class CategoriesPage {
         suggestion.description,
         suggestion.template,
       ),
+      null,
+      null,
     );
   }
 
@@ -202,6 +476,8 @@ export class CategoriesPage {
       this.editorError.set('The fields are not valid JSON.');
       return;
     }
+    const parentId = this.draftParent();
+    const dimension = parentId ? undefined : this.draftDimension();
     this.busy.set('editor');
     this.editorError.set('');
     try {
@@ -212,18 +488,23 @@ export class CategoriesPage {
             title: draft.title.trim(),
             description: draft.description.trim(),
             template,
+            parentId,
+            dimension: dimension ?? null,
           }),
         );
         this.notice.set(`${created.title} was added.`);
+        this.selectedId.set(created.id);
       } else if (editing.kind === 'confirmed') {
+        const { category } = editing;
         // The id of a confirmed category is fixed (documents refer to it).
-        const edits: UpdateCategoryRequest = editsOf(editing.category, {
+        const edits: UpdateCategoryRequest = editsOf(category, {
           ...draft,
-          id: editing.category.id,
+          id: category.id,
         });
-        await firstValueFrom(
-          this.api.updateCategory(editing.category.id, edits),
-        );
+        if (parentId !== category.parentId) edits.parentId = parentId;
+        if (dimension !== undefined && dimension !== category.dimension)
+          edits.dimension = dimension;
+        await firstValueFrom(this.api.updateCategory(category.id, edits));
         this.notice.set(`${draft.title.trim()} was saved.`);
       } else {
         const { suggestion } = editing;
@@ -264,8 +545,12 @@ export class CategoriesPage {
     }
   }
 
+  // --- Delete -------------------------------------------------------------
+
   protected askDelete(deleting: Deleting): void {
     this.deleting.set(deleting);
+    this.deleteChildren.set('MOVE_TO_PARENT');
+    this.deleteDocuments.set('REMOVE');
     this.error.set('');
     this.deleteOpen.set(true);
   }
@@ -285,8 +570,18 @@ export class CategoriesPage {
     this.error.set('');
     try {
       if (deleting.kind === 'confirmed') {
-        await firstValueFrom(this.api.deleteCategory(deleting.category.id));
-        this.notice.set(`${deleting.category.title} was deleted.`);
+        const { category } = deleting;
+        await firstValueFrom(
+          this.api.deleteCategory(category.id, {
+            children: this.deletingChildren().length
+              ? this.deleteChildren()
+              : undefined,
+            documents: this.deleteDocuments(),
+          }),
+        );
+        this.notice.set(`${category.title} was deleted.`);
+        if (this.selectedId() === category.id)
+          this.selectedId.set(category.parentId);
       } else {
         await firstValueFrom(this.api.rejectSuggestion(deleting.suggestion.id));
         this.notice.set(
@@ -303,10 +598,50 @@ export class CategoriesPage {
     }
   }
 
-  private openEditor(editing: Editing, draft: Draft): void {
+  protected radio(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  private optionsFor(
+    category: CategoryDto | null,
+    excluded: ReadonlySet<string>,
+  ): UiOption<string>[] {
+    // In tree order, so the list reads like the hierarchy.
+    const order = this.tree().roots.flatMap((root) => [
+      root,
+      ...this.tree().descendants(root.id),
+    ]);
+    return parentCandidates(order, category, excluded).map((candidate) => ({
+      value: candidate.id,
+      label: this.store.pathOf(candidate.id),
+    }));
+  }
+
+  private openEditor(
+    editing: Editing,
+    draft: Draft,
+    parentId: string | null,
+    dimension: CategoryDimension | null,
+  ): void {
     this.editing.set(editing);
     this.draft.set(draft);
+    this.draftParent.set(parentId);
+    this.draftDimension.set(dimension);
     this.editorError.set('');
     this.editorOpen.set(true);
+  }
+
+  private async run(action: string, work: () => Promise<void>): Promise<void> {
+    this.busy.set(action);
+    this.error.set('');
+    try {
+      await work();
+      this.store.reload();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(null);
+      this.revision.update((value) => value + 1);
+    }
   }
 }

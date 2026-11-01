@@ -171,3 +171,53 @@ export const TEMPLATE_FIELD_TYPES = [
   'enum', // one of `options`
 ] as const;
 export type TemplateFieldType = (typeof TEMPLATE_FIELD_TYPES)[number];
+
+/**
+ * Independent metadata dimensions a category can belong to. A category with
+ * no dimension is a general one (all categories created before dimensions
+ * existed start that way). Parents and children always share a dimension, so
+ * document types, subjects, properties and the rest never mix in one tree.
+ */
+export const CATEGORY_DIMENSIONS = [
+  'DOCUMENT_TYPE', // what the document is: INVOICE, RECEIPT, BILL...
+  'SUBJECT', // what it concerns: HOME, MEDICAL, VEHICLE...
+  'PROPERTY', // the property or location it refers to: TREGNAGO...
+  'PERSON', // who it concerns: ME, SPOUSE, CHILD...
+  'ISSUER', // who issued it: AMAZON, ENEL, INPS...
+  'ATTRIBUTE', // independent traits: TAX_DEDUCTIBLE, PAID, RECURRING...
+] as const;
+export type CategoryDimension = (typeof CATEGORY_DIMENSIONS)[number];
+
+export const CATEGORY_DIMENSION_LABELS: Record<CategoryDimension, string> = {
+  DOCUMENT_TYPE: 'Document type',
+  SUBJECT: 'Subject',
+  PROPERTY: 'Property / location',
+  PERSON: 'Person',
+  ISSUER: 'Issuer / supplier',
+  ATTRIBUTE: 'Attribute',
+};
+
+/**
+ * Dimensions a document has at most one of: one primary document type and
+ * one issuer. A category and its ancestors count as one (an
+ * ELECTRICITY_BILL is also a BILL), so only unrelated ones conflict. Every
+ * dimension is optional.
+ */
+export const SINGLE_VALUED_DIMENSIONS: readonly CategoryDimension[] = [
+  'DOCUMENT_TYPE',
+  'ISSUER',
+];
+
+/** What happens to the subcategories of a category you delete. */
+export const DELETE_CHILDREN_OPTIONS = [
+  'MOVE_TO_PARENT', // they take the deleted category's place (top level if it had no parent)
+  'MAKE_ROOT', // they become top-level categories
+] as const;
+export type DeleteChildrenOption = (typeof DELETE_CHILDREN_OPTIONS)[number];
+
+/** What happens to the documents of a category you delete. Documents themselves are never deleted. */
+export const DELETE_DOCUMENTS_OPTIONS = [
+  'REMOVE', // the category is taken off them
+  'MOVE_TO_PARENT', // they get the parent category instead
+] as const;
+export type DeleteDocumentsOption = (typeof DELETE_DOCUMENTS_OPTIONS)[number];

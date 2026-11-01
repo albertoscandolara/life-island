@@ -29,6 +29,13 @@
       "when": 1793345877699,
       "tag": "0003_backfill_upload_updated",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793519655655,
+      "tag": "0004_category_hierarchy",
+      "breakpoints": true
     }
   ]
 }

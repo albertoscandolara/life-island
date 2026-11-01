@@ -1,6 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import type { CategoryDto } from '@life-island/contracts';
+import { CategoryHierarchy } from '@life-island/contracts/category-tree';
 import { IngestionApi } from '../api/ingestion-api';
 
 /**
@@ -25,6 +27,23 @@ export class CategoryStore {
       titles.set(category.id, category.title);
     return titles;
   });
+
+  /** The confirmed categories as a hierarchy, siblings sorted by title. */
+  readonly hierarchy = computed(
+    () =>
+      new CategoryHierarchy<CategoryDto>(this.confirmed.value() ?? [], (a, b) =>
+        a.title.localeCompare(b.title),
+      ),
+  );
+
+  /** "Bill › Electricity bill": a category's path from its root. */
+  pathOf(id: string): string {
+    const tree = this.hierarchy();
+    return [...tree.ancestors(id), tree.get(id)]
+      .filter((category) => !!category)
+      .map((category) => category.title)
+      .join(' › ');
+  }
 
   /** The title of a confirmed or suggested category; its id if unknown. */
   titleOf(id: string): string {

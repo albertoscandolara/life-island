@@ -39,24 +39,34 @@
     The AI is processing this document; categories and fields can be changed
     once it finishes.
   </p>
-  }
+  } @for (group of categoryGroups(); track group.label) {
   <fieldset class="categories">
-    <legend class="sr-only">Categories of this document</legend>
-    @for (category of store.confirmed.value() ?? []; track category.id) {
-    <label class="category">
+    <legend class="group">
+      {{ group.label }} @if (group.single) {
+      <span class="muted small">({{ singleHint(group.key) }}, optional)</span>
+      } @else if (group.key) {
+      <span class="muted small">(any, optional)</span>
+      }
+    </legend>
+    @for (item of group.categories; track item.category.id) {
+    <label class="category" [attr.title]="item.path">
       <input
         type="checkbox"
-        [checked]="categories().includes(category.id)"
+        [checked]="categories().includes(item.category.id)"
         [disabled]="upload.value()?.status === 'PARSING'"
-        (change)="toggleCategory(category.id, $event)"
+        (change)="toggleCategory(item.category.id, $event)"
       />
-      <span>{{ category.title }}</span>
-      <code class="muted">{{ category.id }}</code>
+      <span
+        >{{ item.category.title }} @if (item.parent) {
+        <span class="muted small">in {{ item.parent }}</span>
+        }</span
+      >
     </label>
-    } @empty {
-    <p class="muted small">No categories yet.</p>
     }
   </fieldset>
+  } @empty {
+  <p class="muted small">No categories yet.</p>
+  }
   <p class="muted small">
     New categories' fields are added below as missing, for you to fill in.
   </p>

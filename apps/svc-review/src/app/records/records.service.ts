@@ -11,10 +11,12 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import {
+  categoryCountsQuerySchema,
   CONFIRMABLE_STATUSES,
   findTarget,
   listRecordsQuerySchema,
   RECORD_APPROVED_EVENT,
+  type CategoryCountDto,
   type Page,
   type RecordApprovedV1,
   type RecordDetailDto,
@@ -23,7 +25,7 @@ import {
 } from '@life-island/contracts';
 import {
   and,
-  arrayContains,
+  arrayOverlaps,
   asc,
   count,
   desc,
@@ -39,16 +41,29 @@ import {
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
-import { stagingRecords, type StagingRecordRow } from '../db/schema.js';
+import {
+  categoryTree,
+  stagingRecords,
+  type StagingRecordRow,
+} from '../db/schema.js';
 import { toRecordDetailDto, toRecordDto } from './record-dto.js';
 
 type ListRecords = z.output<typeof listRecordsQuerySchema>;
+type CategoryCounts = z.output<typeof categoryCountsQuerySchema>;
 type UpdateRecord = z.output<typeof updateRecordRequestSchema>;
 
 function nextDay(date: string): Date {
   const day = new Date(`${date}T00:00:00Z`);
   day.setUTCDate(day.getUTCDate() + 1);
   return day;
+}
+
+/** A text[] literal from bound parameters (a plain array would expand to a list). */
+function textArray(values: readonly string[]): SQL {
+  return sql`array[${sql.join(
+    values.map((value) => sql`${value}`),
+    sql`, `,
+  )}]::text[]`;
 }
 
 const SORT_COLUMNS = {
@@ -62,35 +77,25 @@ export class RecordsService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
   async list(query: ListRecords): Promise<Page<RecordDto>> {
-    const conditions: SQL[] = [];
-    if (query.q) {
-      const pattern = `%${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const conditions = this.filters(query);
+    if (query.documentCategory) {
+      const ids = textArray(query.documentCategory);
+      // A category includes its descendants, at any depth, in the same query:
+      // BILL matches records that have BILL, WATER_BILL or anything below.
       conditions.push(
-        or(
-          ilike(stagingRecords.title, pattern),
-          ilike(stagingRecords.description, pattern),
-        )!,
+        query.includeSubcategories
+          ? sql`${stagingRecords.categories} && array(
+              with recursive subtree (id) as (
+                select unnest(${ids})
+                union
+                select c.id from ${categoryTree} c
+                  join subtree s on c.parent_id = s.id
+                 where not c.deleted
+              )
+              select id from subtree)`
+          : arrayOverlaps(stagingRecords.categories, query.documentCategory),
       );
     }
-    if (query.status) conditions.push(eq(stagingRecords.status, query.status));
-    if (query.category)
-      conditions.push(eq(stagingRecords.category, query.category));
-    if (query.documentCategory)
-      conditions.push(
-        arrayContains(stagingRecords.categories, [query.documentCategory]),
-      );
-    if (query.fileFormat)
-      conditions.push(eq(stagingRecords.fileFormat, query.fileFormat));
-    if (query.uploadedFrom) {
-      conditions.push(
-        gte(
-          stagingRecords.uploadedAt,
-          new Date(`${query.uploadedFrom}T00:00:00Z`),
-        ),
-      );
-    }
-    if (query.uploadedTo)
-      conditions.push(lt(stagingRecords.uploadedAt, nextDay(query.uploadedTo)));
     const where = conditions.length ? and(...conditions) : undefined;
 
     const column = SORT_COLUMNS[query.sort];
@@ -120,6 +125,77 @@ export class RecordsService {
       limit: query.limit,
       offset: query.offset,
     };
+  }
+
+  /**
+   * For each category, how many records the other filters leave: with the
+   * category itself, and with it or any descendant (what selecting it shows).
+   */
+  async categoryCounts(query: CategoryCounts): Promise<CategoryCountDto[]> {
+    const conditions = this.filters(query);
+    const where = conditions.length ? and(...conditions) : sql`true`;
+    const { rows } = await this.svc.db.execute<{
+      id: string;
+      direct: number;
+      total: number;
+    }>(sql`
+      with recursive filtered as (
+        select ${stagingRecords.categories} as categories
+          from ${stagingRecords} where ${where}
+      ),
+      ids (id) as (
+        select id from ${categoryTree} where not deleted
+        union
+        select unnest(categories) from filtered
+      ),
+      tree (root, id) as (
+        select id, id from ids
+        union
+        select t.root, c.id from ${categoryTree} c
+          join tree t on c.parent_id = t.id
+         where not c.deleted
+      )
+      select i.id,
+             (select count(*) from filtered f where i.id = any(f.categories))::int as direct,
+             (select count(*) from filtered f
+               where f.categories && array(select t.id from tree t where t.root = i.id))::int as total
+        from ids i
+       order by i.id`);
+    return rows.map((row) => ({
+      id: row.id,
+      direct: Number(row.direct),
+      total: Number(row.total),
+    }));
+  }
+
+  /** The conditions of every filter but the category one. */
+  private filters(query: CategoryCounts): SQL[] {
+    const conditions: SQL[] = [];
+    if (query.q) {
+      const pattern = `%${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      conditions.push(
+        or(
+          ilike(stagingRecords.title, pattern),
+          ilike(stagingRecords.description, pattern),
+        )!,
+      );
+    }
+    if (query.status) conditions.push(eq(stagingRecords.status, query.status));
+    if (query.category)
+      conditions.push(eq(stagingRecords.category, query.category));
+    if (query.fileFormat)
+      conditions.push(eq(stagingRecords.fileFormat, query.fileFormat));
+    if (query.uploadedFrom) {
+      conditions.push(
+        gte(
+          stagingRecords.uploadedAt,
+          new Date(`${query.uploadedFrom}T00:00:00Z`),
+        ),
+      );
+    }
+    if (query.uploadedTo)
+      conditions.push(lt(stagingRecords.uploadedAt, nextDay(query.uploadedTo)));
+    return conditions;
   }
 
   async get(id: string): Promise<RecordDetailDto> {
