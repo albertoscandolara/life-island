@@ -14,6 +14,7 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   categoryCountsQuerySchema,
   listRecordsQuerySchema,
+  rejectRecordRequestSchema,
   updateRecordRequestSchema,
   type CategoryCountDto,
   type Page,
@@ -46,7 +47,7 @@ export class RecordsController {
     return this.records.get(id);
   }
 
-  /** Saves your corrections to the details of a record not confirmed yet. */
+  /** Saves your corrections (details, target) to a record not confirmed yet. */
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -63,5 +64,25 @@ export class RecordsController {
   @HttpCode(200)
   confirm(@Param('id', ParseUUIDPipe) id: string): Promise<RecordDetailDto> {
     return this.records.confirm(id);
+  }
+
+  /** Rejects a record: nothing is sent to a module. */
+  @Post(':id/reject')
+  @HttpCode(200)
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<RecordDetailDto> {
+    return this.records.reject(
+      id,
+      parseOrThrow(rejectRecordRequestSchema, body ?? {}),
+    );
+  }
+
+  /** Brings a rejected record back to review. */
+  @Post(':id/reopen')
+  @HttpCode(200)
+  reopen(@Param('id', ParseUUIDPipe) id: string): Promise<RecordDetailDto> {
+    return this.records.reopen(id);
   }
 }

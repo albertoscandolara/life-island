@@ -23,6 +23,7 @@ export function toRecordDto(row: StagingRecordRow): RecordDto {
     parsedAt: row.parsedAt?.toISOString() ?? null,
     confirmedAt: row.confirmedAt?.toISOString() ?? null,
     loadedAt: row.loadedAt?.toISOString() ?? null,
+    rejectedAt: row.rejectedAt?.toISOString() ?? null,
   };
 }
 
@@ -33,5 +34,11 @@ export function toRecordDetailDto(row: StagingRecordRow): RecordDetailDto {
     edited: row.reviewedPayload !== null,
     parseError: row.parseError,
     loadError: row.loadError,
+    aiTargetKey:
+      row.aiTargetKey && row.aiTargetKey !== row.targetKey
+        ? row.aiTargetKey
+        : null,
+    rejectReason: row.rejectReason,
+    documentFields: row.documentFields ?? null,
   };
 }

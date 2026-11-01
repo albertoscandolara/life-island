@@ -244,6 +244,8 @@ export const parseQueue = ingestion.table('parse_queue', {
   nextScheduledRunAt: timestamp('next_scheduled_run_at', {
     withTimezone: true,
   }),
+  /** When you last pressed Parse now; the worker hears it through NOTIFY parse_requested. */
+  runRequestedAt: timestamp('run_requested_at', { withTimezone: true }),
   lastRunSummary: jsonb('last_run_summary').$type<Record<string, number>>(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()

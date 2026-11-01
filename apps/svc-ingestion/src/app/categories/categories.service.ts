@@ -36,7 +36,16 @@ import {
   type CategoryCounts,
   type CategoryRow,
 } from '@life-island/ingestion-db';
-import { and, arrayContains, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import {
+  and,
+  arrayContains,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  sql,
+} from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import type { z } from 'zod';
@@ -480,6 +489,68 @@ export class CategoriesService {
       await enqueueUploadUpdated(client, this.svc.schema, row.uploadIds);
       return toSuggestionDto(row);
     });
+  }
+
+  /**
+   * Declines a suggestion for one document only: it leaves that document's
+   * suggested categories and stays pending for the others. Declined by every
+   * document, it is rejected.
+   */
+  async dismiss(
+    suggestionId: string,
+    uploadId: string,
+  ): Promise<CategorySuggestionDto> {
+    return withTransaction(this.svc.pool, async (client) => {
+      const remaining = sql`array_remove(${categorySuggestions.uploadIds}, ${uploadId}::uuid)`;
+      const [row] = await drizzle(client)
+        .update(categorySuggestions)
+        .set({
+          uploadIds: remaining,
+          status: sql`case when cardinality(${remaining}) = 0 then 'REJECTED'::ingestion.suggestion_status else ${categorySuggestions.status} end`,
+          reviewedAt: sql`case when cardinality(${remaining}) = 0 then now() else ${categorySuggestions.reviewedAt} end`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(categorySuggestions.id, suggestionId),
+            eq(categorySuggestions.status, 'PENDING'),
+            sql`${uploadId}::uuid = any(${categorySuggestions.uploadIds})`,
+          ),
+        )
+        .returning();
+      if (!row) {
+        const error = await this.notPending(suggestionId);
+        if (!(error instanceof ConflictException)) throw error;
+        const [existing] = await this.svc.db
+          .select()
+          .from(categorySuggestions)
+          .where(eq(categorySuggestions.id, suggestionId));
+        throw existing.status === 'PENDING'
+          ? new NotFoundException(
+              `This suggestion was not made for document ${uploadId}`,
+            )
+          : error;
+      }
+      await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
+      return toSuggestionDto(row);
+    });
+  }
+
+  /**
+   * Parse now: asks the parse worker to start a run outside its schedule. The
+   * worker listens on `parse_requested`; the timestamp lets one that was
+   * offline see the request when it starts.
+   */
+  async requestRun(): Promise<ParseQueueDto> {
+    await withTransaction(this.svc.pool, async (client) => {
+      await client.query(
+        `insert into ingestion.parse_queue (id, run_requested_at) values ($1, now())
+         on conflict (id) do update set run_requested_at = now(), updated_at = now()`,
+        [PARSE_QUEUE_ID],
+      );
+      await client.query(`select pg_notify('parse_requested', '')`);
+    });
+    return this.queue();
   }
 
   /** Edits a pending suggestion before you decide on it. */

@@ -29,7 +29,8 @@ import {
   uploads,
   type UploadRow,
 } from '@life-island/ingestion-db';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { filterSuggestions } from './category-discovery.js';
@@ -309,7 +310,7 @@ export class ParseService {
   private async writeStep(
     progress: Progress,
     runs: ParseRunRecord[],
-    values: Partial<typeof uploads.$inferInsert>,
+    values: PgUpdateSetSource<typeof uploads>,
     extra?: (client: pg.PoolClient) => Promise<void>,
   ): Promise<void> {
     const saved = await withTransaction(this.svc.pool, async (client) => {
@@ -399,10 +400,10 @@ export class ParseService {
         targetKey: result.targetKey,
         confidence: result.analysis.confidence,
         flags: this.mergeFlags(progress, result.flags),
-        description:
-          progress.upload.description ??
-          result.description?.slice(0, 255) ??
-          null,
+        // Yours wins, even one you typed while the AI was reading.
+        description: sql`coalesce(${uploads.description}, ${
+          result.description?.slice(0, 255) ?? null
+        })`,
         completedSteps: this.withStep(progress, 'CLASSIFY'),
       },
       // The inbox shows the categories as soon as they are known.

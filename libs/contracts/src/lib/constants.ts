@@ -87,6 +87,7 @@ export const RECORD_STATUSES = [
   'CONFIRMED', // you confirmed it; the domain service is loading it
   'LOADED', // the domain service stored it in its own table
   'LOAD_FAILED',
+  'REJECTED', // you rejected it: nothing is sent to a module; reopen it to review again
 ] as const;
 export type RecordStatus = (typeof RECORD_STATUSES)[number];
 
@@ -96,12 +97,29 @@ export const CONFIRMABLE_STATUSES: readonly RecordStatus[] = [
   'LOAD_FAILED',
 ];
 
-/** Categories a record can belong to, i.e. the module whose tables receive it. */
-export const CATEGORY_LABELS: Record<string, string> = {
+/** Statuses from which a record can be rejected: anything not yet handed to a module. */
+export const REJECTABLE_STATUSES: readonly RecordStatus[] = [
+  'UPLOADED',
+  'PARTIALLY_PARSED',
+  'PAUSED_QUOTA',
+  'PAUSED_RATE_LIMIT',
+  'PARSED',
+  'PARSE_FAILED',
+  'LOAD_FAILED',
+];
+
+/**
+ * The modules a record can be sent to (a record's `category` field, not to be
+ * confused with document categories). `other` has no module: a confirmed
+ * record of it stays with the document.
+ */
+export const MODULE_LABELS: Record<string, string> = {
   groceries: 'Groceries',
   tax730: '730 tax return',
-  other: 'Other',
+  other: 'Documents only',
 };
+/** Modules that load confirmed records into their own tables. */
+export const LOADING_MODULES: readonly string[] = ['groceries', 'tax730'];
 
 /**
  * The steps the parse worker runs on each document, in order. Each step's

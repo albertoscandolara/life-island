@@ -146,6 +146,25 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
     expect(second.body.upload.id).toBe(first.body.upload.id);
   });
 
+  it('retries a document whose parsing failed when the same file is uploaded again', async () => {
+    const content = Buffer.from(`failed once ${randomUUID()}`);
+    const first = await upload('c.txt', 'text/plain', content);
+    await svc.pool.query(
+      `update ingestion.uploads
+          set status = 'FAILED', attempts = 5, last_error = 'boom'
+        where id = $1`,
+      [first.body.upload.id],
+    );
+    const again = await upload('c.txt', 'text/plain', content);
+    expect(again.body.duplicate).toBe(true);
+    expect(again.body.upload).toMatchObject({
+      id: first.body.upload.id,
+      status: 'TO_BE_PARSED',
+      attempts: 0,
+      lastError: null,
+    });
+  });
+
   it('marks a file whose bytes are not a supported format as FAILED', async () => {
     const done = await upload(
       'bill.pdf',
