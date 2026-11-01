@@ -13,7 +13,7 @@
     variant="secondary"
     type="button"
     [loading]="records.isLoading()"
-    (click)="records.reload(); banner.reload(); store.reload()"
+    (click)="records.reload(); categoryCounts.reload(); banner.reload(); store.reload()"
   >
     <ui-icon name="refresh" [size]="18" /> Refresh
   </button>
@@ -41,16 +41,15 @@
       aria-label="Status"
     />
   </ui-form-field>
-  <ui-form-field label="Category">
-    <ui-dropdown
-      [options]="categoryOptions()"
-      [(value)]="category"
-      [clearable]="true"
-      clearLabel="Any category"
-      placeholder="Any category"
-      aria-label="Category"
+  <!-- Not a ui-form-field: its label would forward clicks inside the panel to the trigger. -->
+  <div class="field">
+    <span class="field__label">Category</span>
+    <app-category-filter
+      [(value)]="categories"
+      [counts]="categoryCounts.hasValue() ? categoryCounts.value() : null"
+      aria-label="Category, includes subcategories"
     />
-  </ui-form-field>
+  </div>
   <ui-form-field label="Format">
     <ui-dropdown
       [options]="formatOptions"
@@ -118,7 +117,9 @@
   <ng-template uiCell="categories" [uiCellOf]="rows()" let-row>
     <span class="badges">
       @for (id of row.categories; track id) {
-      <ui-badge tone="info" [attr.title]="id">{{ store.titleOf(id) }}</ui-badge>
+      <ui-badge tone="info" [attr.title]="store.pathOf(id) + ' (' + id + ')'"
+        >{{ store.titleOf(id) }}</ui-badge
+      >
       } @empty {
       <span class="muted">–</span>
       }

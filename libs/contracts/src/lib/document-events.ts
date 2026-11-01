@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseStepSchema } from './categories.js';
+import { categoryDimensionSchema, parseStepSchema } from './categories.js';
 import { fileFormatSchema } from './documents.js';
 
 /**
@@ -117,3 +117,21 @@ export const recordLoadFailedV1 = z.object({
   failedAt: z.iso.datetime({ offset: true }),
 });
 export type RecordLoadFailedV1 = z.infer<typeof recordLoadFailedV1>;
+
+/**
+ * A category was created, edited, moved or deleted. Consumers that filter by
+ * category (the review inbox) keep a copy of the hierarchy from these: the
+ * newest `changedAt` per id wins, and a deleted category stays as a tombstone
+ * so an older event cannot bring it back. A move that affects other
+ * categories (deleting a parent) sends one event for each.
+ */
+export const CATEGORY_CHANGED_EVENT = 'category.changed@1';
+export const categoryChangedV1 = z.object({
+  id: z.string(),
+  title: z.string(),
+  parentId: z.string().nullable(),
+  dimension: categoryDimensionSchema.nullable(),
+  deleted: z.boolean(),
+  changedAt: z.iso.datetime({ offset: true }),
+});
+export type CategoryChangedV1 = z.infer<typeof categoryChangedV1>;

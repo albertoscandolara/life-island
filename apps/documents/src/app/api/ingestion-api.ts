@@ -13,6 +13,7 @@ import type {
   CreateCategoryRequest,
   CreateUploadRequest,
   CreateUploadResponse,
+  DeleteCategoryQuery,
   Page,
   ParseQueueDto,
   SuggestionStatus,
@@ -112,9 +113,20 @@ export class IngestionApi {
     );
   }
 
-  /** Deletes a category and removes it from every document that has it. */
-  deleteCategory(id: string): Observable<void> {
-    return this.http.delete<void>(`${INGESTION_API}/categories/${id}`);
+  /**
+   * Deletes a category. Its documents stay: they lose it, or get its parent.
+   * A category with subcategories needs `children` (where they go).
+   */
+  deleteCategory(
+    id: string,
+    options: DeleteCategoryQuery = {},
+  ): Observable<void> {
+    const params: Record<string, string> = {};
+    if (options.children) params['children'] = options.children;
+    if (options.documents) params['documents'] = options.documents;
+    return this.http.delete<void>(`${INGESTION_API}/categories/${id}`, {
+      params,
+    });
   }
 
   updateSuggestion(

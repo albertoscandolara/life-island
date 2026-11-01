@@ -183,18 +183,48 @@ Types are `string`, `text`, `number`, `integer`, `amount`, `currency` (ISO 4217)
 
 When a document gains a category, by your edit or a confirmed suggestion, that category's template fields are added to its extracted fields as `missing`, for you to fill in; fields no remaining category asks for are dropped unless they hold a value. The worker does not re-read the document for them yet.
 
-| Call                                                   | What happens                                                                    |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `GET /api/ingestion/categories`                        | The categories and their templates                                              |
-| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`                        |
-| `PATCH /api/ingestion/categories/:id`                  | Edit title, description or template                                             |
-| `DELETE /api/ingestion/categories/:id`                 | Delete it and take it off every document                                        |
-| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`             |
-| `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                       |
-| `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category (body: optional `id`, `title`, `description`, `template`) |
-| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                   |
-| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key) |
-| `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                         |
+| Call                                                   | What happens                                                                                                      |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `GET /api/ingestion/categories`                        | The categories: templates, `parentId`, `dimension`, `documentCount`, `totalDocumentCount`                         |
+| `GET /api/ingestion/categories/:id/hierarchy`          | Its `ancestors` (root first), `children` and `descendants`                                                        |
+| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`, optional `parentId`, `dimension`                        |
+| `PATCH /api/ingestion/categories/:id`                  | Edit title, description, template; move it (`parentId`, null for the top level); set a root's `dimension`         |
+| `DELETE /api/ingestion/categories/:id`                 | Delete it; `children=MOVE_TO_PARENT\|MAKE_ROOT` (required with subcategories), `documents=REMOVE\|MOVE_TO_PARENT` |
+| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`                                               |
+| `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                                                         |
+| `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category (body: optional `id`, `title`, `description`, `template`, `parentId`, `dimension`)          |
+| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                                                     |
+| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key)                                   |
+| `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                                                           |
+
+### Category hierarchies and metadata dimensions
+
+Categories form **trees**. Each category has an optional `parent_id` (none makes it a top-level, or root, category), so `BILL` can hold `ELECTRICITY_BILL`, `GAS_BILL` and `WATER_BILL`, and `TAX > PROPERTY_TAX > IMU` nests as deep as needed. A document in a subcategory also belongs to every category above it: filtering by `BILL` lists water bills, at any depth, in one query. Filtering by `ELECTRICITY_BILL` never lists its parent or its siblings.
+
+- **Stable ids.** Moving a category (changing its parent) keeps its id, so its documents follow it; nothing on the documents is rewritten.
+- **No cycles.** A category cannot be its own parent or move under its own descendant. The service checks first (422 with the reason) and a trigger on `document_categories` refuses it whatever the caller.
+- **Deleting with children** needs an explicit choice: `children=MOVE_TO_PARENT` (they take its place) or `children=MAKE_ROOT`. Its documents are never deleted: they lose the category (`documents=REMOVE`, the default) or get its parent instead (`documents=MOVE_TO_PARENT`).
+
+Each tree can belong to a **metadata dimension**, so different kinds of classification never mix in one hierarchy:
+
+| Dimension           | What it says                        | Examples                         | Per document |
+| ------------------- | ----------------------------------- | -------------------------------- | ------------ |
+| Document type       | What the document is                | INVOICE, RECEIPT, BILL, CONTRACT | at most one  |
+| Subject             | What it concerns                    | HOME, MEDICAL, VEHICLE           | any          |
+| Property / location | The property or place it refers to  | TREGNAGO, VIA_DEI_BANDI          | any          |
+| Person              | Who it concerns                     | ME, SPOUSE, CHILD                | any          |
+| Issuer / supplier   | Who issued it, as a reusable entity | AMAZON, ENEL, INPS               | at most one  |
+| Attribute           | Independent traits                  | TAX_DEDUCTIBLE, PAID, RECURRING  | any          |
+
+The dimension is set on a root and shared by its whole tree (a subcategory always has its parent's). A category with no dimension is **general**: every category created before dimensions existed starts that way, and nothing changes for its documents until you give it one. **Every dimension is optional**: a medical invoice needs no property, an Amazon order no person. "At most one" counts a category with its ancestors as one value (`BILL` with `ELECTRICITY_BILL` is fine, `INVOICE` with `RECEIPT` is not); the document editor swaps them for you, the API answers 422, and the parser keeps the first it listed and notes the other in the analysis warnings.
+
+A document's metadata is its categories grouped by dimension, so the assignments, the filters, the AI matching and the templates work the same for every dimension, and adding a property, person or issuer is adding a category.
+
+**On the Categories page** the confirmed categories are a tree grouped by dimension, with search, expand and collapse, and each category's number of documents (descendants included). Selecting one shows its path from the root (each step clickable, the category highlighted), its id, description, document and field counts, dimension, direct subcategories and, on demand, everything below it. From there you move it under another parent or to the top level, set the dimension of a root, add a subcategory, edit or delete it.
+
+**In the review inbox** the category filter shows the same tree with a checkbox per category and how many records each choice would show under the other filters. Selecting a category includes its subcategories (shown as included); several selections show records in any of them, combined with the other filters as before. `includeSubcategories=false` on the API matches only the categories named.
+
+The review service never reads the ingestion schema: it keeps a copy of the hierarchy (`review.category_tree`) from `category.changed@1` events, which the ingestion service sends through its outbox whenever a category is created, edited, moved or deleted. Migration `0004` seeds them for the existing categories.
 
 ### AI usage quota, rate limits and other errors
 
@@ -232,7 +262,7 @@ To add a category: add a Zod schema there with a `targetKey` like `<module>.<ent
 
 ## Reviewing and confirming
 
-The review lists every document with its title, description, confirmed categories, suggested categories (waiting for you), status (a coloured dot), upload date and parse date. Filter by text, status, category, file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
+The review lists every document with its title, description, confirmed categories, suggested categories (waiting for you), status (a coloured dot), upload date and parse date. Filter by text, status, category (with its subcategories, see [Category hierarchies](#category-hierarchies-and-metadata-dimensions)), file format and upload date range; the filters live in the URL, so a filtered view can be bookmarked. Sort by title, upload date or parse date.
 
 Above the list, a line says when the processing service last ran, what it did and when it runs next, and a banner shows the parse queue when it matters: running, waiting for the next run, paused because the AI usage quota is exhausted (with the provider's reset time when it gave one, or "unknown" otherwise), paused by a rate limit, or stopped because the API key was refused.
 
@@ -240,13 +270,14 @@ Above the list, a line says when the processing service last ran, what it did an
 
 Every record has an eye button in the **Actions** column. The popup shows the **AI processing** of the document: which steps are done and which remain, why it is paused or partial, the type and purpose, the assigned categories, the extracted fields with their status, and the suggested categories. Then come the target details, laid out by the target schema (receipt items as a table). Only fully parsed records can be confirmed: **Confirm** calls the confirm API; **Cancel** closes it.
 
-| Call                                   | What happens                                                                                                                  |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/review/records`              | `q`, `status`, `category`, `documentCategory`, `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
-| `GET /api/review/records/:id`          | One record with its details and errors                                                                                        |
-| `PATCH /api/review/records/:id`        | Save your `details`; 409 once confirmed, 422 if they do not fit the target schema                                             |
-| `POST /api/review/records/:id/confirm` | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED                                  |
-| `GET /api/review/catalog`              | The target catalog                                                                                                            |
+| Call                                      | What happens                                                                                                                                                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/review/records`                 | `q`, `status`, `category`, `documentCategory` (one or more ids, comma separated; descendants included unless `includeSubcategories=false`), `fileFormat`, `uploadedFrom`, `uploadedTo`, `sort`, `order`, `limit`, `offset` |
+| `GET /api/review/records/category-counts` | Per category, records under the other filters: `direct` and `total` (with descendants)                                                                                                                                     |
+| `GET /api/review/records/:id`             | One record with its details and errors                                                                                                                                                                                     |
+| `PATCH /api/review/records/:id`           | Save your `details`; 409 once confirmed, 422 if they do not fit the target schema                                                                                                                                          |
+| `POST /api/review/records/:id/confirm`    | Sets CONFIRMED and emits `record.approved@1`; 409 if the record is not PARSED or LOAD_FAILED                                                                                                                               |
+| `GET /api/review/catalog`                 | The target catalog                                                                                                                                                                                                         |
 
 **Why confirm is a separate API from upload.** Uploading and confirming are different decisions, made at different times (days apart, with the daily schedule), about data owned by different services. Confirm lives in `svc-review`, which owns the review state, and it does not write into any domain table itself: in one transaction it marks the record CONFIRMED and queues `record.approved@1` with the category, target key and details. The service that owns that category's table (groceries, 730) consumes the event, saves the data in its own schema, and answers `record.loaded` or `record.load_failed`, which move the record to LOADED or LOAD_FAILED. Adding a module never changes the confirm API.
 

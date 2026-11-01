@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import {
+  CATEGORY_DIMENSION_LABELS,
   DESCRIPTION_MAX_LENGTH,
   GENERAL_TARGET_KEY,
   TARGET_CATALOG,
@@ -31,7 +32,7 @@ import {
 } from './document-parser.js';
 import { classifyProviderError } from './provider-errors.js';
 
-export const PROMPT_VERSION = 'categories-1';
+export const PROMPT_VERSION = 'categories-2';
 const LOW_CONFIDENCE = 0.8;
 
 const GROUNDING = `Base every answer only on what the document itself shows. Never invent, guess or fill in information from general knowledge: when something is not in the document, say so.`;
@@ -44,6 +45,7 @@ ${GROUNDING}
 
 1. Identify the document type, its purpose and its useful characteristics (one-off or recurring, paid or to be paid, how it is paid, who issued it, who it is for).
 2. Assign EVERY existing category that applies. A document usually has several: what it is (BILL, INVOICE, RECEIPT), what it is about (HOME, MEDICAL), its role (EXPENSE) and, when one exists, its issuer. Always use a broader category that applies, even when no specific one exists for this document. Give the evidence from the document for each category. Never assign a category the document does not support.
+   Some categories belong to a dimension (document type, subject, property / location, person, issuer, attribute) and some sit under a parent category. A document has at most one document type and at most one issuer (a category together with its parents counts as one); list the best one first. Every dimension is optional: assign a property, a person or an issuer only when the document names it, never by default.
 3. Choose the target where the extracted data will be reviewed:
 ${TARGET_CATALOG.map((target) => `- ${target.targetKey}: ${target.description}`).join('\n')}
    Prefer a specific target over ${GENERAL_TARGET_KEY} whenever the document plausibly fits it.
@@ -52,10 +54,13 @@ Report a low confidence when the document is unreadable or ambiguous.`;
 function categoriesText(categories: CategoryDefinition[]): string {
   if (!categories.length) return 'There are no categories yet.';
   return categories
-    .map(
-      (category) =>
-        `- ${category.id} (${category.title}): ${category.description}`,
-    )
+    .map((category) => {
+      const traits = [
+        category.dimension ? CATEGORY_DIMENSION_LABELS[category.dimension] : '',
+        category.parentId ? `under ${category.parentId}` : '',
+      ].filter(Boolean);
+      return `- ${category.id} (${category.title}${traits.length ? `; ${traits.join(', ')}` : ''}): ${category.description}`;
+    })
     .join('\n');
 }
 

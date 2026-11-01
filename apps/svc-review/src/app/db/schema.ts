@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   jsonb,
   numeric,
@@ -79,7 +80,29 @@ export const stagingRecords = review.table(
       table.category,
     ),
     index('staging_records_uploaded_at_idx').on(table.uploadedAt),
+    index('staging_records_categories_idx').using('gin', table.categories),
   ],
+);
+
+/**
+ * The review service's copy of the category hierarchy, kept from
+ * ingestion's `category.changed` events (it never reads the ingestion
+ * schema). Only what filtering needs: id, title, parent and dimension. A
+ * deleted category stays as a tombstone (`deleted`), so an older event cannot
+ * bring it back; filters ignore tombstones.
+ */
+export const categoryTree = review.table(
+  'category_tree',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    parentId: text('parent_id'),
+    dimension: text('dimension'),
+    deleted: boolean('deleted').notNull().default(false),
+    /** `changedAt` of the last event applied; older ones are ignored. */
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [index('category_tree_parent_idx').on(table.parentId)],
 );
 
 export type StagingRecordRow = typeof stagingRecords.$inferSelect;

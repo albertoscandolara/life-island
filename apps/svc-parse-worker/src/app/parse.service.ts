@@ -6,11 +6,13 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import {
+  CategoryHierarchy,
   DOCUMENT_PARSE_FAILED_EVENT,
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
   DOCUMENT_PARSED_EVENT,
   findTarget,
   GENERAL_TARGET_KEY,
+  keepOnePerSingleValuedDimension,
   UPLOAD_PARSING_STARTED_EVENT,
   type DocumentParsedV1,
   type DocumentParseFailedV1,
@@ -21,6 +23,7 @@ import {
 import {
   categorySuggestions,
   documentCategories,
+  enqueueCategoriesChanged,
   enqueueUploadUpdated,
   parseRuns,
   uploads,
@@ -274,6 +277,8 @@ export class ParseService {
       title: row.title,
       description: row.description,
       template: row.templateJson,
+      parentId: row.parentId,
+      dimension: row.dimension,
     }));
   }
 
@@ -357,9 +362,28 @@ export class ParseService {
   ): Promise<void> {
     // Only ids that exist: the model cannot assign a category by inventing it.
     const known = new Set(categories.map((category) => category.id));
-    const categoryIds = [...new Set(result.categoryIds)].filter((id) =>
+    const valid = [...new Set(result.categoryIds)].filter((id) =>
       known.has(id),
     );
+    // At most one document type and one issuer: keep the first the model
+    // listed (with its parents), and say what was left out.
+    const hierarchy = new CategoryHierarchy(
+      categories.map((category) => ({
+        id: category.id,
+        parentId: category.parentId ?? null,
+        dimension: category.dimension ?? null,
+      })),
+    );
+    const { kept: categoryIds, dropped } = keepOnePerSingleValuedDimension(
+      valid,
+      hierarchy,
+    );
+    const warnings = dropped.length
+      ? [
+          ...result.analysis.warnings,
+          `Also matched ${dropped.join(', ')}, left out: a document has one document type and one issuer`,
+        ]
+      : result.analysis.warnings;
     await this.writeStep(
       progress,
       runs,
@@ -367,8 +391,9 @@ export class ParseService {
         analysis: {
           ...result.analysis,
           categoryEvidence: result.analysis.categoryEvidence.filter((item) =>
-            known.has(item.id),
+            categoryIds.includes(item.id),
           ),
+          warnings,
         },
         categories: categoryIds,
         targetKey: result.targetKey,
@@ -487,6 +512,8 @@ export class ParseService {
             [uploadId, autoApproved],
           );
         await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
+        if (autoApproved.length)
+          await enqueueCategoriesChanged(client, this.svc.schema, autoApproved);
       },
     );
     if (autoApproved.length)

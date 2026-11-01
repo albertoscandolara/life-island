@@ -133,6 +133,9 @@ create table ingestion.document_categories (
   title         varchar(100) not null,               -- unique, case-insensitive
   description   text not null,                       -- when to use it; read by the AI
   template_json jsonb not null default '{"fields":[]}',
+  parent_id     text references ingestion.document_categories (id) on delete restrict
+                check (parent_id is null or parent_id <> id),  -- null: a root; a trigger rejects cycles
+  dimension     ingestion.category_dimension,        -- DOCUMENT_TYPE, SUBJECT, PROPERTY, PERSON, ISSUER, ATTRIBUTE; null: general
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -163,6 +166,6 @@ create table ingestion.parse_queue (                 -- one row: 'documents'
 - **`detected_mime` vs `declared_mime`**: the browser's claim is kept for debugging, but only the detected type decides how a file is parsed and served.
 - **`sha256`**: the same receipt uploaded twice is stored once.
 - **`attempts`, `next_attempt_at`, `locked_until`, `last_error`**: let the daily worker retry with backoff, recover a job from a crashed worker, and show why a document failed.
-- **`categories` as an array**: one document has several categories (a water bill is `HOME`, `BILL`, `WATER_BILL`, `EXPENSE`). The GIN index makes `?category=WATER_BILL` fast. Arrays cannot have foreign keys, so the worker only ever writes ids that exist in `document_categories`. The module a document's data goes to is decided by `target_key`, not by its categories.
+- **`categories` as an array**: one document has several categories (a water bill is `HOME`, `BILL`, `WATER_BILL`, `EXPENSE`). The GIN index makes `?category=WATER_BILL` fast; a filter on a parent (`?category=BILL`) expands it to its subtree with a recursive query and matches any of them with `&&`. Arrays cannot have foreign keys, so the worker only ever writes ids that exist in `document_categories`. The module a document's data goes to is decided by `target_key`, not by its categories.
 - **`completed_steps` and `lock_token`**: the durable progress of a document. A restart, a pause or another worker never repeats a saved step, and a worker whose lease expired cannot overwrite the one that took over.
 - **`uploaded_at` vs `created_at`**: `created_at` is when the row was registered, `uploaded_at` when the file was verified in storage.

@@ -16,7 +16,12 @@ import type {
   UpdateUploadRequest,
   UploadDto,
 } from '@life-island/contracts';
-import { CONFIRMABLE_STATUSES } from '@life-island/contracts/constants';
+import { toggleCategory } from '@life-island/contracts/category-tree';
+import {
+  CONFIRMABLE_STATUSES,
+  SINGLE_VALUED_DIMENSIONS,
+  type CategoryDimension,
+} from '@life-island/contracts/constants';
 import {
   UiAlert,
   UiButton,
@@ -28,6 +33,7 @@ import {
 import { firstValueFrom, of } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
+import { DIMENSION_GROUPS } from '../categories/category-rows';
 import { CategoryStore, errorMessage } from '../categories/category-store';
 
 /** What changed, for the inbox to show at once (the review service catches up a moment later). */
@@ -160,13 +166,39 @@ export class DocumentEditor {
   protected readonly inputTypes = INPUT_TYPES;
   protected readonly placeholders = PLACEHOLDERS;
 
+  /**
+   * The confirmed categories by dimension, each in tree order with its depth.
+   * Every dimension is optional; document type and issuer take one value.
+   */
+  protected readonly categoryGroups = computed(() => {
+    const tree = this.store.hierarchy();
+    return DIMENSION_GROUPS.map((group) => ({
+      ...group,
+      single:
+        group.key !== null && SINGLE_VALUED_DIMENSIONS.includes(group.key),
+      categories: tree.roots
+        .filter((root) => (root.dimension ?? null) === group.key)
+        .flatMap((root) => [root, ...tree.descendants(root.id)])
+        .map((category) => ({
+          category,
+          parent: category.parentId
+            ? this.store.titleOf(category.parentId)
+            : null,
+          path: `${this.store.pathOf(category.id)} (${category.id})`,
+        })),
+    })).filter((group) => group.categories.length);
+  });
+
+  /** In document type and issuer, picking one replaces an unrelated one. */
   protected toggleCategory(id: string, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
     this.categories.update((ids) =>
-      checked
-        ? [...ids.filter((existing) => existing !== id), id]
-        : ids.filter((existing) => existing !== id),
+      toggleCategory(ids, id, checked, this.store.hierarchy()),
     );
+  }
+
+  protected singleHint(dimension: CategoryDimension | null): string {
+    return dimension === 'ISSUER' ? 'one issuer' : 'one type';
   }
 
   protected setField(key: string, event: Event): void {

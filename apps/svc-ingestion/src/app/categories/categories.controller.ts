@@ -16,10 +16,12 @@ import {
   approveSuggestionRequestSchema,
   categoryIdSchema,
   createCategoryRequestSchema,
+  deleteCategoryQuerySchema,
   listSuggestionsQuerySchema,
   updateCategoryRequestSchema,
   updateSuggestionRequestSchema,
   type CategoryDto,
+  type CategoryHierarchyDto,
   type CategorySuggestionDto,
   type ParseQueueDto,
 } from '@life-island/contracts';
@@ -44,14 +46,27 @@ export class CategoriesController {
     );
   }
 
-  /** Delete a category; documents that had it lose it. */
-  @Delete('categories/:id')
-  @HttpCode(204)
-  remove(@Param('id') id: string): Promise<void> {
-    return this.categories.remove(parseOrThrow(categoryIdSchema, id));
+  /** Ancestors (root first), direct children and all descendants of a category. */
+  @Get('categories/:id/hierarchy')
+  hierarchy(@Param('id') id: string): Promise<CategoryHierarchyDto> {
+    return this.categories.hierarchy(parseOrThrow(categoryIdSchema, id));
   }
 
-  /** Edit a category's title, description or extraction template. */
+  /**
+   * Delete a category. Its documents stay (they lose the category, or get its
+   * parent with `documents=MOVE_TO_PARENT`); a category with subcategories
+   * needs `children=MOVE_TO_PARENT` or `children=MAKE_ROOT`.
+   */
+  @Delete('categories/:id')
+  @HttpCode(204)
+  remove(@Param('id') id: string, @Query() query: unknown): Promise<void> {
+    return this.categories.remove(
+      parseOrThrow(categoryIdSchema, id),
+      parseOrThrow(deleteCategoryQuerySchema, query),
+    );
+  }
+
+  /** Edit a category's title, description, template, parent (move it) or dimension. */
   @Patch('categories/:id')
   update(@Param('id') id: string, @Body() body: unknown): Promise<CategoryDto> {
     return this.categories.update(

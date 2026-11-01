@@ -17,7 +17,10 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import {
+  CATEGORY_DIMENSION_LABELS,
+  CategoryHierarchy,
   createUploadRequestSchema,
+  dimensionConflicts,
   fileFormatFromFilename,
   fileFormatFromMime,
   listUploadsQuerySchema,
@@ -40,16 +43,7 @@ import {
   uploads,
   type UploadRow,
 } from '@life-island/ingestion-db';
-import {
-  and,
-  arrayContains,
-  count,
-  desc,
-  eq,
-  inArray,
-  lt,
-  ne,
-} from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { z } from 'zod';
 import {
@@ -237,8 +231,16 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
   async list(query: ListUploads): Promise<Page<UploadDto>> {
     const where = and(
       query.status ? eq(uploads.status, query.status) : undefined,
+      // A category matches its descendants too: BILL lists water bills.
       query.category
-        ? arrayContains(uploads.categories, [query.category])
+        ? sql`${uploads.categories} && array(
+            with recursive subtree (id) as (
+              select ${query.category}::text
+              union
+              select c.id from ${documentCategories} c
+                join subtree s on c.parent_id = s.id
+            )
+            select id from subtree)`
         : undefined,
     );
     const [rows, [{ total }]] = await Promise.all([
@@ -302,6 +304,18 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         throw new UnprocessableEntityException(
           `Unknown categories: ${unknown.join(', ')}`,
         );
+      // Every dimension is optional, but a document has at most one document
+      // type and one issuer (a category with its ancestors counts as one).
+      if (request.categories) {
+        const tree = new CategoryHierarchy(
+          await db.select().from(documentCategories),
+        );
+        const [conflict] = dimensionConflicts(categoryIds, tree);
+        if (conflict)
+          throw new UnprocessableEntityException(
+            `A document has at most one ${CATEGORY_DIMENSION_LABELS[conflict.dimension].toLowerCase()}: ${conflict.categoryIds.join(', ')} are unrelated ones. Keep one (its parent categories may stay).`,
+          );
+      }
       // Keep the order you gave.
       const ordered = categoryIds.flatMap((categoryId) =>
         assigned

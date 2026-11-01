@@ -1,4 +1,5 @@
 import type {
+  CategoryDimension,
   CategoryTemplate,
   DocumentAnalysis,
   ExtractedFields,
@@ -33,6 +34,10 @@ export interface CategoryDefinition {
   title: string;
   description: string;
   template: CategoryTemplate;
+  /** The direct parent category, when it is in a hierarchy. */
+  parentId?: string | null;
+  /** The metadata dimension (document type, subject, issuer...), when set. */
+  dimension?: CategoryDimension | null;
 }
 
 /** A category the analyzer thinks is missing from the table. */

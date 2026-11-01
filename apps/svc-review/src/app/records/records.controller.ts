@@ -12,8 +12,10 @@ import {
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
+  categoryCountsQuerySchema,
   listRecordsQuerySchema,
   updateRecordRequestSchema,
+  type CategoryCountDto,
   type Page,
   type RecordDetailDto,
   type RecordDto,
@@ -29,6 +31,14 @@ export class RecordsController {
   @Get()
   list(@Query() query: unknown): Promise<Page<RecordDto>> {
     return this.records.list(parseOrThrow(listRecordsQuerySchema, query));
+  }
+
+  /** Records per category under the other filters, descendants included in `total`. */
+  @Get('category-counts')
+  categoryCounts(@Query() query: unknown): Promise<CategoryCountDto[]> {
+    return this.records.categoryCounts(
+      parseOrThrow(categoryCountsQuerySchema, query),
+    );
   }
 
   @Get(':id')

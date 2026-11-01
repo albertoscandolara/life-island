@@ -141,6 +141,7 @@ export interface CompleteUploadResponse {
 
 export const listUploadsQuerySchema = z.object({
   status: uploadStatusSchema.optional(),
+  /** A category id: matches documents with it or any of its descendants. */
   category: z.string().trim().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
@@ -148,6 +149,24 @@ export const listUploadsQuerySchema = z.object({
 
 // ---------------------------------------------------------------------------
 // Review API
+
+/** A query parameter list: `A,B` or a repeated parameter, each a category id. */
+const categoryIdListSchema = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => [
+    ...new Set(
+      (Array.isArray(value) ? value : [value])
+        .flatMap((part) => part.split(','))
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ])
+  .pipe(z.array(categoryIdSchema).max(50))
+  .transform((ids) => (ids.length ? ids : undefined));
+
+const booleanParam = z
+  .union([z.boolean(), z.enum(['true', 'false'])])
+  .transform((value) => value === true || value === 'true');
 
 export const recordSortSchema = z.enum(['uploadedAt', 'parsedAt', 'title']);
 
@@ -157,8 +176,14 @@ export const listRecordsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
   status: recordStatusSchema.optional(),
   category: z.string().trim().max(64).optional(),
-  /** A confirmed document category id, e.g. `WATER_BILL`. */
-  documentCategory: z.string().trim().max(64).optional(),
+  /**
+   * Confirmed document category ids, comma separated (`BILL` or
+   * `BILL,MEDICAL`). A record matches when it has any of them or any of their
+   * descendants, so `BILL` includes `WATER_BILL`.
+   */
+  documentCategory: categoryIdListSchema.optional(),
+  /** `false` matches only the categories named, without their descendants. */
+  includeSubcategories: booleanParam.default(true),
   fileFormat: fileFormatSchema.optional(),
   uploadedFrom: optionalDate,
   uploadedTo: optionalDate,
@@ -203,6 +228,26 @@ export interface RecordDetailDto extends RecordDto {
   edited: boolean;
   parseError: string | null;
   loadError: string | null;
+}
+
+/** The query of `GET /records/category-counts`: the record filters, without the category. */
+export const categoryCountsQuerySchema = listRecordsQuerySchema.omit({
+  documentCategory: true,
+  includeSubcategories: true,
+  sort: true,
+  order: true,
+  limit: true,
+  offset: true,
+});
+export type CategoryCountsQuery = z.input<typeof categoryCountsQuerySchema>;
+
+/** How many records the other filters leave in each category. */
+export interface CategoryCountDto {
+  id: string;
+  /** Records that have this category itself. */
+  direct: number;
+  /** Records that have it or any of its descendants: what selecting it shows. */
+  total: number;
 }
 
 export interface Page<T> {
