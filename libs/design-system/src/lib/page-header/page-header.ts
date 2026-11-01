@@ -22,24 +22,44 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-4);
-      margin-bottom: var(--space-6);
+      margin-bottom: var(--space-8);
+      animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
     }
     .emblem {
       display: grid;
       place-items: center;
-      width: var(--space-12);
-      height: var(--space-12);
-      border-radius: var(--radius-md);
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-size: var(--text-2xl);
+      position: relative;
+      width: var(--space-16);
+      height: var(--space-16);
+      border-radius: var(--radius-lg);
+      background: var(--accent-gradient);
+      box-shadow: var(--accent-glow);
+      font-size: var(--text-3xl);
+      animation: emblem-float 6s ease-in-out infinite;
+    }
+    /* A glossy highlight on the emblem. */
+    .emblem::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--surface-card) 35%, transparent),
+        transparent 55%
+      );
+    }
+    @keyframes emblem-float {
+      50% {
+        transform: translateY(-3px) rotate(-2deg);
+      }
     }
     .text {
       flex: 1;
       min-width: 12rem;
     }
     .title {
-      font-size: var(--text-2xl);
+      font-size: var(--text-3xl);
     }
     .subtitle {
       margin: var(--space-1) 0 0;
@@ -47,6 +67,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     }
     .actions {
       display: flex;
+      flex-wrap: wrap;
       gap: var(--space-2);
     }
   `,

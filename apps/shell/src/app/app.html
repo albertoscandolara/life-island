@@ -1,10 +1,15 @@
 <header class="topbar">
-  <a class="brand" routerLink="/">
-    <span aria-hidden="true">🏝️</span>
-    <span>Life Island</span>
-  </a>
-  <a class="topbar__link" [href]="documentsUrl">
-    <ui-icon name="upload" [size]="18" /> Documents
-  </a>
+  <div class="topbar__inner">
+    <a class="brand" routerLink="/">
+      <span class="brand__mark" aria-hidden="true">🏝️</span>
+      <span class="brand__name">Life Island</span>
+    </a>
+    <div class="topbar__end">
+      <a class="topbar__link" [href]="documentsUrl">
+        <ui-icon name="upload" [size]="18" /> Documents
+      </a>
+      <ui-theme-toggle />
+    </div>
+  </div>
 </header>
 <main class="page"><router-outlet /></main>

@@ -19,6 +19,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       border-radius: var(--card-radius);
       background: var(--surface-card);
       box-shadow: var(--shadow-card);
+      transition:
+        box-shadow var(--duration-normal) var(--ease-out),
+        border-color var(--duration-normal) var(--ease-out);
     }
     .card__header {
       display: flex;
@@ -28,7 +31,18 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       margin-bottom: var(--space-4);
     }
     .card__heading {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
       font-size: var(--text-lg);
+    }
+    /* A short accent bar marks each card title. */
+    .card__heading::before {
+      content: '';
+      width: 4px;
+      height: 1.1em;
+      border-radius: var(--radius-full);
+      background: var(--accent-gradient);
     }
   `,
 })

@@ -5,7 +5,7 @@ import { UiIcon, type UiIconName } from '../icon/icon';
   selector: 'ui-empty-state',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiIcon],
-  template: `<ui-icon [name]="icon()" [size]="32" />
+  template: `<span class="icon"><ui-icon [name]="icon()" [size]="28" /></span>
     <p class="heading">{{ heading() }}</p>
     <ng-content />`,
   styles: `
@@ -17,6 +17,17 @@ import { UiIcon, type UiIconName } from '../icon/icon';
       padding: var(--space-10) var(--space-4);
       color: var(--text-muted);
       text-align: center;
+    }
+    .icon {
+      display: grid;
+      place-items: center;
+      width: var(--space-16);
+      height: var(--space-16);
+      margin-bottom: var(--space-2);
+      border-radius: var(--radius-full);
+      background: var(--accent-soft);
+      color: var(--accent);
+      animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
     }
     .heading {
       margin: 0;

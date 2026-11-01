@@ -33,8 +33,8 @@ import {
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: var(--accent);
-      transition: width var(--duration-normal);
+      background: var(--accent-gradient);
+      transition: width var(--duration-normal) var(--ease-out);
     }
     .bar--indeterminate {
       width: 30%;

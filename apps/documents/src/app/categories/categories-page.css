@@ -73,7 +73,8 @@ code {
 
 .tree__heading {
   padding: var(--space-3) var(--space-1) var(--space-1);
-  color: var(--text-muted);
+  color: var(--accent);
+  letter-spacing: 0.06em;
   font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -125,6 +126,9 @@ code {
   font-size: var(--text-sm);
   text-align: start;
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .node:hover,
@@ -133,8 +137,11 @@ button.expander:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
-.node--selected {
+.node--selected,
+.node--selected:hover {
   background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -259,6 +266,13 @@ button.expander:hover:not(:disabled) {
   font: inherit;
   font-size: var(--text-sm);
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
 }
 
 .descendants {

@@ -22,12 +22,12 @@ describe('HomePage', () => {
     return { fixture, http, element: fixture.nativeElement as HTMLElement };
   }
 
-  it('offers the loader and the review, with how many records wait', async () => {
+  it('offers the loader, the review and the categories, with how many records wait', async () => {
     const { fixture, http, element } = await setup();
     const links = [...element.querySelectorAll('a.choice')].map((a) =>
       a.getAttribute('href'),
     );
-    expect(links).toEqual(['/upload', '/review']);
+    expect(links).toEqual(['/upload', '/review', '/categories']);
 
     const request = http.expectOne((req) => req.url === '/api/review/records');
     expect(request.request.params.get('status')).toBe('PARSED');
