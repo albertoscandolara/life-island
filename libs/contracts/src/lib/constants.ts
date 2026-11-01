@@ -128,8 +128,8 @@ export const LOADING_MODULES: readonly string[] = ['groceries', 'tax730'];
  */
 export const PARSE_STEPS = [
   'CLASSIFY', // type, purpose, existing categories, target
-  'EXTRACT', // fields from the templates of the assigned categories
   'DISCOVER', // new categories worth suggesting
+  'EXTRACT', // fields from the templates of the assigned and suggested categories
 ] as const;
 export type ParseStep = (typeof PARSE_STEPS)[number];
 

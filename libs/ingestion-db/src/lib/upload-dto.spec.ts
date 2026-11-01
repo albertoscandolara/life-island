@@ -56,7 +56,7 @@ describe('toUploadDto', () => {
     expect(toUploadDto(partial)).toMatchObject({
       processingState: 'PARTIAL',
       completedSteps: ['CLASSIFY'],
-      remainingSteps: ['EXTRACT', 'DISCOVER'],
+      remainingSteps: ['DISCOVER', 'EXTRACT'],
       nextAttemptAt: '2026-10-01T00:00:00.000Z',
     });
     expect(

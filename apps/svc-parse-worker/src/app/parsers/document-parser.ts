@@ -61,7 +61,7 @@ export interface Classification {
 export interface Extraction {
   /** Data shaped by the target schema, for the review inbox. */
   details: unknown;
-  /** Fields from the templates of the assigned categories. */
+  /** Fields from the templates of the assigned and suggested categories. */
   fields: ExtractedFields;
   flags: string[];
 }

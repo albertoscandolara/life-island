@@ -29,6 +29,9 @@ const GROCERY_WORDS =
 const TAX_WORDS =
   /(farmacia|pharmacy|medic|doctor|dottor|ticket|visita|clinic|scuola|school)/i;
 
+const PAYSLIP_WORDS =
+  /\b(busta paga|cedolino|payslip|pay slip|netto in busta|mese di retribuzione|LUL)\b/i;
+
 /** Keyword rules for the categories the fake parser can recognize. */
 const CATEGORY_WORDS: Record<string, RegExp> = {
   GROCERIES: /(spesa|esselunga|coop|conad|lidl|carrefour|supermarket|grocery)/i,
@@ -36,12 +39,24 @@ const CATEGORY_WORDS: Record<string, RegExp> = {
   INVOICE: /(fattura|invoice)/i,
   BILL: /(bolletta|bill\b|utility|fornitura)/i,
   WATER_BILL: /(acqua|water|acque)/i,
-  HOME: /(bolletta|affitto|rent|condominio|acqua|luce|gas\b)/i,
+  HOME: /\b(bolletta|affitto|rent|condominio|acqua|luce|gas)\b/i,
   MEDICAL: /(farmacia|pharmacy|medic|doctor|dottor|visita|clinic)/i,
   TAX_DEDUCTIBLE: /(farmacia|pharmacy|medic|visita|scuola|school)/i,
   EXPENSE:
     /(total|totale|importo|€|eur\b|receipt|scontrino|fattura|bolletta|invoice)/i,
+  PAYSLIP: PAYSLIP_WORDS,
+  INCOME: new RegExp(
+    `${PAYSLIP_WORDS.source}|\\b(stipendio|salary|pensione|pension|rimborso|refund)\\b`,
+    'i',
+  ),
+  WORK: new RegExp(
+    `${PAYSLIP_WORDS.source}|\\b(contratto di lavoro|employment contract|datore di lavoro|employer)\\b`,
+    'i',
+  ),
 };
+
+/** Categories that say the money goes the other way: they rule out EXPENSE. */
+const NOT_AN_EXPENSE = ['INCOME', 'PAYSLIP'];
 
 /** Categories the fake parser proposes when it sees these words and they do not exist yet. */
 const DISCOVERABLE: (ProposedCategory & { words: RegExp })[] = [
@@ -111,12 +126,59 @@ const DISCOVERABLE: (ProposedCategory & { words: RegExp })[] = [
 ];
 
 function haystackOf(input: ParseInput): string {
-  return [
-    input.filename,
-    input.title,
-    input.description ?? '',
-    input.document.kind === 'text' ? input.document.text.slice(0, 4000) : '',
-  ].join(' ');
+  const text =
+    input.document.kind === 'text' || input.document.kind === 'pdf'
+      ? input.document.text.slice(0, 4000)
+      : '';
+  return [input.filename, input.title, input.description ?? '', text].join(' ');
+}
+
+/** Legal forms that end a company name: `S.R.L.`, `S.p.A.`, `GmbH`... */
+const COMPANY =
+  /^(?:.*?\s{2,})?([A-Z0-9][\w&'.-]*(?: [\w&'.-]+){0,5}? (?:S\.?R\.?L\.?S?|S\.?P\.?A\.?|S\.?N\.?C\.?|S\.?A\.?S\.?|S\.?C\.?A\.? ?R\.?L\.?|GmbH|Ltd\.?|LLC|Inc\.?))(?=\s|$)/im;
+
+/**
+ * Who issued the document, read the only way a regular expression can: the
+ * first company name followed by its legal form (`ARCODA S.R.L.`). The
+ * discovery step turns it into an issuer suggestion.
+ */
+export function companyNameIn(text: string): string | null {
+  for (const line of text.split('\n')) {
+    const match = COMPANY.exec(line);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+const MONTHS: Record<string, number> = Object.fromEntries(
+  [
+    ['gennaio', 'january'],
+    ['febbraio', 'february'],
+    ['marzo', 'march'],
+    ['aprile', 'april'],
+    ['maggio', 'may'],
+    ['giugno', 'june'],
+    ['luglio', 'july'],
+    ['agosto', 'august'],
+    ['settembre', 'september'],
+    ['ottobre', 'october'],
+    ['novembre', 'november'],
+    ['dicembre', 'december'],
+  ].flatMap((names, index) => names.map((name) => [name, index + 1])),
+);
+
+/** `GENNAIO 2026` → `2026-01-01/2026-01-31`: a month named with its year. */
+export function monthPeriod(text: string): string | null {
+  const match = new RegExp(
+    `\\b(${Object.keys(MONTHS).join('|')})\\s+(\\d{4})\\b`,
+    'i',
+  ).exec(text);
+  if (!match) return null;
+  const month = MONTHS[match[1].toLowerCase()];
+  const year = Number(match[2]);
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mm = String(month).padStart(2, '0');
+  return `${year}-${mm}-01/${year}-${mm}-${last}`;
 }
 
 /** dd/mm/yyyy or dd-mm-yyyy → YYYY-MM-DD. */
@@ -170,15 +232,25 @@ export class FakeParser implements DocumentAnalyzer {
               haystack,
             );
       })
-      .map((category) => category.id);
+      .map((category) => category.id)
+      .filter(
+        (id, _, all) =>
+          id !== 'EXPENSE' ||
+          !all.some((other) => NOT_AN_EXPENSE.includes(other)),
+      );
+    const documentType = categories.find(
+      (category) =>
+        category.dimension === 'DOCUMENT_TYPE' &&
+        categoryIds.includes(category.id),
+    );
     return {
       runs: [this.run('classify', { targetKey, categoryIds })],
       result: {
         analysis: {
-          documentType: target.label.toLowerCase(),
+          documentType: (documentType?.title ?? target.label).toLowerCase(),
           purpose: 'Sample analysis from the offline parser',
           characteristics: [],
-          issuer: null,
+          issuer: companyNameIn(haystack),
           language: 'it',
           summary: `Keyword match on "${input.title}". Set PARSER=claude to analyse it for real.`,
           categoryEvidence: categoryIds.map((id) => ({
@@ -209,7 +281,10 @@ export class FakeParser implements DocumentAnalyzer {
       /tota(?:le|l)\s*(?:eur|€)?\s*([\d.,]+\d)/i.exec(text)?.[1] ?? null;
     const date = firstDate(text);
     const currency = /€|\beur\b/i.test(text) ? 'EUR' : null;
+    const period = monthPeriod(text);
     const found: Record<string, string | null> = {
+      pay_period: period,
+      billing_period: period,
       total_amount: total,
       currency,
       issue_date: date,
@@ -225,7 +300,7 @@ export class FakeParser implements DocumentAnalyzer {
         candidates: [],
         note: value
           ? null
-          : 'The offline parser only reads totals, dates and currency',
+          : 'The offline parser only reads totals, dates, periods and currency',
       };
     });
     return {
