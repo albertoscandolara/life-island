@@ -1,0 +1,425 @@
+<ui-dialog
+  [(open)]="open"
+  [heading]="record.value()?.title ?? 'Review document'"
+  size="lg"
+  [dismissible]="!busy()"
+  (closed)="onClosed()"
+>
+  @if (record.isLoading() && !record.value()) {
+  <p class="muted">Loading…</p>
+  } @else if (record.error() || upload.error()) {
+  <ui-alert tone="danger">The document could not be loaded.</ui-alert>
+  } @else if (record.value(); as rec) {
+  <!-- Where the record stands -->
+  <div class="meta">
+    <ui-status-dot
+      [tone]="statusView[rec.status].tone"
+      [label]="statusView[rec.status].label"
+      [pulse]="!!statusView[rec.status].pulse"
+    />
+    <ui-badge tone="info" title="The module that receives the details"
+      >{{ moduleLabel() }}</ui-badge
+    >
+    @if (rec.confidence !== null) {
+    <span class="muted small-inline"
+      >AI confidence {{ rec.confidence | percent }}</span
+    >
+    } @for (flag of rec.flags; track flag) {
+    <ui-badge tone="warning">{{ flagLabel(flag) }}</ui-badge>
+    }
+  </div>
+  <p class="muted small">
+    Uploaded {{ rec.uploadedAt | date: 'dd MMM yyyy, HH:mm' }} @if
+    (rec.parsedAt) { · read by the AI {{ rec.parsedAt | date: 'dd MMM yyyy,
+    HH:mm' }} } ·
+    <button
+      type="button"
+      class="link"
+      [attr.aria-expanded]="showOriginal()"
+      (click)="showOriginal.set(!showOriginal())"
+    >
+      {{ showOriginal() ? 'Hide' : 'Show' }} the original
+    </button>
+    ·
+    <a [href]="previewUrl()" target="_blank" rel="noopener"
+      >Open in a new tab <ui-icon name="external" [size]="14"
+    /></a>
+  </p>
+
+  @if (showOriginal()) {
+  <div class="original">
+    @switch (previewKind()) { @case ('image') {
+    <img [src]="previewUrl()" [alt]="rec.title" />
+    } @case ('frame') {
+    <iframe [src]="frameUrl()" [title]="'Original of ' + rec.title"></iframe>
+    } @default {
+    <p class="muted small">
+      This format cannot be shown here; open it in a new tab to download it.
+    </p>
+    } }
+  </div>
+  }
+
+  <!-- What happened to it -->
+  @switch (rec.status) { @case ('CONFIRMED') {
+  <ui-alert tone="info" class="spaced">
+    Confirmed {{ rec.confirmedAt | date: 'dd MMM yyyy, HH:mm' }}. @if
+    (hasModule()) { Sending it to the {{ moduleLabel() }} module. } @else { Kept
+    with the document: no module loads this type yet. }
+  </ui-alert>
+  } @case ('LOADED') {
+  <ui-alert tone="success" class="spaced">
+    Confirmed {{ rec.confirmedAt | date: 'dd MMM yyyy, HH:mm' }} and stored in
+    the {{ moduleLabel() }} module.
+  </ui-alert>
+  } @case ('LOAD_FAILED') {
+  <ui-alert tone="danger" class="spaced">
+    The {{ moduleLabel() }} module could not store it: {{ rec.loadError }}. Fix
+    the details below and confirm again, or reject it.
+  </ui-alert>
+  } @case ('REJECTED') {
+  <ui-alert tone="neutral" class="spaced">
+    Rejected {{ rec.rejectedAt | date: 'dd MMM yyyy, HH:mm' }}{{
+    rec.rejectReason ? ': ' + rec.rejectReason : '' }}. Nothing was sent to a
+    module. Reopen it to review it again.
+  </ui-alert>
+  } @case ('PARSE_FAILED') {
+  <ui-alert tone="danger" class="spaced">
+    The AI could not read it: {{ rec.parseError ?? 'unknown error' }}. Upload
+    the same file again to retry, or delete it.
+  </ui-alert>
+  } }
+
+  <details class="processing">
+    <summary>AI processing steps</summary>
+    <app-processing-panel [uploadId]="rec.uploadId" />
+  </details>
+
+  @if (upload.value(); as doc) {
+  <!-- 1. The document -->
+  <h3 class="section-title">Document</h3>
+  <div class="form">
+    <ui-form-field label="Title">
+      <input
+        uiInput
+        maxlength="200"
+        [value]="title()"
+        (input)="title.set(text($event))"
+      />
+    </ui-form-field>
+    <ui-form-field label="Description">
+      <textarea
+        uiInput
+        rows="2"
+        maxlength="255"
+        [value]="description()"
+        (input)="description.set(text($event))"
+      ></textarea>
+    </ui-form-field>
+  </div>
+
+  <!-- 2. Categories, with the AI's suggestions to accept or decline -->
+  <h3 class="section-title">Categories</h3>
+  @if (suggestions().length) {
+  <ul class="suggestions" aria-label="Suggested categories">
+    @for (suggestion of suggestions(); track suggestion.id) {
+    <li class="suggestion">
+      <span class="suggestion__text">
+        <ui-badge tone="warning">Suggested</ui-badge>
+        <strong>{{ suggestion.title }}</strong>
+        @if (suggestion.reason) {
+        <span class="muted small-inline">{{ suggestion.reason }}</span>
+        }
+      </span>
+      <span class="suggestion__actions">
+        <button
+          uiButton
+          size="sm"
+          variant="secondary"
+          type="button"
+          [loading]="busy() === suggestion.id"
+          [disabled]="!!busy()"
+          (click)="acceptSuggestion(suggestion)"
+        >
+          <ui-icon name="check" [size]="16" /> Accept
+        </button>
+        <button
+          uiButton
+          size="sm"
+          variant="ghost"
+          type="button"
+          [disabled]="!!busy()"
+          [attr.aria-label]="'Decline ' + suggestion.title + ' for this document'"
+          (click)="declineSuggestion(suggestion)"
+        >
+          <ui-icon name="x" [size]="16" /> Not this one
+        </button>
+      </span>
+    </li>
+    }
+  </ul>
+  <p class="muted small">
+    Accept creates the category and adds it to every document that suggested it.
+    Not this one removes it from this document only.
+  </p>
+  } @if (parsing()) {
+  <p class="muted small">
+    The AI is reading this document; categories and fields can be changed once
+    it finishes.
+  </p>
+  } @for (group of categoryGroups(); track group.label) {
+  <fieldset class="categories">
+    <legend class="group">
+      {{ group.label }} @if (group.single) {
+      <span class="muted small-inline"
+        >({{ singleHint(group.key) }}, optional)</span
+      >
+      }
+    </legend>
+    @for (item of group.categories; track item.category.id) {
+    <label class="category" [attr.title]="item.path">
+      <input
+        type="checkbox"
+        [checked]="categories().includes(item.category.id)"
+        [disabled]="parsing()"
+        (change)="toggleCategory(item.category.id, $event)"
+      />
+      <span
+        >{{ item.category.title }} @if (item.parent) {
+        <span class="muted small-inline">in {{ item.parent }}</span>
+        }</span
+      >
+    </label>
+    }
+  </fieldset>
+  } @empty {
+  <p class="muted small">No categories yet.</p>
+  }
+
+  <!-- 3. Fields kept with the document -->
+  <h3 class="section-title">Kept with the document</h3>
+  @if (fields().length) {
+  <p class="muted small">
+    The fields of its categories. They stay with the document and travel with it
+    when you confirm. Leave one empty when it is not in the document.
+  </p>
+  <div class="fields">
+    @for (field of fields(); track field.key) {
+    <ui-form-field
+      [label]="field.label + (field.required ? ' *' : '') + (field.unit ? ' (' + field.unit + ')' : '')"
+      [hint]="field.status !== 'found' && field.note ? field.note : field.editedAt ? 'Edited by you' : ''"
+    >
+      <input
+        uiInput
+        [type]="field.type === 'date' ? 'date' : 'text'"
+        [value]="fieldValues()[field.key] ?? ''"
+        [disabled]="parsing()"
+        (input)="setField(field.key, $event)"
+      />
+    </ui-form-field>
+    }
+  </div>
+  } @else {
+  <p class="muted small">
+    {{ doc.completedSteps.includes('EXTRACT') ? 'Its categories define no
+    fields.' : 'Nothing extracted yet.' }}
+  </p>
+  }
+
+  <!-- 4. What is sent to the module -->
+  <h3 class="section-title">
+    {{ hasModule() ? 'Sent to the ' + moduleLabel() + ' module' : 'Details of
+    the record' }}
+  </h3>
+  @if (editable()) {
+  <ui-form-field
+    label="Module"
+    [hint]="targetChanged() ? 'Moved from the AI’s choice: fill in the details for this module.' : rec.aiTargetKey ? 'You moved it from the AI’s choice.' : 'The AI’s choice; change it if it picked the wrong one.'"
+  >
+    <select class="ui-input" [disabled]="!!busy()" (change)="setTarget($event)">
+      @for (entry of targets(); track entry.targetKey) {
+      <option
+        [value]="entry.targetKey"
+        [selected]="entry.targetKey === targetKey()"
+      >
+        {{ targetLabel(entry) }}
+      </option>
+      }
+    </select>
+  </ui-form-field>
+  @if (!hasModule()) {
+  <p class="muted small">
+    No module loads this type yet: confirming keeps the record with the
+    document.
+  </p>
+  }
+  <div class="details-tools">
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="toggleJson()"
+    >
+      {{ jsonMode() ? 'Edit as a form' : 'Edit as JSON' }}
+    </button>
+    @if (detailsChanged()) {
+    <ui-badge tone="info">Edited</ui-badge>
+    } @else if (rec.edited) {
+    <ui-badge tone="info">Edited by you</ui-badge>
+    }
+  </div>
+  @if (jsonMode()) {
+  <ui-form-field
+    label="Details (JSON)"
+    hint="Checked against the module’s schema when you save or confirm."
+  >
+    <textarea
+      uiInput
+      rows="12"
+      class="mono"
+      [value]="detailsJson()"
+      (input)="detailsJson.set(text($event))"
+    ></textarea>
+  </ui-form-field>
+  } @else if (schema(); as s) {
+  <app-details-form [schema]="s" [(value)]="details" [disabled]="!!busy()" />
+  } @else {
+  <p class="muted small">Loading the module’s form…</p>
+  } } @else if (rec.details) {
+  <app-details-view [details]="rec.details" [schema]="schemaShape()" />
+  } @else {
+  <p class="muted small">Nothing to send until the AI has read the document.</p>
+  } } @if (error()) {
+  <ui-alert tone="danger" class="spaced">{{ error() }}</ui-alert>
+  } @if (rejecting()) {
+  <div class="inline-confirm">
+    <ui-form-field label="Why reject it? (optional)">
+      <input
+        uiInput
+        maxlength="500"
+        [value]="rejectReason()"
+        (input)="rejectReason.set(text($event))"
+      />
+    </ui-form-field>
+    <div class="inline-confirm__actions">
+      <button
+        uiButton
+        variant="secondary"
+        type="button"
+        (click)="rejecting.set(false)"
+      >
+        Keep it
+      </button>
+      <button
+        uiButton
+        variant="danger"
+        type="button"
+        [loading]="busy() === 'reject'"
+        [disabled]="!!busy()"
+        (click)="reject()"
+      >
+        Reject
+      </button>
+    </div>
+  </div>
+  } @if (confirmingDelete()) {
+  <ui-alert tone="danger" class="spaced">
+    Delete this document and its file? This cannot be undone. {{ rec.status ===
+    'LOADED' || rec.status === 'CONFIRMED' ? 'What the ' + moduleLabel() + '
+    module already stored stays there.' : '' }}
+  </ui-alert>
+  <div class="inline-confirm__actions">
+    <button
+      uiButton
+      variant="secondary"
+      type="button"
+      (click)="confirmingDelete.set(false)"
+    >
+      Keep it
+    </button>
+    <button
+      uiButton
+      variant="danger"
+      type="button"
+      [loading]="busy() === 'delete'"
+      [disabled]="!!busy()"
+      (click)="remove()"
+    >
+      <ui-icon name="trash" [size]="16" /> Delete
+    </button>
+  </div>
+  } } @if (record.value(); as rec) {
+  <div uiDialogFooter class="footer">
+    <div class="footer__row">
+      <div class="footer__side">
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          [disabled]="!!busy() || parsing()"
+          [attr.title]="parsing() ? 'Wait until the AI finishes reading it' : null"
+          (click)="confirmingDelete.set(true); rejecting.set(false)"
+        >
+          <ui-icon name="trash" [size]="16" /> Delete
+        </button>
+        @if (rec.status === 'REJECTED') {
+        <button
+          uiButton
+          variant="secondary"
+          type="button"
+          [loading]="busy() === 'reopen'"
+          [disabled]="!!busy()"
+          (click)="reopen()"
+        >
+          <ui-icon name="refresh" [size]="16" /> Reopen
+        </button>
+        } @else if (canReject()) {
+        <button
+          uiButton
+          variant="secondary"
+          type="button"
+          [disabled]="!!busy()"
+          (click)="rejecting.set(true); confirmingDelete.set(false)"
+        >
+          <ui-icon name="x" [size]="16" /> Reject
+        </button>
+        }
+      </div>
+      <div class="footer__main">
+        <button
+          uiButton
+          variant="secondary"
+          type="button"
+          [loading]="busy() === 'save'"
+          [disabled]="!!busy() || !upload.value()"
+          (click)="save()"
+        >
+          Save
+        </button>
+        @if (editable()) {
+        <button
+          uiButton
+          type="button"
+          [loading]="busy() === 'confirm'"
+          [disabled]="!!busy()"
+          (click)="confirm(false)"
+        >
+          <ui-icon name="check" [size]="16" /> Confirm
+        </button>
+        @if (nextRecordId()) {
+        <button
+          uiButton
+          type="button"
+          [loading]="busy() === 'confirm-next'"
+          [disabled]="!!busy()"
+          (click)="confirm(true)"
+        >
+          Confirm and next
+        </button>
+        } }
+      </div>
+    </div>
+  </div>
+  }
+</ui-dialog>

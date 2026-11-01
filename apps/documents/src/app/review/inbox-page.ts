@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
@@ -19,6 +20,7 @@ import type {
 } from '@life-island/contracts';
 import {
   FILE_FORMATS,
+  MODULE_LABELS,
   RECORD_STATUSES,
 } from '@life-island/contracts/constants';
 import {
@@ -40,13 +42,51 @@ import {
 import { ReviewApi } from '../api/review-api';
 import { CategoryStore } from '../categories/category-store';
 import { CategoryFilter } from './category-filter';
-import { DocumentEditor, type DocumentChanges } from './document-editor';
-import { RecordDialog } from './record-dialog';
+import { firstValueFrom } from 'rxjs';
+import type { DocumentChanges } from './document-changes';
 import { QueueBanner } from './queue-banner';
 import { RECORD_STATUS_VIEW } from './record-status';
+import { ReviewPanel, type ReviewOutcome } from './review-panel';
 
 const PAGE_SIZE = 20;
 type SortKey = NonNullable<ListRecordsQuery['sort']>;
+
+/** What the inbox opens on: the records waiting for your review. */
+export const DEFAULT_STATUS: RecordStatus = 'PARSED';
+/** The `status` URL value for "any status" (no parameter means the default). */
+const ANY_STATUS = 'all';
+
+/** The status filter from the URL: none means the review queue, `all` means any. */
+export function statusFromParam(param: string | null): RecordStatus | null {
+  if (param === null) return DEFAULT_STATUS;
+  if (param === ANY_STATUS) return null;
+  return (RECORD_STATUSES as readonly string[]).includes(param)
+    ? (param as RecordStatus)
+    : DEFAULT_STATUS;
+}
+
+/** The status filter as a URL value: the inverse of `statusFromParam`. */
+export function statusToParam(status: RecordStatus | null): string | undefined {
+  if (status === DEFAULT_STATUS) return undefined;
+  return status ?? ANY_STATUS;
+}
+
+/** Waits between checks that the inbox caught up with a change, in ms. */
+export const CATCH_UP_DELAYS = [300, 600, 1200, 2400, 4800];
+
+/** Whether a record in the inbox already shows the change you made. */
+export function reflects(record: RecordDto, outcome: ReviewOutcome): boolean {
+  if (outcome.kind === 'deleted') return false;
+  const changes = outcome.changes;
+  if (outcome.kind === 'status' && record.status !== outcome.record.status)
+    return false;
+  return (
+    !changes ||
+    (record.title === changes.title &&
+      record.description === changes.description &&
+      record.categories.join() === changes.categories.join())
+  );
+}
 
 /** The inbox of uploaded documents, filterable, with a details popup per parsed record. */
 @Component({
@@ -57,9 +97,8 @@ type SortKey = NonNullable<ListRecordsQuery['sort']>;
   imports: [
     CategoryFilter,
     DatePipe,
-    DocumentEditor,
     QueueBanner,
-    RecordDialog,
+    ReviewPanel,
     RouterLink,
     UiAlert,
     UiBadge,
@@ -90,8 +129,9 @@ export class InboxPage {
   // Filters live in the URL, so a filtered view can be bookmarked or shared.
   protected readonly searchText = signal(this.params.get('q') ?? '');
   protected readonly search = signal(this.searchText());
+  /** Opens on the review queue; "Any status" shows everything. */
   protected readonly status = signal<RecordStatus | null>(
-    (this.params.get('status') as RecordStatus) || null,
+    statusFromParam(this.params.get('status')),
   );
   /** Selected category ids; each includes its subcategories. */
   protected readonly categories = signal<string[]>(
@@ -111,9 +151,12 @@ export class InboxPage {
   protected readonly page = signal(Number(this.params.get('page') ?? 0) || 0);
 
   protected readonly selectedId = signal<string | null>(null);
-  protected readonly dialogOpen = signal(false);
-  protected readonly editorOpen = signal(false);
+  protected readonly panelOpen = signal(false);
   protected readonly statusView = RECORD_STATUS_VIEW;
+  protected readonly moduleLabels = MODULE_LABELS;
+  protected readonly defaultStatus = DEFAULT_STATUS;
+  private readonly destroyRef = inject(DestroyRef);
+  private catchUp?: ReturnType<typeof setTimeout>;
   protected readonly pageSize = PAGE_SIZE;
 
   protected readonly statusOptions: UiOption<RecordStatus>[] =
@@ -134,7 +177,7 @@ export class InboxPage {
     { key: 'status', header: 'Status', width: '11rem' },
     { key: 'uploadedAt', header: 'Uploaded', sortable: true, width: '9rem' },
     { key: 'parsedAt', header: 'Parsed', sortable: true, width: '9rem' },
-    { key: 'details', header: 'Actions', align: 'center', width: '6.5rem' },
+    { key: 'details', header: 'Actions', align: 'center', width: '8rem' },
   ];
 
   /** Every filter but the category one: what the category counts are computed under. */
@@ -168,11 +211,28 @@ export class InboxPage {
     () => this.records.value()?.items ?? [],
   );
   protected readonly total = computed(() => this.records.value()?.total ?? 0);
+  /**
+   * The next record waiting for review after the one open, in the order
+   * shown: what Confirm and next opens.
+   */
+  protected readonly nextRecordId = computed(() => {
+    const rows = this.rows();
+    const index = rows.findIndex((row) => row.id === this.selectedId());
+    return (
+      rows.find(
+        (row, i) =>
+          i > index && row.status === 'PARSED' && row.id !== this.selectedId(),
+      )?.id ?? null
+    );
+  });
+  protected readonly showingQueue = computed(
+    () => this.status() === DEFAULT_STATUS,
+  );
   protected readonly hasFilters = computed(
     () =>
       !!(
         this.search() ||
-        this.status() ||
+        this.status() !== DEFAULT_STATUS ||
         this.categories().length ||
         this.fileFormat() ||
         this.uploadedFrom() ||
@@ -181,6 +241,7 @@ export class InboxPage {
   );
 
   constructor() {
+    this.destroyRef.onDestroy(() => clearTimeout(this.catchUp));
     // Debounce typing in the search box.
     effect((onCleanup) => {
       const text = this.searchText().trim();
@@ -206,7 +267,7 @@ export class InboxPage {
         relativeTo: this.route,
         queryParams: {
           q: query.q,
-          status: query.status,
+          status: statusToParam(this.status()),
           category: this.categories().join(',') || undefined,
           fileFormat: query.fileFormat,
           uploadedFrom: query.uploadedFrom,
@@ -220,52 +281,93 @@ export class InboxPage {
     });
   }
 
-  protected openDetails(row: RecordDto): void {
+  protected openReview(row: RecordDto): void {
     this.selectedId.set(row.id);
-    this.dialogOpen.set(true);
+    this.panelOpen.set(true);
   }
 
-  protected openEditor(row: RecordDto): void {
-    this.selectedId.set(row.id);
-    this.editorOpen.set(true);
+  protected showNext(): void {
+    const next = this.nextRecordId();
+    if (next) this.selectedId.set(next);
+  }
+
+  protected showAll(): void {
+    this.status.set(null);
   }
 
   /**
-   * Shows your edits at once: the review service learns about them through an
-   * event a moment later, so the list is reloaded shortly after.
+   * Shows your change at once, then reloads once the review service has it:
+   * it learns about document edits through an event, a moment later, so the
+   * inbox checks the record until it reflects the change (or gives up after
+   * a few seconds and reloads anyway).
    */
-  protected applyChanges(changes: DocumentChanges): void {
-    this.records.update((page) =>
-      page
-        ? {
-            ...page,
-            items: page.items.map((row) =>
-              row.uploadId === changes.uploadId
-                ? {
-                    ...row,
-                    title: changes.title,
-                    description: changes.description,
-                    categories: changes.categories,
-                    suggestedCategories: row.suggestedCategories.filter(
-                      (id) => !changes.categories.includes(id),
-                    ),
-                  }
-                : row,
-            ),
-          }
-        : page,
-    );
+  protected onChanged(outcome: ReviewOutcome): void {
+    this.records.update((page) => {
+      if (!page) return page;
+      if (outcome.kind === 'deleted')
+        return {
+          ...page,
+          items: page.items.filter((row) => row.id !== outcome.recordId),
+          total: Math.max(0, page.total - 1),
+        };
+      const changes: DocumentChanges | undefined = outcome.changes;
+      return {
+        ...page,
+        items: page.items.map((row) => {
+          let next = row;
+          if (outcome.kind === 'status' && row.id === outcome.record.id)
+            next = { ...next, status: outcome.record.status };
+          if (changes && row.uploadId === changes.uploadId)
+            next = {
+              ...next,
+              title: changes.title,
+              description: changes.description,
+              categories: changes.categories,
+              suggestedCategories: next.suggestedCategories.filter(
+                (id) => !changes.categories.includes(id),
+              ),
+            };
+          return next;
+        }),
+      };
+    });
     this.store.reload();
-    setTimeout(() => {
+    this.waitForInbox(outcome);
+  }
+
+  private waitForInbox(outcome: ReviewOutcome, attempt = 0): void {
+    clearTimeout(this.catchUp);
+    const recordId =
+      outcome.kind === 'deleted'
+        ? null
+        : outcome.kind === 'status'
+          ? outcome.record.id
+          : this.rows().find((row) => row.uploadId === outcome.changes.uploadId)
+              ?.id;
+    const reload = () => {
       this.records.reload();
       this.categoryCounts.reload();
-    }, 1500);
+    };
+    // A deletion is ours alone to show; a status change is already stored.
+    if (!recordId || attempt >= CATCH_UP_DELAYS.length) {
+      reload();
+      return;
+    }
+    this.catchUp = setTimeout(async () => {
+      try {
+        const record = await firstValueFrom(this.api.get(recordId));
+        if (reflects(record, outcome)) reload();
+        else this.waitForInbox(outcome, attempt + 1);
+      } catch {
+        reload();
+      }
+    }, CATCH_UP_DELAYS[attempt]);
   }
 
   protected clearFilters(): void {
     this.searchText.set('');
     this.search.set('');
-    this.status.set(null);
+    this.status.set(DEFAULT_STATUS);
     this.categories.set([]);
     this.fileFormat.set(null);
     this.uploadedFrom.set('');

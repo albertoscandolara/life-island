@@ -1,5 +1,5 @@
 import type { ParseQueueDto } from '@life-island/contracts';
-import { lastRunText, queueMessage } from './queue-banner';
+import { canParseNow, lastRunText, queueMessage } from './queue-banner';
 
 const base: ParseQueueDto = {
   status: 'IDLE',
@@ -11,6 +11,7 @@ const base: ParseQueueDto = {
   runStartedAt: null,
   runFinishedAt: null,
   nextScheduledRunAt: '2026-10-30T05:00:00.000Z',
+  runRequestedAt: null,
   lastRunSummary: null,
   pendingDocuments: 3,
 };
@@ -90,5 +91,22 @@ describe('lastRunText', () => {
     expect(lastRunText({ ...base, nextScheduledRunAt: null }, format)).toBe(
       'The processing service has not run yet.',
     );
+  });
+});
+
+describe('canParseNow', () => {
+  it('offers Parse now only when documents wait and nothing holds the worker', () => {
+    expect(canParseNow({ ...base, status: 'IDLE', pendingDocuments: 2 })).toBe(
+      true,
+    );
+    expect(canParseNow({ ...base, status: 'IDLE', pendingDocuments: 0 })).toBe(
+      false,
+    );
+    expect(
+      canParseNow({ ...base, status: 'RUNNING', pendingDocuments: 2 }),
+    ).toBe(false);
+    expect(
+      canParseNow({ ...base, status: 'PAUSED_QUOTA', pendingDocuments: 2 }),
+    ).toBe(false);
   });
 });

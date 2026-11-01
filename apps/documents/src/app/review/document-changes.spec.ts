@@ -1,5 +1,5 @@
 import type { UploadDto } from '@life-island/contracts';
-import { fieldText, uploadChanges } from './document-editor';
+import { fieldText, uploadChanges } from './document-changes';
 
 const upload = {
   id: 'u1',
