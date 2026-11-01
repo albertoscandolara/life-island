@@ -3,6 +3,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
   background: var(--surface-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -26,7 +27,11 @@ td {
 }
 
 th {
-  background: var(--surface-sunken);
+  background: color-mix(
+    in srgb,
+    var(--surface-sunken) 70%,
+    var(--surface-card)
+  );
   color: var(--text-secondary);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -39,8 +44,27 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+td {
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+tbody tr {
+  animation: ui-row-in var(--duration-slow) var(--ease-out) both;
+}
+
 tbody tr:hover td {
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-card));
+}
+
+/* An accent edge on the hovered row. */
+tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+@keyframes ui-row-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .ui-table__cell--center {
@@ -77,7 +101,8 @@ tbody tr:hover td {
 .ui-table__loading {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--surface-card) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-card) 55%, transparent);
+  backdrop-filter: blur(1px);
 }
 
 .ui-table__pager {

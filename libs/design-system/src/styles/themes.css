@@ -2,8 +2,9 @@
 [data-character='ptera'] {
   /* review inbox */
   --accent: var(--sky-600);
-  --accent-hover: var(--sky-400);
+  --accent-hover: var(--sky-700);
   --accent-soft: var(--sky-50);
+  --accent-2: var(--violet-500);
 }
 
 [data-character='trice'] {
@@ -11,15 +12,36 @@
   --accent: var(--jungle-500);
   --accent-hover: var(--jungle-600);
   --accent-soft: var(--jungle-50);
+  --accent-2: var(--lagoon-600);
 }
 
 [data-character='ankylo'] {
   /* 730 tax return */
-  --accent: var(--amber-700);
-  --accent-hover: var(--sun-600);
+  --accent: var(--sun-600);
+  --accent-hover: var(--sun-700);
   --accent-soft: var(--sun-50);
+  --accent-2: var(--amber-700);
+}
+
+/* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
+:root[data-theme='dark'] [data-character='ptera'] {
+  --accent: var(--sky-400);
+  --accent-hover: var(--sky-300);
+  --accent-2: var(--violet-400);
+}
+
+:root[data-theme='dark'] [data-character='trice'] {
+  --accent: var(--leaf-400);
+  --accent-hover: var(--lagoon-300);
+  --accent-2: var(--lagoon-400);
+}
+
+:root[data-theme='dark'] [data-character='ankylo'] {
+  --accent: var(--sun-400);
+  --accent-hover: var(--sun-300);
+  --accent-2: var(--coral-400);
 }
 
 :root[data-theme='dark'] [data-character] {
-  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
 }

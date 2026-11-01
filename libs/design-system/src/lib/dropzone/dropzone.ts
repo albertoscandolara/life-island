@@ -51,18 +51,37 @@ import {
       padding: var(--space-8) var(--space-6);
       border: 2px dashed var(--border-strong);
       border-radius: var(--card-radius);
-      background: var(--surface-card);
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          color-mix(in srgb, var(--accent) 7%, transparent),
+          transparent 70%
+        ),
+        var(--surface-card);
       color: var(--text-secondary);
       text-align: center;
       cursor: pointer;
       transition:
-        border-color var(--duration-fast),
-        background var(--duration-fast);
+        border-color var(--duration-normal) var(--ease-out),
+        background-color var(--duration-normal) var(--ease-out),
+        transform var(--duration-normal) var(--ease-out);
     }
     :host(:hover),
     :host(.ui-dropzone--active) {
       border-color: var(--accent);
-      background: var(--accent-soft);
+      background-color: var(--accent-soft);
+    }
+    /* Dragging a file over it: the zone swells slightly to invite the drop. */
+    :host(.ui-dropzone--active) {
+      transform: scale(1.01);
+    }
+    :host ::ng-deep > ui-icon {
+      transition: transform var(--duration-normal) var(--ease-spring);
+    }
+    :host(:hover) ::ng-deep > ui-icon,
+    :host(.ui-dropzone--active) ::ng-deep > ui-icon {
+      color: var(--accent);
+      transform: translateY(-4px);
     }
     :host([aria-disabled='true']) {
       cursor: not-allowed;

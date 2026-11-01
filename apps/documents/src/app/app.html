@@ -1,36 +1,44 @@
 <header class="topbar">
-  <a class="brand" routerLink="/">
-    <span class="brand__mark" aria-hidden="true">🏝️</span>
-    <span>Documents</span>
-  </a>
-  <nav class="nav" aria-label="Documents">
-    <a
-      routerLink="/upload"
-      routerLinkActive="nav__link--active"
-      ariaCurrentWhenActive="page"
-      class="nav__link"
-    >
-      <ui-icon name="upload" [size]="18" /> Loader
+  <div class="topbar__inner">
+    <a class="brand" routerLink="/">
+      <span class="brand__mark" aria-hidden="true">🏝️</span>
+      <span class="brand__text">
+        <span class="brand__name">Documents</span>
+        <span class="brand__sub">Life Island</span>
+      </span>
     </a>
-    <a
-      routerLink="/review"
-      routerLinkActive="nav__link--active"
-      ariaCurrentWhenActive="page"
-      class="nav__link"
-    >
-      <ui-icon name="inbox" [size]="18" /> Review
-    </a>
-    <a
-      routerLink="/categories"
-      routerLinkActive="nav__link--active"
-      ariaCurrentWhenActive="page"
-      class="nav__link"
-    >
-      <ui-icon name="folder" [size]="18" /> Categories
-    </a>
-  </nav>
-  <a class="nav__link nav__link--external" [href]="shellUrl">
-    Life Island <ui-icon name="external" [size]="16" />
-  </a>
+    <nav class="nav" aria-label="Documents">
+      <a
+        routerLink="/upload"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+      >
+        <ui-icon name="upload" [size]="18" /> Loader
+      </a>
+      <a
+        routerLink="/review"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+      >
+        <ui-icon name="inbox" [size]="18" /> Review
+      </a>
+      <a
+        routerLink="/categories"
+        routerLinkActive="nav__link--active"
+        ariaCurrentWhenActive="page"
+        class="nav__link"
+      >
+        <ui-icon name="folder" [size]="18" /> Categories
+      </a>
+    </nav>
+    <div class="topbar__end">
+      <a class="nav__link nav__link--external" [href]="shellUrl">
+        Life Island <ui-icon name="external" [size]="16" />
+      </a>
+      <ui-theme-toggle />
+    </div>
+  </div>
 </header>
 <main class="page"><router-outlet /></main>

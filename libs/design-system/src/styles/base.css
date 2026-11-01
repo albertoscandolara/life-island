@@ -11,11 +11,29 @@ body {
   min-height: 100%;
 }
 
+html {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
 body {
-  background: var(--surface-page);
+  background-color: var(--surface-page);
+  /* Two soft washes of colour behind everything, fixed while you scroll. */
+  background-image:
+    radial-gradient(
+      60rem 36rem at 100% -10%,
+      var(--surface-ambient-1),
+      transparent 70%
+    ),
+    radial-gradient(
+      48rem 32rem at -10% 110%,
+      var(--surface-ambient-2),
+      transparent 70%
+    );
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-md);
+  font-feature-settings: 'cv11', 'ss01';
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -25,12 +43,17 @@ h2,
 h3 {
   font-family: var(--font-display);
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.2;
   margin: 0;
 }
 
 a {
   color: var(--accent);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 :focus-visible {
@@ -45,6 +68,41 @@ a {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/*
+ * Theme switch. UiThemeService swaps the theme inside a view transition and
+ * grows the new one as a circle from the toggle; the default cross-fade is
+ * turned off so only that reveal plays.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Without view transitions, colours ease into the new theme instead. */
+:root.ui-theme-changing,
+:root.ui-theme-changing *,
+:root.ui-theme-changing *::before,
+:root.ui-theme-changing *::after {
+  transition:
+    background-color var(--duration-slow) var(--ease-out),
+    border-color var(--duration-slow) var(--ease-out),
+    color var(--duration-slow) var(--ease-out),
+    fill var(--duration-slow) var(--ease-out) !important;
+}
+
+/* Content that enters (a routed page, a list row): a short rise and fade. */
+@keyframes ui-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.ui-rise-in {
+  animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -67,6 +125,14 @@ a {
   color: var(--text-primary);
   font: inherit;
   font-size: var(--text-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.ui-input:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
 }
 
 textarea.ui-input {
@@ -76,6 +142,11 @@ textarea.ui-input {
 
 .ui-input:focus-visible {
   border-color: var(--accent);
+}
+
+.ui-input:disabled {
+  background: var(--surface-sunken);
+  cursor: not-allowed;
 }
 
 .ui-input::placeholder {
