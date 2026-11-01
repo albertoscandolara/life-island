@@ -7,6 +7,7 @@ import {
 } from '@life-island/be-common';
 import type {
   CategoryDimension,
+  CategoryTemplate,
   ProviderErrorDetails,
 } from '@life-island/contracts';
 import {
@@ -59,6 +60,7 @@ class ScriptedAnalyzer implements DocumentAnalyzer {
     title: string;
     dimension?: CategoryDimension | null;
     parentId?: string | null;
+    fields?: CategoryTemplate['fields'];
   }[];
   private readonly inner = new FakeParser();
 
@@ -89,7 +91,7 @@ class ScriptedAnalyzer implements DocumentAnalyzer {
           description: `${s.title} documents`,
           reason: 'scripted',
           template: {
-            fields: [
+            fields: s.fields ?? [
               {
                 key: 'total_amount',
                 label: 'Total',
@@ -260,8 +262,11 @@ describe.skipIf(!configured)(
       expect(saved.extractedFields?.fields['total_amount']).toMatchObject({
         status: 'found',
         value: 84.2,
-        categories: ['BILL', 'EXPENSE'],
       });
+      // Asked for by the assigned categories and by the ones suggested for it.
+      expect(
+        [...saved.extractedFields!.fields['total_amount'].categories].sort(),
+      ).toEqual(['BILL', 'ELECTRICITY_BILL', 'ENEL', 'EXPENSE']);
       expect(saved.extractedFields?.fields['provider']).toMatchObject({
         status: 'missing',
         value: null,
@@ -321,7 +326,7 @@ describe.skipIf(!configured)(
     it('pauses on an exhausted quota, keeps the finished steps, and makes no more AI calls', async () => {
       const id = await seed(ENEL);
       const analyzer = new ScriptedAnalyzer();
-      analyzer.failures.discover = () =>
+      analyzer.failures.extract = () =>
         new QuotaExhaustedError('quota gone', providerError, null);
       const service = new ParseService(svc, storage, analyzer, config);
 
@@ -330,15 +335,12 @@ describe.skipIf(!configured)(
       expect(paused).toMatchObject({
         status: 'PAUSED_QUOTA',
         attempts: 0, // a pause is not the document's fault
-        currentStep: 'DISCOVER',
+        currentStep: 'EXTRACT',
         lockToken: null,
         lastError: 'quota gone',
       });
-      expect([...paused.completedSteps].sort()).toEqual([
-        'CLASSIFY',
-        'EXTRACT',
-      ]);
-      expect(paused.extractedFields?.fields['total_amount']?.value).toBe(84.2);
+      expect(paused.completedSteps).toEqual(['CLASSIFY', 'DISCOVER']);
+      expect((await suggestionsFor(id)).length).toBeGreaterThan(0);
       expect(paused.parsedAt).toBeNull();
 
       const queue = await queueRow();
@@ -361,12 +363,12 @@ describe.skipIf(!configured)(
       expect(analyzer.calls).toEqual(before);
       expect(await service.queue.canProceed()).toBe(false);
 
-      // The quota is back: the document resumes at DISCOVER, nothing earlier runs again.
+      // The quota is back: the document resumes at EXTRACT, nothing earlier runs again.
       await timePasses(id);
       const resumed = await claim(service, id);
       expect(resumed.attempts).toBe(1);
       expect(await service.process(resumed)).toBe('parsed');
-      expect(analyzer.calls).toEqual({ classify: 1, extract: 1, discover: 2 });
+      expect(analyzer.calls).toEqual({ classify: 1, discover: 1, extract: 2 });
       expect((await row(id)).status).toBe('PARSED');
       expect(await queueRow()).toMatchObject({
         status: 'RUNNING',
@@ -417,7 +419,7 @@ describe.skipIf(!configured)(
       expect(await service.process(await claim(service, id))).toBe('paused');
       expect(await row(id)).toMatchObject({
         status: 'PAUSED_RATE_LIMIT',
-        completedSteps: ['CLASSIFY'],
+        completedSteps: ['CLASSIFY', 'DISCOVER'],
       });
       expect(await queueRow()).toMatchObject({
         status: 'PAUSED_RATE_LIMIT',
@@ -438,7 +440,7 @@ describe.skipIf(!configured)(
       const partial = await row(id);
       expect(partial).toMatchObject({
         status: 'TO_BE_PARSED',
-        completedSteps: ['CLASSIFY'],
+        completedSteps: ['CLASSIFY', 'DISCOVER'],
         attempts: 1,
         lastError: '503 overloaded',
       });
@@ -514,6 +516,87 @@ describe.skipIf(!configured)(
       await timePasses(flaky);
       expect(await service.process(await claim(service, flaky))).toBe('failed');
       expect((await row(flaky)).attempts).toBe(2);
+    });
+
+    it('recognizes a payslip with the seeded categories and suggests its employer', async () => {
+      // Anonymized: made-up company, person and amounts.
+      const id = await seed(
+        [
+          'POS. INPS  MESE DI RETRIBUZIONE',
+          'MARZO 2026',
+          'ESEMPIO LAVORI S.R.L.',
+          'COGNOME E NOME',
+          'ROSSI MARIO',
+          'TOTALE COMPETENZE  TOTALE TRATTENUTE  NETTO IN BUSTA',
+          `2.000,00  500,00  1.500,00 ${randomUUID()}`,
+        ].join('\n'),
+        'scan_0042.txt',
+      );
+      const service = new ParseService(
+        svc,
+        storage,
+        new ScriptedAnalyzer(),
+        config,
+      );
+      expect(await service.process(await claim(service, id))).toBe('parsed');
+      const saved = await row(id);
+      expect([...saved.categories].sort()).toEqual([
+        'INCOME',
+        'PAYSLIP',
+        'WORK',
+      ]);
+      expect(saved.analysis?.documentType).toBe('payslip');
+      expect(saved.extractedFields?.fields['pay_period']).toMatchObject({
+        status: 'found',
+        value: '2026-03-01/2026-03-31',
+        categories: ['PAYSLIP'],
+      });
+      expect(saved.extractedFields?.fields['net_pay']).toMatchObject({
+        status: 'missing',
+        required: true,
+      });
+      expect(
+        (await suggestionsFor(id)).map(({ categoryId, dimension }) => ({
+          categoryId,
+          dimension,
+        })),
+      ).toContainEqual({ categoryId: 'ESEMPIO_LAVORI', dimension: 'ISSUER' });
+    });
+
+    it('fills the fields of a category suggested for a kind of document never seen before', async () => {
+      const suffix = randomUUID().slice(0, 8).toUpperCase();
+      const club = `TEST_CLUB_${suffix}`;
+      const analyzer = new ScriptedAnalyzer();
+      analyzer.suggestions = [
+        {
+          id: club,
+          title: `Test club ${suffix}`,
+          dimension: 'ISSUER',
+          fields: [
+            {
+              key: 'expense_date',
+              label: 'Date paid',
+              type: 'date',
+              description: '',
+              required: false,
+            },
+          ],
+        },
+      ];
+      const service = new ParseService(svc, storage, analyzer, config);
+      const id = await seed(
+        `Circolo scacchi, quota di marzo\nVersata il 12/03/2026 ${suffix}`,
+        'quota.txt',
+      );
+      expect(await service.process(await claim(service, id))).toBe('parsed');
+      const saved = await row(id);
+      expect(saved.categories).toEqual([]);
+      expect(saved.completedSteps).toEqual(['CLASSIFY', 'DISCOVER', 'EXTRACT']);
+      expect(saved.extractedFields?.fields['expense_date']).toMatchObject({
+        status: 'found',
+        value: '2026-03-12',
+        categories: [club],
+      });
     });
 
     it('shares one suggestion between documents and never duplicates it', async () => {

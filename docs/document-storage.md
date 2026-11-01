@@ -64,7 +64,7 @@ UPLOADING ──complete──► TO_BE_PARSED ──daily run──► PARSING 
 
 `UPLOADING` also ends in `FAILED` when the file never arrives or is not a supported format.
 
-A document that is not parsed yet has `parsed_at = null` and `categories = '{}'`. The parse worker runs every day (`PARSE_SCHEDULE`, default 06:00 Europe/Rome), claims ready rows one at a time with `for update skip locked`, and runs three steps on each (CLASSIFY, EXTRACT, DISCOVER). Each step commits its result and its name in `completed_steps` before the next starts, so an interrupted document resumes where it stopped. When all three are done it sets `parsed_at` and `PARSED`. The [documents loader guide](guides/documents-loader.md#parsing-on-a-schedule) explains the steps, the categories and the quota pause.
+A document that is not parsed yet has `parsed_at = null` and `categories = '{}'`. The parse worker runs every day (`PARSE_SCHEDULE`, default 06:00 Europe/Rome), claims ready rows one at a time with `for update skip locked`, and runs three steps on each (CLASSIFY, DISCOVER, EXTRACT). Each step commits its result and its name in `completed_steps` before the next starts, so an interrupted document resumes where it stopped. When all three are done it sets `parsed_at` and `PARSED`. The [documents loader guide](guides/documents-loader.md#parsing-on-a-schedule) explains the steps, the categories and the quota pause.
 
 ## The table
 
@@ -102,7 +102,7 @@ create table ingestion.uploads (
   last_attempt_at   timestamptz,
 
   -- filled by the parse worker, step by step
-  completed_steps   text[] not null default '{}',  -- CLASSIFY, EXTRACT, DISCOVER as each is saved
+  completed_steps   text[] not null default '{}',  -- CLASSIFY, DISCOVER, EXTRACT as each is saved
   current_step      text,                          -- the step running, or the one interrupted
   categories        text[] not null default '{}',  -- ids in document_categories, e.g. {BILL,WATER_BILL,EXPENSE}
   analysis          jsonb,                         -- type, purpose, characteristics, evidence per category

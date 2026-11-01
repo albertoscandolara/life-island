@@ -391,7 +391,10 @@ describe('ClaudeParser', () => {
     ]);
     await expect(
       new ClaudeParser(client, models).classify(
-        { ...input, document: { kind: 'pdf', data: Buffer.from('%PDF') } },
+        {
+          ...input,
+          document: { kind: 'pdf', data: Buffer.from('%PDF'), text: '' },
+        },
         categories,
       ),
     ).rejects.toBeInstanceOf(PermanentParseError);

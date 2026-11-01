@@ -81,7 +81,7 @@ interface Progress {
 
 /**
  * The parse workflow. Documents are processed one at a time; each goes
- * through CLASSIFY, EXTRACT and DISCOVER, and each step's result is committed
+ * through CLASSIFY, DISCOVER and EXTRACT, and each step's result is committed
  * with the step's name in `completed_steps` before the next starts. A
  * document picked up again (after a pause, an error or a crash) skips the
  * steps it already has, so no completed AI work is repeated or duplicated.
@@ -238,19 +238,6 @@ export class ParseService {
         categories,
       );
     }
-    if (!progress.completed.includes('EXTRACT')) {
-      await this.startStep(progress, 'EXTRACT');
-      const assigned = categories.filter((category) =>
-        progress.upload.categories.includes(category.id),
-      );
-      const plan = buildExtractionPlan(
-        assigned,
-        progress.upload.targetKey ?? GENERAL_TARGET_KEY,
-      );
-      const output = await this.analyzer.extract(input, plan);
-      await this.queue.markHealthy();
-      await this.saveExtraction(progress, output.result, output.runs);
-    }
     if (!progress.completed.includes('DISCOVER')) {
       await this.startStep(progress, 'DISCOVER');
       const context = {
@@ -269,6 +256,23 @@ export class ParseService {
         this.logger.debug(`Suggestion ${drop.id} dropped: ${drop.reason}`);
       await this.saveDiscovery(progress, filtered.accepted, output.runs);
     }
+    if (!progress.completed.includes('EXTRACT')) {
+      await this.startStep(progress, 'EXTRACT');
+      // The fields of the categories it has and of the ones just suggested
+      // for it: a document of a kind never seen before still fills the form,
+      // and approving the suggestion keeps what was read.
+      // Read again: discovery may have auto-approved new categories.
+      const assigned = (await this.loadCategories()).filter((category) =>
+        progress.upload.categories.includes(category.id),
+      );
+      const plan = buildExtractionPlan(
+        [...assigned, ...(await this.loadSuggestedFor(progress.upload.id))],
+        progress.upload.targetKey ?? GENERAL_TARGET_KEY,
+      );
+      const output = await this.analyzer.extract(input, plan);
+      await this.queue.markHealthy();
+      await this.saveExtraction(progress, output.result, output.runs);
+    }
   }
 
   private async loadCategories(): Promise<CategoryDefinition[]> {
@@ -278,6 +282,30 @@ export class ParseService {
       .orderBy(asc(documentCategories.id));
     return rows.map((row) => ({
       id: row.id,
+      title: row.title,
+      description: row.description,
+      template: row.templateJson,
+      parentId: row.parentId,
+      dimension: row.dimension,
+    }));
+  }
+
+  /** Pending suggestions that this document led to, as categories to extract. */
+  private async loadSuggestedFor(
+    uploadId: string,
+  ): Promise<CategoryDefinition[]> {
+    const rows = await this.svc.db
+      .select()
+      .from(categorySuggestions)
+      .where(
+        and(
+          eq(categorySuggestions.status, 'PENDING'),
+          sql`${uploadId}::uuid = any(${categorySuggestions.uploadIds})`,
+        ),
+      )
+      .orderBy(asc(categorySuggestions.createdAt));
+    return rows.map((row) => ({
+      id: row.categoryId,
       title: row.title,
       description: row.description,
       template: row.templateJson,
@@ -534,8 +562,12 @@ export class ParseService {
           await enqueueCategoriesChanged(client, this.svc.schema, autoApproved);
       },
     );
-    if (autoApproved.length)
+    if (autoApproved.length) {
+      progress.upload.categories = [
+        ...new Set([...progress.upload.categories, ...autoApproved]),
+      ];
       this.logger.log(`Auto-approved categories: ${autoApproved.join(', ')}`);
+    }
   }
 
   /** Every step is saved: mark the document PARSED and tell the review inbox. */

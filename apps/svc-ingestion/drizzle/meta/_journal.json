@@ -50,6 +50,13 @@
       "when": 1793561284427,
       "tag": "0006_suggestion_placement",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793562600000,
+      "tag": "0007_income_categories",
+      "breakpoints": true
     }
   ]
 }

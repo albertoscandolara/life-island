@@ -123,15 +123,15 @@ Besides the daily run, the worker wakes up by itself when work becomes due: a pa
 
 Every document goes through three steps. Each step's result is committed, with the step's name in `completed_steps`, before the next one starts. A document picked up again (after a pause, an error or a crash) skips the steps it already has, so no completed AI work is repeated and nothing is duplicated.
 
-1. **Normalize** (no AI): photos are rotated upright, scaled to at most 1600 px and sent as JPEG; PDFs are sent as documents; spreadsheets become markdown tables; Word files become text.
+1. **Normalize** (no AI): photos are rotated upright, scaled to at most 1600 px and sent as JPEG; PDFs are sent as documents, and their text layer is read line by line (for the fake parser and for search; a scan has none); spreadsheets become markdown tables; Word files become text.
 2. **CLASSIFY** (small model): the document's type, purpose, issuer and characteristics; **every existing category** that applies, with the evidence for each; the target its data goes to for review; a confidence. Only category ids that exist are saved.
-3. **EXTRACT** (larger model): the fields of the templates of the assigned categories, merged (see below), and the target's details, validated by its Zod schema with one correction round. Saved in `extracted_fields` and `details`.
-4. **DISCOVER** (larger model): categories that are missing from the table, **even when existing ones already matched**. It goes through every dimension (document type, subject, property, person, issuer, attribute) and gives each proposal its dimension and, when one fits, an existing parent. Saved as suggestions, never as categories (unless `CATEGORY_AUTO_APPROVE=true`).
+3. **DISCOVER** (larger model): categories that are missing from the table, **even when existing ones already matched**. It goes through every dimension (document type, subject, property, person, issuer, attribute) and gives each proposal its dimension and, when one fits, an existing parent. Saved as suggestions, never as categories (unless `CATEGORY_AUTO_APPROVE=true`).
+4. **EXTRACT** (larger model): the fields of the templates of the assigned categories **and of the categories just suggested for this document**, merged (see below), and the target's details, validated by its Zod schema with one correction round. Saved in `extracted_fields` and `details`. Because discovery runs first, a kind of document the app has never seen (a first payslip, a first car insurance policy) still gets its form filled, and approving the suggestion keeps what was read.
 5. **Finish:** the document becomes PARSED and `document.parsed@1` goes to the review inbox. Every model call is logged in `ingestion.parse_runs` (tokens, latency, output).
 
 The models are told to answer only from what the document shows. A field the document does not contain is stored as `missing`, never filled in.
 
-The fake parser (`PARSER=fake`) classifies by keywords, reads only totals, dates and currency with regular expressions, suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests.
+The fake parser (`PARSER=fake`, the default in `.env.example`) does not understand documents: it classifies by keywords in the file name, title and text (PDF text included), reads only totals, dates, currency and a pay period with regular expressions, takes the issuer from the first company name with a legal form (`ARCODA S.R.L.`), suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests; for real documents set `PARSER=claude` and `ANTHROPIC_API_KEY`.
 
 ### Document categories
 
