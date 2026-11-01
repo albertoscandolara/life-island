@@ -225,6 +225,149 @@ describe.skipIf(!configured)(
       expect(twice.status).toBe(409);
     });
 
+    it('rejects and reopens a record, which then cannot be confirmed while rejected', async () => {
+      const u = upload('spam');
+      await apply('upload.completed@1', u);
+      await apply('document.parsed@1', parsed(u));
+      const record = await findByTitle(u.title);
+
+      const rejected = await send<RecordDetailDto>(
+        'POST',
+        `/records/${record.id}/reject`,
+        { reason: 'Not mine' },
+      );
+      expect(rejected.status).toBe(200);
+      expect(rejected.body).toMatchObject({
+        status: 'REJECTED',
+        rejectReason: 'Not mine',
+      });
+      expect(
+        (await send('POST', `/records/${record.id}/confirm`, {})).status,
+      ).toBe(409);
+      // A late parser event does not undo your decision.
+      await apply('document.parsed@1', parsed(u));
+      expect((await findByTitle(u.title)).status).toBe('REJECTED');
+
+      const reopened = await send<RecordDetailDto>(
+        'POST',
+        `/records/${record.id}/reopen`,
+        {},
+      );
+      expect(reopened.body).toMatchObject({
+        status: 'PARSED',
+        rejectedAt: null,
+      });
+      await send('POST', `/records/${record.id}/confirm`, {});
+      expect(
+        (await send('POST', `/records/${record.id}/reject`, {})).status,
+      ).toBe(409);
+    });
+
+    it('moves a record to another module, checking the details against its schema', async () => {
+      const u = upload('farmacia');
+      await apply('upload.completed@1', u);
+      await apply('document.parsed@1', parsed(u));
+      const record = await findByTitle(u.title);
+
+      // The general details do not fit a 730 expense.
+      const misfit = await send('PATCH', `/records/${record.id}`, {
+        targetKey: 'tax730.expense@1',
+      });
+      expect(misfit.status).toBe(422);
+      expect(
+        (
+          await send('PATCH', `/records/${record.id}`, {
+            targetKey: 'nope@1',
+            details,
+          })
+        ).status,
+      ).toBe(422);
+
+      const expense = {
+        taxYear: 2026,
+        expenseType: 'medicines',
+        date: '2026-03-02',
+        amount: 12.5,
+        issuer: 'Farmacia Centrale',
+      };
+      const moved = await send<RecordDetailDto>(
+        'PATCH',
+        `/records/${record.id}`,
+        { targetKey: 'tax730.expense@1', details: expense },
+      );
+      expect(moved.status).toBe(200);
+      expect(moved.body).toMatchObject({
+        category: 'tax730',
+        targetKey: 'tax730.expense@1',
+        aiTargetKey: 'general.document@1',
+        details: expense,
+      });
+
+      const { sizeBytes: _size, ...metadata } = u;
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: [],
+        suggestedCategories: [],
+        fields: { total: 12.5, vat_number: null },
+        updatedAt: new Date().toISOString(),
+      });
+      await send('POST', `/records/${record.id}/confirm`, {});
+      const { rows } = await svc.pool.query<{
+        payload: {
+          category: string;
+          payload: unknown;
+          documentFields: unknown;
+        };
+      }>(
+        `select payload from review.outbox
+          where event_type = 'record.approved@1' and payload->>'recordId' = $1`,
+        [record.id],
+      );
+      expect(rows[0].payload).toMatchObject({
+        category: 'tax730',
+        payload: expense,
+        documentFields: { total: 12.5, vat_number: null },
+      });
+    });
+
+    it('drops a deleted document from the inbox, even if an older update arrives later', async () => {
+      const u = upload('doppione');
+      await apply('upload.completed@1', u);
+      const record = await findByTitle(u.title);
+      await apply('upload.deleted@1', {
+        uploadId: u.uploadId,
+        deletedAt: new Date().toISOString(),
+      });
+      const { sizeBytes: _size, ...metadata } = u;
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: [],
+        suggestedCategories: [],
+        updatedAt: new Date().toISOString(),
+      });
+      const page = await get<Page<RecordDto>>(
+        `/records?q=${encodeURIComponent(u.title)}`,
+      );
+      expect(page.body.items).toHaveLength(0);
+      expect((await get(`/records/${record.id}`)).status).toBe(404);
+    });
+
+    it('keeps your title when the parse result arrives after your edit', async () => {
+      const u = upload('bolletta');
+      await apply('upload.completed@1', u);
+      const { sizeBytes: _size, ...metadata } = u;
+      await apply('upload.updated@1', {
+        ...metadata,
+        title: `${u.title} edited`,
+        categories: [],
+        suggestedCategories: [],
+        updatedAt: new Date().toISOString(),
+      });
+      await apply('document.parsed@1', parsed(u));
+      const record = await findByTitle(`${u.title} edited`);
+      expect(record.status).toBe('PARSED');
+    });
+
     it('accepts document.parsed before upload.completed', async () => {
       const u = upload('receipt');
       await apply('document.parsed@1', parsed(u));

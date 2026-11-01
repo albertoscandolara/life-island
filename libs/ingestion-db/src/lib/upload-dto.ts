@@ -137,6 +137,7 @@ export function toParseQueueDto(
     runStartedAt: row?.runStartedAt?.toISOString() ?? null,
     runFinishedAt: row?.runFinishedAt?.toISOString() ?? null,
     nextScheduledRunAt: row?.nextScheduledRunAt?.toISOString() ?? null,
+    runRequestedAt: row?.runRequestedAt?.toISOString() ?? null,
     lastRunSummary: row?.lastRunSummary ?? null,
     pendingDocuments,
   };

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import { Cron } from 'croner';
+import type pg from 'pg';
 import { CONFIG, SERVICE_DB, type WorkerConfig } from './config.js';
 import { ParseService } from './parse.service.js';
 
@@ -29,6 +30,10 @@ export class ParseScheduler
   private current?: Promise<void>;
   private wakeTimer?: NodeJS.Timeout;
   private stopping = false;
+  /** A Parse now request arrived during a run: run again right after it. */
+  private rerun = false;
+  private listener?: pg.PoolClient;
+  private listenRetry?: NodeJS.Timeout;
 
   constructor(
     @Inject(ParseService) private readonly parse: ParseService,
@@ -47,21 +52,71 @@ export class ParseScheduler
     this.logger.log(
       `Parsing on "${this.config.schedule}"${this.config.timezone ? ` (${this.config.timezone})` : ''}, next run ${next?.toISOString()}`,
     );
+    await this.listen();
     if (this.config.runOnStart) void this.trigger('startup');
     else if (await this.parse.queue.wasInterrupted())
       void this.trigger('recovery after restart');
+    else if (await this.runRequestedSinceLastRun())
+      void this.trigger('parse now (requested while stopped)');
     else await this.scheduleWake();
+  }
+
+  /**
+   * Parse now: the ingestion API sends NOTIFY parse_requested. One pooled
+   * connection stays subscribed; if it drops, it reconnects after a pause.
+   */
+  private async listen(): Promise<void> {
+    try {
+      const client = await this.svc.pool.connect();
+      client.on('notification', (message) => {
+        if (message.channel === 'parse_requested')
+          void this.trigger('parse now');
+      });
+      client.on('error', (error) => {
+        this.logger.warn(`Parse-now listener lost: ${String(error)}`);
+        client.release(error);
+        if (this.listener === client) this.listener = undefined;
+        this.retryListen();
+      });
+      await client.query('LISTEN parse_requested');
+      this.listener = client;
+    } catch (error) {
+      this.logger.warn(`Could not listen for Parse now: ${String(error)}`);
+      this.retryListen();
+    }
+  }
+
+  private retryListen(): void {
+    if (this.stopping) return;
+    clearTimeout(this.listenRetry);
+    this.listenRetry = setTimeout(() => void this.listen(), 10_000);
+    this.listenRetry.unref();
+  }
+
+  private async runRequestedSinceLastRun(): Promise<boolean> {
+    const queue = await this.parse.queue.get();
+    return (
+      !!queue.runRequestedAt &&
+      (!queue.runStartedAt || queue.runRequestedAt > queue.runStartedAt)
+    );
   }
 
   async onApplicationShutdown(): Promise<void> {
     this.stopping = true;
     this.job?.stop();
     clearTimeout(this.wakeTimer);
+    clearTimeout(this.listenRetry);
+    if (this.listener) {
+      await this.listener.query('UNLISTEN *').catch(() => undefined);
+      this.listener.release();
+      this.listener = undefined;
+    }
     this.parse.requestStop();
     await this.current;
   }
 
   trigger(reason: string): Promise<void> {
+    if (this.current && reason === 'parse now') this.rerun = true;
     this.current ??= (async () => {
       const started = Date.now();
       try {
@@ -80,7 +135,11 @@ export class ParseScheduler
         await this.parse.queue
           .setNextScheduledRun(this.job?.nextRun() ?? null)
           .catch(() => undefined);
-        if (!this.stopping) await this.scheduleWake().catch(() => undefined);
+        if (!this.stopping && this.rerun) {
+          this.rerun = false;
+          void this.trigger('parse now (requested during the last run)');
+        } else if (!this.stopping)
+          await this.scheduleWake().catch(() => undefined);
       }
     })();
     return this.current;

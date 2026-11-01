@@ -1,6 +1,7 @@
 .ui-dialog {
+  --_max-height: min(100dvh - var(--space-8), 90vh);
   width: min(100% - var(--space-8), var(--_width));
-  max-height: min(100% - var(--space-8), 90vh);
+  max-height: var(--_max-height);
   padding: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--dialog-radius);
@@ -35,7 +36,8 @@
 .ui-dialog__panel {
   display: flex;
   flex-direction: column;
-  max-height: inherit;
+  /* The dialog's own limit, minus its border: the body scrolls, the footer stays. */
+  max-height: calc(var(--_max-height) - 2px);
 }
 
 .ui-dialog__header {
@@ -51,6 +53,8 @@
 }
 
 .ui-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-2) var(--space-6) var(--space-5);
 }

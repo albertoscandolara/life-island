@@ -15,9 +15,10 @@ export const RECORD_STATUS_VIEW: Record<RecordStatus, StatusView> = {
   PAUSED_RATE_LIMIT: { label: 'Paused: rate limit', tone: 'warning' },
   PARSED: { label: 'Parsed, to review', tone: 'warning' },
   PARSE_FAILED: { label: 'Parsing failed', tone: 'danger' },
-  CONFIRMED: { label: 'Confirmed', tone: 'info' },
-  LOADED: { label: 'Loaded', tone: 'success' },
-  LOAD_FAILED: { label: 'Loading failed', tone: 'danger' },
+  CONFIRMED: { label: 'Confirmed, sending', tone: 'info', pulse: true },
+  LOADED: { label: 'In its module', tone: 'success' },
+  LOAD_FAILED: { label: 'Module refused it', tone: 'danger' },
+  REJECTED: { label: 'Rejected', tone: 'neutral' },
 };
 
 /** How a document's AI processing is shown (the loader and the details popup). */

@@ -40,8 +40,11 @@ export const stagingRecords = review.table(
     originalFilename: text('original_filename').notNull(),
     fileFormat: text('file_format'),
     status: recordStatus('status').notNull().default('UPLOADED'),
+    /** The module the record goes to (groceries, tax730, other), from its target. */
     category: text('category'),
     targetKey: text('target_key'),
+    /** The target the parser chose; kept when you move the record to another one. */
+    aiTargetKey: text('ai_target_key'),
     /** Confirmed document category ids, mirrored from ingestion's `upload.updated`. */
     categories: text('categories').array().notNull().default([]),
     /** Category ids the AI suggested for the document, awaiting a decision. */
@@ -51,6 +54,11 @@ export const stagingRecords = review.table(
       .default([]),
     /** `updatedAt` of the last `upload.updated` applied; older snapshots are ignored. */
     metadataUpdatedAt: timestamp('metadata_updated_at', { withTimezone: true }),
+    /** The document's template field values, mirrored from `upload.updated`. */
+    documentFields:
+      jsonb('document_fields').$type<
+        Record<string, string | number | boolean | null>
+      >(),
     aiPayload: jsonb('ai_payload'),
     reviewedPayload: jsonb('reviewed_payload'),
     confidence: numeric('confidence', {
@@ -66,6 +74,10 @@ export const stagingRecords = review.table(
     parsedAt: timestamp('parsed_at', { withTimezone: true }),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     loadedAt: timestamp('loaded_at', { withTimezone: true }),
+    rejectedAt: timestamp('rejected_at', { withTimezone: true }),
+    rejectReason: text('reject_reason'),
+    /** Set when the document was deleted; the row stays as a tombstone so late events cannot bring it back. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

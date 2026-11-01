@@ -14,6 +14,9 @@ import {
   categoryCountsQuerySchema,
   CONFIRMABLE_STATUSES,
   findTarget,
+  REJECTABLE_STATUSES,
+  type RejectRecordRequest,
+  type TargetDefinition,
   listRecordsQuerySchema,
   RECORD_APPROVED_EVENT,
   type CategoryCountDto,
@@ -33,6 +36,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNull,
   lt,
   or,
   sql,
@@ -132,8 +136,7 @@ export class RecordsService {
    * category itself, and with it or any descendant (what selecting it shows).
    */
   async categoryCounts(query: CategoryCounts): Promise<CategoryCountDto[]> {
-    const conditions = this.filters(query);
-    const where = conditions.length ? and(...conditions) : sql`true`;
+    const where = and(...this.filters(query))!;
     const { rows } = await this.svc.db.execute<{
       id: string;
       direct: number;
@@ -170,7 +173,8 @@ export class RecordsService {
 
   /** The conditions of every filter but the category one. */
   private filters(query: CategoryCounts): SQL[] {
-    const conditions: SQL[] = [];
+    // Deleted documents stay only as tombstones.
+    const conditions: SQL[] = [isNull(stagingRecords.deletedAt)];
     if (query.q) {
       const pattern = `%${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       conditions.push(
@@ -203,47 +207,129 @@ export class RecordsService {
   }
 
   /**
-   * Saves your corrections to the details. The parser's version stays in
-   * `ai_payload`; yours goes to `reviewed_payload` and is what Confirm sends.
-   * Only before confirming: once sent, the domain owns the data.
+   * Saves your corrections before you confirm: the details, and optionally a
+   * different target (which also changes the module the record goes to). The
+   * parser's version stays in `ai_payload` and `ai_target_key`; yours goes to
+   * `reviewed_payload` and `target_key`, and is what Confirm sends.
    */
   async update(id: string, request: UpdateRecord): Promise<RecordDetailDto> {
     const current = await this.findRow(id);
-    if (current.status === 'CONFIRMED' || current.status === 'LOADED')
+    if (!CONFIRMABLE_STATUSES.includes(current.status))
       throw new ConflictException(
-        'This record is already confirmed; its details belong to its module now',
+        current.status === 'CONFIRMED' || current.status === 'LOADED'
+          ? 'This record is already confirmed; its details belong to its module now'
+          : `Only parsed records can be edited; this one is ${current.status}`,
       );
-    const target = current.targetKey
-      ? findTarget(current.targetKey)
-      : undefined;
+    const targetKey = request.targetKey ?? current.targetKey;
+    const target = targetKey ? findTarget(targetKey) : undefined;
     if (!target)
-      throw new ConflictException(
-        'This record has no parsed details to edit yet',
-      );
-    const parsed = target.schema.safeParse(request.details);
-    if (!parsed.success)
-      throw new UnprocessableEntityException(
-        parsed.error.issues
-          .map(
-            (issue) => `${issue.path.join('.') || 'details'}: ${issue.message}`,
+      throw request.targetKey
+        ? new UnprocessableEntityException(
+            `Unknown target ${request.targetKey}`,
           )
-          .join('; '),
-      );
+        : new ConflictException(
+            'This record has no parsed details to edit yet',
+          );
+    const details =
+      request.details !== undefined
+        ? request.details
+        : (current.reviewedPayload ?? current.aiPayload);
+    const parsed = this.validate(target, details);
     const [row] = await this.svc.db
       .update(stagingRecords)
-      .set({ reviewedPayload: parsed.data, updatedAt: new Date() })
+      .set({
+        reviewedPayload: parsed,
+        targetKey: target.targetKey,
+        category: target.category,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(stagingRecords.id, id),
+          isNull(stagingRecords.deletedAt),
           inArray(stagingRecords.status, [...CONFIRMABLE_STATUSES]),
         ),
       )
       .returning();
     if (!row)
       throw new ConflictException(
-        `Only parsed records can be edited; this one is ${current.status}`,
+        'The record changed while you were editing it; reload and try again',
       );
     return toRecordDetailDto(row);
+  }
+
+  /** Rejects a record: it is never sent to a module, and stays out of the review queue. */
+  async reject(
+    id: string,
+    request: RejectRecordRequest,
+  ): Promise<RecordDetailDto> {
+    const [row] = await this.svc.db
+      .update(stagingRecords)
+      .set({
+        status: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectReason: request.reason || null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(stagingRecords.id, id),
+          isNull(stagingRecords.deletedAt),
+          inArray(stagingRecords.status, [...REJECTABLE_STATUSES]),
+        ),
+      )
+      .returning();
+    if (!row) {
+      const current = await this.findRow(id);
+      throw new ConflictException(
+        current.status === 'CONFIRMED' || current.status === 'LOADED'
+          ? 'This record is already confirmed; its module owns the data now'
+          : `This record cannot be rejected while it is ${current.status}`,
+      );
+    }
+    return toRecordDetailDto(row);
+  }
+
+  /** Undoes a rejection: back to review if it was parsed, else back to waiting for the parser. */
+  async reopen(id: string): Promise<RecordDetailDto> {
+    const [row] = await this.svc.db
+      .update(stagingRecords)
+      .set({
+        status: sql`case when ${stagingRecords.parsedAt} is null then 'UPLOADED'::review.record_status else 'PARSED'::review.record_status end`,
+        rejectedAt: null,
+        rejectReason: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(stagingRecords.id, id),
+          isNull(stagingRecords.deletedAt),
+          eq(stagingRecords.status, 'REJECTED'),
+        ),
+      )
+      .returning();
+    if (!row) {
+      const current = await this.findRow(id);
+      throw new ConflictException(
+        `Only rejected records can be reopened; this one is ${current.status}`,
+      );
+    }
+    return toRecordDetailDto(row);
+  }
+
+  private validate(target: TargetDefinition, details: unknown): unknown {
+    const parsed = target.schema.safeParse(details);
+    if (!parsed.success)
+      throw new UnprocessableEntityException(
+        `The details do not fit ${target.label}: ` +
+          parsed.error.issues
+            .map(
+              (issue) =>
+                `${issue.path.join('.') || 'details'}: ${issue.message}`,
+            )
+            .join('; '),
+      );
+    return parsed.data;
   }
 
   /**
@@ -253,6 +339,14 @@ export class RecordsService {
    * table and answers with `record.loaded` or `record.load_failed`.
    */
   async confirm(id: string): Promise<RecordDetailDto> {
+    // What is sent must fit the target: a module should never get a payload
+    // it cannot load (for example after a parse that produced partial data).
+    const current = await this.findRow(id);
+    const target = current.targetKey
+      ? findTarget(current.targetKey)
+      : undefined;
+    if (target && CONFIRMABLE_STATUSES.includes(current.status))
+      this.validate(target, current.reviewedPayload ?? current.aiPayload);
     return withTransaction(this.svc.pool, async (client) => {
       const db = drizzle(client);
       const [row] = await db
@@ -266,6 +360,7 @@ export class RecordsService {
         .where(
           and(
             eq(stagingRecords.id, id),
+            isNull(stagingRecords.deletedAt),
             inArray(stagingRecords.status, [...CONFIRMABLE_STATUSES]),
           ),
         )
@@ -282,6 +377,7 @@ export class RecordsService {
         category: row.category!,
         targetKey: row.targetKey!,
         payload: row.reviewedPayload ?? row.aiPayload,
+        ...(row.documentFields ? { documentFields: row.documentFields } : {}),
         approvedAt: row.confirmedAt!.toISOString(),
       };
       await enqueueEvent(client, this.svc.schema, {
@@ -296,7 +392,7 @@ export class RecordsService {
     const [row] = await this.svc.db
       .select()
       .from(stagingRecords)
-      .where(eq(stagingRecords.id, id));
+      .where(and(eq(stagingRecords.id, id), isNull(stagingRecords.deletedAt)));
     if (!row) throw new NotFoundException(`Record ${id} not found`);
     return row;
   }

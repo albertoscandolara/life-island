@@ -30,6 +30,10 @@ function writeMigrations(
     writeFileSync(join(folder, `${m.tag}.sql`), m.sql);
 }
 
+// The grocery schema is borrowed for this test (a role can only use its own
+// schema), with a bookkeeping table of its own so svc-groceries' is untouched.
+const TABLE = '__int_test_migrations';
+
 describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
   let svc: ServiceDb;
   let folder: string;
@@ -40,14 +44,14 @@ describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
       schema: 'grocery',
     });
     await svc.pool.query(
-      'drop table if exists grocery.int_migration_test, grocery.__drizzle_migrations',
+      'drop table if exists grocery.int_migration_test, grocery.__int_test_migrations',
     );
     folder = mkdtempSync(join(tmpdir(), 'migrations-'));
   });
 
   afterAll(async () => {
     await svc.pool.query(
-      'drop table if exists grocery.int_migration_test, grocery.__drizzle_migrations',
+      'drop table if exists grocery.int_migration_test, grocery.__int_test_migrations',
     );
     await svc.close();
     rmSync(folder, { recursive: true, force: true });
@@ -61,8 +65,12 @@ describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
         sql: 'create table grocery.int_migration_test (id int);',
       },
     ]);
-    expect(await migrateServiceSchema(svc.pool, 'grocery', folder)).toBe(1);
-    expect(await migrateServiceSchema(svc.pool, 'grocery', folder)).toBe(0);
+    expect(await migrateServiceSchema(svc.pool, 'grocery', folder, TABLE)).toBe(
+      1,
+    );
+    expect(await migrateServiceSchema(svc.pool, 'grocery', folder, TABLE)).toBe(
+      0,
+    );
 
     writeMigrations(folder, [
       {
@@ -76,7 +84,9 @@ describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
         sql: "alter table grocery.int_migration_test add column name text;\n--> statement-breakpoint\ninsert into grocery.int_migration_test values (1, 'x');",
       },
     ]);
-    expect(await migrateServiceSchema(svc.pool, 'grocery', folder)).toBe(1);
+    expect(await migrateServiceSchema(svc.pool, 'grocery', folder, TABLE)).toBe(
+      1,
+    );
     const { rows } = await svc.pool.query(
       'select name from grocery.int_migration_test',
     );
@@ -94,7 +104,7 @@ describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
       },
     ]);
     await expect(
-      migrateServiceSchema(svc.pool, 'grocery', folder),
+      migrateServiceSchema(svc.pool, 'grocery', folder, TABLE),
     ).rejects.toThrow();
     const { rows } = await svc.pool.query(
       'select count(*)::int as n from grocery.int_migration_test',

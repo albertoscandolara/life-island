@@ -16,22 +16,27 @@ export async function migrateServiceSchema(
   pool: pg.Pool,
   schema: string,
   migrationsFolder: string,
+  /** Bookkeeping table; only tests that share a schema with a service change it. */
+  table = '__drizzle_migrations',
 ): Promise<number> {
   const safeSchema = assertSchemaName(schema);
+  if (!/^_*[a-z][a-z0-9_]{0,62}$/.test(table))
+    throw new Error(`Invalid migrations table name "${table}"`);
+  const safeTable = table;
   const migrations = readMigrationFiles({ migrationsFolder });
   return withTransaction(pool, async (client) => {
     await client.query('select pg_advisory_xact_lock(hashtext($1))', [
       `migrate:${safeSchema}`,
     ]);
     await client.query(
-      `create table if not exists ${safeSchema}.__drizzle_migrations (
+      `create table if not exists ${safeSchema}.${safeTable} (
          id serial primary key,
          hash text not null,
          created_at bigint
        )`,
     );
     const { rows } = await client.query<{ created_at: string | null }>(
-      `select created_at from ${safeSchema}.__drizzle_migrations order by created_at desc limit 1`,
+      `select created_at from ${safeSchema}.${safeTable} order by created_at desc limit 1`,
     );
     const lastApplied = Number(rows[0]?.created_at ?? 0);
     let applied = 0;
@@ -41,7 +46,7 @@ export async function migrateServiceSchema(
         if (statement.trim()) await client.query(statement);
       }
       await client.query(
-        `insert into ${safeSchema}.__drizzle_migrations (hash, created_at) values ($1, $2)`,
+        `insert into ${safeSchema}.${safeTable} (hash, created_at) values ($1, $2)`,
         [migration.hash, migration.folderMillis],
       );
       applied++;

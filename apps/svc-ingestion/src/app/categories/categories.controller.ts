@@ -17,6 +17,7 @@ import {
   categoryIdSchema,
   createCategoryRequestSchema,
   deleteCategoryQuerySchema,
+  dismissSuggestionRequestSchema,
   listSuggestionsQuerySchema,
   updateCategoryRequestSchema,
   updateSuggestionRequestSchema,
@@ -113,6 +114,26 @@ export class CategoriesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CategorySuggestionDto> {
     return this.categories.reject(id);
+  }
+
+  /** Declines a suggestion for one document; it stays pending for the others. */
+  @Post('category-suggestions/:id/dismiss')
+  @HttpCode(200)
+  dismiss(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<CategorySuggestionDto> {
+    return this.categories.dismiss(
+      id,
+      parseOrThrow(dismissSuggestionRequestSchema, body).uploadId,
+    );
+  }
+
+  /** Parse now: the worker starts a run without waiting for its schedule. */
+  @Post('parse-queue/run')
+  @HttpCode(202)
+  runNow(): Promise<ParseQueueDto> {
+    return this.categories.requestRun();
   }
 
   /** Whether the AI parsing is running, idle or paused (quota, rate limit), and until when. */

@@ -195,6 +195,14 @@ export type UpdateSuggestionRequest = z.input<
   typeof updateSuggestionRequestSchema
 >;
 
+/** Decline a suggestion for one document only; it stays pending for the others. */
+export const dismissSuggestionRequestSchema = z.object({
+  uploadId: z.uuid(),
+});
+export type DismissSuggestionRequest = z.input<
+  typeof dismissSuggestionRequestSchema
+>;
+
 /** Approve a suggestion as is, or with your edits to any field, optionally under a parent. */
 export const approveSuggestionRequestSchema = updateSuggestionRequestSchema
   .extend({
@@ -276,6 +284,8 @@ export interface ParseQueueDto {
   runStartedAt: string | null;
   runFinishedAt: string | null;
   nextScheduledRunAt: string | null;
+  /** When you last asked to parse now; the worker starts a run as soon as it hears it. */
+  runRequestedAt: string | null;
   lastRunSummary: Record<string, number> | null;
   /** How many documents wait for the AI. */
   pendingDocuments: number;

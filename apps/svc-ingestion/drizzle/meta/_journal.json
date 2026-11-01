@@ -36,6 +36,13 @@
       "when": 1793519655655,
       "tag": "0004_category_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793552828325,
+      "tag": "0005_parse_now",
+      "breakpoints": true
     }
   ]
 }

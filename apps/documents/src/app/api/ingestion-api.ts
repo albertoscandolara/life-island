@@ -165,6 +165,30 @@ export class IngestionApi {
     );
   }
 
+  /** Declines a suggestion for one document; it stays pending for the others. */
+  dismissSuggestion(
+    id: string,
+    uploadId: string,
+  ): Observable<CategorySuggestionDto> {
+    return this.http.post<CategorySuggestionDto>(
+      `${INGESTION_API}/category-suggestions/${id}/dismiss`,
+      { uploadId },
+    );
+  }
+
+  /** Deletes a document and its file; a module keeps what it already loaded. */
+  deleteUpload(uploadId: string): Observable<void> {
+    return this.http.delete<void>(`${INGESTION_API}/uploads/${uploadId}`);
+  }
+
+  /** Parse now: the worker starts a run without waiting for its schedule. */
+  runParseNow(): Observable<ParseQueueDto> {
+    return this.http.post<ParseQueueDto>(
+      `${INGESTION_API}/parse-queue/run`,
+      {},
+    );
+  }
+
   /** Whether AI parsing is idle, running or paused, and until when. */
   parseQueue(): Observable<ParseQueueDto> {
     return this.http.get<ParseQueueDto>(`${INGESTION_API}/parse-queue`);

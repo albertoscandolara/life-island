@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -63,6 +64,13 @@ export class UploadsController {
       id,
       parseOrThrow(updateUploadRequestSchema, body),
     );
+  }
+
+  /** Deletes the document and its file; a module keeps what it already loaded. */
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.uploads.remove(id);
   }
 
   /** Shows the original file in the browser (`Content-Disposition: inline`). */

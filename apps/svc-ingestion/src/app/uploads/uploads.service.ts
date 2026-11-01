@@ -34,8 +34,10 @@ import {
   type UploadDto,
 } from '@life-island/contracts';
 import {
+  categorySuggestions,
   documentCategories,
   editFieldValues,
+  enqueueUploadDeleted,
   enqueueUploadUpdated,
   FieldEditError,
   syncTemplateFields,
@@ -179,7 +181,15 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       .from(uploads)
       .where(and(eq(uploads.sha256, inspected.sha256), ne(uploads.id, id)))
       .limit(1);
-    if (existing[0]) return this.dropDuplicate(row, existing[0]);
+    if (existing[0]) {
+      // A document whose parsing failed is retried rather than returned as is:
+      // uploading the same file again is how you ask for another attempt.
+      const original =
+        existing[0].status === 'FAILED'
+          ? await this.requeueFailed(existing[0])
+          : existing[0];
+      return this.dropDuplicate(row, original);
+    }
 
     try {
       const updated = await withTransaction(this.svc.pool, async (client) => {
@@ -361,6 +371,59 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * Deletes a document: its row, its parse history and its file. The review
+   * inbox learns it through `upload.deleted`; data a module already loaded
+   * from it stays in that module. Not while the AI is reading it.
+   */
+  async remove(id: string): Promise<void> {
+    const storageKey = await withTransaction(this.svc.pool, async (client) => {
+      const db = drizzle(client);
+      const [row] = await db
+        .select()
+        .from(uploads)
+        .where(eq(uploads.id, id))
+        .for('update');
+      if (!row) throw new NotFoundException(`Upload ${id} not found`);
+      if (row.status === 'PARSING')
+        throw new ConflictException(
+          'The AI is processing this document right now; delete it once it finishes',
+        );
+      // Pending suggestions forget it; one left with no document is dropped.
+      await client.query(
+        `update ingestion.category_suggestions
+              set upload_ids = array_remove(upload_ids, $1::uuid), updated_at = now()
+            where status = 'PENDING' and $1::uuid = any(upload_ids)`,
+        [id],
+      );
+      await db
+        .update(categorySuggestions)
+        .set({
+          status: 'REJECTED',
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(categorySuggestions.status, 'PENDING'),
+            sql`cardinality(${categorySuggestions.uploadIds}) = 0`,
+          ),
+        );
+      await db.delete(uploads).where(eq(uploads.id, id));
+      // Nothing downstream knows an upload whose file never arrived.
+      if (row.status !== 'UPLOADING' && row.fileFormat)
+        await enqueueUploadDeleted(client, this.svc.schema, id);
+      return row.storageKey;
+    });
+    await this.storage
+      .delete(storageKey)
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Deleted upload ${id} but not its file ${storageKey}: ${String(error)}`,
+        ),
+      );
+  }
+
   /** A short-lived presigned link to the original file. */
   async fileUrl(id: string): Promise<string> {
     const row = await this.storedRow(id);
@@ -442,6 +505,22 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       .where(eq(uploads.id, row.id));
     await this.storage.delete(row.storageKey).catch(() => undefined);
     throw new UnprocessableEntityException(reason);
+  }
+
+  /** Puts a FAILED document back in the parse queue, from its first unfinished step. */
+  private async requeueFailed(row: UploadRow): Promise<UploadRow> {
+    const [requeued] = await this.svc.db
+      .update(uploads)
+      .set({
+        status: 'TO_BE_PARSED',
+        attempts: 0,
+        lastError: null,
+        nextAttemptAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(uploads.id, row.id), eq(uploads.status, 'FAILED')))
+      .returning();
+    return requeued ?? row;
   }
 
   private async dropDuplicate(

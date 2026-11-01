@@ -12,15 +12,17 @@ import {
   recordLoadedV1,
   recordLoadFailedV1,
   UPLOAD_COMPLETED_EVENT,
+  UPLOAD_DELETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
   UPLOAD_UPDATED_EVENT,
   uploadCompletedV1,
+  uploadDeletedV1,
   uploadParsingStartedV1,
   uploadUpdatedV1,
   type EventEnvelope,
   type RecordStatus,
 } from '@life-island/contracts';
-import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { categoryTree, stagingRecords } from '../db/schema.js';
@@ -29,6 +31,7 @@ export const HANDLED_EVENTS = [
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
   UPLOAD_UPDATED_EVENT,
+  UPLOAD_DELETED_EVENT,
   DOCUMENT_PARSED_EVENT,
   DOCUMENT_PARSE_FAILED_EVENT,
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
@@ -99,6 +102,8 @@ export async function applyDocumentEvent(
         description: e.description,
         categories: e.categories,
         suggestedCategories: e.suggestedCategories,
+        // Older events carry no fields: keep what is stored.
+        ...(e.fields ? { documentFields: e.fields } : {}),
         metadataUpdatedAt: new Date(e.updatedAt),
         updatedAt: now,
       };
@@ -118,6 +123,26 @@ export async function applyDocumentEvent(
             isNull(stagingRecords.metadataUpdatedAt),
             lte(stagingRecords.metadataUpdatedAt, metadata.metadataUpdatedAt),
           ),
+        });
+      return;
+    }
+    case UPLOAD_DELETED_EVENT: {
+      // A tombstone, not a delete: a late upload.updated must not bring it back.
+      const e = uploadDeletedV1.parse(event.payload);
+      const deletedAt = new Date(e.deletedAt);
+      await db
+        .insert(stagingRecords)
+        .values({
+          uploadId: e.uploadId,
+          title: '(deleted)',
+          originalFilename: '',
+          uploadedAt: deletedAt,
+          deletedAt,
+        })
+        .onConflictDoUpdate({
+          target: stagingRecords.uploadId,
+          set: { deletedAt, updatedAt: now },
+          setWhere: isNull(stagingRecords.deletedAt),
         });
       return;
     }
@@ -156,12 +181,11 @@ export async function applyDocumentEvent(
     case DOCUMENT_PARSED_EVENT: {
       const e = documentParsedV1.parse(event.payload);
       const parsed = {
-        title: e.title,
-        description: e.description,
         fileFormat: e.fileFormat,
         status: 'PARSED' as const,
         category: e.category,
         targetKey: e.targetKey,
+        aiTargetKey: e.targetKey,
         aiPayload: e.details,
         confidence: e.confidence,
         flags: e.flags,
@@ -174,13 +198,21 @@ export async function applyDocumentEvent(
         .insert(stagingRecords)
         .values({
           uploadId: e.uploadId,
+          title: e.title,
+          description: e.description,
           originalFilename: e.originalFilename,
           uploadedAt: new Date(e.uploadedAt),
           ...parsed,
         })
         .onConflictDoUpdate({
           target: stagingRecords.uploadId,
-          set: parsed,
+          // Title and description come from upload.updated once one arrived
+          // (it is the newer snapshot of your edits); only before that from here.
+          set: {
+            ...parsed,
+            title: sql`case when ${stagingRecords.metadataUpdatedAt} is null then excluded.title else ${stagingRecords.title} end`,
+            description: sql`case when ${stagingRecords.metadataUpdatedAt} is null then excluded.description else ${stagingRecords.description} end`,
+          },
           setWhere: inArray(stagingRecords.status, BEFORE_REVIEW),
         });
       return;

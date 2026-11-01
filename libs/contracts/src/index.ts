@@ -5,3 +5,4 @@ export * from './lib/documents.js';
 export * from './lib/event-envelope.js';
 export * from './lib/field-values.js';
 export * from './lib/targets/index.js';
+export * from './lib/domain-dtos.js';

@@ -7,6 +7,7 @@ import type {
   Page,
   RecordDetailDto,
   RecordDto,
+  RejectRecordRequest,
   TargetCatalogEntryDto,
   UpdateRecordRequest,
 } from '@life-island/contracts';
@@ -63,6 +64,25 @@ export class ReviewApi {
   confirm(id: string): Observable<RecordDetailDto> {
     return this.http.post<RecordDetailDto>(
       `${REVIEW_API}/records/${id}/confirm`,
+      {},
+    );
+  }
+
+  /** Rejects a record: it is never sent to a module. */
+  reject(
+    id: string,
+    request: RejectRecordRequest = {},
+  ): Observable<RecordDetailDto> {
+    return this.http.post<RecordDetailDto>(
+      `${REVIEW_API}/records/${id}/reject`,
+      request,
+    );
+  }
+
+  /** Brings a rejected record back to review. */
+  reopen(id: string): Observable<RecordDetailDto> {
+    return this.http.post<RecordDetailDto>(
+      `${REVIEW_API}/records/${id}/reopen`,
       {},
     );
   }

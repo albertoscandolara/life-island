@@ -2,6 +2,15 @@ import { z } from 'zod';
 import { categoryDimensionSchema, parseStepSchema } from './categories.js';
 import { fileFormatSchema } from './documents.js';
 
+/** One template field value: what the document says, normalized; null when absent. */
+export const documentFieldValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+export type DocumentFieldValue = z.infer<typeof documentFieldValueSchema>;
+
 /**
  * Events about a document's journey. Each is published from the producer's
  * outbox; the `*_EVENT` constant is the versioned type to enqueue and subscribe to.
@@ -33,9 +42,25 @@ export const uploadUpdatedV1 = uploadCompletedV1
     categories: z.array(z.string()),
     /** Ids of categories the AI suggested for this document, still awaiting your decision. */
     suggestedCategories: z.array(z.string()),
+    /**
+     * The document's template field values by key, as you last saved them
+     * (null: not in the document). Optional so older events still parse.
+     */
+    fields: z.record(z.string(), documentFieldValueSchema).optional(),
     updatedAt: z.iso.datetime({ offset: true }),
   });
 export type UploadUpdatedV1 = z.infer<typeof uploadUpdatedV1>;
+
+/**
+ * You deleted a document: its row and its file are gone from ingestion.
+ * Consumers drop it from their views; data a module already loaded stays.
+ */
+export const UPLOAD_DELETED_EVENT = 'upload.deleted@1';
+export const uploadDeletedV1 = z.object({
+  uploadId: z.uuid(),
+  deletedAt: z.iso.datetime({ offset: true }),
+});
+export type UploadDeletedV1 = z.infer<typeof uploadDeletedV1>;
 
 export const UPLOAD_PARSING_STARTED_EVENT = 'upload.parsing_started@1';
 export const uploadParsingStartedV1 = z.object({
@@ -96,7 +121,14 @@ export const recordApprovedV1 = z.object({
   uploadId: z.uuid(),
   category: z.string(),
   targetKey: z.string(),
+  /** The details for the target schema of `targetKey`: your edits, else the AI's. */
   payload: z.unknown(),
+  /**
+   * The document's own template fields (by key) as you reviewed them. They
+   * travel with the payload so no correction you made is lost; modules may
+   * ignore them. Optional so older events still parse.
+   */
+  documentFields: z.record(z.string(), documentFieldValueSchema).optional(),
   approvedAt: z.iso.datetime({ offset: true }),
 });
 export type RecordApprovedV1 = z.infer<typeof recordApprovedV1>;

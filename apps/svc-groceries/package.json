@@ -1,0 +1,39 @@
+{
+  "name": "@life-island/svc-groceries",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Trice's groceries domain: loads confirmed grocery receipts and serves them",
+  "type": "module",
+  "main": "./dist/main.js",
+  "nx": {
+    "name": "svc-groceries",
+    "tags": [
+      "type:app",
+      "scope:groceries"
+    ],
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": [
+          "build"
+        ],
+        "command": "node --enable-source-maps --env-file-if-exists=../../.env dist/main.js",
+        "options": {
+          "cwd": "{projectRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@life-island/be-common": "*",
+    "@life-island/be-nest": "*",
+    "@life-island/contracts": "*",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "drizzle-orm": "^0.45.4",
+    "reflect-metadata": "^0.2.2",
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
+  }
+}

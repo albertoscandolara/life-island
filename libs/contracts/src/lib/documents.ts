@@ -213,12 +213,24 @@ export interface RecordDto {
   parsedAt: string | null;
   confirmedAt: string | null;
   loadedAt: string | null;
+  rejectedAt: string | null;
 }
 
-/** Your corrections to a record's details, checked against its target schema. */
-export const updateRecordRequestSchema = z.object({
-  details: z.unknown().refine((value) => value !== undefined, 'required'),
-});
+/**
+ * Your corrections to a record before you confirm it: its details, checked
+ * against the target schema, and optionally a different target (so a
+ * different module). Changing the target checks the details against the new
+ * target's schema: send details shaped for it, or the stored ones must fit.
+ */
+export const updateRecordRequestSchema = z
+  .object({
+    details: z.unknown().optional(),
+    targetKey: z.string().trim().min(1).max(100).optional(),
+  })
+  .refine(
+    (value) => value.details !== undefined || value.targetKey !== undefined,
+    'Send details, a targetKey or both',
+  );
 export type UpdateRecordRequest = z.input<typeof updateRecordRequestSchema>;
 
 export interface RecordDetailDto extends RecordDto {
@@ -228,7 +240,18 @@ export interface RecordDetailDto extends RecordDto {
   edited: boolean;
   parseError: string | null;
   loadError: string | null;
+  /** The target the AI chose, when you moved the record to another one. */
+  aiTargetKey: string | null;
+  rejectReason: string | null;
+  /** The document's template fields as you reviewed them; sent along on confirm. */
+  documentFields: Record<string, string | number | boolean | null> | null;
 }
+
+/** Reject a record: it is never sent to a module (reopen it to review again). */
+export const rejectRecordRequestSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+export type RejectRecordRequest = z.input<typeof rejectRecordRequestSchema>;
 
 /** The query of `GET /records/category-counts`: the record filters, without the category. */
 export const categoryCountsQuerySchema = listRecordsQuerySchema.omit({

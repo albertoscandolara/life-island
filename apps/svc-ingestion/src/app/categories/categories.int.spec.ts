@@ -445,6 +445,105 @@ describe.skipIf(!configured)('categories and suggestions API', () => {
     ]);
   });
 
+  it('declines a suggestion for one document only, and rejects it once no document wants it', async () => {
+    const [first, second] = [await parsedUpload(), await parsedUpload()];
+    const { id, categoryId } = await suggestion([first, second]);
+    const dismissed = await call<CategorySuggestionDto>(
+      'POST',
+      `/category-suggestions/${id}/dismiss`,
+      { uploadId: first },
+    );
+    expect(dismissed.status).toBe(200);
+    expect(dismissed.body).toMatchObject({
+      status: 'PENDING',
+      uploadIds: [second],
+    });
+    expect(await lastSnapshot(first)).toMatchObject({
+      suggestedCategories: [],
+      // The field values travel with the snapshot, for Confirm to send along.
+      fields: { total_amount: 10, currency: null },
+    });
+    expect(
+      (
+        await call('POST', `/category-suggestions/${id}/dismiss`, {
+          uploadId: first,
+        })
+      ).status,
+    ).toBe(404);
+
+    const last = await call<CategorySuggestionDto>(
+      'POST',
+      `/category-suggestions/${id}/dismiss`,
+      { uploadId: second },
+    );
+    expect(last.body.status).toBe('REJECTED');
+    expect(
+      await db()
+        .select()
+        .from(documentCategories)
+        .where(eq(documentCategories.id, categoryId)),
+    ).toEqual([]);
+  });
+
+  it('deletes a document, telling the inbox and forgetting it in suggestions', async () => {
+    const upload = await parsedUpload();
+    const other = await parsedUpload();
+    const { id } = await suggestion([upload, other]);
+    const response = await fetch(`${base}/uploads/${upload}`, {
+      method: 'DELETE',
+    });
+    expect(response.status).toBe(204);
+    expect((await call('GET', `/uploads/${upload}`)).status).toBe(404);
+    const { rows } = await svc.pool.query(
+      `select 1 from ingestion.outbox
+        where event_type = 'upload.deleted@1' and payload->>'uploadId' = $1`,
+      [upload],
+    );
+    expect(rows).toHaveLength(1);
+    const [left] = await db()
+      .select()
+      .from(categorySuggestions)
+      .where(eq(categorySuggestions.id, id));
+    expect(left.uploadIds).toEqual([other]);
+    expect(
+      (await fetch(`${base}/uploads/${upload}`, { method: 'DELETE' })).status,
+    ).toBe(404);
+  });
+
+  it('refuses to delete a document the AI is reading', async () => {
+    const upload = await parsedUpload();
+    await db()
+      .update(uploads)
+      .set({ status: 'PARSING' })
+      .where(eq(uploads.id, upload));
+    expect(
+      (await fetch(`${base}/uploads/${upload}`, { method: 'DELETE' })).status,
+    ).toBe(409);
+  });
+
+  it('records a Parse now request and notifies the worker', async () => {
+    const listener = await svc.pool.connect();
+    try {
+      const heard = new Promise<string>((resolve) =>
+        listener.on('notification', (message) => resolve(message.channel)),
+      );
+      await listener.query('LISTEN parse_requested');
+      const before = Date.now();
+      const { status, body } = await call<ParseQueueDto>(
+        'POST',
+        '/parse-queue/run',
+      );
+      expect(status).toBe(202);
+      expect(new Date(body.runRequestedAt!).getTime()).toBeGreaterThanOrEqual(
+        before - 1000,
+      );
+      expect(await heard).toBe('parse_requested');
+    } finally {
+      await listener.query('UNLISTEN *');
+      listener.release();
+    }
+  });
+
   it('reports the parse queue', async () => {
     const { status, body } = await call<ParseQueueDto>('GET', '/parse-queue');
     expect(status).toBe(200);

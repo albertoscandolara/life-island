@@ -3,11 +3,19 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import type { ParseQueueDto } from '@life-island/contracts';
-import { UiAlert, type UiTone } from '@life-island/design-system';
+import {
+  UiAlert,
+  UiButton,
+  UiIcon,
+  type UiTone,
+} from '@life-island/design-system';
+import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { errorMessage } from '../categories/category-store';
 
 export interface QueueMessage {
   tone: UiTone;
@@ -121,14 +129,42 @@ export function lastRunText(
   return parts.join(' ');
 }
 
+/**
+ * Whether Parse now makes sense: documents are waiting and nothing stops the
+ * worker (a pause has its own resume time; a run is already going).
+ */
+export function canParseNow(queue: ParseQueueDto): boolean {
+  return (
+    queue.pendingDocuments > 0 &&
+    (queue.status === 'IDLE' || queue.status === 'BLOCKED_CREDENTIALS')
+  );
+}
+
 /** The parse queue's state above the inbox: when it last ran, and whether it is paused, running or waiting, and why. */
 @Component({
   selector: 'app-queue-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiAlert],
+  imports: [UiAlert, UiButton, UiIcon],
   template: `
     @if (lastRun(); as line) {
-      <p class="last-run">{{ line }}</p>
+      <div class="last-run">
+        <p>{{ line }}</p>
+        @if (parseNow()) {
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [loading]="requesting()"
+            (click)="runNow()"
+          >
+            <ui-icon name="refresh" [size]="16" /> Parse now
+          </button>
+        }
+      </div>
+    }
+    @if (notice(); as text) {
+      <p class="notice">{{ text }}</p>
     }
     @if (message(); as m) {
       <ui-alert [tone]="m.tone">
@@ -147,8 +183,20 @@ export function lastRunText(
       display: none;
     }
     .last-run {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
       margin: 0 0 var(--space-2);
       color: var(--text-muted);
+      font-size: var(--text-sm);
+    }
+    .last-run p {
+      margin: 0;
+    }
+    .notice {
+      color: var(--text-secondary);
       font-size: var(--text-sm);
     }
     .heading {
@@ -168,8 +216,30 @@ export class QueueBanner {
   protected readonly message = computed(() =>
     this.queue.hasValue() ? queueMessage(this.queue.value()) : null,
   );
+  protected readonly parseNow = computed(
+    () => this.queue.hasValue() && canParseNow(this.queue.value()),
+  );
+  protected readonly requesting = signal(false);
+  protected readonly notice = signal('');
 
   reload(): void {
     this.queue.reload();
+  }
+
+  /** Parse now: the worker starts within a moment; the banner shows it running. */
+  protected async runNow(): Promise<void> {
+    this.requesting.set(true);
+    this.notice.set('');
+    try {
+      await firstValueFrom(this.api.runParseNow());
+      this.notice.set(
+        'Asked the AI to start now. Refresh in a moment to see the progress.',
+      );
+      setTimeout(() => this.queue.reload(), 2000);
+    } catch (error) {
+      this.notice.set(errorMessage(error));
+    } finally {
+      this.requesting.set(false);
+    }
   }
 }

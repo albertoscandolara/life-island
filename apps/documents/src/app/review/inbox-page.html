@@ -1,6 +1,6 @@
 <ui-page-header
   heading="Review inbox"
-  subtitle="Ptera keeps everything you uploaded. Open a parsed record to check what was read, then confirm it."
+  subtitle="Ptera keeps everything you uploaded. Review what the AI read, fix it if needed, then confirm it to send it to its module, or reject it."
   emblem="🦅"
 >
   <a uiPageActions uiButton variant="secondary" routerLink="/categories">
@@ -91,7 +91,14 @@
   </div>
 </form>
 
-@if (records.error()) {
+@if (showingQueue() && !records.error()) {
+<p class="queue-note muted">
+  Showing the documents waiting for your review.
+  <button type="button" class="link" (click)="showAll()">
+    Show any status
+  </button>
+</p>
+} @if (records.error()) {
 <ui-alert tone="danger" class="error"
   >The records could not be loaded. Is the review service running?</ui-alert
 >
@@ -106,10 +113,15 @@
   [pageSize]="pageSize"
   [total]="total()"
   caption="Uploaded documents"
-  [emptyMessage]="hasFilters() ? 'No records match these filters.' : 'Nothing uploaded yet.'"
+  [emptyMessage]="showingQueue() && !hasFilters() ? 'Nothing to review: you are all caught up. Show any status to see everything.' : hasFilters() ? 'No records match these filters.' : 'Nothing uploaded yet.'"
 >
   <ng-template uiCell="title" [uiCellOf]="rows()" let-row>
     <span class="title">{{ row.title }}</span>
+    @if (row.category) {
+    <span class="module muted"
+      >→ {{ moduleLabels[row.category] ?? row.category }}</span
+    >
+    }
   </ng-template>
   <ng-template uiCell="description" [uiCellOf]="rows()" let-row>
     <span class="description">{{ row.description ?? '–' }}</span>
@@ -152,37 +164,23 @@
   <ng-template uiCell="details" [uiCellOf]="rows()" let-row>
     <button
       uiButton
-      variant="ghost"
+      [variant]="row.status === 'PARSED' || row.status === 'LOAD_FAILED' ? 'primary' : 'secondary'"
       size="sm"
-      [iconOnly]="true"
       type="button"
-      [attr.aria-label]="'Edit ' + row.title"
-      (click)="openEditor(row)"
+      [attr.aria-label]="(row.status === 'PARSED' ? 'Review ' : 'Open ') + row.title"
+      (click)="openReview(row)"
     >
-      <ui-icon name="edit" [size]="18" />
-    </button>
-    <button
-      uiButton
-      variant="ghost"
-      size="sm"
-      [iconOnly]="true"
-      type="button"
-      [attr.aria-label]="'Show details of ' + row.title"
-      (click)="openDetails(row)"
-    >
-      <ui-icon name="eye" [size]="18" />
+      @if (row.status === 'PARSED' || row.status === 'LOAD_FAILED') {
+      <ui-icon name="check" [size]="16" /> Review } @else {
+      <ui-icon name="eye" [size]="16" /> Open }
     </button>
   </ng-template>
 </ui-table>
 
-<app-record-dialog
+<app-review-panel
   [recordId]="selectedId()"
-  [(open)]="dialogOpen"
-  (confirmedRecord)="records.reload()"
-/>
-
-<app-document-editor
-  [recordId]="selectedId()"
-  [(open)]="editorOpen"
-  (saved)="applyChanges($event)"
+  [nextRecordId]="nextRecordId()"
+  [(open)]="panelOpen"
+  (changed)="onChanged($event)"
+  (advance)="showNext()"
 />
