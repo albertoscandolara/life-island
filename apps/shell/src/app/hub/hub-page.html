@@ -1,12 +1,21 @@
-<h1 class="title">Welcome to Life Island</h1>
-<p class="lead">
-  Each part of the island looks after one area of your life, using the documents
-  you loaded and confirmed.
-</p>
+<section class="hero">
+  <p class="eyebrow">Your island</p>
+  <h1 class="title">
+    Welcome to <span class="title__accent">Life Island</span>
+  </h1>
+  <p class="lead">
+    Each part of the island looks after one area of your life, using the
+    documents you loaded and confirmed.
+  </p>
+</section>
 
 <ul class="modules" role="list">
-  @for (module of modules; track module.name) {
-  <li [attr.data-character]="module.character">
+  @for (module of modules; track module.name; let i = $index) {
+  <li
+    class="modules__item"
+    [attr.data-character]="module.character"
+    [style.--stagger]="i"
+  >
     @if (module.path) {
     <a class="module" [routerLink]="module.path">
       <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>

@@ -14,3 +14,5 @@ export * from './lib/page-header/page-header';
 export * from './lib/progress-bar/progress-bar';
 export * from './lib/status-dot/status-dot';
 export * from './lib/table/table';
+export * from './lib/theme/theme';
+export * from './lib/theme/theme-toggle';

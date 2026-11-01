@@ -3,38 +3,67 @@
  * components and apps never do.
  */
 :root {
-  --jungle-50: #eef8f1;
-  --jungle-100: #d4eedd;
+  /* Neutrals for the light theme: slightly cool, so colour accents pop. */
+  --ink-0: #ffffff;
+  --ink-25: #fafbfc;
+  --ink-50: #f4f6f9;
+  --ink-100: #eaeef3;
+  --ink-200: #dde3ea;
+  --ink-300: #c5ced9;
+  --ink-400: #98a3b3;
+  --ink-500: #677385;
+  --ink-600: #4a5466;
+  --ink-700: #333b4a;
+  --ink-900: #111722;
+
+  /* Neutrals for the dark theme: deep sea blues instead of flat greys. */
+  --abyss-950: #0a0d14;
+  --abyss-900: #0f131c;
+  --abyss-850: #141925;
+  --abyss-800: #1a2030;
+  --abyss-700: #232a3c;
+  --abyss-600: #30384d;
+  --abyss-400: #8a94a8;
+  --abyss-300: #a9b2c3;
+  --abyss-100: #e9edf4;
+
+  /* Lagoon: the island's main accent. */
+  --lagoon-50: #e7f8f5;
+  --lagoon-100: #c7eee8;
+  --lagoon-300: #5fe0cc;
+  --lagoon-400: #2fd0b8;
+  --lagoon-600: #0d8a7f;
+  --lagoon-700: #0a6f66;
+  --lagoon-950: #04211e;
+
+  --jungle-50: #eaf7ef;
   --jungle-500: #2f8f5b;
   --jungle-600: #26774b;
-  --jungle-700: #1d5e3b;
-  --sand-0: #ffffff;
-  --sand-50: #fbf7ef;
-  --sand-100: #f3ecdf;
-  --sand-200: #e6dccb;
-  --sand-300: #d2c4ad;
-  --sand-500: #8f8068;
-  --sand-700: #574b39;
-  --sand-900: #2b241a;
-  --night-900: #14110c;
-  --night-800: #1f1a13;
-  --night-700: #2c251b;
-  --night-600: #3d3427;
-  --night-300: #a89a85;
-  --night-100: #f3ece0;
+  --leaf-400: #74d38a;
+
   --lava-50: #fdecea;
-  --lava-500: #e2553f;
-  --lava-600: #c4402c;
-  --sky-50: #e9f3fc;
+  --lava-400: #ff7b67;
+  --lava-500: #e04a34;
+  --lava-600: #c13a26;
+
+  --sky-50: #e8f2fd;
+  --sky-300: #8cc4f5;
   --sky-400: #5aa9e6;
-  --sky-600: #2f7fbf;
-  --leaf-400: #7cc36b;
-  --sun-50: #fdf5e1;
+  --sky-600: #2672b8;
+  --sky-700: #1d5c97;
+
+  --sun-50: #fdf4df;
+  --sun-300: #ffd27a;
   --sun-400: #f2b84b;
-  --sun-600: #b7801a;
-  --amber-700: #c08a3e;
+  --sun-600: #a8720f;
+  --sun-700: #8a5c0a;
+
+  --amber-700: #b7792b;
+  --coral-400: #ff8a73;
+
   --violet-50: #f1edfb;
-  --violet-500: #7c5cc4;
+  --violet-400: #a68bf0;
+  --violet-500: #7556cf;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -45,10 +74,11 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
+  --space-16: 64px;
 
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
   --radius-full: 999px;
 
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -61,7 +91,11 @@
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
+  --text-3xl: clamp(1.875rem, 1.4rem + 1.6vw, 2.5rem);
 
-  --duration-fast: 120ms;
-  --duration-normal: 200ms;
+  --duration-fast: 140ms;
+  --duration-normal: 220ms;
+  --duration-slow: 420ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }

@@ -3,30 +3,73 @@
   min-height: 100vh;
 }
 
+/* A translucent bar that stays on top while you scroll. */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-sticky);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-glass);
+  backdrop-filter: saturate(1.6) blur(14px);
+}
+
+.topbar__inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-6);
+  max-width: 80rem;
+  margin: 0 auto;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-card);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   color: var(--text-primary);
+  text-decoration: none;
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border-radius: var(--radius-sm);
+  background: var(--accent-gradient);
+  box-shadow: var(--accent-glow);
+  font-size: var(--text-lg);
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.brand:hover .brand__mark {
+  transform: rotate(-8deg) scale(1.06);
+}
+
+.brand__text {
+  display: grid;
+  line-height: 1.1;
+}
+
+.brand__name {
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  text-decoration: none;
+  font-weight: 600;
+}
+
+.brand__sub {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 .nav {
   display: flex;
-  gap: var(--space-1);
   flex: 1;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .nav__link {
@@ -34,9 +77,16 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--control-radius);
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .nav__link:hover {
@@ -44,13 +94,35 @@
   color: var(--text-primary);
 }
 
-.nav__link--active {
+.nav__link--active,
+.nav__link--active:hover {
   background: var(--accent-soft);
   color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.topbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+@media (max-width: 640px) {
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+  }
 }
 
 .page {
   max-width: 80rem;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-8) var(--space-4) var(--space-16);
+}
+
+/* Each routed page rises in when you navigate to it. */
+.page > :not(router-outlet) {
+  display: block;
+  animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
 }
