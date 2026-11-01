@@ -1,7 +1,14 @@
 # Single origin for the front end. Each service is reached under /api/<service>/.
 # Services that are not running yet answer 502 until they exist.
+#
+# Sign-in: GATEWAY_AUTH picks a file from ./auth (off or basic) for every route
+# but the health check. See README.md in this folder.
 {
 	admin off
+}
+
+(protected) {
+	import /etc/caddy/auth/{$GATEWAY_AUTH:off}.caddy
 }
 
 :80 {
@@ -10,19 +17,24 @@
 	}
 
 	handle_path /api/ingestion/* {
+		import protected
 		reverse_proxy svc-ingestion:3000
 	}
 	handle_path /api/review/* {
+		import protected
 		reverse_proxy svc-review:3000
 	}
 	handle_path /api/groceries/* {
+		import protected
 		reverse_proxy svc-groceries:3000
 	}
 	handle_path /api/tax730/* {
+		import protected
 		reverse_proxy svc-tax730:3000
 	}
 
 	handle {
+		import protected
 		respond "Life Island gateway" 200
 	}
 }

@@ -64,8 +64,16 @@ services:
     image: caddy:2.10-alpine
     ports:
       - '${GATEWAY_PORT:-8080}:80'
+    environment:
+      # Sign-in for everything behind the gateway: `basic` turns it on (set
+      # GATEWAY_USER and GATEWAY_PASSWORD_HASH, see infra/caddy/README.md);
+      # `off` is for local development only.
+      GATEWAY_AUTH: ${GATEWAY_AUTH:-off}
+      GATEWAY_USER: ${GATEWAY_USER:-}
+      GATEWAY_PASSWORD_HASH: ${GATEWAY_PASSWORD_HASH:-}
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/auth:/etc/caddy/auth:ro
 
   # The services themselves, for running the stack without Node installed:
   # `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`.
@@ -80,6 +88,8 @@ services:
       PORT: 3000
       INGESTION_DATABASE_URL: postgres://ingestion_svc:dev_ingestion@postgres:5432/life_island
       REVIEW_DATABASE_URL: postgres://review_svc:dev_review@postgres:5432/life_island
+      GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@postgres:5432/life_island
+      TAX730_DATABASE_URL: postgres://tax730_svc:dev_tax730@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -120,6 +130,23 @@ services:
     build:
       <<: *service-build
       args: { SERVICE: svc-review }
+    environment: *service-env
+    depends_on: *service-deps
+
+  # Domain modules: each loads the confirmed records of its own targets.
+  svc-groceries:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-groceries }
+    environment: *service-env
+    depends_on: *service-deps
+
+  svc-tax730:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-tax730 }
     environment: *service-env
     depends_on: *service-deps
 

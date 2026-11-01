@@ -23,6 +23,12 @@
     },
     {
       "path": "./apps/svc-review"
+    },
+    {
+      "path": "./apps/svc-groceries"
+    },
+    {
+      "path": "./apps/svc-tax730"
     }
   ],
   "compilerOptions": {}

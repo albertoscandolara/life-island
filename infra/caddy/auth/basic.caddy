@@ -1,0 +1,5 @@
+# GATEWAY_AUTH=basic: every request needs GATEWAY_USER and the password whose
+# bcrypt hash is GATEWAY_PASSWORD_HASH (make one with `caddy hash-password`).
+basic_auth {
+	{$GATEWAY_USER} {$GATEWAY_PASSWORD_HASH}
+}
