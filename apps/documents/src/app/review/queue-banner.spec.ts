@@ -1,5 +1,11 @@
 import type { ParseQueueDto } from '@life-island/contracts';
-import { canParseNow, lastRunText, queueMessage } from './queue-banner';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  lastRunText,
+  parseNowError,
+  parseNowState,
+  queueMessage,
+} from './queue-banner';
 
 const base: ParseQueueDto = {
   status: 'IDLE',
@@ -94,19 +100,58 @@ describe('lastRunText', () => {
   });
 });
 
-describe('canParseNow', () => {
-  it('offers Parse now only when documents wait and nothing holds the worker', () => {
-    expect(canParseNow({ ...base, status: 'IDLE', pendingDocuments: 2 })).toBe(
-      true,
-    );
-    expect(canParseNow({ ...base, status: 'IDLE', pendingDocuments: 0 })).toBe(
-      false,
+describe('parseNowState', () => {
+  it('is on when documents wait and the queue is idle or blocked', () => {
+    expect(parseNowState({ ...base, pendingDocuments: 2 }, format)).toEqual({
+      enabled: true,
+      hint: 'Start reading the 2 waiting documents now instead of at the next scheduled run.',
+    });
+    expect(
+      parseNowState(
+        { ...base, status: 'BLOCKED_CREDENTIALS', pendingDocuments: 1 },
+        format,
+      ).enabled,
+    ).toBe(true);
+  });
+
+  it('says why it is off', () => {
+    expect(parseNowState({ ...base, pendingDocuments: 0 }, format)).toEqual({
+      enabled: false,
+      hint: 'No document is waiting to be read.',
+    });
+    expect(parseNowState({ ...base, status: 'RUNNING' }, format).hint).toBe(
+      'The AI is already reading documents.',
     );
     expect(
-      canParseNow({ ...base, status: 'RUNNING', pendingDocuments: 2 }),
-    ).toBe(false);
-    expect(
-      canParseNow({ ...base, status: 'PAUSED_QUOTA', pendingDocuments: 2 }),
-    ).toBe(false);
+      parseNowState(
+        {
+          ...base,
+          status: 'PAUSED_QUOTA',
+          resumeAt: '2026-10-30T04:00:00.000Z',
+        },
+        format,
+      ),
+    ).toEqual({
+      enabled: false,
+      hint: 'Paused by the AI provider until 2026-10-30T04:00.',
+    });
+  });
+});
+
+describe('parseNowError', () => {
+  it('explains a 404 as a service that predates Parse now', () => {
+    const error = new HttpErrorResponse({
+      status: 404,
+      error: { message: 'Cannot POST /parse-queue/run' },
+    });
+    expect(parseNowError(error)).toContain('Restart svc-ingestion');
+  });
+
+  it('passes other errors through', () => {
+    const error = new HttpErrorResponse({
+      status: 500,
+      error: { message: 'Database is down' },
+    });
+    expect(parseNowError(error)).toBe('Database is down');
   });
 });
