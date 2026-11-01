@@ -10,6 +10,18 @@
   <button
     uiPageActions
     uiButton
+    type="button"
+    [disabled]="!banner.parseNow()?.enabled"
+    [loading]="banner.requesting()"
+    [attr.title]="banner.parseNow()?.hint"
+    [attr.aria-describedby]="banner.parseNow() ? 'parse-now-hint' : null"
+    (click)="banner.runNow()"
+  >
+    <ui-icon name="refresh" [size]="18" /> Parse now
+  </button>
+  <button
+    uiPageActions
+    uiButton
     variant="secondary"
     type="button"
     [loading]="records.isLoading()"
@@ -19,7 +31,7 @@
   </button>
 </ui-page-header>
 
-<app-queue-banner #banner class="banner" />
+<app-queue-banner #banner class="banner" (runFinished)="onRunFinished()" />
 
 <form class="filters" role="search" (submit)="$event.preventDefault()">
   <ui-form-field label="Search" class="filters__search">

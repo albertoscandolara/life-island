@@ -2,17 +2,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  effect,
   inject,
+  output,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { rxResource } from '@angular/core/rxjs-interop';
 import type { ParseQueueDto } from '@life-island/contracts';
-import {
-  UiAlert,
-  UiButton,
-  UiIcon,
-  type UiTone,
-} from '@life-island/design-system';
+import { UiAlert, type UiTone } from '@life-island/design-system';
 import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { errorMessage } from '../categories/category-store';
@@ -129,42 +128,72 @@ export function lastRunText(
   return parts.join(' ');
 }
 
-/**
- * Whether Parse now makes sense: documents are waiting and nothing stops the
- * worker (a pause has its own resume time; a run is already going).
- */
-export function canParseNow(queue: ParseQueueDto): boolean {
-  return (
-    queue.pendingDocuments > 0 &&
-    (queue.status === 'IDLE' || queue.status === 'BLOCKED_CREDENTIALS')
-  );
+export interface ParseNowState {
+  enabled: boolean;
+  /** Why the button is off, or what it will do. */
+  hint: string;
 }
+
+/**
+ * Whether Parse now can start a run: documents are waiting and nothing stops
+ * the worker (a pause has its own resume time; a run is already going).
+ */
+export function parseNowState(
+  queue: ParseQueueDto,
+  format: (iso: string) => string = formatTime,
+): ParseNowState {
+  switch (queue.status) {
+    case 'RUNNING':
+      return { enabled: false, hint: 'The AI is already reading documents.' };
+    case 'PAUSED_QUOTA':
+    case 'PAUSED_RATE_LIMIT':
+      return {
+        enabled: false,
+        hint: queue.resumeAt
+          ? `Paused by the AI provider until ${format(queue.resumeAt)}.`
+          : 'Paused by the AI provider.',
+      };
+  }
+  if (queue.pendingDocuments === 0)
+    return { enabled: false, hint: 'No document is waiting to be read.' };
+  const n = queue.pendingDocuments;
+  return {
+    enabled: true,
+    hint: `Start reading the ${n} waiting document${n === 1 ? '' : 's'} now instead of at the next scheduled run.`,
+  };
+}
+
+/**
+ * A 404 here means the ingestion service running is older than this page
+ * (it has no Parse now route yet), not that something is missing.
+ */
+export function parseNowError(error: unknown): string {
+  if (error instanceof HttpErrorResponse && error.status === 404)
+    return 'The ingestion service running is older than this page and cannot start a run. Restart svc-ingestion and svc-parse-worker with the latest code, then try again.';
+  return errorMessage(error);
+}
+
+/** How often the banner checks the queue while a run is going or was asked for. */
+export const POLL_MS = 3000;
+/** How long after Parse now the banner waits for the run to show up. */
+const START_GRACE_MS = 20_000;
 
 /** The parse queue's state above the inbox: when it last ran, and whether it is paused, running or waiting, and why. */
 @Component({
   selector: 'app-queue-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiAlert, UiButton, UiIcon],
+  imports: [UiAlert],
   template: `
     @if (lastRun(); as line) {
       <div class="last-run">
         <p>{{ line }}</p>
-        @if (parseNow()) {
-          <button
-            uiButton
-            variant="secondary"
-            size="sm"
-            type="button"
-            [loading]="requesting()"
-            (click)="runNow()"
-          >
-            <ui-icon name="refresh" [size]="16" /> Parse now
-          </button>
-        }
       </div>
     }
+    @if (parseNow(); as state) {
+      <p class="hint" id="parse-now-hint">Parse now: {{ state.hint }}</p>
+    }
     @if (notice(); as text) {
-      <p class="notice">{{ text }}</p>
+      <p class="notice" role="status">{{ text }}</p>
     }
     @if (message(); as m) {
       <ui-alert [tone]="m.tone">
@@ -183,17 +212,17 @@ export function canParseNow(queue: ParseQueueDto): boolean {
       display: none;
     }
     .last-run {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-2);
       margin: 0 0 var(--space-2);
       color: var(--text-muted);
       font-size: var(--text-sm);
     }
     .last-run p {
       margin: 0;
+    }
+    .hint {
+      margin: 0 0 var(--space-2);
+      color: var(--text-muted);
+      font-size: var(--text-sm);
     }
     .notice {
       color: var(--text-secondary);
@@ -216,28 +245,60 @@ export class QueueBanner {
   protected readonly message = computed(() =>
     this.queue.hasValue() ? queueMessage(this.queue.value()) : null,
   );
-  protected readonly parseNow = computed(
-    () => this.queue.hasValue() && canParseNow(this.queue.value()),
+  /** For the page's Parse now button: null until the queue has loaded. */
+  readonly parseNow = computed(() =>
+    this.queue.hasValue() ? parseNowState(this.queue.value()) : null,
   );
-  protected readonly requesting = signal(false);
+  readonly requesting = signal(false);
   protected readonly notice = signal('');
+  /** A run finished (or a requested one ended): the inbox has new records. */
+  readonly runFinished = output<void>();
+
+  /** Until when a requested run counts as about to start. */
+  private requestedUntil = 0;
+  private wasRunning = false;
+  private poll?: ReturnType<typeof setTimeout>;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.poll));
+    // Checks the queue while a run is going or was just asked for, and says
+    // when it ends so the inbox can show what the AI read.
+    effect(() => {
+      if (!this.queue.hasValue() || this.queue.isLoading()) return;
+      const running = this.queue.value().status === 'RUNNING';
+      if (this.wasRunning && !running) {
+        this.requestedUntil = 0;
+        this.notice.set('');
+        this.runFinished.emit();
+      }
+      this.wasRunning = running;
+      clearTimeout(this.poll);
+      if (running || Date.now() < this.requestedUntil)
+        this.poll = setTimeout(() => this.queue.reload(), POLL_MS);
+      else if (this.requestedUntil) {
+        this.requestedUntil = 0;
+        this.notice.set(
+          'The run has not started yet. Press Refresh in a moment to check again.',
+        );
+      }
+    });
+  }
 
   reload(): void {
     this.queue.reload();
   }
 
-  /** Parse now: the worker starts within a moment; the banner shows it running. */
-  protected async runNow(): Promise<void> {
+  /** Parse now: the worker starts within a moment; the banner follows the run. */
+  async runNow(): Promise<void> {
     this.requesting.set(true);
     this.notice.set('');
     try {
       await firstValueFrom(this.api.runParseNow());
-      this.notice.set(
-        'Asked the AI to start now. Refresh in a moment to see the progress.',
-      );
-      setTimeout(() => this.queue.reload(), 2000);
+      this.notice.set('Asked the AI to start now.');
+      this.requestedUntil = Date.now() + START_GRACE_MS;
+      this.queue.reload();
     } catch (error) {
-      this.notice.set(errorMessage(error));
+      this.notice.set(parseNowError(error));
     } finally {
       this.requesting.set(false);
     }

@@ -38,7 +38,7 @@ npx nx serve shell                # http://localhost:4200 (optional: the Life Is
 
 Run each `serve` in its own terminal, or `npx nx run-many -t serve -p svc-ingestion svc-review svc-parse-worker documents shell`. The Angular dev servers proxy `/api/ingestion` and `/api/review` to the local services, the same paths the Caddy gateway uses.
 
-Uploads made after the worker's last run wait for the next scheduled one. To parse them now, restart the worker (with `PARSE_RUN_ON_START=true`).
+Uploads made after the worker's last run wait for the next scheduled one. To parse them now, press **Parse now** at the top of the review inbox: the worker starts within a moment, and the inbox reloads when the run ends. After pulling new code, restart the services too (`nx serve` or `docker compose ... up -d --build`): a page newer than the running svc-ingestion gets a 404 such as `Cannot POST /parse-queue/run`.
 
 To run the services in Docker instead: `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`; they are then reachable through the gateway on `http://localhost:8080/api/...`.
 
@@ -269,7 +269,7 @@ The review lists every document with its title, description, confirmed categorie
 
 Above the list, a line says when the processing service last ran, what it did and when it runs next, and a banner shows the parse queue when it matters: running, waiting for the next run, paused because the AI usage quota is exhausted (with the provider's reset time when it gave one, or "unknown" otherwise), paused by a rate limit, or stopped because the API key was refused.
 
-The inbox opens on the documents **waiting for your review** (`Parsed, to review`); pick **Any status** in the Status filter (or **Show any status**) to see everything. Each row names the module its details go to, and has one button: **Review** for a record waiting for you, **Open** for the others. **Parse now**, next to the last-run line, starts the worker at once instead of waiting for its schedule (ingestion stores the request and sends `NOTIFY parse_requested`; a worker that was down sees it when it starts).
+The inbox opens on the documents **waiting for your review** (`Parsed, to review`); pick **Any status** in the Status filter (or **Show any status**) to see everything. Each row names the module its details go to, and has one button: **Review** for a record waiting for you, **Open** for the others. **Parse now**, at the top of the page, starts the worker at once instead of waiting for its schedule (ingestion stores the request and sends `NOTIFY parse_requested`; a worker that was down sees it when it starts).
 
 **The review panel** holds everything about one document:
 

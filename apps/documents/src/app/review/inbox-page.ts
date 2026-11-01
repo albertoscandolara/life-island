@@ -49,6 +49,8 @@ import { RECORD_STATUS_VIEW } from './record-status';
 import { ReviewPanel, type ReviewOutcome } from './review-panel';
 
 const PAGE_SIZE = 20;
+/** How long after a parse run the inbox reloads again, for late events. */
+const RUN_RELOAD_DELAY_MS = 2000;
 type SortKey = NonNullable<ListRecordsQuery['sort']>;
 
 /** What the inbox opens on: the records waiting for your review. */
@@ -157,6 +159,7 @@ export class InboxPage {
   protected readonly defaultStatus = DEFAULT_STATUS;
   private readonly destroyRef = inject(DestroyRef);
   private catchUp?: ReturnType<typeof setTimeout>;
+  private runReload?: ReturnType<typeof setTimeout>;
   protected readonly pageSize = PAGE_SIZE;
 
   protected readonly statusOptions: UiOption<RecordStatus>[] =
@@ -241,7 +244,10 @@ export class InboxPage {
   );
 
   constructor() {
-    this.destroyRef.onDestroy(() => clearTimeout(this.catchUp));
+    this.destroyRef.onDestroy(() => {
+      clearTimeout(this.catchUp);
+      clearTimeout(this.runReload);
+    });
     // Debounce typing in the search box.
     effect((onCleanup) => {
       const text = this.searchText().trim();
@@ -333,6 +339,21 @@ export class InboxPage {
     });
     this.store.reload();
     this.waitForInbox(outcome);
+  }
+
+  /**
+   * A parse run ended: the review service hears about each parsed document
+   * through an event, so the inbox reloads now and once more a moment later.
+   */
+  protected onRunFinished(): void {
+    const reload = () => {
+      this.records.reload();
+      this.categoryCounts.reload();
+      this.store.reload();
+    };
+    reload();
+    clearTimeout(this.runReload);
+    this.runReload = setTimeout(reload, RUN_RELOAD_DELAY_MS);
   }
 
   private waitForInbox(outcome: ReviewOutcome, attempt = 0): void {
