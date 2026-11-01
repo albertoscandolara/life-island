@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { createServiceDb, type ServiceDb } from '@life-island/be-common';
 import type {
+  CategoryDimension,
   CategoryDto,
   CategorySuggestionDto,
   ExtractedFields,
@@ -138,6 +139,10 @@ describe.skipIf(!configured)('categories and suggestions API', () => {
 
   async function suggestion(
     uploadIdsOf: string[],
+    placement: {
+      parentId?: string | null;
+      dimension?: CategoryDimension | null;
+    } = {},
   ): Promise<{ id: string; categoryId: string }> {
     const categoryId = `TEST_ENEL_${randomUUID().slice(0, 8).toUpperCase()}`;
     const [row] = await db()
@@ -159,6 +164,7 @@ describe.skipIf(!configured)('categories and suggestions API', () => {
         },
         reason: 'Issued by ENEL Energia',
         uploadIds: uploadIdsOf,
+        ...placement,
       })
       .returning();
     suggestionIds.push(row.id);
@@ -232,6 +238,77 @@ describe.skipIf(!configured)('categories and suggestions API', () => {
     expect(row.extractedFields?.fields['total_amount'].categories).toEqual(
       expect.arrayContaining(['BILL', categoryId]),
     );
+  });
+
+  it('approves a suggestion where the AI placed it: its dimension, its parent, or the top level when that parent is gone', async () => {
+    const upload = await parsedUpload();
+    const placed = async (id: string) => {
+      const [category] = await db()
+        .select()
+        .from(documentCategories)
+        .where(eq(documentCategories.id, id));
+      return { parentId: category.parentId, dimension: category.dimension };
+    };
+
+    const issuer = await suggestion([upload], { dimension: 'ISSUER' });
+    const listed = await call<CategorySuggestionDto[]>(
+      'GET',
+      `/category-suggestions?uploadId=${upload}`,
+    );
+    expect(listed.body[0]).toMatchObject({
+      dimension: 'ISSUER',
+      parentId: null,
+    });
+    await call('POST', `/category-suggestions/${issuer.id}/approve`, {});
+    expect(await placed(issuer.categoryId)).toEqual({
+      parentId: null,
+      dimension: 'ISSUER',
+    });
+
+    const child = await suggestion([upload], { parentId: issuer.categoryId });
+    await call('POST', `/category-suggestions/${child.id}/approve`, {});
+    expect(await placed(child.categoryId)).toEqual({
+      parentId: issuer.categoryId,
+      dimension: 'ISSUER',
+    });
+
+    const orphan = await suggestion([upload], {
+      parentId: 'NO_SUCH_PARENT',
+      dimension: 'PROPERTY',
+    });
+    await call('POST', `/category-suggestions/${orphan.id}/approve`, {});
+    expect(await placed(orphan.categoryId)).toEqual({
+      parentId: null,
+      dimension: 'PROPERTY',
+    });
+
+    // Your choice wins over the AI's, and is checked like any move.
+    const edited = await suggestion([upload], { dimension: 'SUBJECT' });
+    const patched = await call<CategorySuggestionDto>(
+      'PATCH',
+      `/category-suggestions/${edited.id}`,
+      { parentId: issuer.categoryId },
+    );
+    expect(patched.body).toMatchObject({
+      parentId: issuer.categoryId,
+      dimension: 'ISSUER',
+    });
+    const refused = await call('PATCH', `/category-suggestions/${edited.id}`, {
+      parentId: 'NO_SUCH_PARENT',
+    });
+    expect(refused.status).toBe(422);
+    await call('POST', `/category-suggestions/${edited.id}/approve`, {
+      parentId: null,
+      dimension: 'ATTRIBUTE',
+    });
+    expect(await placed(edited.categoryId)).toEqual({
+      parentId: null,
+      dimension: 'ATTRIBUTE',
+    });
+    // The child goes first, so the cleanup can delete its parent.
+    await db()
+      .delete(documentCategories)
+      .where(eq(documentCategories.id, child.categoryId));
   });
 
   it('edits a document: title, description, categories and field values', async () => {

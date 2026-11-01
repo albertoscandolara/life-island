@@ -210,6 +210,13 @@ export const categorySuggestions = ingestion.table(
     description: text('description').notNull(),
     templateJson: jsonb('template_json').$type<CategoryTemplate>().notNull(),
     reason: text('reason'),
+    /**
+     * Where the AI would place the category: an existing parent (no foreign
+     * key: the parent may be deleted before you decide, and approval checks
+     * it again) and the dimension (issuer, property...). Your edits win.
+     */
+    parentId: text('parent_id'),
+    dimension: categoryDimension('dimension'),
     status: suggestionStatus('status').notNull().default('PENDING'),
     uploadIds: uuid('upload_ids').array().notNull().default([]),
     approvedCategoryId: text('approved_category_id'),

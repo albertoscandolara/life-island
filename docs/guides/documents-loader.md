@@ -126,7 +126,7 @@ Every document goes through three steps. Each step's result is committed, with t
 1. **Normalize** (no AI): photos are rotated upright, scaled to at most 1600 px and sent as JPEG; PDFs are sent as documents; spreadsheets become markdown tables; Word files become text.
 2. **CLASSIFY** (small model): the document's type, purpose, issuer and characteristics; **every existing category** that applies, with the evidence for each; the target its data goes to for review; a confidence. Only category ids that exist are saved.
 3. **EXTRACT** (larger model): the fields of the templates of the assigned categories, merged (see below), and the target's details, validated by its Zod schema with one correction round. Saved in `extracted_fields` and `details`.
-4. **DISCOVER** (larger model): categories that are missing from the table, **even when existing ones already matched**. Saved as suggestions, never as categories (unless `CATEGORY_AUTO_APPROVE=true`).
+4. **DISCOVER** (larger model): categories that are missing from the table, **even when existing ones already matched**. It goes through every dimension (document type, subject, property, person, issuer, attribute) and gives each proposal its dimension and, when one fits, an existing parent. Saved as suggestions, never as categories (unless `CATEGORY_AUTO_APPROVE=true`).
 5. **Finish:** the document becomes PARSED and `document.parsed@1` goes to the review inbox. Every model call is logged in `ingestion.parse_runs` (tokens, latency, output).
 
 The models are told to answer only from what the document shows. A field the document does not contain is stored as `missing`, never filled in.
@@ -182,23 +182,25 @@ Types are `string`, `text`, `number`, `integer`, `amount`, `currency` (ISO 4217)
 
 **Discovery.** The DISCOVER step sees the existing categories, the pending suggestions and the ids you rejected. The worker then normalizes each proposed id, drops anything that matches an existing category by id or title (also loosely: `BILLS` is `BILL`) or one you rejected, and when it matches a pending suggestion, adds the document to that suggestion instead of creating another. A pending id is unique in the table, so a resumed step or two similar documents never duplicate a suggestion.
 
-**Managing categories.** The **Categories** page of the documents app has two tables: suggested categories and confirmed ones, each with id, title and description. A suggestion has **Confirm**, which creates the category and adds it to the documents that suggested it (from the next document on, the AI matches it like any other), plus edit (id, title, description, fields) and delete, which rejects it so it is not suggested again. A confirmed category can be edited (not its id, which documents refer to) or deleted, which takes it off every document. **New category** adds one by hand.
+Each suggestion carries where the AI would place it: a `dimension` and an existing `parentId` (an unknown parent is dropped; under a parent the suggestion takes the parent's dimension). Values that change on every document (dates, amounts, billing period, invoice numbers) stay template fields, never categories; lasting codes go in the template of the category they belong to (customer number in the issuer's, POD or PDR in the property's). **Issuer safety net:** when CLASSIFY read who issued the document, none of its categories is an issuer and the model proposed none, the worker proposes the issuer itself as an `ISSUER` category, named as printed without the legal form (`Acque Veronesi S.c.a r.l.` → `ACQUE_VERONESI`). The usual filter still drops it if it exists or you rejected it.
+
+**Managing categories.** The **Categories** page of the documents app has two tables: suggested categories and confirmed ones, each with id, title and description. A suggestion has **Confirm**, which creates the category and adds it to the documents that suggested it (from the next document on, the AI matches it like any other), plus edit (id, title, parent, dimension, description, fields) and delete, which rejects it so it is not suggested again. A confirmed category can be edited (not its id, which documents refer to) or deleted, which takes it off every document. **New category** adds one by hand.
 
 When a document gains a category, by your edit or a confirmed suggestion, that category's template fields are added to its extracted fields as `missing`, for you to fill in; fields no remaining category asks for are dropped unless they hold a value. The worker does not re-read the document for them yet.
 
-| Call                                                   | What happens                                                                                                      |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `GET /api/ingestion/categories`                        | The categories: templates, `parentId`, `dimension`, `documentCount`, `totalDocumentCount`                         |
-| `GET /api/ingestion/categories/:id/hierarchy`          | Its `ancestors` (root first), `children` and `descendants`                                                        |
-| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`, optional `parentId`, `dimension`                        |
-| `PATCH /api/ingestion/categories/:id`                  | Edit title, description, template; move it (`parentId`, null for the top level); set a root's `dimension`         |
-| `DELETE /api/ingestion/categories/:id`                 | Delete it; `children=MOVE_TO_PARENT\|MAKE_ROOT` (required with subcategories), `documents=REMOVE\|MOVE_TO_PARENT` |
-| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`                                               |
-| `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                                                         |
-| `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category (body: optional `id`, `title`, `description`, `template`, `parentId`, `dimension`)          |
-| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                                                     |
-| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key)                                   |
-| `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                                                           |
+| Call                                                   | What happens                                                                                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/ingestion/categories`                        | The categories: templates, `parentId`, `dimension`, `documentCount`, `totalDocumentCount`                                                   |
+| `GET /api/ingestion/categories/:id/hierarchy`          | Its `ancestors` (root first), `children` and `descendants`                                                                                  |
+| `POST /api/ingestion/categories`                       | Add a category: `id`, `title`, `description`, `template`, optional `parentId`, `dimension`                                                  |
+| `PATCH /api/ingestion/categories/:id`                  | Edit title, description, template; move it (`parentId`, null for the top level); set a root's `dimension`                                   |
+| `DELETE /api/ingestion/categories/:id`                 | Delete it; `children=MOVE_TO_PARENT\|MAKE_ROOT` (required with subcategories), `documents=REMOVE\|MOVE_TO_PARENT`                           |
+| `PATCH /api/ingestion/category-suggestions/:id`        | Edit a pending suggestion: `id`, `title`, `description`, `template`, `parentId`, `dimension`                                                |
+| `GET /api/ingestion/category-suggestions`              | Suggestions; filters `status`, `uploadId`                                                                                                   |
+| `POST /api/ingestion/category-suggestions/:id/approve` | Save it as a category, where the AI placed it unless the body overrides (`id`, `title`, `description`, `template`, `parentId`, `dimension`) |
+| `POST /api/ingestion/category-suggestions/:id/reject`  | Reject (delete) it; it is not suggested again                                                                                               |
+| `PATCH /api/ingestion/uploads/:id`                     | Edit a document: `title`, `description`, `categories`, `fields` (values by key)                                                             |
+| `GET /api/ingestion/parse-queue`                       | The queue: running, idle or paused, why, and until when                                                                                     |
 
 ### Category hierarchies and metadata dimensions
 
@@ -275,7 +277,7 @@ The inbox opens on the documents **waiting for your review** (`Parsed, to review
 
 1. **Status**: the module (Groceries, 730 tax return, or Documents only), the AI's confidence and flags, the original file (shown in place or in a new tab), and the AI processing steps on demand.
 2. **Document**: title and description.
-3. **Categories**: each category the AI suggested for this document, with **Accept** (creates the category and adds it to every document that suggested it) and **Not this one** (declines it for this document only; the last decline rejects the suggestion). Below, the confirmed categories as checkboxes by dimension.
+3. **Categories**: each category the AI suggested for this document, in dimension order and labelled with its kind and parent (`Issuer / supplier`, `Document type, under Bill`), with **Accept** (creates the category and adds it to every document that suggested it) and **Not this one** (declines it for this document only; the last decline rejects the suggestion). Below, the confirmed categories as checkboxes by dimension.
 4. **Kept with the document**: the template fields of its categories. They belong to the document (ingestion) and are sent along on Confirm as `documentFields`, so no correction is lost.
 5. **Sent to the module**: the module, which you can change when the AI picked the wrong one, and the details as a form generated from the target's JSON Schema (choices, dates, number fields, an editable table for receipt items). **Edit as JSON** is still there for anything unusual.
 

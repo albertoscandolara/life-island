@@ -47,6 +47,14 @@
     <ng-template uiCell="title" [uiCellOf]="suggested()" let-row>
       <strong>{{ row.title }}</strong>
     </ng-template>
+    <ng-template uiCell="placement" [uiCellOf]="suggested()" let-row>
+      <ui-badge [tone]="row.dimension ? 'info' : 'neutral'"
+        >{{ dimensionLabel(row.dimension) }}</ui-badge
+      >
+      @if (row.parentId) {
+      <div class="muted small">under {{ store.titleOf(row.parentId) }}</div>
+      }
+    </ng-template>
     <ng-template uiCell="description" [uiCellOf]="suggested()" let-row>
       {{ row.description }} @if (row.reason) {
       <div class="muted small">Why: {{ row.reason }}</div>
@@ -423,7 +431,6 @@
         (input)="updateDraft('title', $event)"
       />
     </ui-form-field>
-    @if (editing()?.kind !== 'suggested') {
     <ui-form-field label="Parent">
       <ui-dropdown
         [options]="draftParentOptions()"
@@ -451,7 +458,6 @@
       />
       }
     </ui-form-field>
-    }
     <ui-form-field label="Description" class="edit__wide">
       <textarea
         uiInput

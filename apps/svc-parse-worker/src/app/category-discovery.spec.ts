@@ -1,7 +1,10 @@
+import type { DocumentAnalysis } from '@life-island/contracts';
 import {
   cleanTemplate,
   filterSuggestions,
+  issuerName,
   normalizeCategoryId,
+  withIssuerFallback,
 } from './category-discovery.js';
 import type { ProposedCategory } from './parsers/document-parser.js';
 
@@ -97,6 +100,192 @@ describe('filterSuggestions', () => {
       id: 'ELECTRICITY_BILL',
       title: 'Electricity bill',
     });
+  });
+});
+
+describe('placement of a suggestion', () => {
+  const tree = [
+    {
+      id: 'BILL',
+      title: 'Bill',
+      description: '',
+      template: { fields: [] },
+      dimension: 'DOCUMENT_TYPE' as const,
+    },
+    { id: 'HOME', title: 'Home', description: '', template: { fields: [] } },
+  ];
+
+  it('goes under an existing parent and takes its dimension', () => {
+    const { accepted } = filterSuggestions(
+      [
+        {
+          ...proposal('ELECTRICITY_BILL', 'Electricity bill'),
+          parentId: 'BILL',
+          dimension: 'SUBJECT',
+        },
+      ],
+      { categories: tree, pending: [], rejectedIds: [] },
+    );
+    expect(accepted[0]).toMatchObject({
+      parentId: 'BILL',
+      dimension: 'DOCUMENT_TYPE',
+    });
+  });
+
+  it('drops a parent that does not exist and keeps a valid dimension', () => {
+    const { accepted } = filterSuggestions(
+      [
+        {
+          ...proposal('ACQUE_VERONESI', 'Acque Veronesi'),
+          parentId: 'WATER_UTILITY',
+          dimension: 'ISSUER',
+        },
+        {
+          ...proposal('TREGNAGO_HOUSE', 'Tregnago house'),
+          dimension: 'PLACE' as never,
+        },
+      ],
+      { categories: tree, pending: [], rejectedIds: [] },
+    );
+    expect(
+      accepted.map(({ id, parentId, dimension }) => ({
+        id,
+        parentId,
+        dimension,
+      })),
+    ).toEqual([
+      { id: 'ACQUE_VERONESI', parentId: null, dimension: 'ISSUER' },
+      { id: 'TREGNAGO_HOUSE', parentId: null, dimension: null },
+    ]);
+  });
+});
+
+describe('issuerName', () => {
+  it.each([
+    ['Acque Veronesi S.c.a r.l.', 'Acque Veronesi'],
+    ['ENEL ENERGIA S.p.A.', 'ENEL ENERGIA'],
+    ['Lena Srl', 'Lena'],
+    ['Farmacia Rossi, S.n.c.', 'Farmacia Rossi'],
+    ['Amazon EU S.à r.l.', 'Amazon EU'],
+    ['Comune di Verona', 'Comune di Verona'],
+    ['SPA', 'SPA'],
+  ])('%s → %s', (printed, name) => {
+    expect(issuerName(printed)).toBe(name);
+  });
+});
+
+describe('withIssuerFallback (the ACQUE_VERONESI case)', () => {
+  const categories = [
+    {
+      id: 'BILL',
+      title: 'Bill',
+      description: '',
+      template: { fields: [] },
+      dimension: 'DOCUMENT_TYPE' as const,
+    },
+    {
+      id: 'WATER_BILL',
+      title: 'Water bill',
+      description: '',
+      template: { fields: [] },
+      dimension: 'DOCUMENT_TYPE' as const,
+      parentId: 'BILL',
+    },
+    {
+      id: 'LENA',
+      title: 'Lena',
+      description: '',
+      template: { fields: [] },
+      dimension: 'ISSUER' as const,
+    },
+  ];
+  const analysis = (issuer: string | null) =>
+    ({
+      documentType: 'water bill',
+      purpose: '',
+      characteristics: [],
+      issuer,
+    }) as unknown as DocumentAnalysis;
+
+  it('proposes the issuer the model left out', () => {
+    const result = withIssuerFallback(
+      [proposal('WATER_SUPPLY', 'Water supply')],
+      {
+        categories,
+        analysis: analysis('Acque Veronesi S.c.a r.l.'),
+        assignedIds: ['BILL', 'WATER_BILL'],
+      },
+    );
+    expect(result.map((item) => item.id)).toEqual([
+      'WATER_SUPPLY',
+      'ACQUE_VERONESI',
+    ]);
+    expect(result[1]).toMatchObject({
+      title: 'Acque Veronesi',
+      dimension: 'ISSUER',
+      parentId: null,
+    });
+    const { accepted } = filterSuggestions(result, {
+      categories,
+      pending: [],
+      rejectedIds: [],
+    });
+    expect(accepted.map((item) => item.id)).toContain('ACQUE_VERONESI');
+  });
+
+  it('adds nothing when the issuer is already assigned, proposed, or not shown', () => {
+    const base = [proposal('WATER_SUPPLY')];
+    expect(
+      withIssuerFallback(base, {
+        categories,
+        analysis: analysis('Lena S.r.l.'),
+        assignedIds: ['LENA'],
+      }),
+    ).toBe(base);
+    const proposed = [
+      { ...proposal('ACQUE_VERONESI'), dimension: 'ISSUER' as const },
+    ];
+    expect(
+      withIssuerFallback(proposed, {
+        categories,
+        analysis: analysis('Acque Veronesi'),
+        assignedIds: [],
+      }),
+    ).toBe(proposed);
+    expect(
+      withIssuerFallback(base, {
+        categories,
+        analysis: analysis(null),
+        assignedIds: [],
+      }),
+    ).toBe(base);
+  });
+
+  it('is dropped by the filter when that issuer exists or was rejected', () => {
+    const existingIssuer = withIssuerFallback([], {
+      categories,
+      analysis: analysis('LENA SRL'),
+      assignedIds: [],
+    });
+    expect(
+      filterSuggestions(existingIssuer, {
+        categories,
+        pending: [],
+        rejectedIds: [],
+      }).accepted,
+    ).toEqual([]);
+    const rejected = withIssuerFallback([], {
+      categories,
+      analysis: analysis('Acque Veronesi'),
+      assignedIds: [],
+    });
+    expect(
+      filterSuggestions(rejected, {
+        categories,
+        pending: [],
+        rejectedIds: ['ACQUE_VERONESI'],
+      }).accepted,
+    ).toEqual([]);
   });
 });
 

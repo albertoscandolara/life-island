@@ -48,6 +48,8 @@ const DISCOVERABLE: (ProposedCategory & { words: RegExp })[] = [
   {
     id: 'ELECTRICITY_BILL',
     title: 'Electricity bill',
+    dimension: 'DOCUMENT_TYPE',
+    parentId: 'BILL',
     description:
       'A bill for electricity supply, usually with consumption in kWh.',
     reason: 'The document mentions electricity',
@@ -84,6 +86,8 @@ const DISCOVERABLE: (ProposedCategory & { words: RegExp })[] = [
     title: name.charAt(0) + name.slice(1).toLowerCase(),
     description: `Documents issued by ${name.charAt(0) + name.slice(1).toLowerCase()}.`,
     reason: `The document is issued by ${name}`,
+    dimension: 'ISSUER' as const,
+    parentId: null,
     words: new RegExp(`\\b${name}\\b`, 'i'),
     template: {
       fields: [
@@ -248,6 +252,8 @@ export class FakeParser implements DocumentAnalyzer {
       description: candidate.description,
       reason: candidate.reason,
       template: candidate.template,
+      parentId: candidate.parentId,
+      dimension: candidate.dimension,
     }));
     return {
       runs: [

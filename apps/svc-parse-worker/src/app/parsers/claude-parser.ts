@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import {
+  CATEGORY_DIMENSIONS,
   CATEGORY_DIMENSION_LABELS,
   DESCRIPTION_MAX_LENGTH,
   GENERAL_TARGET_KEY,
@@ -32,7 +33,7 @@ import {
 } from './document-parser.js';
 import { classifyProviderError } from './provider-errors.js';
 
-export const PROMPT_VERSION = 'categories-2';
+export const PROMPT_VERSION = 'categories-3';
 const LOW_CONFIDENCE = 0.8;
 
 const GROUNDING = `Base every answer only on what the document itself shows. Never invent, guess or fill in information from general knowledge: when something is not in the document, say so.`;
@@ -151,18 +152,27 @@ function fieldListText(plan: ExtractionPlan): string {
 // ---------------------------------------------------------------------------
 // DISCOVER
 
-const DISCOVER_INSTRUCTIONS = `You curate the category taxonomy of a personal document archive. Categories are reusable labels with an extraction template; a document can have many.
+const DISCOVER_INSTRUCTIONS = `You curate the category taxonomy of a personal document archive. Categories are reusable labels with an extraction template; a document can have many, and they are how the person will later find, group and total documents (every bill from ACQUE_VERONESI, everything about the house in TREGNAGO, every expense for a child).
 ${GROUNDING}
 
-Propose NEW categories that would usefully classify this document and that the existing categories and pending suggestions do not already cover.
-- Look at the document type, its purpose, the vendor or issuer, and other useful characteristics (for example ELECTRICITY_BILL, ENEL, LIDL, CAR_INSURANCE).
-- Do this even when existing categories already apply: a document can be BILL and EXPENSE and still deserve ELECTRICITY_BILL and ENEL.
-- Never duplicate an existing or pending category by id, title or meaning (no synonyms, plurals, abbreviations or translations). If a pending suggestion fits the document, return it with exactly its id, title, description and fields.
-- Skip categories that add nothing over an existing broader one, and labels only this single document could ever use (a date, an amount, an invoice number).
+Propose the NEW categories this document calls for that no existing category or pending suggestion already covers. Go through every dimension and ask what this document shows for it:
+- DOCUMENT_TYPE: what it is, as specific as is useful (ELECTRICITY_BILL under BILL, CAR_INSURANCE_POLICY).
+- SUBJECT: what it is about (WATER_SUPPLY, CAR, SCHOOL).
+- PROPERTY: the property or place it concerns, when it names one (a supply address, a rented flat, a car plate): name it by the place (TREGNAGO_HOUSE, VIA_ROMA_FLAT).
+- PERSON: who it concerns, when it names a person other than a company (the account holder, the patient), by name as printed.
+- ISSUER: who issued it (the utility, shop, insurer, doctor, public office), with the name as printed and without the legal form (ACQUE_VERONESI for "Acque Veronesi S.c.a r.l.", ENEL, LIDL). When the document names its issuer and no existing issuer category is that issuer, ALWAYS propose it.
+- ATTRIBUTE: lasting traits worth filtering on (RECURRING, DIRECT_DEBIT, TAX_DEDUCTIBLE).
+Rules:
+- Do this even when existing categories already apply: a document can be BILL, WATER_BILL and EXPENSE and still deserve ACQUE_VERONESI and TREGNAGO_HOUSE.
+- A template field never replaces a category: an existing "provider" or "customer_id" field does not make an issuer category unnecessary.
+- Values that change from one document to the next (dates, amounts, the billing period, invoice numbers) are not categories: they are template fields. Put lasting codes in the template of the category they belong to: the customer or contract number in the issuer's template, the supply point code (POD, PDR) or cadastral data in the property's.
+- Never duplicate an existing or pending category by id, title or meaning (no synonyms, plurals, abbreviations or translations). If a pending suggestion fits the document, return it with exactly its id, title, description, dimension, parent and fields.
 - Only propose what the document supports. Return an empty list when nothing useful is missing.
 For each proposal give:
 - id: UPPER_SNAKE_CASE in English; brand and issuer names as written (ACQUE_VERONESI, ENEL).
 - title, and a description that says when to use the category.
+- dimension: one of ${CATEGORY_DIMENSIONS.join(', ')}, or null for a general category.
+- parentId: the id of an EXISTING category it belongs under (WATER_BILL under BILL, ACQUE_VERONESI under a WATER_UTILITY issuer category if one exists), or null. A subcategory has its parent's dimension.
 - fields: 1 to 15 fields worth extracting from any future document of this category, each with a lower_snake_case key, label, type (${TEMPLATE_FIELD_TYPES.join(', ')}), description, whether it is required, a unit for quantities, and options for enum fields. Reuse an existing field key whenever the meaning is the same.`;
 
 const discoverySchema = z.object({
@@ -172,6 +182,11 @@ const discoverySchema = z.object({
       title: z.string(),
       description: z.string(),
       reason: z.string().describe('What in this document calls for it'),
+      dimension: z.enum(CATEGORY_DIMENSIONS).nullable(),
+      parentId: z
+        .string()
+        .nullable()
+        .describe('Id of an existing category to put it under, or null'),
       fields: z.array(
         z.object({
           key: z.string(),
@@ -198,6 +213,19 @@ function discoveryContextText(context: DiscoveryContext): string {
     `Never propose these rejected ids: ${context.rejectedIds.join(', ') || 'none'}`,
     `Field keys already in use: ${[...keys].map(([key, type]) => `${key} (${type})`).join(', ') || 'none'}`,
   ].join('\n\n');
+}
+
+/** What the classifier already read, so discovery starts from it. */
+function analysisText(context: DiscoveryContext): string {
+  const { analysis } = context;
+  return [
+    `This document is a ${analysis.documentType} (${analysis.purpose}).`,
+    `Issued by: ${analysis.issuer ?? 'not shown'}.`,
+    ...(analysis.characteristics.length
+      ? [`Traits: ${analysis.characteristics.join('; ')}.`]
+      : []),
+    `It already has these categories: ${context.assignedIds.join(', ') || 'none'}.`,
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -450,7 +478,7 @@ export class ClaudeParser implements DocumentAnalyzer {
                 documentBlock(part.document),
                 {
                   type: 'text',
-                  text: `${hintsOf(part, info)}\n\nThis document is a ${context.analysis.documentType} (${context.analysis.purpose}). It already has these categories: ${context.assignedIds.join(', ') || 'none'}.\nWhich new categories should exist for it?`,
+                  text: `${hintsOf(part, info)}\n\n${analysisText(context)}\nWhich new categories should exist for it?`,
                 },
               ],
             },
@@ -465,6 +493,8 @@ export class ClaudeParser implements DocumentAnalyzer {
             title: suggestion.title,
             description: suggestion.description,
             reason: suggestion.reason,
+            parentId: suggestion.parentId,
+            dimension: suggestion.dimension,
             template: {
               fields: suggestion.fields.map(({ unit, options, ...field }) => ({
                 ...field,

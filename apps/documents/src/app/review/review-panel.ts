@@ -19,6 +19,8 @@ import type {
 } from '@life-island/contracts';
 import { toggleCategory } from '@life-island/contracts/category-tree';
 import {
+  CATEGORY_DIMENSION_LABELS,
+  CATEGORY_DIMENSIONS,
   CONFIRMABLE_STATUSES,
   LOADING_MODULES,
   MODULE_LABELS,
@@ -208,13 +210,34 @@ export class ReviewPanel {
     })).filter((group) => group.categories.length);
   });
 
-  /** Pending suggestions for this document, to accept or decline here. */
+  /**
+   * Pending suggestions for this document, to accept or decline here, in
+   * dimension order (document type, subject, property, person, issuer...).
+   */
   protected readonly suggestions = computed<CategorySuggestionDto[]>(() => {
     const uploadId = this.upload.value()?.id;
-    return (this.store.suggested.value() ?? []).filter(
-      (suggestion) => !!uploadId && suggestion.uploadIds.includes(uploadId),
-    );
+    const rank = (suggestion: CategorySuggestionDto) =>
+      suggestion.dimension
+        ? CATEGORY_DIMENSIONS.indexOf(suggestion.dimension)
+        : CATEGORY_DIMENSIONS.length;
+    return (this.store.suggested.value() ?? [])
+      .filter(
+        (suggestion) => !!uploadId && suggestion.uploadIds.includes(uploadId),
+      )
+      .sort((a, b) => rank(a) - rank(b));
   });
+
+  /** What kind of metadata a suggestion is, and where it would go: `Issuer / supplier`, `Document type, under Bill`. */
+  protected placementOf(suggestion: CategorySuggestionDto): string {
+    const parent =
+      suggestion.parentId && this.store.hierarchy().get(suggestion.parentId)
+        ? `under ${this.store.titleOf(suggestion.parentId)}`
+        : '';
+    const kind = suggestion.dimension
+      ? CATEGORY_DIMENSION_LABELS[suggestion.dimension]
+      : '';
+    return [kind, parent].filter(Boolean).join(', ');
+  }
 
   // ---- module and details --------------------------------------------------
 
