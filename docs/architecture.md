@@ -22,7 +22,7 @@ Goals: a project you use every day, practice with modern Angular, micro-frontend
 
 These rules are non-negotiable. Every new feature, service or module is checked against them.
 
-1. **Each service owns its data.** One Postgres schema per service, accessed with its own database user. No service reads or writes another service's tables, and there are no foreign keys across schemas.
+1. **Each service owns its data.** One Postgres schema per service, accessed with its own database user. No service reads or writes another service's tables, and there are no foreign keys across schemas. (The parse worker is the ingestion service's background process, not a separate service: it shares the `ingestion` schema and role through `libs/ingestion-db`.)
 2. **Services talk through APIs or events only.** Synchronous reads go through HTTP APIs; state changes travel as events on NATS JetStream.
 3. **Every event leaves through a transactional outbox.** The database change and the outbox row are written in the same transaction, so a change and its event can never disagree.
 4. **Every consumer is idempotent.** It records processed event ids (`processed_events`), and domain rows carry a unique `source_staging_id`, so a redelivered event never creates duplicates.

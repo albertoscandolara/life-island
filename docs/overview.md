@@ -93,11 +93,11 @@ sequenceDiagram
   W->>W: classify (Haiku), extract (Sonnet), validate, self-correct
   W->>N: document.parsed with category and details (via outbox)
   N->>REV: document.parsed, record shown as PARSED
-  You->>FE: open the details in Ptera's inbox, confirm
+  You->>FE: review it in Ptera's inbox, fix it, confirm (or reject)
   FE->>REV: POST /records/:id/confirm
   REV->>N: record.approved (via outbox)
-  N->>DOM: record.approved (planned)
-  DOM->>DOM: insert, unique source_record_id
+  N->>DOM: record.approved
+  DOM->>DOM: insert, unique source_staging_id
   DOM->>N: record.loaded (via outbox)
   N->>REV: record.loaded, mark LOADED
 ```
@@ -136,12 +136,14 @@ Week 1 of the [roadmap](architecture.md#roadmap) is complete:
 | Event envelope and versioned contract names                                                                 | `libs/contracts`                                                 | [Events and the outbox](guides/events-and-outbox.md#contracts)               |
 | Service DB factory, outbox writer, outbox relay, idempotent consumer                                        | `libs/be-common`                                                 | [Events and the outbox](guides/events-and-outbox.md)                         |
 | CI: format, sync, styles, isolation check, `nx affected` lint/test/build/typecheck                          | `.github/workflows/ci.yml`                                       | [Testing and CI](guides/testing-and-ci.md)                                   |
-| Documents loader: upload API, scheduled AI parse worker, review inbox with confirm                          | `apps/svc-ingestion`, `apps/svc-parse-worker`, `apps/svc-review` | [Documents loader](guides/documents-loader.md)                               |
+| Documents loader: upload API, scheduled AI parse worker, review inbox with confirm, reject and retarget     | `apps/svc-ingestion`, `apps/svc-parse-worker`, `apps/svc-review` | [Documents loader](guides/documents-loader.md)                               |
+| Domain services that load confirmed records: groceries (receipts) and 730 (deductible expenses)             | `apps/svc-groceries`, `apps/svc-tax730`                          | [Documents loader](guides/documents-loader.md#reviewing-and-confirming)      |
+| Gateway sign-in (HTTP basic auth, `GATEWAY_AUTH=basic`)                                                     | `infra/caddy/`                                                   | [Storage and gateway](guides/storage-and-gateway.md#sign-in)                 |
 | Documents app (start screen, loader, review) and the Life Island app (shell with a 2D hub)                  | `apps/documents`, `apps/shell`                                   | [Documents loader](guides/documents-loader.md)                               |
 | Angular design system: tokens, character themes, base components                                            | `libs/design-system`                                             | `libs/design-system/README.md`                                               |
 | Target catalog: `grocery.receipt@1`, `tax730.expense@1`, `general.document@1`                               | `libs/contracts/src/lib/targets/`                                | [Documents loader](guides/documents-loader.md#categories-and-target-schemas) |
 
-Not built yet: Native Federation and the 3D hub in the shell, the domain services that load confirmed records (`svc-groceries`, `svc-tax730`) and their front ends, editing details before confirming, and evals.
+Not built yet: Native Federation and the 3D hub in the shell, the front ends of the groceries and 730 modules, single sign-on (OIDC) at the gateway, bulk approve, and evals.
 
 ## Repository map
 
@@ -149,7 +151,8 @@ Not built yet: Native Federation and the 3D hub in the shell, the domain service
 life-island/
 ├── apps/
 │   ├── documents/  shell/         #   Angular apps: documents, and Life Island (module remotes planned)
-│   └── svc-ingestion/  svc-parse-worker/  svc-review/   # NestJS services
+│   ├── svc-ingestion/  svc-parse-worker/  svc-review/   # NestJS services: documents
+│   └── svc-groceries/  svc-tax730/                       # NestJS services: domain modules
 ├── libs/
 │   ├── contracts/                 # Zod contracts shared by every app
 │   ├── be-common/                 # back-end building blocks (DB, migrations, outbox, NATS, S3)
@@ -159,7 +162,7 @@ life-island/
 ├── infra/
 │   ├── docker-compose.yml         # local stack
 │   ├── postgres/init/             # schemas, roles, outbox tables, isolation check
-│   ├── caddy/Caddyfile            # gateway routes
+│   ├── caddy/                     # gateway routes and sign-in
 │   └── seaweedfs/s3.json          # local S3 credentials
 ├── docs/                          # this documentation
 ├── .github/workflows/ci.yml       # CI pipeline

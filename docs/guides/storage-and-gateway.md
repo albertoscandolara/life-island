@@ -65,4 +65,13 @@ The configuration is `infra/caddy/Caddyfile`. Its admin API is off. To add a ser
 docker compose --project-directory . -f infra/docker-compose.yml restart gateway
 ```
 
-In production the same Caddyfile gains a real site address, and Caddy obtains HTTPS certificates automatically. Authentication (OIDC with Keycloak or Zitadel) is planned at the gateway, so services receive only authenticated requests.
+In production the same Caddyfile gains a real site address, and Caddy obtains HTTPS certificates automatically.
+
+### Sign-in
+
+The services have no login of their own, so the gateway is the door. `GATEWAY_AUTH` in `.env` picks a file from `infra/caddy/auth/`:
+
+- `off` (default): no sign-in, for your own machine only.
+- `basic`: HTTP basic auth on every route except `/healthz`. Set `GATEWAY_USER` and `GATEWAY_PASSWORD_HASH` (a bcrypt hash from `caddy hash-password`); see `infra/caddy/README.md`.
+
+Use `basic` for anything reachable from a network, always over HTTPS, and publish only the gateway's port, never the services' (3000-3004). Single sign-on (OIDC with Keycloak or Zitadel) can replace it later without touching the services.
