@@ -13,6 +13,24 @@ export const TAX730_EXPENSE_TYPES = [
   'renovation',
   'other',
 ] as const;
+export type Tax730ExpenseType = (typeof TAX730_EXPENSE_TYPES)[number];
+
+/** How each expense type reads in the app (English) and in the commercialista's files (Italian). */
+export const TAX730_EXPENSE_TYPE_LABELS: Record<
+  Tax730ExpenseType,
+  { en: string; it: string }
+> = {
+  medical: { en: 'Medical', it: 'Spese sanitarie' },
+  medicines: { en: 'Medicines', it: 'Medicinali' },
+  medical_devices: { en: 'Medical devices', it: 'Dispositivi medici' },
+  veterinary: { en: 'Veterinary', it: 'Spese veterinarie' },
+  education: { en: 'Education', it: 'Istruzione' },
+  sport_kids: { en: "Children's sport", it: 'Sport ragazzi' },
+  mortgage_interest: { en: 'Mortgage interest', it: 'Interessi mutuo' },
+  insurance: { en: 'Insurance', it: 'Assicurazioni' },
+  renovation: { en: 'Home renovation', it: 'Ristrutturazione e bonus casa' },
+  other: { en: 'Other', it: 'Altro' },
+};
 
 /** tax730.expense@1: an expense that may be deductible in the Italian 730 return. */
 export const Tax730ExpenseV1 = z

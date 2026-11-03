@@ -147,7 +147,10 @@ services:
     build:
       <<: *service-build
       args: { SERVICE: svc-tax730 }
-    environment: *service-env
+    environment:
+      <<: *service-env
+      # The commercialista's zip reads the original files through svc-ingestion's API.
+      INGESTION_URL: http://svc-ingestion:3000
     depends_on: *service-deps
 
 volumes:

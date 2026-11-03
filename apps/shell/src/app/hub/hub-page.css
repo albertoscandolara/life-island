@@ -1,5 +1,25 @@
 .hero {
+  margin-bottom: var(--space-6);
+}
+
+/* The 3D island, full width, with a soft sea-coloured wash behind it. */
+.island {
+  display: block;
   margin-bottom: var(--space-10);
+  background: radial-gradient(
+    ellipse at 50% 60%,
+    color-mix(in srgb, var(--tone-info) 14%, transparent),
+    transparent 70%
+  );
+}
+
+.island--placeholder {
+  height: clamp(22rem, 62vh, 40rem);
+}
+
+.section-title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xl);
 }
 
 .eyebrow {
@@ -86,6 +106,20 @@ a.module:focus-visible {
 
 .module--planned {
   opacity: 0.85;
+}
+
+.module--planned .module__emblem {
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+
+.module__open {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .module__emblem {

@@ -1,0 +1,317 @@
+<ui-page-header
+  emblem="🦖"
+  heading="730 tax return"
+  subtitle="Every document that goes into your 730, year by year: deductible expenses with their invoice and payment proof, ready for the commercialista."
+>
+  @if (years()?.length) {
+  <a uiButton variant="secondary" uiPageActions [href]="workbookUrl()" download>
+    <ui-icon name="download" [size]="18" /> Excel, every year
+  </a>
+  }
+</ui-page-header>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
+} @if (years() === null) {
+<p class="loading">Loading your tax years…</p>
+} @else if (!years()!.length) {
+<ui-empty-state icon="inbox" heading="No 730 expenses yet">
+  Upload invoices, receipts and payment proofs in the documents app. Once you
+  confirm a deductible expense it lands here, filed under its year.
+</ui-empty-state>
+} @else {
+<nav class="years" aria-label="Tax years">
+  @for (y of years(); track y.taxYear) {
+  <button
+    type="button"
+    class="year"
+    [class.year--on]="y.taxYear === selectedYear()"
+    [attr.aria-current]="y.taxYear === selectedYear() ? 'page' : null"
+    (click)="selectYear(y.taxYear)"
+  >
+    <span class="year__label">730/{{ y.filingYear }}</span>
+    <span class="year__sub">Expenses of {{ y.taxYear }}</span>
+    <span class="year__total">{{ formatEuro(y.total) }}</span>
+    <span class="year__meta">
+      {{ y.expenseCount }} {{ y.expenseCount === 1 ? 'expense' : 'expenses' }}
+      @if (y.missingPaymentCount || y.missingInvoiceCount) {
+      <ui-badge tone="warning"
+        >{{ y.missingPaymentCount + y.missingInvoiceCount }} to
+        complete</ui-badge
+      >
+      } @else if (y.expenseCount) {
+      <ui-badge tone="success">Complete</ui-badge>
+      }
+    </span>
+  </button>
+  }
+</nav>
+
+@if (dossier(); as d) {
+<section class="summary" aria-label="Summary of {{ d.taxYear }}">
+  <div class="tile tile--hero">
+    <span class="tile__label">Deductible expenses {{ d.taxYear }}</span>
+    <span class="tile__value">{{ formatEuro(d.total) }}</span>
+    <span class="tile__note"
+      >For the 730/{{ d.filingYear }}. Verify with your commercialista.</span
+    >
+  </div>
+  <div class="tile">
+    <span class="tile__label">Expenses</span>
+    <span class="tile__value">{{ d.expenseCount }}</span>
+  </div>
+  <div class="tile" [class.tile--warn]="d.missingInvoiceCount">
+    <span class="tile__label">Missing invoice</span>
+    <span class="tile__value">{{ d.missingInvoiceCount }}</span>
+  </div>
+  <div class="tile" [class.tile--warn]="d.missingPaymentCount">
+    <span class="tile__label">Missing payment proof</span>
+    <span class="tile__value">{{ d.missingPaymentCount }}</span>
+  </div>
+  <div class="exports">
+    <a uiButton [href]="zipUrl(d.taxYear)" download>
+      <ui-icon name="folder" [size]="18" /> Zip for the commercialista
+    </a>
+    <a uiButton variant="secondary" [href]="workbookUrl([d.taxYear])" download>
+      <ui-icon name="download" [size]="18" /> Excel {{ d.taxYear }}
+    </a>
+  </div>
+</section>
+
+<div class="grid">
+  <ui-card heading="By type">
+    @if (d.byType.length) {
+    <ul class="bars" role="list">
+      @for (t of d.byType; track t.expenseType) {
+      <li
+        class="bar"
+        [title]="typeLabel(t.expenseType) + ': ' + formatEuro(t.total) + ' in ' + t.count + ' expenses'"
+      >
+        <span class="bar__label">{{ typeLabel(t.expenseType) }}</span>
+        <span class="bar__track">
+          <span
+            class="bar__fill"
+            [style.width.%]="(t.total / maxTypeTotal()) * 100"
+          ></span>
+        </span>
+        <span class="bar__value">{{ formatEuro(t.total) }}</span>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="muted">No expenses in {{ d.taxYear }} yet.</p>
+    }
+  </ui-card>
+
+  <ui-card heading="Documents of the year">
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      uiCardActions
+      type="button"
+      (click)="openPicker({ kind: 'year', roles: ['CERTIFICATION', 'OTHER'] })"
+    >
+      <ui-icon name="plus" [size]="16" /> Add
+    </button>
+    <ul class="docs" role="list">
+      @for (a of d.yearDocuments; track a.uploadId) {
+      <li class="doc">
+        <ui-icon name="file" [size]="18" />
+        <a
+          class="doc__title"
+          [href]="previewUrl(a.uploadId)"
+          target="_blank"
+          rel="noopener"
+          >{{ attachmentTitle(a) }}</a
+        >
+        <ui-badge>{{ roleLabels[a.role] }}</ui-badge>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          type="button"
+          [attr.aria-label]="'Remove ' + attachmentTitle(a)"
+          (click)="removeYearAttachment(a)"
+        >
+          <ui-icon name="x" [size]="16" />
+        </button>
+      </li>
+      } @empty {
+      <li class="muted">
+        Add your Certificazione Unica and anything else the commercialista needs
+        for the whole year.
+      </li>
+      }
+    </ul>
+  </ui-card>
+</div>
+
+<ui-card heading="Expenses of {{ d.taxYear }}" class="expenses-card">
+  <ul class="expenses" role="list">
+    @for (e of d.expenses; track e.id) {
+    <li class="expense" [class.expense--open]="expanded() === e.id">
+      <button
+        type="button"
+        class="expense__row"
+        [attr.aria-expanded]="expanded() === e.id"
+        (click)="toggle(e)"
+      >
+        <span class="expense__date">{{ formatDate(e.date) }}</span>
+        <span class="expense__main">
+          <span class="expense__issuer">{{ e.issuer }}</span>
+          <span class="expense__desc"
+            >{{ e.description || 'No description' }}</span
+          >
+        </span>
+        <span class="expense__type">{{ typeLabel(e.expenseType) }}</span>
+        <span class="expense__checks">
+          <ui-badge [tone]="e.hasInvoice ? 'success' : 'warning'">
+            <ui-icon [name]="e.hasInvoice ? 'check' : 'alert'" [size]="12" />
+            Invoice
+          </ui-badge>
+          <ui-badge [tone]="e.hasPaymentProof ? 'success' : 'warning'">
+            <ui-icon
+              [name]="e.hasPaymentProof ? 'check' : 'alert'"
+              [size]="12"
+            />
+            Payment
+          </ui-badge>
+        </span>
+        <span class="expense__amount">{{ formatEuro(e.amount) }}</span>
+        <ui-icon class="expense__chevron" name="chevron-down" [size]="18" />
+      </button>
+
+      @if (expanded() === e.id) {
+      <div class="expense__detail">
+        <dl class="facts">
+          <div>
+            <dt>Invoice no.</dt>
+            <dd>{{ e.documentNumber || '–' }}</dd>
+          </div>
+          <div>
+            <dt>Paid traceably</dt>
+            <dd>
+              {{ e.traceablePayment === null ? 'Unknown' : e.traceablePayment ?
+              'Yes' : 'No (cash)' }}
+            </dd>
+          </div>
+          <div>
+            <dt>730 row</dt>
+            <dd>{{ e.frame730 || '–' }}</dd>
+          </div>
+          <div>
+            <dt>Beneficiary</dt>
+            <dd>{{ e.beneficiaryFiscalCode || '–' }}</dd>
+          </div>
+        </dl>
+
+        @if (editing() === e.id) {
+        <form
+          class="edit"
+          (submit)="$event.preventDefault(); save(e, description.value, notes.value)"
+        >
+          <label
+            >Description
+            <input
+              #description
+              uiInput
+              [value]="e.description ?? ''"
+              maxlength="300"
+          /></label>
+          <label
+            >Note
+            <input
+              #notes
+              uiInput
+              [value]="e.notes ?? ''"
+              maxlength="500"
+              placeholder="e.g. payment proof on its way"
+          /></label>
+          <div class="edit__actions">
+            <button uiButton size="sm" type="submit">Save</button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="editing.set(null)"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+        } @else {
+        <p class="note">
+          @if (e.notes) { <strong>Note:</strong> {{ e.notes }} }
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="editing.set(e.id)"
+          >
+            <ui-icon name="edit" [size]="16" /> Edit description and note
+          </button>
+        </p>
+        }
+
+        <ul class="docs" role="list">
+          @for (a of e.attachments; track a.uploadId) {
+          <li class="doc">
+            <ui-icon name="file" [size]="18" />
+            <a
+              class="doc__title"
+              [href]="previewUrl(a.uploadId)"
+              target="_blank"
+              rel="noopener"
+              >{{ attachmentTitle(a) }}</a
+            >
+            <ui-badge [tone]="a.role === 'PAYMENT' ? 'info' : 'neutral'"
+              >{{ roleLabels[a.role] }}</ui-badge
+            >
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              [iconOnly]="true"
+              type="button"
+              [attr.aria-label]="'Remove ' + attachmentTitle(a)"
+              (click)="removeExpenseAttachment(e, a)"
+            >
+              <ui-icon name="x" [size]="16" />
+            </button>
+          </li>
+          }
+        </ul>
+        <div class="expense__actions">
+          <button
+            uiButton
+            size="sm"
+            type="button"
+            (click)="openPicker({ kind: 'expense', expense: e, roles: e.hasPaymentProof && !e.hasInvoice ? ['INVOICE', 'PAYMENT', 'OTHER'] : ['PAYMENT', 'INVOICE', 'OTHER'] })"
+          >
+            <ui-icon name="plus" [size]="16" />
+            {{ e.hasPaymentProof ? 'Add a document' : 'Add payment proof' }}
+          </button>
+        </div>
+      </div>
+      }
+    </li>
+    } @empty {
+    <li class="muted">No expenses in {{ d.taxYear }} yet.</li>
+    }
+  </ul>
+</ui-card>
+} @if (years()!.length > 1) {
+<tax-year-comparison [years]="years()!" (pick)="selectYear($event)" />
+} } @if (picker(); as target) {
+<tax-document-picker
+  [(open)]="pickerOpen"
+  [heading]="pickerHeading(target)"
+  [forExpense]="target.kind === 'expense' ? target.expense.id : null"
+  [roles]="target.roles"
+  (picked)="onPicked(target, $event)"
+/>
+}

@@ -1,3 +1,4 @@
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
@@ -8,6 +9,8 @@ import { appRoutes } from './app.routes';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // The areas' remotes call their services with the host's HttpClient.
+    provideHttpClient(withFetch()),
     provideRouter(appRoutes, withComponentInputBinding()),
   ],
 };
