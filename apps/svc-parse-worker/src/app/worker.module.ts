@@ -34,7 +34,11 @@ function createParser(config: WorkerConfig): DocumentAnalyzer {
       extract: config.extractModel,
       discover: config.discoverModel,
     },
-    { chunkChars: config.chunkChars },
+    {
+      chunkChars: config.chunkChars,
+      discoverEffort: config.discoverEffort,
+      extractEffort: config.extractEffort,
+    },
   );
 }
 

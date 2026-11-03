@@ -314,6 +314,26 @@ describe('ClaudeParser', () => {
     expect(prompt).toContain('total_amount (amount)');
   });
 
+  it('runs discovery at the configured effort, low by default', async () => {
+    const context: DiscoveryContext = {
+      categories,
+      pending: [],
+      rejectedIds: [],
+      analysis: { ...classification, categoryEvidence: [], warnings: [] },
+      assignedIds: [],
+    };
+    const reply = { text: JSON.stringify({ suggestions: [] }) };
+    const low = fakeClient([reply]);
+    await new ClaudeParser(low.client, models).discover(input, context);
+    expect(low.requests[0].output_config?.effort).toBe('low');
+
+    const high = fakeClient([reply]);
+    await new ClaudeParser(high.client, models, {
+      discoverEffort: 'high',
+    }).discover(input, context);
+    expect(high.requests[0].output_config?.effort).toBe('high');
+  });
+
   it('reports an exhausted usage quota, with the reset time the provider gives', async () => {
     const { client } = fakeClient([
       apiError(

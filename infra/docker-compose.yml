@@ -121,6 +121,11 @@ services:
       CATEGORY_AUTO_APPROVE: ${CATEGORY_AUTO_APPROVE:-false}
       PARSER: ${PARSER:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PARSE_CLASSIFY_MODEL: ${PARSE_CLASSIFY_MODEL:-}
+      PARSE_DISCOVER_MODEL: ${PARSE_DISCOVER_MODEL:-}
+      PARSE_EXTRACT_MODEL: ${PARSE_EXTRACT_MODEL:-}
+      PARSE_DISCOVER_EFFORT: ${PARSE_DISCOVER_EFFORT:-}
+      PARSE_EXTRACT_EFFORT: ${PARSE_EXTRACT_EFFORT:-}
     depends_on:
       <<: *service-deps
       svc-ingestion: { condition: service_started }

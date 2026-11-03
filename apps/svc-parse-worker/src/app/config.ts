@@ -8,6 +8,24 @@ import {
 
 export type ParserKind = 'claude' | 'fake';
 
+/** How much the model may think before answering: lower is cheaper and faster. */
+export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+const EFFORTS: readonly Effort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+export function effortEnv(
+  name: string,
+  fallback: Effort,
+  env: NodeJS.ProcessEnv = process.env,
+): Effort {
+  const raw = env[name]?.trim().toLowerCase();
+  if (!raw) return fallback;
+  if (!EFFORTS.includes(raw as Effort))
+    throw new Error(
+      `${name} must be one of ${EFFORTS.join(', ')}, got "${raw}"`,
+    );
+  return raw as Effort;
+}
+
 export interface WorkerConfig {
   databaseUrl: string;
   natsUrl: string;
@@ -36,6 +54,12 @@ export interface WorkerConfig {
   classifyModel: string;
   extractModel: string;
   discoverModel: string;
+  /**
+   * Effort of the discovery and extraction calls. Short documents rarely need
+   * long reasoning, and thinking tokens are billed as output.
+   */
+  discoverEffort: Effort;
+  extractEffort: Effort;
   /** Fake parser only: simulate a usage quota of this many AI steps per period (0 = unlimited). */
   fakeQuotaSteps: number;
   fakeQuotaPeriodMinutes: number;
@@ -81,6 +105,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     classifyModel: env['PARSE_CLASSIFY_MODEL'] || 'claude-haiku-5-5',
     extractModel: env['PARSE_EXTRACT_MODEL'] || 'claude-sonnet-5-5',
     discoverModel: env['PARSE_DISCOVER_MODEL'] || 'claude-sonnet-5-5',
+    discoverEffort: effortEnv('PARSE_DISCOVER_EFFORT', 'low', env),
+    extractEffort: effortEnv('PARSE_EXTRACT_EFFORT', 'low', env),
     fakeQuotaSteps: numberEnv('FAKE_QUOTA_STEPS', 0, env),
     fakeQuotaPeriodMinutes: numberEnv('FAKE_QUOTA_PERIOD_MINUTES', 60, env),
   };

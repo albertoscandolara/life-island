@@ -102,20 +102,21 @@ Files go to S3-compatible object storage, never into the database: **SeaweedFS**
 
 `svc-parse-worker` runs every day at a set time, and processes the documents that are ready **one at a time**. A document that fails for its own reasons (unreadable, a temporary error) does not stop the others.
 
-| Variable                                              | Default                                                      | Meaning                                                                                 |
-| ----------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `PARSE_SCHEDULE`                                      | `06:00`                                                      | Time of day of the daily run (`HH:MM`), or any cron expression (`0 */6 * * *`)          |
-| `PARSE_TIMEZONE`                                      | system time zone                                             | Time zone of the schedule, e.g. `Europe/Rome`                                           |
-| `PARSE_RUN_ON_START`                                  | `false`                                                      | Also run once when the worker starts                                                    |
-| `PARSE_MAX_ATTEMPTS`                                  | `5`                                                          | Attempts before a document is marked FAILED (pauses do not count)                       |
-| `PARSE_LEASE_MINUTES`                                 | `5`                                                          | A claim not renewed for this long (a crashed worker) is taken over                      |
-| `PARSE_QUOTA_RETRY_MINUTES`, `…_MAX_MINUTES`          | `360`, `1440`                                                | After a quota error without a reset time: first wait, doubled on each failed check, cap |
-| `PARSE_RATE_LIMIT_RETRY_SECONDS`                      | `60`                                                         | Wait after a rate limit that came without a retry time                                  |
-| `CATEGORY_AUTO_APPROVE`                               | `false`                                                      | Save suggested categories at once instead of waiting for your approval                  |
-| `PARSE_CHUNK_CHARS`                                   | `200000`                                                     | Size of the parts a too-long text is split into                                         |
-| `PARSER`                                              | `claude` with a key, else `fake`                             | Which analyzer to use                                                                   |
-| `PARSE_CLASSIFY_MODEL`, `…_EXTRACT_…`, `…_DISCOVER_…` | `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5-5` | Model of each step                                                                      |
-| `FAKE_QUOTA_STEPS`, `FAKE_QUOTA_PERIOD_MINUTES`       | `0` (off), `60`                                              | Fake parser only: simulate a usage quota, to try the pause and resume locally           |
+| Variable                                              | Default                                                      | Meaning                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `PARSE_SCHEDULE`                                      | `06:00`                                                      | Time of day of the daily run (`HH:MM`), or any cron expression (`0 */6 * * *`)                |
+| `PARSE_TIMEZONE`                                      | system time zone                                             | Time zone of the schedule, e.g. `Europe/Rome`                                                 |
+| `PARSE_RUN_ON_START`                                  | `false`                                                      | Also run once when the worker starts                                                          |
+| `PARSE_MAX_ATTEMPTS`                                  | `5`                                                          | Attempts before a document is marked FAILED (pauses do not count)                             |
+| `PARSE_LEASE_MINUTES`                                 | `5`                                                          | A claim not renewed for this long (a crashed worker) is taken over                            |
+| `PARSE_QUOTA_RETRY_MINUTES`, `…_MAX_MINUTES`          | `360`, `1440`                                                | After a quota error without a reset time: first wait, doubled on each failed check, cap       |
+| `PARSE_RATE_LIMIT_RETRY_SECONDS`                      | `60`                                                         | Wait after a rate limit that came without a retry time                                        |
+| `CATEGORY_AUTO_APPROVE`                               | `false`                                                      | Save suggested categories at once instead of waiting for your approval                        |
+| `PARSE_CHUNK_CHARS`                                   | `200000`                                                     | Size of the parts a too-long text is split into                                               |
+| `PARSER`                                              | `claude` with a key, else `fake`                             | Which analyzer to use                                                                         |
+| `PARSE_CLASSIFY_MODEL`, `…_EXTRACT_…`, `…_DISCOVER_…` | `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5-5` | Model of each step                                                                            |
+| `PARSE_DISCOVER_EFFORT`, `PARSE_EXTRACT_EFFORT`       | `low`, `low`                                                 | How long the model may reason in those steps (`low` to `max`); classification is always `low` |
+| `FAKE_QUOTA_STEPS`, `FAKE_QUOTA_PERIOD_MINUTES`       | `0` (off), `60`                                              | Fake parser only: simulate a usage quota, to try the pause and resume locally                 |
 
 Besides the daily run, the worker wakes up by itself when work becomes due: a pause that ends, a document whose retry delay has passed, or a document left behind by a worker that crashed. Those times are read from the database, so they survive a restart; a worker that was stopped mid-run resumes the run when it starts again.
 
@@ -130,6 +131,8 @@ Every document goes through three steps. Each step's result is committed, with t
 5. **Finish:** the document becomes PARSED and `document.parsed@1` goes to the review inbox. Every model call is logged in `ingestion.parse_runs` (tokens, latency, output).
 
 The models are told to answer only from what the document shows. A field the document does not contain is stored as `missing`, never filled in.
+
+Cost: the document goes to the model once per step, and almost all of the spend is the two Sonnet steps, where reasoning is billed as output. They run at `low` effort, which is enough for the short documents this app reads; raise `PARSE_EXTRACT_EFFORT` if long or messy documents come back with missing fields, or set the discovery and extraction models to `claude-haiku-5-5` to spend much less at some cost in precision. `ingestion.parse_runs` has the tokens of every call.
 
 The fake parser (`PARSER=fake`, the default in `.env.example`) does not understand documents: it classifies by keywords in the file name, title and text (PDF text included), reads only totals, dates, currency and a pay period with regular expressions, takes the issuer from the first company name with a legal form (`ARCODA S.R.L.`), suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests; for real documents set `PARSER=claude` and `ANTHROPIC_API_KEY`.
 

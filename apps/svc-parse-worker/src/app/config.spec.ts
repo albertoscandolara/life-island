@@ -30,4 +30,15 @@ describe('worker config', () => {
         .autoApproveCategories,
     ).toBe(true);
   });
+
+  it('keeps discovery and extraction at low effort unless configured otherwise', () => {
+    expect(loadConfig(env).discoverEffort).toBe('low');
+    expect(loadConfig(env).extractEffort).toBe('low');
+    expect(
+      loadConfig({ ...env, PARSE_EXTRACT_EFFORT: 'High' }).extractEffort,
+    ).toBe('high');
+    expect(() => loadConfig({ ...env, PARSE_DISCOVER_EFFORT: 'huge' })).toThrow(
+      'PARSE_DISCOVER_EFFORT must be one of',
+    );
+  });
 });

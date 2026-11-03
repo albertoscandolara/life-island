@@ -10,6 +10,7 @@ import {
   findTarget,
 } from '@life-island/contracts';
 import { z } from 'zod';
+import type { Effort } from '../config.js';
 import type { NormalizedDocument } from '../normalize.js';
 import {
   buildExtractedFields,
@@ -306,6 +307,18 @@ export interface ClaudeModels {
   discover: string;
 }
 
+export interface ClaudeOptions {
+  chunkChars: number;
+  discoverEffort: Effort;
+  extractEffort: Effort;
+}
+
+const DEFAULT_OPTIONS: ClaudeOptions = {
+  chunkChars: 200_000,
+  discoverEffort: 'low',
+  extractEffort: 'low',
+};
+
 /**
  * The AI analyzer: three independent calls per document, each with structured
  * output (docs/architecture.md, AI extraction workflow). The worker runs them
@@ -323,8 +336,12 @@ export class ClaudeParser implements DocumentAnalyzer {
   constructor(
     private readonly client: Anthropic,
     private readonly models: ClaudeModels,
-    private readonly options: { chunkChars: number } = { chunkChars: 200_000 },
-  ) {}
+    options: Partial<ClaudeOptions> = {},
+  ) {
+    this.options = { ...DEFAULT_OPTIONS, ...options };
+  }
+
+  private readonly options: ClaudeOptions;
 
   async classify(
     input: ParseInput,
@@ -469,7 +486,10 @@ export class ClaudeParser implements DocumentAnalyzer {
               cache_control: { type: 'ephemeral' },
             },
           ],
-          output_config: { format: zodOutputFormat(discoverySchema) },
+          output_config: {
+            effort: this.options.discoverEffort,
+            format: zodOutputFormat(discoverySchema),
+          },
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           messages: [
@@ -541,7 +561,10 @@ export class ClaudeParser implements DocumentAnalyzer {
           cache_control: { type: 'ephemeral' as const },
         },
       ],
-      output_config: { format: zodOutputFormat(schema) },
+      output_config: {
+        effort: this.options.extractEffort,
+        format: zodOutputFormat(schema),
+      },
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default' as const,
     };
