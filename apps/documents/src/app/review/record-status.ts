@@ -8,7 +8,7 @@ export interface StatusView {
 }
 
 export const RECORD_STATUS_VIEW: Record<RecordStatus, StatusView> = {
-  UPLOADED: { label: 'Uploaded', tone: 'neutral' },
+  UPLOADED: { label: 'Uploaded, to parse', tone: 'neutral' },
   PARSING: { label: 'Parsing', tone: 'progress', pulse: true },
   PARTIALLY_PARSED: { label: 'Partially parsed', tone: 'info' },
   PAUSED_QUOTA: { label: 'Paused: AI quota exhausted', tone: 'warning' },

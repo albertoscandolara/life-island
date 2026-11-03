@@ -61,6 +61,28 @@ tbody tr:hover td:first-child {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.ui-table__select {
+  width: 2.75rem;
+  padding-inline-end: 0;
+}
+
+.ui-table__checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ui-table__checkbox:disabled {
+  cursor: default;
+}
+
+tbody tr.ui-table__row--selected td {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-card));
+}
+
 @keyframes ui-row-in {
   from {
     opacity: 0;

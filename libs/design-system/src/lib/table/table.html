@@ -7,7 +7,19 @@
     }
     <thead>
       <tr>
-        @for (column of columns(); track column.key) {
+        @if (selectable()) {
+        <th scope="col" class="ui-table__select">
+          <input
+            type="checkbox"
+            class="ui-table__checkbox"
+            aria-label="Select all rows shown"
+            [checked]="allSelected()"
+            [indeterminate]="someSelected()"
+            [disabled]="selectableKeys().length === 0"
+            (change)="toggleAll(checked($event))"
+          />
+        </th>
+        } @for (column of columns(); track column.key) {
         <th
           scope="col"
           [style.width]="column.width"
@@ -36,8 +48,20 @@
     </thead>
     <tbody>
       @for (row of rows(); track keyOf(row, $index)) {
-      <tr>
-        @for (column of columns(); track column.key) {
+      <tr [class.ui-table__row--selected]="selectable() && isSelected(row)">
+        @if (selectable(); as canSelect) {
+        <td class="ui-table__select" data-label="Select">
+          @if (canSelect(row)) {
+          <input
+            type="checkbox"
+            class="ui-table__checkbox"
+            [attr.aria-label]="selectLabel()(row)"
+            [checked]="isSelected(row)"
+            (change)="toggleRow(row, checked($event))"
+          />
+          }
+        </td>
+        } @for (column of columns(); track column.key) {
         <td
           [class]="'ui-table__cell--' + (column.align ?? 'start')"
           [attr.data-label]="column.header"
@@ -52,7 +76,10 @@
       </tr>
       } @empty {
       <tr>
-        <td class="ui-table__empty" [attr.colspan]="columns().length">
+        <td
+          class="ui-table__empty"
+          [attr.colspan]="columns().length + (selectable() ? 1 : 0)"
+        >
           {{ loading() ? 'Loading…' : emptyMessage() }}
         </td>
       </tr>

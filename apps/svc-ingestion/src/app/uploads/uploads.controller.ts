@@ -17,10 +17,12 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   createUploadRequestSchema,
   listUploadsQuerySchema,
+  reparseUploadsRequestSchema,
   updateUploadRequestSchema,
   type CompleteUploadResponse,
   type CreateUploadResponse,
   type Page,
+  type ReparseUploadsResponse,
   type UploadDto,
 } from '@life-island/contracts';
 import { UploadsService } from './uploads.service.js';
@@ -42,6 +44,18 @@ export class UploadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CompleteUploadResponse> {
     return this.uploads.complete(id);
+  }
+
+  /**
+   * Sends parsed documents back to the parse queue: the AI assigns their
+   * categories and reads their fields again from scratch.
+   */
+  @Post('reparse')
+  @HttpCode(200)
+  reparse(@Body() body: unknown): Promise<ReparseUploadsResponse> {
+    return this.uploads.reparse(
+      parseOrThrow(reparseUploadsRequestSchema, body),
+    );
   }
 
   @Get()

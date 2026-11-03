@@ -14,10 +14,12 @@ import {
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_DELETED_EVENT,
   UPLOAD_PARSING_STARTED_EVENT,
+  UPLOAD_REPARSE_REQUESTED_EVENT,
   UPLOAD_UPDATED_EVENT,
   uploadCompletedV1,
   uploadDeletedV1,
   uploadParsingStartedV1,
+  uploadReparseRequestedV1,
   uploadUpdatedV1,
   type EventEnvelope,
   type RecordStatus,
@@ -32,6 +34,7 @@ export const HANDLED_EVENTS = [
   UPLOAD_PARSING_STARTED_EVENT,
   UPLOAD_UPDATED_EVENT,
   UPLOAD_DELETED_EVENT,
+  UPLOAD_REPARSE_REQUESTED_EVENT,
   DOCUMENT_PARSED_EVENT,
   DOCUMENT_PARSE_FAILED_EVENT,
   DOCUMENT_PARSE_INTERRUPTED_EVENT,
@@ -144,6 +147,36 @@ export async function applyDocumentEvent(
           set: { deletedAt, updatedAt: now },
           setWhere: isNull(stagingRecords.deletedAt),
         });
+      return;
+    }
+    case UPLOAD_REPARSE_REQUESTED_EVENT: {
+      // You sent the document back to the parser: what the AI read is gone,
+      // and so are your corrections to it; the record waits to be parsed
+      // again. Only a record still waiting for review: a confirmed one has
+      // already gone to its module and stays as it is.
+      const e = uploadReparseRequestedV1.parse(event.payload);
+      await db
+        .update(stagingRecords)
+        .set({
+          status: 'UPLOADED',
+          category: null,
+          targetKey: null,
+          aiTargetKey: null,
+          aiPayload: null,
+          reviewedPayload: null,
+          documentFields: null,
+          confidence: null,
+          flags: [],
+          parseError: null,
+          parsedAt: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(stagingRecords.uploadId, e.uploadId),
+            eq(stagingRecords.status, 'PARSED'),
+          ),
+        );
       return;
     }
     case UPLOAD_PARSING_STARTED_EVENT: {

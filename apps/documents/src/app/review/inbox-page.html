@@ -114,11 +114,40 @@
 <ui-alert tone="danger" class="error"
   >The records could not be loaded. Is the review service running?</ui-alert
 >
+} @if (reparseMessage(); as message) {
+<ui-alert [tone]="message.tone" class="error" role="status"
+  >{{ message.text }}</ui-alert
+>
+} @if (picked().length) {
+<div class="selection" role="region" aria-label="Selected documents">
+  <span class="selection__count">{{ picked().length }} selected</span>
+  <button
+    uiButton
+    size="sm"
+    type="button"
+    (click)="reparseMessage.set(null); confirmingReparse.set(true)"
+  >
+    <ui-icon name="refresh" [size]="16" /> Parse again
+  </button>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="picked.set([])"
+  >
+    <ui-icon name="x" [size]="16" /> Clear selection
+  </button>
+</div>
 }
 
 <ui-table
   [columns]="columns"
   [rows]="rows()"
+  rowKey="uploadId"
+  [selectable]="canReparse"
+  [selectLabel]="pickLabel"
+  [(selected)]="picked"
   [loading]="records.isLoading()"
   [(sort)]="sort"
   [(page)]="page"
@@ -188,6 +217,23 @@
     </button>
   </ng-template>
 </ui-table>
+
+<ui-confirm-dialog
+  [(open)]="confirmingReparse"
+  [heading]="'Parse ' + picked().length + ' document' + (picked().length === 1 ? '' : 's') + ' again?'"
+  confirmLabel="Parse again"
+  [busy]="reparsing()"
+  (confirmed)="reparsePicked()"
+>
+  <p>
+    They go back to “Uploaded, to parse”, and the AI reads them again from
+    scratch: it assigns their categories and extracts their fields anew.
+  </p>
+  <p class="muted">
+    The categories, field values and corrections they have now are replaced.
+    They come back to your review queue once parsed.
+  </p>
+</ui-confirm-dialog>
 
 <app-review-panel
   [recordId]="selectedId()"

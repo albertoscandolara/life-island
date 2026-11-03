@@ -16,6 +16,7 @@ import type {
   DeleteCategoryQuery,
   Page,
   ParseQueueDto,
+  ReparseUploadsResponse,
   SuggestionStatus,
   UpdateCategoryRequest,
   UpdateSuggestionRequest,
@@ -179,6 +180,17 @@ export class IngestionApi {
   /** Deletes a document and its file; a module keeps what it already loaded. */
   deleteUpload(uploadId: string): Observable<void> {
     return this.http.delete<void>(`${INGESTION_API}/uploads/${uploadId}`);
+  }
+
+  /**
+   * Sends parsed documents back to the parse queue: the AI reassigns their
+   * categories and reads their fields again, from scratch.
+   */
+  reparseUploads(uploadIds: string[]): Observable<ReparseUploadsResponse> {
+    return this.http.post<ReparseUploadsResponse>(
+      `${INGESTION_API}/uploads/reparse`,
+      { uploadIds },
+    );
   }
 
   /** Parse now: the worker starts a run without waiting for its schedule. */

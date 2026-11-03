@@ -109,3 +109,89 @@ describe('UiTable', () => {
     expect(element.querySelector('.ui-table__pager')).toBeNull();
   });
 });
+
+@Component({
+  imports: [UiTable],
+  template: `
+    <ui-table
+      [columns]="columns"
+      [rows]="rows()"
+      [selectable]="canSelect"
+      [selectLabel]="label"
+      [(selected)]="selected"
+    />
+  `,
+})
+class SelectHost {
+  readonly columns: UiTableColumn[] = [{ key: 'name', header: 'Name' }];
+  readonly rows = signal<Row[]>([
+    { id: 1, name: 'Ann', score: 3 },
+    { id: 2, name: 'Bob', score: 5 },
+    { id: 3, name: 'Cy', score: 0 },
+  ]);
+  readonly canSelect = (row: Row) => row.score > 0;
+  readonly label = (row: Row) => `Select ${row.name}`;
+  readonly selected = signal<readonly unknown[]>([]);
+}
+
+describe('UiTable selection', () => {
+  async function setup() {
+    const fixture = TestBed.createComponent(SelectHost);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const boxes = () =>
+      [...element.querySelectorAll('tbody input[type="checkbox"]')].map(
+        (box) => box as HTMLInputElement,
+      );
+    const all = () =>
+      element.querySelector('thead input[type="checkbox"]') as HTMLInputElement;
+    return { fixture, host: fixture.componentInstance, element, boxes, all };
+  }
+
+  it('offers a checkbox only on selectable rows, labelled per row', async () => {
+    const { boxes } = await setup();
+    expect(boxes().map((box) => box.getAttribute('aria-label'))).toEqual([
+      'Select Ann',
+      'Select Bob',
+    ]);
+  });
+
+  it('selects rows one by one and marks the header as partly checked', async () => {
+    const { fixture, host, boxes, all } = await setup();
+    boxes()[1].click();
+    await fixture.whenStable();
+    expect(host.selected()).toEqual([2]);
+    expect(all().indeterminate).toBe(true);
+    expect(all().checked).toBe(false);
+
+    boxes()[0].click();
+    await fixture.whenStable();
+    expect(host.selected()).toEqual([2, 1]);
+    expect(all().checked).toBe(true);
+    expect(all().indeterminate).toBe(false);
+
+    boxes()[1].click();
+    await fixture.whenStable();
+    expect(host.selected()).toEqual([1]);
+  });
+
+  it('selects and clears every selectable row shown from the header', async () => {
+    const { fixture, host, all } = await setup();
+    host.selected.set([99]); // picked on another page: kept
+    await fixture.whenStable();
+    all().click();
+    await fixture.whenStable();
+    expect(host.selected()).toEqual([99, 1, 2]);
+    all().click();
+    await fixture.whenStable();
+    expect(host.selected()).toEqual([99]);
+  });
+
+  it('adds no column without `selectable`', async () => {
+    const fixture = TestBed.createComponent(Host);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(element.querySelectorAll('thead th')).toHaveLength(2);
+  });
+});

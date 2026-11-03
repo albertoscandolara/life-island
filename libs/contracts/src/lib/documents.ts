@@ -89,6 +89,23 @@ export const updateUploadRequestSchema = z.object({
 });
 export type UpdateUploadRequest = z.input<typeof updateUploadRequestSchema>;
 
+/**
+ * Parsed documents to send back to the parse queue: the AI starts over on
+ * each, from classification, and assigns its categories and reads its fields
+ * again. Only documents whose parsing finished (PARSED) qualify.
+ */
+export const reparseUploadsRequestSchema = z.object({
+  uploadIds: z.array(z.uuid()).min(1).max(100),
+});
+export type ReparseUploadsRequest = z.input<typeof reparseUploadsRequestSchema>;
+
+export interface ReparseUploadsResponse {
+  /** Documents now waiting to be parsed again. */
+  requeued: string[];
+  /** Documents left as they were: unknown, or not parsed (yet, or any more). */
+  skipped: string[];
+}
+
 export interface CreateUploadResponse {
   uploadId: string;
   /** Presigned PUT URL: send the file body here with the given headers. */

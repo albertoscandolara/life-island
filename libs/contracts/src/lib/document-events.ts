@@ -62,6 +62,18 @@ export const uploadDeletedV1 = z.object({
 });
 export type UploadDeletedV1 = z.infer<typeof uploadDeletedV1>;
 
+/**
+ * You sent a parsed document back to the parse queue: everything the AI read
+ * (categories, fields, target data) is cleared and it will be parsed again
+ * from scratch. Consumers put a record not yet confirmed back to waiting.
+ */
+export const UPLOAD_REPARSE_REQUESTED_EVENT = 'upload.reparse_requested@1';
+export const uploadReparseRequestedV1 = z.object({
+  uploadId: z.uuid(),
+  requestedAt: z.iso.datetime({ offset: true }),
+});
+export type UploadReparseRequestedV1 = z.infer<typeof uploadReparseRequestedV1>;
+
 export const UPLOAD_PARSING_STARTED_EVENT = 'upload.parsing_started@1';
 export const uploadParsingStartedV1 = z.object({
   uploadId: z.uuid(),

@@ -168,6 +168,67 @@ describe.skipIf(!configured)(
       ).toBe(409);
     });
 
+    it('puts a record waiting for review back to parse when you ask for it, and leaves a confirmed one alone', async () => {
+      const u = upload('reparse');
+      await apply('upload.completed@1', u);
+      await apply('document.parsed@1', parsed(u));
+      const { sizeBytes: _size, ...metadata } = u;
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: ['BILL'],
+        suggestedCategories: [],
+        fields: { amount: 12 },
+        updatedAt: new Date().toISOString(),
+      });
+      let record = await findByTitle(u.title);
+      await send('PATCH', `/records/${record.id}`, {
+        details: { ...details, summary: 'edited' },
+      });
+
+      await apply('upload.reparse_requested@1', {
+        uploadId: u.uploadId,
+        requestedAt: new Date().toISOString(),
+      });
+      record = await findByTitle(u.title);
+      expect(record).toMatchObject({
+        status: 'UPLOADED',
+        category: null,
+        targetKey: null,
+        confidence: null,
+        flags: [],
+        parsedAt: null,
+      });
+      const { rows } = await svc.pool.query(
+        `select ai_payload, reviewed_payload, document_fields
+           from review.staging_records where id = $1`,
+        [record.id],
+      );
+      expect(rows[0]).toEqual({
+        ai_payload: null,
+        reviewed_payload: null,
+        document_fields: null,
+      });
+
+      // The new parse lands as usual.
+      await apply('upload.parsing_started@1', {
+        uploadId: u.uploadId,
+        attempt: 1,
+        startedAt: new Date().toISOString(),
+      });
+      expect((await findByTitle(u.title)).status).toBe('PARSING');
+      await apply('document.parsed@1', parsed(u));
+      record = await findByTitle(u.title);
+      expect(record.status).toBe('PARSED');
+
+      // Once confirmed, the record has gone to its module and stays.
+      await send('POST', `/records/${record.id}/confirm`, {});
+      await apply('upload.reparse_requested@1', {
+        uploadId: u.uploadId,
+        requestedAt: new Date().toISOString(),
+      });
+      expect((await findByTitle(u.title)).status).toBe('CONFIRMED');
+    });
+
     it('follows a document from upload to confirmation, emitting record.approved', async () => {
       const u = upload('letter');
       await apply('upload.completed@1', u);
