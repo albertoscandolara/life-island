@@ -25,12 +25,16 @@ import {
   fileFormatFromMime,
   listUploadsQuerySchema,
   MAX_UPLOAD_BYTES,
+  reparseUploadsRequestSchema,
   updateUploadRequestSchema,
   UPLOAD_COMPLETED_EVENT,
+  UPLOAD_REPARSE_REQUESTED_EVENT,
   type CompleteUploadResponse,
   type CreateUploadResponse,
   type Page,
+  type ReparseUploadsResponse,
   type UploadCompletedV1,
+  type UploadReparseRequestedV1,
   type UploadDto,
 } from '@life-island/contracts';
 import {
@@ -59,6 +63,7 @@ import { inspectFile } from './file-inspection.js';
 type CreateUpload = z.output<typeof createUploadRequestSchema>;
 type ListUploads = z.output<typeof listUploadsQuerySchema>;
 type UpdateUpload = z.output<typeof updateUploadRequestSchema>;
+type ReparseUploads = z.output<typeof reparseUploadsRequestSchema>;
 
 function titleFromFilename(filename: string): string {
   const base = filename
@@ -368,6 +373,81 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         .returning();
       await enqueueUploadUpdated(client, this.svc.schema, [id]);
       return toUploadDto(saved);
+    });
+  }
+
+  /**
+   * Sends parsed documents back to the parse queue, to be read again from
+   * scratch: the AI reassigns their categories and re-extracts their fields.
+   * What the last run produced (categories, analysis, fields, target data,
+   * flags, completed steps) is cleared; title and description stay. Pending
+   * category suggestions forget these documents, and a suggestion left with
+   * none is dropped (not rejected: the AI may propose it again). Only PARSED
+   * documents qualify; the others are reported as skipped. One transaction
+   * tells the review inbox through `upload.reparse_requested` and
+   * `upload.updated`. The worker picks them up on its next run (or Parse now).
+   */
+  async reparse(request: ReparseUploads): Promise<ReparseUploadsResponse> {
+    const ids = [...new Set(request.uploadIds)];
+    return withTransaction(this.svc.pool, async (client) => {
+      const now = new Date();
+      const requeued = await drizzle(client)
+        .update(uploads)
+        .set({
+          status: 'TO_BE_PARSED',
+          attempts: 0,
+          nextAttemptAt: now,
+          lastAttemptAt: null,
+          lastError: null,
+          categories: [],
+          completedSteps: [],
+          currentStep: null,
+          analysis: null,
+          extractedFields: null,
+          targetKey: null,
+          details: null,
+          confidence: null,
+          flags: [],
+          parsedAt: null,
+          updatedAt: now,
+        })
+        // Only finished documents: never one the worker holds.
+        .where(and(inArray(uploads.id, ids), eq(uploads.status, 'PARSED')))
+        .returning({ id: uploads.id });
+      const requeuedIds = requeued.map((row) => row.id);
+      if (requeuedIds.length) {
+        await client.query(
+          `update ingestion.category_suggestions
+              set upload_ids = array(select id from unnest(upload_ids) as id
+                                      where id <> all($1::uuid[])),
+                  updated_at = now()
+            where status = 'PENDING' and upload_ids && $1::uuid[]`,
+          [requeuedIds],
+        );
+        await client.query(
+          `delete from ingestion.category_suggestions
+            where status = 'PENDING' and cardinality(upload_ids) = 0`,
+        );
+        for (const uploadId of requeuedIds) {
+          const event: UploadReparseRequestedV1 = {
+            uploadId,
+            requestedAt: now.toISOString(),
+          };
+          await enqueueEvent(client, this.svc.schema, {
+            type: UPLOAD_REPARSE_REQUESTED_EVENT,
+            payload: event,
+          });
+        }
+        await enqueueUploadUpdated(client, this.svc.schema, requeuedIds);
+        this.logger.log(
+          `Sent ${requeuedIds.length} document(s) back to the parse queue`,
+        );
+      }
+      const sent = new Set(requeuedIds);
+      return {
+        requeued: ids.filter((id) => sent.has(id)),
+        skipped: ids.filter((id) => !sent.has(id)),
+      };
     });
   }
 

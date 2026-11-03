@@ -59,9 +59,14 @@ export class UiCellDef<T = unknown> {
 }
 
 /**
- * Data table with sortable headers, custom cells, loading and empty states and
- * an optional pager. Sorting and paging are controlled: the table emits the
- * new `sort` / `page` and the caller fetches the rows.
+ * Data table with sortable headers, custom cells, loading and empty states,
+ * optional row selection and an optional pager. Sorting, paging and selection
+ * are controlled: the table emits the new `sort` / `page` / `selected` and the
+ * caller fetches the rows.
+ *
+ * Selection: pass `selectable` (which rows can be picked) and bind
+ * `[(selected)]` to the picked rows' keys (`rowKey`). A checkbox column comes
+ * first; the header checkbox picks or clears every selectable row shown.
  */
 @Component({
   selector: 'ui-table',
@@ -85,6 +90,13 @@ export class UiTable<T extends object> {
   readonly pageSize = input(20);
   readonly total = input<number | null>(null);
 
+  /** Which rows can be selected; null (the default) shows no selection column. */
+  readonly selectable = input<((row: T) => boolean) | null>(null);
+  /** Keys (`rowKey`) of the selected rows, in the order they were picked. */
+  readonly selected = model<readonly unknown[]>([]);
+  /** What a row's checkbox says to screen readers, e.g. its title. */
+  readonly selectLabel = input<(row: T) => string>(() => 'Select row');
+
   private readonly cellDefs = contentChildren(UiCellDef);
   protected readonly templates = computed(
     () => new Map(this.cellDefs().map((def) => [def.column(), def.template])),
@@ -100,6 +112,46 @@ export class UiTable<T extends object> {
     const last = Math.min(total, first + this.pageSize() - 1);
     return `${first}–${last} of ${total}`;
   });
+
+  /** Keys of the rows shown that can be selected. */
+  protected readonly selectableKeys = computed(() => {
+    const canSelect = this.selectable();
+    if (!canSelect) return [];
+    return this.rows()
+      .filter((row) => canSelect(row))
+      .map((row) => this.keyOf(row, -1));
+  });
+  protected readonly allSelected = computed(() => {
+    const keys = this.selectableKeys();
+    const selected = new Set(this.selected());
+    return keys.length > 0 && keys.every((key) => selected.has(key));
+  });
+  protected readonly someSelected = computed(
+    () =>
+      !this.allSelected() &&
+      this.selectableKeys().some((key) => this.selected().includes(key)),
+  );
+
+  protected isSelected(row: T): boolean {
+    return this.selected().includes(this.keyOf(row, -1));
+  }
+
+  protected toggleRow(row: T, checked: boolean): void {
+    const key = this.keyOf(row, -1);
+    const rest = this.selected().filter((item) => item !== key);
+    this.selected.set(checked ? [...rest, key] : rest);
+  }
+
+  /** Header checkbox: picks every selectable row shown, or clears them. */
+  protected toggleAll(checked: boolean): void {
+    const shown = new Set(this.selectableKeys());
+    const rest = this.selected().filter((key) => !shown.has(key));
+    this.selected.set(checked ? [...rest, ...shown] : rest);
+  }
+
+  protected checked(event: Event): boolean {
+    return (event.target as HTMLInputElement).checked;
+  }
 
   protected keyOf(row: T, index: number): unknown {
     return (row as Record<string, unknown>)[this.rowKey()] ?? index;

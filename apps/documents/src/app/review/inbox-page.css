@@ -88,3 +88,21 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
+}
+
+.selection__count {
+  margin-inline-end: auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}

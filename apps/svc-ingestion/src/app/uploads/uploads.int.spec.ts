@@ -165,6 +165,100 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
     });
   });
 
+  it('sends parsed documents back to the parse queue, clearing what the AI read', async () => {
+    const parsedDoc = await upload(
+      'p.txt',
+      'text/plain',
+      Buffer.from(`parsed ${randomUUID()}`),
+    );
+    const waiting = await upload(
+      'w.txt',
+      'text/plain',
+      Buffer.from(`waiting ${randomUUID()}`),
+    );
+    const id = parsedDoc.body.upload.id;
+    const other = randomUUID();
+    const suggestion = `REPARSE_${randomUUID().slice(0, 8).toUpperCase()}`;
+    const shared = `REPARSE_${randomUUID().slice(0, 8).toUpperCase()}`;
+    await svc.pool.query(
+      `update ingestion.uploads
+          set status = 'PARSED', attempts = 2, parsed_at = now(),
+              categories = '{}', completed_steps = '{CLASSIFY,DISCOVER,EXTRACT}',
+              analysis = '{"warnings":[]}', extracted_fields = '{"fields":{}}',
+              target_key = 'general.document@1', details = '{"summary":"x"}',
+              confidence = 0.4, flags = '{low_confidence}', description = 'Mine'
+        where id = $1`,
+      [id],
+    );
+    await svc.pool.query(
+      `insert into ingestion.category_suggestions
+         (category_id, title, description, template_json, upload_ids)
+       values ($1, $2, 'only this one', '{"fields":[]}', array[$5]::uuid[]),
+              ($3, $4, 'shared', '{"fields":[]}', array[$5, $6]::uuid[])`,
+      [suggestion, suggestion, shared, shared, id, other],
+    );
+
+    const result = await post<{ requeued: string[]; skipped: string[] }>(
+      '/uploads/reparse',
+      { uploadIds: [id, waiting.body.upload.id, id] },
+    );
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({
+      requeued: [id],
+      skipped: [waiting.body.upload.id],
+    });
+
+    const reread = await fetch(`${base}/uploads/${id}`).then(
+      (r) => r.json() as Promise<UploadDto>,
+    );
+    expect(reread).toMatchObject({
+      status: 'TO_BE_PARSED',
+      processingState: 'PENDING',
+      description: 'Mine',
+      categories: [],
+      completedSteps: [],
+      analysis: null,
+      extractedFields: null,
+      targetKey: null,
+      details: null,
+      flags: [],
+      attempts: 0,
+      parsedAt: null,
+    });
+
+    const suggestions = await svc.pool.query<{
+      category_id: string;
+      upload_ids: string[];
+    }>(
+      `select category_id, upload_ids from ingestion.category_suggestions
+        where category_id = any($1::text[]) order by category_id`,
+      [[suggestion, shared]],
+    );
+    // Dropped, not rejected: the AI may suggest it again.
+    expect(suggestions.rows).toEqual([
+      { category_id: shared, upload_ids: [other] },
+    ]);
+
+    const events = await svc.pool.query<{ event_type: string }>(
+      `select event_type from ingestion.outbox
+        where payload->>'uploadId' = $1
+          and event_type in ('upload.reparse_requested@1', 'upload.updated@1')
+        order by created_at`,
+      [id],
+    );
+    expect(events.rows.map((row) => row.event_type)).toEqual([
+      'upload.reparse_requested@1',
+      'upload.updated@1',
+    ]);
+
+    const invalid = await post('/uploads/reparse', { uploadIds: [] });
+    expect(invalid.status).toBe(400);
+    await svc.pool.query(
+      `delete from ingestion.category_suggestions where category_id = $1`,
+      [shared],
+    );
+  });
+
   it('marks a file whose bytes are not a supported format as FAILED', async () => {
     const done = await upload(
       'bill.pdf',

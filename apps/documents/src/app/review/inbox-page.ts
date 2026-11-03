@@ -8,6 +8,7 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -17,6 +18,7 @@ import type {
   ListRecordsQuery,
   RecordDto,
   RecordStatus,
+  ReparseUploadsResponse,
 } from '@life-island/contracts';
 import {
   FILE_FORMATS,
@@ -28,6 +30,7 @@ import {
   UiBadge,
   UiButton,
   UiCellDef,
+  UiConfirmDialog,
   UiDropdown,
   UiFormField,
   UiIcon,
@@ -39,6 +42,7 @@ import {
   type UiTableColumn,
   type UiTableSort,
 } from '@life-island/design-system';
+import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
 import { CategoryStore } from '../categories/category-store';
 import { CategoryFilter } from './category-filter';
@@ -90,6 +94,27 @@ export function reflects(record: RecordDto, outcome: ReviewOutcome): boolean {
   );
 }
 
+/** Records you can send back to the parser: parsed, not yet confirmed. */
+export function canReparse(record: Pick<RecordDto, 'status'>): boolean {
+  return record.status === 'PARSED';
+}
+
+/** What the inbox says after sending documents back to the parser. */
+export function reparseNotice(result: ReparseUploadsResponse): string {
+  const sent = result.requeued.length;
+  const skipped = result.skipped.length;
+  const parts: string[] = [];
+  if (sent)
+    parts.push(
+      `${sent} document${sent === 1 ? '' : 's'} will be parsed again on the next run; press Parse now to start right away.`,
+    );
+  if (skipped)
+    parts.push(
+      `${skipped} ${skipped === 1 ? 'was' : 'were'} left as ${skipped === 1 ? 'it was' : 'they were'}: no longer waiting for review.`,
+    );
+  return parts.join(' ');
+}
+
 /** The inbox of uploaded documents, filterable, with a details popup per parsed record. */
 @Component({
   selector: 'app-inbox-page',
@@ -106,6 +131,7 @@ export function reflects(record: RecordDto, outcome: ReviewOutcome): boolean {
     UiBadge,
     UiButton,
     UiCellDef,
+    UiConfirmDialog,
     UiDropdown,
     UiFormField,
     UiIcon,
@@ -119,6 +145,8 @@ export function reflects(record: RecordDto, outcome: ReviewOutcome): boolean {
 })
 export class InboxPage {
   private readonly api = inject(ReviewApi);
+  private readonly ingestion = inject(IngestionApi);
+  private readonly banner = viewChild.required(QueueBanner);
   protected readonly store = inject(CategoryStore);
   /** Category suggestions waiting for a decision; a hint, so errors just hide it. */
   protected readonly pendingSuggestions = computed(() =>
@@ -153,6 +181,16 @@ export class InboxPage {
   protected readonly page = signal(Number(this.params.get('page') ?? 0) || 0);
 
   protected readonly selectedId = signal<string | null>(null);
+  /** Upload ids of the rows ticked to be parsed again (kept across pages). */
+  protected readonly picked = signal<readonly unknown[]>([]);
+  protected readonly canReparse = canReparse;
+  protected readonly pickLabel = (row: RecordDto) => `Select ${row.title}`;
+  protected readonly confirmingReparse = signal(false);
+  protected readonly reparsing = signal(false);
+  protected readonly reparseMessage = signal<{
+    tone: 'success' | 'danger';
+    text: string;
+  } | null>(null);
   protected readonly panelOpen = signal(false);
   protected readonly statusView = RECORD_STATUS_VIEW;
   protected readonly moduleLabels = MODULE_LABELS;
@@ -263,7 +301,11 @@ export class InboxPage {
       this.fileFormat();
       this.uploadedFrom();
       this.uploadedTo();
-      if (!firstRun) untracked(() => this.page.set(0));
+      if (!firstRun)
+        untracked(() => {
+          this.page.set(0);
+          this.picked.set([]);
+        });
       firstRun = false;
     });
     // Mirror the query in the URL.
@@ -354,6 +396,59 @@ export class InboxPage {
     reload();
     clearTimeout(this.runReload);
     this.runReload = setTimeout(reload, RUN_RELOAD_DELAY_MS);
+  }
+
+  /**
+   * Sends the ticked documents back to the parser. The inbox shows them as
+   * waiting at once; the review service hears it through an event, so the
+   * list reloads now and once more a moment later.
+   */
+  protected async reparsePicked(): Promise<void> {
+    const uploadIds = this.picked().map(String);
+    if (!uploadIds.length || this.reparsing()) return;
+    this.reparsing.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.ingestion.reparseUploads(uploadIds),
+      );
+      const sent = new Set(result.requeued);
+      this.records.update((page) =>
+        page
+          ? {
+              ...page,
+              items: page.items.map((row) =>
+                sent.has(row.uploadId)
+                  ? {
+                      ...row,
+                      status: 'UPLOADED',
+                      category: null,
+                      targetKey: null,
+                      categories: [],
+                      suggestedCategories: [],
+                      parsedAt: null,
+                    }
+                  : row,
+              ),
+            }
+          : page,
+      );
+      this.picked.set([]);
+      this.confirmingReparse.set(false);
+      this.reparseMessage.set({
+        tone: 'success',
+        text: reparseNotice(result),
+      });
+      this.banner().reload();
+      this.onRunFinished();
+    } catch {
+      this.reparseMessage.set({
+        tone: 'danger',
+        text: 'The documents could not be sent back to the parser. Is the ingestion service running?',
+      });
+      this.confirmingReparse.set(false);
+    } finally {
+      this.reparsing.set(false);
+    }
   }
 
   private waitForInbox(outcome: ReviewOutcome, attempt = 0): void {
