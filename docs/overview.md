@@ -106,22 +106,22 @@ The parse worker shares the `ingestion` schema with the upload API: it is the sa
 
 ## Technology choices
 
-| Concern            | Choice                                                               | Why                                                                                         | Status                                         |
-| ------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Monorepo           | Nx 24                                                                | Builds and tests only what changed; enforces module boundaries; Angular and Nest generators | In place                                       |
-| Language           | TypeScript everywhere                                                | Shared contracts and types between front end and back end                                   | In place                                       |
-| Database           | PostgreSQL 17 with pgvector                                          | One instance to run and back up, real per-service boundaries through schemas and roles      | In place                                       |
-| Messaging          | NATS JetStream + transactional outbox                                | Lightweight, durable, built-in message dedupe                                               | In place                                       |
-| Contracts          | Zod 4 in `libs/contracts`                                            | One source of truth for events, AI target schemas and DTOs                                  | In place                                       |
-| File storage       | S3 API: SeaweedFS locally, Cloudflare R2 in production               | Files stay out of the database; presigned uploads                                           | In place (R2 by configuration)                 |
-| Gateway            | Caddy 2                                                              | One origin for the front end, automatic HTTPS in production                                 | In place                                       |
-| Tests              | Vitest                                                               | Fast, native ESM and TypeScript                                                             | In place                                       |
-| CI                 | GitHub Actions + `nx affected`                                       | Only changed projects are checked                                                           | In place                                       |
-| ORM and migrations | Drizzle ORM + drizzle-kit                                            | Close to SQL; one migrations folder per service                                             | In place                                       |
-| Back end framework | NestJS 12                                                            | Structure, DI, OpenAPI                                                                      | In place (OpenAPI planned)                     |
-| Front end          | Angular 22, zoneless, signals, Native Federation                     | Main learning goal; remotes deploy independently                                            | In place (standalone apps; federation planned) |
-| AI                 | Claude API: Haiku to classify, Sonnet to extract, structured outputs | Cheap where possible, accurate where needed                                                 | In place (evals planned)                       |
-| Observability      | OpenTelemetry + Langfuse                                             | One trace per upload; AI prompts, costs and evals                                           | Planned                                        |
+| Concern            | Choice                                                               | Why                                                                                         | Status                              |
+| ------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Monorepo           | Nx 24                                                                | Builds and tests only what changed; enforces module boundaries; Angular and Nest generators | In place                            |
+| Language           | TypeScript everywhere                                                | Shared contracts and types between front end and back end                                   | In place                            |
+| Database           | PostgreSQL 17 with pgvector                                          | One instance to run and back up, real per-service boundaries through schemas and roles      | In place                            |
+| Messaging          | NATS JetStream + transactional outbox                                | Lightweight, durable, built-in message dedupe                                               | In place                            |
+| Contracts          | Zod 4 in `libs/contracts`                                            | One source of truth for events, AI target schemas and DTOs                                  | In place                            |
+| File storage       | S3 API: SeaweedFS locally, Cloudflare R2 in production               | Files stay out of the database; presigned uploads                                           | In place (R2 by configuration)      |
+| Gateway            | Caddy 2                                                              | One origin for the front end, automatic HTTPS in production                                 | In place                            |
+| Tests              | Vitest                                                               | Fast, native ESM and TypeScript                                                             | In place                            |
+| CI                 | GitHub Actions + `nx affected`                                       | Only changed projects are checked                                                           | In place                            |
+| ORM and migrations | Drizzle ORM + drizzle-kit                                            | Close to SQL; one migrations folder per service                                             | In place                            |
+| Back end framework | NestJS 12                                                            | Structure, DI, OpenAPI                                                                      | In place (OpenAPI planned)          |
+| Front end          | Angular 22, zoneless, signals, Native Federation                     | Main learning goal; remotes deploy independently                                            | In place (shell hosts `mfe-tax730`) |
+| AI                 | Claude API: Haiku to classify, Sonnet to extract, structured outputs | Cheap where possible, accurate where needed                                                 | In place (evals planned)            |
+| Observability      | OpenTelemetry + Langfuse                                             | One trace per upload; AI prompts, costs and evals                                           | Planned                             |
 
 ## What exists today
 
@@ -139,18 +139,19 @@ Week 1 of the [roadmap](architecture.md#roadmap) is complete:
 | Documents loader: upload API, scheduled AI parse worker, review inbox with confirm, reject and retarget     | `apps/svc-ingestion`, `apps/svc-parse-worker`, `apps/svc-review` | [Documents loader](guides/documents-loader.md)                               |
 | Domain services that load confirmed records: groceries (receipts) and 730 (deductible expenses)             | `apps/svc-groceries`, `apps/svc-tax730`                          | [Documents loader](guides/documents-loader.md#reviewing-and-confirming)      |
 | Gateway sign-in (HTTP basic auth, `GATEWAY_AUTH=basic`)                                                     | `infra/caddy/`                                                   | [Storage and gateway](guides/storage-and-gateway.md#sign-in)                 |
-| Documents app (start screen, loader, review) and the Life Island app (shell with a 2D hub)                  | `apps/documents`, `apps/shell`                                   | [Documents loader](guides/documents-loader.md)                               |
+| Documents app (start screen, loader, review) and the Life Island app (shell with the 3D island hub)         | `apps/documents`, `apps/shell`                                   | [Life Island app](guides/life-island-app.md)                                 |
+| The 730 area: documents per tax year, invoices and payment proofs, zip and Excel for the commercialista     | `apps/svc-tax730`, `apps/mfe-tax730`                             | [Life Island app](guides/life-island-app.md#the-730-area)                    |
 | Angular design system: tokens, character themes, base components                                            | `libs/design-system`                                             | `libs/design-system/README.md`                                               |
 | Target catalog: `grocery.receipt@1`, `tax730.expense@1`, `general.document@1`                               | `libs/contracts/src/lib/targets/`                                | [Documents loader](guides/documents-loader.md#categories-and-target-schemas) |
 
-Not built yet: Native Federation and the 3D hub in the shell, the front ends of the groceries and 730 modules, single sign-on (OIDC) at the gateway, bulk approve, and evals.
+Not built yet: the front end of the groceries module and the other areas on the island (health, work, bills, studies), single sign-on (OIDC) at the gateway, bulk approve, and evals.
 
 ## Repository map
 
 ```
 life-island/
 ├── apps/
-│   ├── documents/  shell/         #   Angular apps: documents, and Life Island (module remotes planned)
+│   ├── documents/  shell/         #   Angular apps: documents, and Life Island (hosts mfe-tax730)
 │   ├── svc-ingestion/  svc-parse-worker/  svc-review/   # NestJS services: documents
 │   └── svc-groceries/  svc-tax730/                       # NestJS services: domain modules
 ├── libs/

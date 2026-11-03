@@ -1,0 +1,44 @@
+@if (!failed()) {
+<canvas
+  #canvas
+  class="canvas"
+  role="img"
+  aria-label="Life Island: one zone per area of your life. Use the labels to open an area."
+  [class.canvas--pointer]="hovered() !== null"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointerleave)="hover(null)"
+></canvas>
+<ul class="labels" role="list">
+  @for (module of modules(); track module.id) {
+  <li
+    #label
+    class="label"
+    [class.label--on]="hovered() === module.id"
+    [class.label--planned]="!module.path"
+    [attr.data-character]="module.character"
+  >
+    <button
+      type="button"
+      class="label__button"
+      [attr.aria-label]="module.path ? 'Open ' + module.name : module.name + ', coming soon'"
+      (mouseenter)="hover(module.id)"
+      (mouseleave)="hover(null)"
+      (focus)="hover(module.id)"
+      (blur)="hover(null)"
+      (click)="choose(module)"
+    >
+      <span class="label__emblem" aria-hidden="true">{{ module.emblem }}</span>
+      <span class="label__name">{{ module.name }}</span>
+      @if (!module.path) {
+      <span class="label__soon">soon</span>
+      }
+    </button>
+  </li>
+  }
+</ul>
+<p class="hint" aria-hidden="true">
+  Drag to turn the island · click a zone to open it
+</p>
+}

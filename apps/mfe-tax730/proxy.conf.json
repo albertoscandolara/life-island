@@ -1,0 +1,7 @@
+{
+  "/api/tax730": {
+    "target": "http://localhost:3004",
+    "pathRewrite": { "^/api/tax730": "" },
+    "changeOrigin": true
+  }
+}

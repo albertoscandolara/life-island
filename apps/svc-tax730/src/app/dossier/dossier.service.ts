@@ -70,7 +70,7 @@ export class DossierService {
     const yearFilter = years.length
       ? inArray(expenses.taxYear, years)
       : undefined;
-    const [expenseRows, attachmentRows, yearRows] = await Promise.all([
+    const [expenseRows, attachmentRows] = await Promise.all([
       db
         .select()
         .from(expenses)
@@ -81,10 +81,6 @@ export class DossierService {
         .from(attachments)
         .where(years.length ? inArray(attachments.taxYear, years) : undefined)
         .orderBy(asc(attachments.createdAt)),
-      db
-        .select({ taxYear: taxYears.taxYear })
-        .from(taxYears)
-        .where(years.length ? inArray(taxYears.taxYear, years) : undefined),
     ]);
     const documentsById = await this.documentsById(
       attachmentRows.map((row) => row.uploadId),
@@ -133,8 +129,8 @@ export class DossierService {
       expensesByYear.set(row.taxYear, list);
     }
 
+    // A year shows once it has an expense or a document of its own.
     const allYears = new Set<number>([
-      ...yearRows.map((row) => row.taxYear),
       ...expensesByYear.keys(),
       ...byYear.keys(),
     ]);

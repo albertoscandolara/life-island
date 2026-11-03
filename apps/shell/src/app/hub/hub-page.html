@@ -4,13 +4,20 @@
     Welcome to <span class="title__accent">Life Island</span>
   </h1>
   <p class="lead">
-    Each part of the island looks after one area of your life, using the
+    Each zone of the island looks after one area of your life, built from the
     documents you loaded and confirmed.
   </p>
 </section>
 
+@if (show3d) { @defer (on idle) {
+<app-island-view class="island" [modules]="modules" (open)="open($event)" />
+} @placeholder {
+<div class="island island--placeholder" aria-hidden="true"></div>
+} }
+
+<h2 class="section-title">All areas</h2>
 <ul class="modules" role="list">
-  @for (module of modules; track module.name; let i = $index) {
+  @for (module of modules; track module.id; let i = $index) {
   <li
     class="modules__item"
     [attr.data-character]="module.character"
@@ -21,6 +28,9 @@
       <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
       <span class="module__name">{{ module.name }}</span>
       <span class="module__mission">{{ module.mission }}</span>
+      <span class="module__open"
+        >Open <ui-icon name="chevron-right" [size]="16"
+      /></span>
     </a>
     } @else {
     <div class="module module--planned">

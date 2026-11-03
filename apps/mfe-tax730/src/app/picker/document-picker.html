@@ -1,0 +1,83 @@
+<ui-dialog [(open)]="open" [heading]="heading()" size="lg">
+  <div class="picker">
+    @if (roles().length > 1) {
+    <fieldset class="roles">
+      <legend class="roles__legend">File it as</legend>
+      @for (option of roles(); track option) {
+      <label
+        class="roles__option"
+        [class.roles__option--on]="role() === option"
+      >
+        <input
+          type="radio"
+          name="role"
+          [value]="option"
+          [checked]="role() === option"
+          (change)="role.set(option)"
+        />
+        {{ roleLabels[option] }}
+      </label>
+      }
+    </fieldset>
+    }
+
+    <label class="search">
+      <ui-icon name="search" [size]="16" />
+      <input
+        uiInput
+        type="search"
+        placeholder="Search title, file name or contents"
+        aria-label="Search your documents"
+        [value]="search()"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+
+    @if (forExpense() && !search()) {
+    <p class="hint">
+      Suggested from amount, supplier, date and payment words. Search to see
+      everything.
+    </p>
+    }
+
+    <ul class="results" role="list" [attr.aria-busy]="loading()">
+      @for (document of results(); track document.uploadId) {
+      <li class="result">
+        <ui-icon name="file" [size]="20" />
+        <div class="result__body">
+          <span class="result__title">{{ document.title }}</span>
+          <span class="result__meta">
+            {{ document.originalFilename }} @if (document.date) { · {{
+            formatDate(document.date) }} } @if (document.amount !== null) { · {{
+            formatEuro(document.amount) }} }
+          </span>
+          @if (document.reasons.length) {
+          <span class="result__reasons">
+            @for (reason of document.reasons; track reason) {
+            <ui-badge tone="success">{{ reason }}</ui-badge>
+            }
+          </span>
+          }
+        </div>
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(document.uploadId)"
+          target="_blank"
+          rel="noopener"
+        >
+          <ui-icon name="eye" [size]="16" /> View
+        </a>
+        <button uiButton size="sm" type="button" (click)="pick(document)">
+          <ui-icon name="plus" [size]="16" /> File it
+        </button>
+      </li>
+      } @empty { @if (!loading()) {
+      <ui-empty-state icon="search" heading="No matching documents">
+        Upload it in the documents app, confirm it, and it shows up here.
+      </ui-empty-state>
+      } }
+    </ul>
+  </div>
+</ui-dialog>

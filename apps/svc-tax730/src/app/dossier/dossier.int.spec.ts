@@ -73,6 +73,10 @@ describe.skipIf(!configured)(
         taxYear,
       ]);
       await svc?.pool.query(
+        `delete from tax730.tax_years where tax_year = $1`,
+        [taxYear],
+      );
+      await svc?.pool.query(
         `delete from tax730.documents where upload_id = any($1)`,
         [[invoiceId, transferId, certificationId]],
       );
