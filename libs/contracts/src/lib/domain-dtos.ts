@@ -87,6 +87,9 @@ export interface ExpenseDto {
   traceablePayment: boolean | null;
   issuer: string;
   documentNumber: string | null;
+  /** What the expense was for; null until you or the invoice's title give one. */
+  description: string | null;
+  notes: string | null;
 }
 
 /** Totals of one tax year, by expense type. */
@@ -97,4 +100,101 @@ export interface TaxYearDto {
   byType: { expenseType: string; total: number; count: number }[];
   /** Expenses not paid traceably (cash): many 730 deductions require card or transfer. */
   untraceableCount: number;
+  /** The year the 730 is filed: the tax year plus one ("730/2026" covers 2025). */
+  filingYear: number;
+  /** Expenses with no invoice or no payment proof filed. */
+  missingInvoiceCount: number;
+  missingPaymentCount: number;
 }
+
+/** What a document filed for the 730 is: an expense's invoice or payment proof, or a document of the year. */
+export const TAX730_ATTACHMENT_ROLES = [
+  'INVOICE',
+  'PAYMENT',
+  'CERTIFICATION',
+  'OTHER',
+] as const;
+export type Tax730AttachmentRole = (typeof TAX730_ATTACHMENT_ROLES)[number];
+
+/** A document you uploaded, as the 730 area sees it. */
+export interface Tax730DocumentDto {
+  uploadId: string;
+  title: string;
+  originalFilename: string;
+  fileFormat: string | null;
+  categories: string[];
+  /** The document's main date and amount, read from its fields when it has them. */
+  date: string | null;
+  amount: number | null;
+  uploadedAt: string;
+  /** You deleted it in the documents app; the 730 keeps the reference. */
+  deleted: boolean;
+}
+
+export interface Tax730AttachmentDto {
+  uploadId: string;
+  role: Tax730AttachmentRole;
+  /** Null when the document never reached this service. */
+  document: Tax730DocumentDto | null;
+}
+
+/** An expense with the documents that prove it. */
+export interface DossierExpenseDto extends ExpenseDto {
+  attachments: Tax730AttachmentDto[];
+  hasInvoice: boolean;
+  hasPaymentProof: boolean;
+}
+
+/** Everything that goes into one year's 730: expenses, their documents and the year's own documents. */
+export interface TaxYearDossierDto extends TaxYearDto {
+  expenses: DossierExpenseDto[];
+  /** Documents of the whole year, e.g. the Certificazione Unica. */
+  yearDocuments: Tax730AttachmentDto[];
+}
+
+/** Edit an expense's description or your note; null clears it. */
+export const updateExpenseRequestSchema = z.object({
+  description: z.string().trim().max(300).nullable().optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+export type UpdateExpenseRequest = z.input<typeof updateExpenseRequestSchema>;
+
+/** File a document with an expense (invoice, payment proof) or with a whole year. */
+export const addAttachmentRequestSchema = z.object({
+  uploadId: z.uuid(),
+  role: z.enum(TAX730_ATTACHMENT_ROLES),
+});
+export type AddAttachmentRequest = z.input<typeof addAttachmentRequestSchema>;
+
+export const listTax730DocumentsQuerySchema = z.object({
+  /** Words to find in the title, file name or fields. */
+  search: z.string().trim().max(100).optional(),
+  /** Rank documents by how likely they prove this expense (amount, supplier, date). */
+  forExpense: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+});
+export type ListTax730DocumentsQuery = z.input<
+  typeof listTax730DocumentsQuerySchema
+>;
+
+/** A document, with why it may belong to the expense you are filing. */
+export interface Tax730DocumentCandidateDto extends Tax730DocumentDto {
+  score: number;
+  reasons: string[];
+}
+
+/** Years to export; none means every year. `year=2025&year=2026` or `year=2025,2026`. */
+export const exportQuerySchema = z.object({
+  year: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((value) =>
+      (value === undefined ? [] : Array.isArray(value) ? value : [value])
+        .flatMap((part) => part.split(','))
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map(Number),
+    )
+    .pipe(z.array(z.number().int().min(2000).max(2100)).max(20)),
+});
+export type ExportQuery = z.input<typeof exportQuerySchema>;

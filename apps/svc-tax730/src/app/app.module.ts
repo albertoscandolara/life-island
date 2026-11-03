@@ -8,6 +8,14 @@ import {
 import { EventsRuntime } from '@life-island/be-nest';
 import { RECORD_APPROVED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type Tax730Config } from './config.js';
+import {
+  applyDocumentEvent,
+  DOCUMENT_EVENTS,
+} from './documents/document-events.handler.js';
+import { DossierController } from './dossier/dossier.controller.js';
+import { DossierService } from './dossier/dossier.service.js';
+import { ExportsService } from './exports/exports.service.js';
+import { IngestionFiles } from './exports/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { expenseLoader } from './expenses/expense-loader.js';
 import { ExpensesController } from './expenses/expenses.controller.js';
@@ -27,11 +35,14 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, ExpensesController],
+      controllers: [HealthController, ExpensesController, DossierController],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         ExpensesService,
+        DossierService,
+        IngestionFiles,
+        ExportsService,
         ...(options.events === false
           ? []
           : [
@@ -54,6 +65,19 @@ export class AppModule {
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to load ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The documents you upload, so the 730 can file them.
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'tax730-document-events',
+                        eventTypes: DOCUMENT_EVENTS,
+                        handle: applyDocumentEvent,
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
                           ),
                       });
                     },

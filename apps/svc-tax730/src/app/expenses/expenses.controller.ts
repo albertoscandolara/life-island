@@ -4,7 +4,6 @@ import {
   listExpensesQuerySchema,
   type ExpenseDto,
   type Page,
-  type TaxYearDto,
 } from '@life-island/contracts';
 import { ExpensesService } from './expenses.service.js';
 
@@ -17,11 +16,5 @@ export class ExpensesController {
   @Get('expenses')
   list(@Query() query: unknown): Promise<Page<ExpenseDto>> {
     return this.expenses.list(parseOrThrow(listExpensesQuerySchema, query));
-  }
-
-  /** Deductible totals per tax year, by expense type. */
-  @Get('tax-years')
-  taxYears(): Promise<TaxYearDto[]> {
-    return this.expenses.taxYears();
   }
 }

@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const tax730 = pgSchema('tax730');
 
@@ -45,6 +46,10 @@ export const expenses = tax730.table(
     traceablePayment: boolean('traceable_payment'),
     issuer: text('issuer').notNull(),
     documentNumber: text('document_number'),
+    /** What the expense was for, as it reads in the commercialista's summary. */
+    description: text('description'),
+    /** Your own note, e.g. "payment proof on its way". */
+    notes: text('notes'),
     /** The document's template fields as you reviewed them. */
     documentFields: jsonb('document_fields'),
     approvedAt: timestamp('approved_at', { withTimezone: true }).notNull(),
@@ -59,3 +64,59 @@ export const expenses = tax730.table(
 );
 
 export type ExpenseRow = typeof expenses.$inferSelect;
+
+/**
+ * The documents you uploaded, mirrored from ingestion's `upload.*` events so
+ * the 730 area can show and attach them without reading another schema.
+ * A deleted document stays as a tombstone (`deleted_at`).
+ */
+export const documents = tax730.table('documents', {
+  uploadId: uuid('upload_id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  originalFilename: text('original_filename').notNull(),
+  fileFormat: text('file_format'),
+  categories: text('categories').array().notNull().default([]),
+  fields:
+    jsonb('fields').$type<Record<string, string | number | boolean | null>>(),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull(),
+  /** `updatedAt` of the last `upload.updated` applied; older snapshots are ignored. */
+  metadataUpdatedAt: timestamp('metadata_updated_at', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+});
+
+export type DocumentRow = typeof documents.$inferSelect;
+
+/**
+ * Documents filed for the 730: an expense's invoice and payment proof, or a
+ * document of the whole year (expense_id null) such as the Certificazione Unica.
+ */
+export const attachments = tax730.table(
+  'attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taxYear: integer('tax_year')
+      .notNull()
+      .references(() => taxYears.taxYear),
+    expenseId: uuid('expense_id').references(() => expenses.id, {
+      onDelete: 'cascade',
+    }),
+    /** By id only: the document lives in ingestion. */
+    uploadId: uuid('upload_id').notNull(),
+    role: text('role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('attachments_expense_upload_idx')
+      .on(table.expenseId, table.uploadId)
+      .where(sql`${table.expenseId} is not null`),
+    uniqueIndex('attachments_year_upload_idx')
+      .on(table.taxYear, table.uploadId)
+      .where(sql`${table.expenseId} is null`),
+    index('attachments_tax_year_idx').on(table.taxYear),
+  ],
+);
+
+export type AttachmentRow = typeof attachments.$inferSelect;

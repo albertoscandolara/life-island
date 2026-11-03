@@ -2,7 +2,7 @@ import { LoadRejectedError, type RecordLoader } from '@life-island/be-common';
 import type { Tax730ExpenseV1 } from '@life-island/contracts';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { expenses, taxYears } from '../db/schema.js';
+import { attachments, expenses, taxYears } from '../db/schema.js';
 
 /** A codice fiscale: 16 characters, letters and digits in the official pattern. */
 const FISCAL_CODE =
@@ -54,6 +54,13 @@ export const expenseLoader: RecordLoader<Tax730ExpenseV1> = {
         approvedAt: new Date(record.approvedAt),
       })
       .returning({ id: expenses.id });
+    // The document the expense was read from is its invoice.
+    await db.insert(attachments).values({
+      taxYear: expense.taxYear,
+      expenseId: saved.id,
+      uploadId: record.uploadId,
+      role: 'INVOICE',
+    });
     return saved.id;
   },
 };
