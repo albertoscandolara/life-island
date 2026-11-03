@@ -22,6 +22,7 @@ import {
 import {
   ContextTooLargeError,
   PermanentParseError,
+  type BatchRun,
   type CategoryDefinition,
   type Classification,
   type Discovery,
@@ -32,6 +33,12 @@ import {
   type ParseRunRecord,
   type StepOutput,
 } from './document-parser.js';
+import {
+  DEFAULT_BATCHER_OPTIONS,
+  MessageBatcher,
+  type BatcherOptions,
+  type MessageSender,
+} from './message-batcher.js';
 import { classifyProviderError } from './provider-errors.js';
 
 export const PROMPT_VERSION = 'categories-4';
@@ -311,12 +318,14 @@ export interface ClaudeOptions {
   chunkChars: number;
   discoverEffort: Effort;
   extractEffort: Effort;
+  batch: BatcherOptions;
 }
 
 const DEFAULT_OPTIONS: ClaudeOptions = {
   chunkChars: 200_000,
   discoverEffort: 'low',
   extractEffort: 'low',
+  batch: DEFAULT_BATCHER_OPTIONS,
 };
 
 /**
@@ -337,11 +346,40 @@ export class ClaudeParser implements DocumentAnalyzer {
     private readonly client: Anthropic,
     private readonly models: ClaudeModels,
     options: Partial<ClaudeOptions> = {},
+    /** How requests reach the API: directly, or through a batch. */
+    send?: MessageSender,
   ) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.send = send ?? this.sendDirect;
   }
 
   private readonly options: ClaudeOptions;
+  private readonly send: MessageSender;
+
+  private readonly sendDirect: MessageSender = (request) =>
+    this.client.beta.messages.create(request);
+
+  /**
+   * A copy of this parser whose requests go through the Message Batches API
+   * (half the price, results within hours), for the scheduled runs.
+   */
+  batched(): BatchRun {
+    const batcher = new MessageBatcher(
+      this.client,
+      this.sendDirect,
+      this.options.batch,
+    );
+    return {
+      analyzer: new ClaudeParser(
+        this.client,
+        this.models,
+        this.options,
+        batcher.send,
+      ),
+      hurry: () => batcher.hurry(),
+      close: () => batcher.close(),
+    };
+  }
 
   async classify(
     input: ParseInput,
@@ -644,7 +682,7 @@ export class ClaudeParser implements DocumentAnalyzer {
     };
     runs.push(run);
     try {
-      const message = await this.client.beta.messages.create(request);
+      const message = await this.send(request);
       run.latencyMs = Date.now() - started;
       run.inputTokens = message.usage.input_tokens;
       run.outputTokens = message.usage.output_tokens;

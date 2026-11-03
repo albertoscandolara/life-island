@@ -60,6 +60,14 @@ export interface WorkerConfig {
    */
   discoverEffort: Effort;
   extractEffort: Effort;
+  /**
+   * Send the scheduled runs through the Message Batches API: half the price,
+   * results usually within the hour (at most 24 h). Parse now stays direct.
+   */
+  batch: boolean;
+  /** Documents processed side by side in one batch round. */
+  batchMaxDocuments: number;
+  batchPollSeconds: number;
   /** Fake parser only: simulate a usage quota of this many AI steps per period (0 = unlimited). */
   fakeQuotaSteps: number;
   fakeQuotaPeriodMinutes: number;
@@ -107,6 +115,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     discoverModel: env['PARSE_DISCOVER_MODEL'] || 'claude-sonnet-5-5',
     discoverEffort: effortEnv('PARSE_DISCOVER_EFFORT', 'low', env),
     extractEffort: effortEnv('PARSE_EXTRACT_EFFORT', 'low', env),
+    batch: booleanEnv('PARSE_BATCH', true, env),
+    batchMaxDocuments: Math.max(
+      1,
+      numberEnv('PARSE_BATCH_MAX_DOCUMENTS', 100, env),
+    ),
+    batchPollSeconds: Math.max(
+      5,
+      numberEnv('PARSE_BATCH_POLL_SECONDS', 60, env),
+    ),
     fakeQuotaSteps: numberEnv('FAKE_QUOTA_STEPS', 0, env),
     fakeQuotaPeriodMinutes: numberEnv('FAKE_QUOTA_PERIOD_MINUTES', 60, env),
   };

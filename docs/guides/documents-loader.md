@@ -100,23 +100,36 @@ Files go to S3-compatible object storage, never into the database: **SeaweedFS**
 
 ## Parsing on a schedule
 
-`svc-parse-worker` runs every day at a set time, and processes the documents that are ready **one at a time**. A document that fails for its own reasons (unreadable, a temporary error) does not stop the others.
+`svc-parse-worker` runs every day at a set time, and processes the documents that are ready. Parse now processes them **one at a time**; the scheduled runs send them **as a batch** (below). A document that fails for its own reasons (unreadable, a temporary error) does not stop the others.
 
-| Variable                                              | Default                                                      | Meaning                                                                                       |
-| ----------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `PARSE_SCHEDULE`                                      | `06:00`                                                      | Time of day of the daily run (`HH:MM`), or any cron expression (`0 */6 * * *`)                |
-| `PARSE_TIMEZONE`                                      | system time zone                                             | Time zone of the schedule, e.g. `Europe/Rome`                                                 |
-| `PARSE_RUN_ON_START`                                  | `false`                                                      | Also run once when the worker starts                                                          |
-| `PARSE_MAX_ATTEMPTS`                                  | `5`                                                          | Attempts before a document is marked FAILED (pauses do not count)                             |
-| `PARSE_LEASE_MINUTES`                                 | `5`                                                          | A claim not renewed for this long (a crashed worker) is taken over                            |
-| `PARSE_QUOTA_RETRY_MINUTES`, `…_MAX_MINUTES`          | `360`, `1440`                                                | After a quota error without a reset time: first wait, doubled on each failed check, cap       |
-| `PARSE_RATE_LIMIT_RETRY_SECONDS`                      | `60`                                                         | Wait after a rate limit that came without a retry time                                        |
-| `CATEGORY_AUTO_APPROVE`                               | `false`                                                      | Save suggested categories at once instead of waiting for your approval                        |
-| `PARSE_CHUNK_CHARS`                                   | `200000`                                                     | Size of the parts a too-long text is split into                                               |
-| `PARSER`                                              | `claude` with a key, else `fake`                             | Which analyzer to use                                                                         |
-| `PARSE_CLASSIFY_MODEL`, `…_EXTRACT_…`, `…_DISCOVER_…` | `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5-5` | Model of each step                                                                            |
-| `PARSE_DISCOVER_EFFORT`, `PARSE_EXTRACT_EFFORT`       | `low`, `low`                                                 | How long the model may reason in those steps (`low` to `max`); classification is always `low` |
-| `FAKE_QUOTA_STEPS`, `FAKE_QUOTA_PERIOD_MINUTES`       | `0` (off), `60`                                              | Fake parser only: simulate a usage quota, to try the pause and resume locally                 |
+| Variable                                                | Default                                                      | Meaning                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `PARSE_SCHEDULE`                                        | `06:00`                                                      | Time of day of the daily run (`HH:MM`), or any cron expression (`0 */6 * * *`)                |
+| `PARSE_TIMEZONE`                                        | system time zone                                             | Time zone of the schedule, e.g. `Europe/Rome`                                                 |
+| `PARSE_RUN_ON_START`                                    | `false`                                                      | Also run once when the worker starts                                                          |
+| `PARSE_MAX_ATTEMPTS`                                    | `5`                                                          | Attempts before a document is marked FAILED (pauses do not count)                             |
+| `PARSE_LEASE_MINUTES`                                   | `5`                                                          | A claim not renewed for this long (a crashed worker) is taken over                            |
+| `PARSE_QUOTA_RETRY_MINUTES`, `…_MAX_MINUTES`            | `360`, `1440`                                                | After a quota error without a reset time: first wait, doubled on each failed check, cap       |
+| `PARSE_RATE_LIMIT_RETRY_SECONDS`                        | `60`                                                         | Wait after a rate limit that came without a retry time                                        |
+| `CATEGORY_AUTO_APPROVE`                                 | `false`                                                      | Save suggested categories at once instead of waiting for your approval                        |
+| `PARSE_CHUNK_CHARS`                                     | `200000`                                                     | Size of the parts a too-long text is split into                                               |
+| `PARSER`                                                | `claude` with a key, else `fake`                             | Which analyzer to use                                                                         |
+| `PARSE_CLASSIFY_MODEL`, `…_EXTRACT_…`, `…_DISCOVER_…`   | `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5-5` | Model of each step                                                                            |
+| `PARSE_DISCOVER_EFFORT`, `PARSE_EXTRACT_EFFORT`         | `low`, `low`                                                 | How long the model may reason in those steps (`low` to `max`); classification is always `low` |
+| `PARSE_BATCH`                                           | `true`                                                       | Send the scheduled runs through the Message Batches API (Claude parser only)                  |
+| `PARSE_BATCH_MAX_DOCUMENTS`, `PARSE_BATCH_POLL_SECONDS` | `100`, `60`                                                  | Documents per batch round; how often the worker asks whether a batch has ended                |
+| `FAKE_QUOTA_STEPS`, `FAKE_QUOTA_PERIOD_MINUTES`         | `0` (off), `60`                                              | Fake parser only: simulate a usage quota, to try the pause and resume locally                 |
+
+### Batch runs
+
+Nobody waits for the daily run, so it uses the [Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing): every request costs **half**, and results come back usually within the hour, at most within 24 hours. The worker claims up to `PARSE_BATCH_MAX_DOCUMENTS` documents and processes them side by side, so the CLASSIFY requests of all of them go out as one batch, then the DISCOVER requests, then EXTRACT (plus a small batch for the corrections, if any). Each step is saved as soon as its batch ends, exactly as in a direct run. The same goes for the runs that resume work on their own (a pause that ends, a retry, recovery after a restart).
+
+- **Parse now** always calls the API directly. Pressed while a batch run is waiting, it stops waiting: the requests still in a batch are cancelled and sent directly, the run finishes in a moment, and a direct run follows for anything uploaded since.
+- **Refusals**: server-side fallbacks are not available in a batch, so a request the model declines is sent again directly, with its fallbacks.
+- **Errors** in a batch result are handled as the same error from a direct request: a quota or rate-limit error pauses the queue, refused credentials stop it.
+- **Stopping the worker** does not wait for a batch: the documents go back to the queue with the steps they finished, without losing an attempt, and the next run sends the rest again (the batch is cancelled; what it had already processed is paid and lost).
+- Documents in the same batch do not see each other's category suggestions, so two of them may propose near-duplicate ids (the same id is merged as usual). Rejecting one in review keeps it from coming back.
+- `PARSE_BATCH=false` turns batches off; the fake parser never uses them.
 
 Besides the daily run, the worker wakes up by itself when work becomes due: a pause that ends, a document whose retry delay has passed, or a document left behind by a worker that crashed. Those times are read from the database, so they survive a restart; a worker that was stopped mid-run resumes the run when it starts again.
 

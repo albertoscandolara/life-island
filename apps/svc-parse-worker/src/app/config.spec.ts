@@ -41,4 +41,11 @@ describe('worker config', () => {
       'PARSE_DISCOVER_EFFORT must be one of',
     );
   });
+
+  it('sends scheduled runs as batches unless turned off', () => {
+    expect(loadConfig(env).batch).toBe(true);
+    expect(loadConfig({ ...env, PARSE_BATCH: 'false' }).batch).toBe(false);
+    expect(loadConfig(env).batchMaxDocuments).toBe(100);
+    expect(loadConfig(env).batchPollSeconds).toBe(60);
+  });
 });

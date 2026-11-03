@@ -28,6 +28,8 @@ import {
   PermanentParseError,
   QuotaExhaustedError,
   RateLimitedError,
+  StepInterruptedError,
+  type BatchRun,
   type DocumentAnalyzer,
 } from './parsers/document-parser.js';
 import { FakeParser } from './parsers/fake-parser.js';
@@ -660,6 +662,51 @@ describe.skipIf(!configured)(
         status: 'APPROVED',
         approvedCategoryId: id,
       });
+    });
+
+    it('processes the documents of a batch run side by side, so each step goes out together', async () => {
+      const ids = [await seed(ENEL), await seed(ENEL)];
+      const analyzer = new ScriptedAnalyzer();
+      let active = 0;
+      let mostAtOnce = 0;
+      const inner = analyzer.classify;
+      analyzer.classify = async (input, categories) => {
+        mostAtOnce = Math.max(mostAtOnce, ++active);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        active--;
+        return inner(input, categories);
+      };
+      const closed = vi.fn();
+      const batched = vi.fn((): BatchRun => ({
+        analyzer,
+        hurry: vi.fn(),
+        close: closed,
+      }));
+      const service = new ParseService(
+        svc,
+        storage,
+        Object.assign(analyzer, { batched }),
+        config,
+      );
+      const summary = await service.runOnce({ batch: true });
+      expect(batched).toHaveBeenCalledOnce();
+      expect(closed).toHaveBeenCalled();
+      expect(summary.parsed).toBeGreaterThanOrEqual(2);
+      expect(mostAtOnce).toBeGreaterThanOrEqual(2);
+      for (const id of ids) expect((await row(id)).status).toBe('PARSED');
+    });
+
+    it('gives a document back without losing an attempt when its batch is abandoned', async () => {
+      const id = await seed(ENEL);
+      const analyzer = new ScriptedAnalyzer();
+      analyzer.failures.discover = () =>
+        new StepInterruptedError('The worker stopped');
+      const service = new ParseService(svc, storage, analyzer, config);
+      expect(await service.process(await claim(service, id))).toBe('retried');
+      const saved = await row(id);
+      expect(saved).toMatchObject({ status: 'TO_BE_PARSED', attempts: 0 });
+      expect(saved.completedSteps).toEqual(['CLASSIFY']);
+      expect(saved.nextAttemptAt.getTime()).toBeLessThanOrEqual(Date.now());
     });
   },
 );

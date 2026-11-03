@@ -49,6 +49,8 @@ import {
   PermanentParseError,
   QuotaExhaustedError,
   RateLimitedError,
+  StepInterruptedError,
+  type BatchRun,
   type CategoryDefinition,
   type Classification,
   type DocumentAnalyzer,
@@ -91,6 +93,8 @@ export class ParseService {
   private readonly logger = new Logger(ParseService.name);
   readonly queue: ParseQueue;
   private stopRequested = false;
+  /** The batch of the run in progress, if it is a batch run. */
+  private batchRun?: BatchRun;
 
   constructor(
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
@@ -101,9 +105,21 @@ export class ParseService {
     this.queue = new ParseQueue(svc, config);
   }
 
-  /** Finish the current document, then stop (graceful shutdown). */
+  /**
+   * Finish the current document, then stop (graceful shutdown). A batch run
+   * does not wait for its batch: its documents go back to the queue with the
+   * steps they finished, and the next run sends the rest again.
+   */
   requestStop(): void {
     this.stopRequested = true;
+    this.batchRun?.close();
+  }
+
+  /** Parse now during a batch run: stop waiting on the batch and finish directly. */
+  hurry(): boolean {
+    if (!this.batchRun) return false;
+    this.batchRun.hurry();
+    return true;
   }
 
   /**
@@ -159,7 +175,7 @@ export class ParseService {
    * (quota, rate limit, refused credentials) or shutdown is requested. A
    * failing document does not stop the run.
    */
-  async runOnce(): Promise<RunSummary> {
+  async runOnce(options: { batch?: boolean } = {}): Promise<RunSummary> {
     const summary: RunSummary = {
       parsed: 0,
       retried: 0,
@@ -173,21 +189,65 @@ export class ParseService {
       this.logger.log('The queue is paused; no AI requests until it resumes');
       return summary;
     }
+    const batch =
+      options.batch && this.config.batch
+        ? this.analyzer.batched?.()
+        : undefined;
     try {
-      while (!this.stopRequested && (await this.queue.canProceed())) {
-        const upload = await this.claimNext();
-        if (!upload) break;
-        const outcome = await this.process(upload);
-        summary[outcome]++;
-        if (outcome === 'paused' || outcome === 'blocked') break;
-      }
+      if (batch) await this.runBatched(batch, summary);
+      else
+        while (!this.stopRequested && (await this.queue.canProceed())) {
+          const upload = await this.claimNext();
+          if (!upload) break;
+          const outcome = await this.process(upload);
+          summary[outcome]++;
+          if (outcome === 'paused' || outcome === 'blocked') break;
+        }
     } finally {
       await this.queue.finishRun(summary);
     }
     return summary;
   }
 
-  async process(upload: UploadRow): Promise<Outcome> {
+  /**
+   * A batch run: claims up to PARSE_BATCH_MAX_DOCUMENTS documents and
+   * processes them side by side, so that each step of every document goes to
+   * the provider in one batch (three batches in all, plus corrections). Then
+   * the next round, until nothing is ready or the queue pauses.
+   */
+  private async runBatched(batch: BatchRun, summary: RunSummary) {
+    this.batchRun = batch;
+    try {
+      while (!this.stopRequested && (await this.queue.canProceed())) {
+        const claimed: UploadRow[] = [];
+        while (claimed.length < this.config.batchMaxDocuments) {
+          const upload = await this.claimNext();
+          if (!upload) break;
+          claimed.push(upload);
+        }
+        if (!claimed.length) break;
+        this.logger.log(`Batch run: ${claimed.length} document(s)`);
+        const outcomes = await Promise.all(
+          claimed.map((upload) => this.process(upload, batch.analyzer)),
+        );
+        for (const outcome of outcomes) summary[outcome]++;
+        if (
+          outcomes.includes('paused') ||
+          outcomes.includes('blocked') ||
+          claimed.length < this.config.batchMaxDocuments
+        )
+          break;
+      }
+    } finally {
+      this.batchRun = undefined;
+      batch.close();
+    }
+  }
+
+  async process(
+    upload: UploadRow,
+    analyzer: DocumentAnalyzer = this.analyzer,
+  ): Promise<Outcome> {
     const progress: Progress = {
       upload,
       token: upload.lockToken!,
@@ -200,7 +260,7 @@ export class ParseService {
     );
     heartbeat.unref();
     try {
-      await this.runSteps(progress);
+      await this.runSteps(progress, analyzer);
       await this.finish(progress);
       this.logger.log(
         `Parsed ${upload.id}: ${progress.upload.categories.join(', ') || 'no categories'}`,
@@ -213,7 +273,10 @@ export class ParseService {
     }
   }
 
-  private async runSteps(progress: Progress): Promise<void> {
+  private async runSteps(
+    progress: Progress,
+    analyzer: DocumentAnalyzer,
+  ): Promise<void> {
     const { upload } = progress;
     if (!upload.fileFormat)
       throw new PermanentParseError('The upload has no detected format');
@@ -229,7 +292,7 @@ export class ParseService {
 
     if (!progress.completed.includes('CLASSIFY')) {
       await this.startStep(progress, 'CLASSIFY');
-      const output = await this.analyzer.classify(input, categories);
+      const output = await analyzer.classify(input, categories);
       await this.queue.markHealthy();
       await this.saveClassification(
         progress,
@@ -246,7 +309,7 @@ export class ParseService {
         analysis: progress.upload.analysis!,
         assignedIds: progress.upload.categories,
       };
-      const output = await this.analyzer.discover(input, context);
+      const output = await analyzer.discover(input, context);
       await this.queue.markHealthy();
       const filtered = filterSuggestions(
         withIssuerFallback(output.result.suggestions, context),
@@ -269,7 +332,7 @@ export class ParseService {
         [...assigned, ...(await this.loadSuggestedFor(progress.upload.id))],
         progress.upload.targetKey ?? GENERAL_TARGET_KEY,
       );
-      const output = await this.analyzer.extract(input, plan);
+      const output = await analyzer.extract(input, plan);
       await this.queue.markHealthy();
       await this.saveExtraction(progress, output.result, output.runs);
     }
@@ -655,6 +718,19 @@ export class ParseService {
         `${quota ? 'AI usage quota exhausted' : 'Rate-limited'} while on ${progress.currentStep} of ${id}; pausing until ${plan.resumeAt.toISOString()}${plan.reliable ? '' : ' (estimated)'}: ${message}`,
       );
       return 'paused';
+    }
+
+    if (error instanceof StepInterruptedError) {
+      // Not the document's fault: back to the queue at once, attempt refunded.
+      await this.release(progress, runs, {
+        status: 'TO_BE_PARSED',
+        nextAttemptAt: new Date(),
+        lastError: message,
+        refundAttempt: true,
+        interrupted: { reason: 'TRANSIENT_ERROR', resumeAt: new Date() },
+      });
+      this.logger.warn(`Stopped ${id} while waiting on a batch: ${message}`);
+      return 'retried';
     }
 
     if (error instanceof CredentialsError) {

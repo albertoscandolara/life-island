@@ -126,6 +126,9 @@ services:
       PARSE_EXTRACT_MODEL: ${PARSE_EXTRACT_MODEL:-}
       PARSE_DISCOVER_EFFORT: ${PARSE_DISCOVER_EFFORT:-}
       PARSE_EXTRACT_EFFORT: ${PARSE_EXTRACT_EFFORT:-}
+      PARSE_BATCH: ${PARSE_BATCH:-}
+      PARSE_BATCH_MAX_DOCUMENTS: ${PARSE_BATCH_MAX_DOCUMENTS:-}
+      PARSE_BATCH_POLL_SECONDS: ${PARSE_BATCH_POLL_SECONDS:-}
     depends_on:
       <<: *service-deps
       svc-ingestion: { condition: service_started }

@@ -11,6 +11,12 @@ import type pg from 'pg';
 import { CONFIG, SERVICE_DB, type WorkerConfig } from './config.js';
 import { ParseService } from './parse.service.js';
 
+/**
+ * Runs nobody is waiting for go through the Message Batches API (half the
+ * price, results within hours); Parse now and a run at startup stay direct.
+ */
+const BATCHED_RUNS = new Set(['schedule', 'resume', 'recovery after restart']);
+
 /** setTimeout cannot wait longer than ~24.8 days; longer waits re-check on wake. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
@@ -116,11 +122,18 @@ export class ParseScheduler
   }
 
   trigger(reason: string): Promise<void> {
-    if (this.current && reason === 'parse now') this.rerun = true;
+    if (this.current && reason === 'parse now') {
+      this.rerun = true;
+      // A batch run would keep the request waiting for hours: finish it directly.
+      if (this.parse.hurry())
+        this.logger.log('Parse now: finishing the batch run directly');
+    }
     this.current ??= (async () => {
       const started = Date.now();
       try {
-        const summary = await this.parse.runOnce();
+        const summary = await this.parse.runOnce({
+          batch: BATCHED_RUNS.has(reason),
+        });
         const counts = Object.entries(summary)
           .filter(([, count]) => count > 0)
           .map(([outcome, count]) => `${count} ${outcome}`)

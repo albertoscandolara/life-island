@@ -105,6 +105,21 @@ export interface DocumentAnalyzer {
     input: ParseInput,
     context: DiscoveryContext,
   ): Promise<StepOutput<Discovery>>;
+  /**
+   * For analyzers that can send their requests in bulk (the Message Batches
+   * API: half the price, results within hours): an analyzer for one run whose
+   * calls from documents processed side by side are grouped together.
+   */
+  batched?(): BatchRun;
+}
+
+/** One batch run: its analyzer, and how to speed it up or end it. */
+export interface BatchRun {
+  analyzer: DocumentAnalyzer;
+  /** Stop waiting on batches (Parse now): send the rest directly. */
+  hurry(): void;
+  /** The run is over: give up on anything still waiting. */
+  close(): void;
 }
 
 /** Base of the errors a step can throw; `runs` are the calls made before it failed. */
@@ -155,6 +170,12 @@ export class CredentialsError extends ParseStepError {
     super(message);
   }
 }
+
+/**
+ * The run stopped (shutdown) while the step waited on a batch: nothing is
+ * wrong with the document, which goes back to the queue without losing an attempt.
+ */
+export class StepInterruptedError extends ParseStepError {}
 
 /** One request is larger than the model's context window: split the document. */
 export class ContextTooLargeError extends ParseStepError {}

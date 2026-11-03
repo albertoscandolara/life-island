@@ -15,6 +15,7 @@ import {
 } from './config.js';
 import { ParseService } from './parse.service.js';
 import { ClaudeParser } from './parsers/claude-parser.js';
+import { DEFAULT_BATCHER_OPTIONS } from './parsers/message-batcher.js';
 import type { DocumentAnalyzer } from './parsers/document-parser.js';
 import { FakeParser } from './parsers/fake-parser.js';
 import { ParseScheduler } from './scheduler.js';
@@ -38,6 +39,10 @@ function createParser(config: WorkerConfig): DocumentAnalyzer {
       chunkChars: config.chunkChars,
       discoverEffort: config.discoverEffort,
       extractEffort: config.extractEffort,
+      batch: {
+        ...DEFAULT_BATCHER_OPTIONS,
+        pollMs: config.batchPollSeconds * 1000,
+      },
     },
   );
 }
