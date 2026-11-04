@@ -52,6 +52,16 @@ export const stagingRecords = review.table(
       .array()
       .notNull()
       .default([]),
+    /**
+     * Historical reclassification overlay mirrored from `upload.updated`
+     * (null: normal; RECLASSIFYING, PENDING_REVIEW). Never changes `status`.
+     */
+    historicalStatus: text('historical_status'),
+    /** Ids of confirmed categories a later check found, awaiting your decision. */
+    historicalSuggestions: text('historical_suggestions')
+      .array()
+      .notNull()
+      .default([]),
     /** `updatedAt` of the last `upload.updated` applied; older snapshots are ignored. */
     metadataUpdatedAt: timestamp('metadata_updated_at', { withTimezone: true }),
     /** The document's template field values, mirrored from `upload.updated`. */

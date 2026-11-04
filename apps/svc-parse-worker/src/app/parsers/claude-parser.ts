@@ -22,11 +22,13 @@ import {
   ContextTooLargeError,
   PermanentParseError,
   type CategoryDefinition,
+  type CategoryMatches,
   type Classification,
   type Discovery,
   type DiscoveryContext,
   type DocumentAnalyzer,
   type Extraction,
+  type MatchContext,
   type ParseInput,
   type ParseRunRecord,
   type StepOutput,
@@ -229,6 +231,46 @@ function analysisText(context: DiscoveryContext): string {
 }
 
 // ---------------------------------------------------------------------------
+// RECLASSIFY (historical reclassification)
+
+const RECLASSIFY_INSTRUCTIONS = `You keep a personal document archive's labels up to date. The archive gained new categories after this document was first read; decide which of these NEW categories apply to it.
+${GROUNDING}
+
+Rules:
+- Consider only the candidate categories listed below; never name any other id.
+- A candidate applies only when the document itself supports it. Give the evidence from the document and a confidence from 0 to 1.
+- Some categories belong to a dimension (document type, subject, property / location, person, issuer, attribute) and some sit under a parent. A document has at most one document type and at most one issuer (a category together with its parents counts as one): never propose a document type or issuer that conflicts with the ones it already has, unless it is a more specific child of them.
+- Every dimension is optional: propose a property, a person or an issuer only when the document names it.
+- Return an empty list when none applies; that is the common case.`;
+
+const RECLASSIFY_THRESHOLD = 0.5;
+
+function matchSchema(ids: string[]) {
+  return z.object({
+    matches: z.array(
+      z.object({
+        id: z.enum(ids as [string, ...string[]]),
+        evidence: z.string().describe('What in the document shows it applies'),
+        confidence: z.number().describe('0 to 1'),
+      }),
+    ),
+  });
+}
+type MatchOutput = z.infer<ReturnType<typeof matchSchema>>;
+
+function matchContextText(context: MatchContext): string {
+  const { analysis } = context;
+  return [
+    ...(analysis
+      ? [
+          `When first read, this document was a ${analysis.documentType} (${analysis.purpose}), issued by ${analysis.issuer ?? 'an issuer not shown'}.`,
+        ]
+      : []),
+    `It already has these categories:\n${context.assigned.length ? categoriesText(context.assigned) : 'none'}`,
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
 
 function documentBlock(
   document: NormalizedDocument,
@@ -304,6 +346,8 @@ export interface ClaudeModels {
   classify: string;
   extract: string;
   discover: string;
+  /** Historical reclassification; the classify model when not set. */
+  reclassify?: string;
 }
 
 /**
@@ -397,6 +441,68 @@ export class ClaudeParser implements DocumentAnalyzer {
           flags,
         },
       };
+    } catch (error) {
+      throw withRuns(error, runs);
+    }
+  }
+
+  /**
+   * Historical reclassification: which candidates (confirmed after the
+   * document was last checked) apply. Small model; the candidate list is the
+   * same for most documents of a run, so it sits in the cached system prompt.
+   */
+  async matchCategories(
+    input: ParseInput,
+    candidates: CategoryDefinition[],
+    context: MatchContext,
+  ): Promise<StepOutput<CategoryMatches>> {
+    const runs: ParseRunRecord[] = [];
+    if (!candidates.length) return { runs, result: { matches: [] } };
+    const ids = candidates.map((category) => category.id);
+    try {
+      const { result: output } = await this.firstPart(input, (part, info) =>
+        this.call<MatchOutput>(runs, 'reclassify', {
+          model: this.models.reclassify ?? this.models.classify,
+          max_tokens: 2000,
+          system: [
+            { type: 'text', text: RECLASSIFY_INSTRUCTIONS },
+            {
+              type: 'text',
+              text: `Candidate categories:\n${categoriesText(candidates)}`,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          output_config: {
+            effort: 'low',
+            format: zodOutputFormat(matchSchema(ids)),
+          },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                documentBlock(part.document),
+                {
+                  type: 'text',
+                  text: `${hintsOf(part, info)}\n${matchContextText(context)}\n\nWhich candidate categories apply?`,
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      const seen = new Set<string>();
+      const matches = (output.matches ?? [])
+        .filter((match) => ids.includes(match.id) && !seen.has(match.id))
+        .map((match) => {
+          seen.add(match.id);
+          return {
+            categoryId: match.id,
+            evidence: match.evidence.slice(0, 1000),
+            confidence: Math.min(1, Math.max(0, match.confidence)),
+          };
+        })
+        .filter((match) => match.confidence >= RECLASSIFY_THRESHOLD);
+      return { runs, result: { matches } };
     } catch (error) {
       throw withRuns(error, runs);
     }

@@ -105,6 +105,13 @@ export async function applyDocumentEvent(
         description: e.description,
         categories: e.categories,
         suggestedCategories: e.suggestedCategories,
+        // Older events say nothing about historical reclassification: keep it.
+        ...(e.historicalStatus !== undefined
+          ? {
+              historicalStatus: e.historicalStatus,
+              historicalSuggestions: e.historicalSuggestions ?? [],
+            }
+          : {}),
         // Older events carry no fields: keep what is stored.
         ...(e.fields ? { documentFields: e.fields } : {}),
         metadataUpdatedAt: new Date(e.updatedAt),

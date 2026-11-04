@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { categoryDimensionSchema, parseStepSchema } from './categories.js';
 import { fileFormatSchema } from './documents.js';
+import { historicalStatusSchema } from './reclassification.js';
 
 /** One template field value: what the document says, normalized; null when absent. */
 export const documentFieldValueSchema = z.union([
@@ -47,6 +48,13 @@ export const uploadUpdatedV1 = uploadCompletedV1
      * (null: not in the document). Optional so older events still parse.
      */
     fields: z.record(z.string(), documentFieldValueSchema).optional(),
+    /**
+     * Historical reclassification overlay (null: normal) and the ids of the
+     * confirmed categories a later check found for it. Optional so older
+     * events still parse.
+     */
+    historicalStatus: historicalStatusSchema.nullable().optional(),
+    historicalSuggestions: z.array(z.string()).optional(),
     updatedAt: z.iso.datetime({ offset: true }),
   });
 export type UploadUpdatedV1 = z.infer<typeof uploadUpdatedV1>;

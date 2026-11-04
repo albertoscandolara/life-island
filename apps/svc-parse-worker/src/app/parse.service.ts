@@ -21,7 +21,9 @@ import {
   type UploadParsingStartedV1,
 } from '@life-island/contracts';
 import {
+  bumpTaxonomyVersion,
   categorySuggestions,
+  currentTaxonomyVersion,
   documentCategories,
   enqueueCategoriesChanged,
   enqueueUploadUpdated,
@@ -169,8 +171,15 @@ export class ParseService {
       lost: 0,
     };
     this.stopRequested = false;
-    if (!(await this.queue.beginRun())) {
+    const begin = await this.queue.beginRun();
+    if (begin === 'paused') {
       this.logger.log('The queue is paused; no AI requests until it resumes');
+      return summary;
+    }
+    if (begin === 'reclassifying') {
+      this.logger.log(
+        'A historical reclassification holds the lock; parsing runs once it ends',
+      );
       return summary;
     }
     try {
@@ -224,7 +233,9 @@ export class ParseService {
       title: upload.title,
       description: upload.description,
     };
-    // Read fresh for every document: categories approved during a run apply at once.
+    // Read fresh for every document: categories approved during a run apply
+    // at once. The version first: every category up to it is in the list.
+    const taxonomyVersion = await this.taxonomyVersion();
     const categories = await this.loadCategories();
 
     if (!progress.completed.includes('CLASSIFY')) {
@@ -236,6 +247,7 @@ export class ParseService {
         output.result,
         output.runs,
         categories,
+        taxonomyVersion,
       );
     }
     if (!progress.completed.includes('DISCOVER')) {
@@ -272,6 +284,15 @@ export class ParseService {
       const output = await this.analyzer.extract(input, plan);
       await this.queue.markHealthy();
       await this.saveExtraction(progress, output.result, output.runs);
+    }
+  }
+
+  private async taxonomyVersion(): Promise<number> {
+    const client = await this.svc.pool.connect();
+    try {
+      return await currentTaxonomyVersion(client);
+    } finally {
+      client.release();
     }
   }
 
@@ -393,6 +414,7 @@ export class ParseService {
     result: Classification,
     runs: ParseRunRecord[],
     categories: CategoryDefinition[],
+    taxonomyVersion: number,
   ): Promise<void> {
     // Only ids that exist: the model cannot assign a category by inventing it.
     const known = new Set(categories.map((category) => category.id));
@@ -430,6 +452,9 @@ export class ParseService {
           warnings,
         },
         categories: categoryIds,
+        // Every category up to this version was compared with the document:
+        // historical reclassification only checks newer ones.
+        classifiedCategoryVersion: taxonomyVersion,
         targetKey: result.targetKey,
         confidence: result.analysis.confidence,
         flags: this.mergeFlags(progress, result.flags),
@@ -547,6 +572,16 @@ export class ParseService {
               suggestion.parentId ?? null,
               suggestion.dimension ?? null,
             ],
+          );
+        }
+        if (autoApproved.length) {
+          // Approved automatically, but still a confirmation: one version for
+          // this document's batch, so older documents get checked against it.
+          const version = await bumpTaxonomyVersion(client);
+          await client.query(
+            `update ingestion.document_categories set taxonomy_version = $1
+              where id = any($2::text[])`,
+            [version, autoApproved],
           );
         }
         if (autoApproved.length)

@@ -8,6 +8,7 @@ import {
 import { withTransaction, type ServiceDb } from '@life-island/be-common';
 import {
   approveSuggestionRequestSchema,
+  approveSuggestionsRequestSchema,
   CATEGORY_DIMENSION_LABELS,
   CategoryHierarchy,
   createCategoryRequestSchema,
@@ -22,6 +23,8 @@ import {
   type ParseQueueDto,
 } from '@life-island/contracts';
 import {
+  assertWritable,
+  bumpTaxonomyVersion,
   categorySuggestions,
   documentCategories,
   enqueueCategoriesChanged,
@@ -53,6 +56,7 @@ import { SERVICE_DB } from '../config.js';
 
 type ListSuggestions = z.output<typeof listSuggestionsQuerySchema>;
 type ApproveSuggestion = z.output<typeof approveSuggestionRequestSchema>;
+type ApproveSuggestions = z.output<typeof approveSuggestionsRequestSchema>;
 type UpdateCategory = z.output<typeof updateCategoryRequestSchema>;
 type CreateCategory = z.output<typeof createCategoryRequestSchema>;
 type UpdateSuggestion = z.output<typeof updateSuggestionRequestSchema>;
@@ -186,6 +190,7 @@ export class CategoriesService {
   async create(request: CreateCategory): Promise<CategoryDto> {
     try {
       return await withTransaction(this.svc.pool, async (client) => {
+        await assertWritable(client);
         const tree = await this.lockedHierarchy(client);
         const dimension = this.placement(
           tree,
@@ -193,6 +198,9 @@ export class CategoriesService {
           request.parentId,
           request.dimension,
         );
+        // A category added by hand is a confirmation of its own: one version,
+        // so documents parsed before it get checked against it.
+        const taxonomyVersion = await bumpTaxonomyVersion(client);
         const [row] = await drizzle(client)
           .insert(documentCategories)
           .values({
@@ -202,6 +210,7 @@ export class CategoriesService {
             templateJson: request.template,
             parentId: request.parentId,
             dimension,
+            taxonomyVersion,
           })
           .onConflictDoNothing({ target: documentCategories.id })
           .returning();
@@ -229,6 +238,7 @@ export class CategoriesService {
    */
   async remove(id: string, options: DeleteCategory): Promise<void> {
     await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       const tree = await this.lockedHierarchy(client);
       const category = tree.get(id);
       if (!category) throw new NotFoundException(`Category ${id} not found`);
@@ -297,6 +307,7 @@ export class CategoriesService {
   ): Promise<CategoryRow> {
     try {
       return await withTransaction(this.svc.pool, async (client) => {
+        await assertWritable(client);
         const tree = await this.lockedHierarchy(client);
         const current = tree.get(id);
         if (!current) throw new NotFoundException(`Category ${id} not found`);
@@ -390,87 +401,34 @@ export class CategoriesService {
     return rows.map(toSuggestionDto);
   }
 
-  /**
-   * Saves the suggestion as a category (with your edits, if any), in one
-   * transaction that also assigns it to the documents that suggested it. From
-   * the next document on, the worker matches it like any other category.
-   */
+  /** Confirms one suggestion: a batch of one (one taxonomy version). */
   async approve(
     suggestionId: string,
     request: ApproveSuggestion,
   ): Promise<CategorySuggestionDto> {
+    const [approved] = await this.approveMany({
+      items: [{ id: suggestionId, overrides: request }],
+    });
+    return approved;
+  }
+
+  /**
+   * Confirms several suggestions at once, as the Categories page does with
+   * its checkboxes: each becomes a category (with your edits, if any) and is
+   * added to the documents that suggested it. All or nothing, in one
+   * transaction, and **one** taxonomy version for the whole batch, however
+   * many it confirms. From the next document on, the worker matches them like
+   * any other category.
+   */
+  async approveMany(
+    request: ApproveSuggestions,
+  ): Promise<CategorySuggestionDto[]> {
     try {
       return await withTransaction(this.svc.pool, async (client) => {
-        const db = drizzle(client);
-        const [suggestion] = await db
-          .select()
-          .from(categorySuggestions)
-          .where(eq(categorySuggestions.id, suggestionId))
-          .for('update');
-        if (!suggestion)
-          throw new NotFoundException(`Suggestion ${suggestionId} not found`);
-        if (suggestion.status !== 'PENDING')
-          throw new ConflictException(
-            `This suggestion was already ${suggestion.status.toLowerCase()}`,
-          );
-        const id = request.id ?? suggestion.categoryId;
-        const tree = await this.lockedHierarchy(client);
-        // Your choice of parent is checked strictly; the AI's is a proposal,
-        // dropped (keeping its dimension) if that parent is gone since.
-        const proposedParent =
-          suggestion.parentId && tree.get(suggestion.parentId)
-            ? suggestion.parentId
-            : null;
-        const parentId =
-          request.parentId !== undefined ? request.parentId : proposedParent;
-        const dimension = this.placement(
-          tree,
-          id,
-          parentId,
-          request.dimension !== undefined
-            ? request.dimension
-            : parentId
-              ? undefined
-              : suggestion.dimension,
-        );
-        const inserted = await db
-          .insert(documentCategories)
-          .values({
-            id,
-            title: request.title ?? suggestion.title,
-            description: request.description ?? suggestion.description,
-            templateJson: request.template ?? suggestion.templateJson,
-            parentId,
-            dimension,
-          })
-          .onConflictDoNothing({ target: documentCategories.id })
-          .returning();
-        if (!inserted.length)
-          throw new ConflictException(
-            `A category with id ${id} already exists; approve it under another id or reject it`,
-          );
-        const [approved] = await db
-          .update(categorySuggestions)
-          .set({
-            status: 'APPROVED',
-            approvedCategoryId: id,
-            reviewedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(categorySuggestions.id, suggestionId))
-          .returning();
-        if (suggestion.uploadIds.length)
-          await client.query(
-            `update ingestion.uploads
-                set categories = case when $1 = any(categories) then categories
-                                      else array_append(categories, $1) end,
-                    updated_at = now()
-              where id = any($2::uuid[])`,
-            [id, suggestion.uploadIds],
-          );
-        await this.resyncUploads(client, suggestion.uploadIds);
-        await enqueueCategoriesChanged(client, this.svc.schema, [id]);
-        return toSuggestionDto(approved);
+        await assertWritable(client);
+        const result = await this.approveInTransaction(client, request.items);
+        await this.resyncUploads(client, result.uploadIds);
+        return result.approved;
       });
     } catch (error) {
       if (isUniqueViolation(error))
@@ -482,11 +440,121 @@ export class CategoriesService {
   }
 
   /**
+   * Turns suggestions into categories inside the caller's transaction (which
+   * has passed `assertWritable`), with one taxonomy version for all of them,
+   * and adds each to the documents that suggested it. The caller resyncs the
+   * returned documents' fields.
+   */
+  async approveInTransaction(
+    client: pg.PoolClient,
+    items: { id: string; overrides?: ApproveSuggestion }[],
+  ): Promise<{
+    approved: CategorySuggestionDto[];
+    uploadIds: string[];
+    categoryIds: string[];
+  }> {
+    const ids = [...new Set(items.map((item) => item.id))];
+    if (ids.length !== items.length)
+      throw new UnprocessableEntityException(
+        'The same suggestion is listed twice',
+      );
+    const db = drizzle(client);
+    let tree = await this.lockedHierarchy(client);
+    const rows = await db
+      .select()
+      .from(categorySuggestions)
+      .where(inArray(categorySuggestions.id, ids))
+      .orderBy(asc(categorySuggestions.createdAt))
+      .for('update');
+    for (const id of ids) {
+      const row = rows.find((candidate) => candidate.id === id);
+      if (!row) throw new NotFoundException(`Suggestion ${id} not found`);
+      if (row.status !== 'PENDING')
+        throw new ConflictException(
+          `${row.title} was already ${row.status.toLowerCase()}`,
+        );
+    }
+    const taxonomyVersion = await bumpTaxonomyVersion(client);
+    const approved: CategorySuggestionDto[] = [];
+    const uploadIds = new Set<string>();
+    const categoryIds: string[] = [];
+    for (const item of items) {
+      const suggestion = rows.find((row) => row.id === item.id)!;
+      const request = item.overrides ?? {};
+      const id = request.id ?? suggestion.categoryId;
+      // Your choice of parent is checked strictly; the AI's is a proposal,
+      // dropped (keeping its dimension) if that parent is gone since.
+      const proposedParent =
+        suggestion.parentId && tree.get(suggestion.parentId)
+          ? suggestion.parentId
+          : null;
+      const parentId =
+        request.parentId !== undefined ? request.parentId : proposedParent;
+      const dimension = this.placement(
+        tree,
+        id,
+        parentId,
+        request.dimension !== undefined
+          ? request.dimension
+          : parentId
+            ? undefined
+            : suggestion.dimension,
+      );
+      const inserted = await db
+        .insert(documentCategories)
+        .values({
+          id,
+          title: request.title ?? suggestion.title,
+          description: request.description ?? suggestion.description,
+          templateJson: request.template ?? suggestion.templateJson,
+          parentId,
+          dimension,
+          taxonomyVersion,
+        })
+        .onConflictDoNothing({ target: documentCategories.id })
+        .returning();
+      if (!inserted.length)
+        throw new ConflictException(
+          `A category with id ${id} already exists; approve it under another id or reject it`,
+        );
+      // A later item may go under the category just created.
+      tree = new CategoryHierarchy([...tree.categories, inserted[0]]);
+      const [row] = await db
+        .update(categorySuggestions)
+        .set({
+          status: 'APPROVED',
+          approvedCategoryId: id,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(categorySuggestions.id, suggestion.id))
+        .returning();
+      approved.push(toSuggestionDto(row));
+      categoryIds.push(id);
+      if (suggestion.uploadIds.length) {
+        await client.query(
+          `update ingestion.uploads
+              set categories = case when $1 = any(categories) then categories
+                                    else array_append(categories, $1) end,
+                  rejected_categories = array_remove(rejected_categories, $1),
+                  updated_at = now()
+            where id = any($2::uuid[])`,
+          [id, suggestion.uploadIds],
+        );
+        for (const uploadId of suggestion.uploadIds) uploadIds.add(uploadId);
+      }
+    }
+    await enqueueCategoriesChanged(client, this.svc.schema, categoryIds);
+    return { approved, uploadIds: [...uploadIds], categoryIds };
+  }
+
+  /**
    * Rejects a suggestion: it leaves the documents' suggested categories, and
    * the AI does not propose the same id again.
    */
   async reject(suggestionId: string): Promise<CategorySuggestionDto> {
     return withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       const [row] = await drizzle(client)
         .update(categorySuggestions)
         .set({
@@ -517,39 +585,72 @@ export class CategoriesService {
     uploadId: string,
   ): Promise<CategorySuggestionDto> {
     return withTransaction(this.svc.pool, async (client) => {
-      const remaining = sql`array_remove(${categorySuggestions.uploadIds}, ${uploadId}::uuid)`;
-      const [row] = await drizzle(client)
-        .update(categorySuggestions)
-        .set({
-          uploadIds: remaining,
-          status: sql`case when cardinality(${remaining}) = 0 then 'REJECTED'::ingestion.suggestion_status else ${categorySuggestions.status} end`,
-          reviewedAt: sql`case when cardinality(${remaining}) = 0 then now() else ${categorySuggestions.reviewedAt} end`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(categorySuggestions.id, suggestionId),
-            eq(categorySuggestions.status, 'PENDING'),
-            sql`${uploadId}::uuid = any(${categorySuggestions.uploadIds})`,
-          ),
-        )
-        .returning();
-      if (!row) {
-        const error = await this.notPending(suggestionId);
-        if (!(error instanceof ConflictException)) throw error;
-        const [existing] = await this.svc.db
-          .select()
-          .from(categorySuggestions)
-          .where(eq(categorySuggestions.id, suggestionId));
-        throw existing.status === 'PENDING'
-          ? new NotFoundException(
-              `This suggestion was not made for document ${uploadId}`,
-            )
-          : error;
-      }
+      await assertWritable(client);
+      const row = await this.dismissInTransaction(client, suggestionId, uploadId);
       await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
-      return toSuggestionDto(row);
+      return row;
     });
+  }
+
+  /**
+   * Declines a suggestion for one document inside the caller's transaction,
+   * and remembers the category on the document so no later check proposes it
+   * for it again.
+   */
+  async dismissInTransaction(
+    client: pg.PoolClient,
+    suggestionId: string,
+    uploadId: string,
+  ): Promise<CategorySuggestionDto> {
+    const remaining = sql`array_remove(${categorySuggestions.uploadIds}, ${uploadId}::uuid)`;
+    const [row] = await drizzle(client)
+      .update(categorySuggestions)
+      .set({
+        uploadIds: remaining,
+        status: sql`case when cardinality(${remaining}) = 0 then 'REJECTED'::ingestion.suggestion_status else ${categorySuggestions.status} end`,
+        reviewedAt: sql`case when cardinality(${remaining}) = 0 then now() else ${categorySuggestions.reviewedAt} end`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(categorySuggestions.id, suggestionId),
+          eq(categorySuggestions.status, 'PENDING'),
+          sql`${uploadId}::uuid = any(${categorySuggestions.uploadIds})`,
+        ),
+      )
+      .returning();
+    if (!row) {
+      const error = await this.notPending(suggestionId);
+      if (!(error instanceof ConflictException)) throw error;
+      const [existing] = await drizzle(client)
+        .select()
+        .from(categorySuggestions)
+        .where(eq(categorySuggestions.id, suggestionId));
+      throw existing.status === 'PENDING'
+        ? new NotFoundException(
+            `This suggestion was not made for document ${uploadId}`,
+          )
+        : error;
+    }
+    await this.rememberDeclined(client, uploadId, [row.categoryId]);
+    return toSuggestionDto(row);
+  }
+
+  /** Category ids declined for a document: never proposed for it again. */
+  async rememberDeclined(
+    client: pg.PoolClient,
+    uploadId: string,
+    categoryIds: string[],
+  ): Promise<void> {
+    if (!categoryIds.length) return;
+    await client.query(
+      `update ingestion.uploads
+          set rejected_categories = array(
+                select distinct unnest(rejected_categories || $2::text[])),
+              updated_at = now()
+        where id = $1`,
+      [uploadId, categoryIds],
+    );
   }
 
   /**
@@ -559,6 +660,7 @@ export class CategoriesService {
    */
   async requestRun(): Promise<ParseQueueDto> {
     await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       await client.query(
         `insert into ingestion.parse_queue (id, run_requested_at) values ($1, now())
          on conflict (id) do update set run_requested_at = now(), updated_at = now()`,
@@ -576,6 +678,7 @@ export class CategoriesService {
   ): Promise<CategorySuggestionDto> {
     try {
       return await withTransaction(this.svc.pool, async (client) => {
+        await assertWritable(client);
         const db = drizzle(client);
         if (request.id) {
           const [taken] = await db
@@ -662,7 +765,7 @@ export class CategoriesService {
    * After documents' categories changed: align their extracted fields with
    * the categories' templates, and tell the review inbox.
    */
-  private async resyncUploads(
+  async resyncUploads(
     client: pg.PoolClient,
     uploadIds: string[],
   ): Promise<void> {

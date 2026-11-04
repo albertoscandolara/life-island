@@ -13,6 +13,7 @@ import {
 import {
   QuotaExhaustedError,
   type CategoryDefinition,
+  type CategoryMatches,
   type Classification,
   type Discovery,
   type DiscoveryContext,
@@ -124,6 +125,10 @@ const DISCOVERABLE: (ProposedCategory & { words: RegExp })[] = [
     },
   })),
 ];
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function haystackOf(input: ParseInput): string {
   const text =
@@ -268,6 +273,41 @@ export class FakeParser implements DocumentAnalyzer {
           : `${target.label} (sample data)`,
         flags: ['fake_parser'],
       },
+    };
+  }
+
+  /** Historical reclassification: the candidates whose keywords appear. */
+  async matchCategories(
+    input: ParseInput,
+    candidates: CategoryDefinition[],
+  ): Promise<StepOutput<CategoryMatches>> {
+    this.spend();
+    const haystack = haystackOf(input);
+    const matches = candidates
+      .filter((category) => {
+        const words = CATEGORY_WORDS[category.id];
+        return words
+          ? words.test(haystack)
+          : new RegExp(`\\b${category.id.replace(/_/g, '[ _]')}\\b`, 'i').test(
+              haystack,
+            ) ||
+              new RegExp(`\\b${escapeRegExp(category.title)}\\b`, 'i').test(
+                haystack,
+              );
+      })
+      .map((category) => ({
+        categoryId: category.id,
+        evidence: 'keyword match',
+        confidence: 0.5,
+      }));
+    return {
+      runs: [
+        this.run('reclassify', {
+          candidates: candidates.map((category) => category.id),
+          matches: matches.map((match) => match.categoryId),
+        }),
+      ],
+      result: { matches },
     };
   }
 

@@ -18,6 +18,8 @@ import {
 import {
   categoryDimensionSchema,
   DESCRIPTION_MAX_LENGTH,
+  historicalStatusSchema,
+  reclassificationRunStatusSchema,
   fileFormatSchema,
   parseQueueStatusSchema,
   suggestionStatusSchema,
@@ -28,7 +30,12 @@ import {
   type DocumentAnalysis,
   type ExtractedFields,
   type FileFormat,
+  type HistoricalStatus,
+  type HistoricalSuggestion,
   type ParseQueueStatus,
+  type ReclassificationBlock,
+  type ReclassificationRunStatus,
+  type ReclassificationTrigger,
   type ParseStep,
   type ProviderErrorDetails,
   type SuggestionStatus,
@@ -65,6 +72,18 @@ export const categoryDimension = ingestion.enum(
 export const parseQueueStatus = ingestion.enum(
   'parse_queue_status',
   parseQueueStatusSchema.options as [ParseQueueStatus, ...ParseQueueStatus[]],
+);
+
+export const historicalStatus = ingestion.enum(
+  'historical_status',
+  historicalStatusSchema.options as [HistoricalStatus, ...HistoricalStatus[]],
+);
+export const reclassificationRunStatus = ingestion.enum(
+  'reclassification_run_status',
+  reclassificationRunStatusSchema.options as [
+    ReclassificationRunStatus,
+    ...ReclassificationRunStatus[],
+  ],
 );
 
 const timestamps = {
@@ -125,10 +144,39 @@ export const uploads = ingestion.table(
     flags: text('flags').array().notNull().default([]),
     uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
     parsedAt: timestamp('parsed_at', { withTimezone: true }),
+    /**
+     * Taxonomy version the CLASSIFY step saw: every category up to it was
+     * already compared with the document. Written by the initial parser only.
+     */
+    classifiedCategoryVersion: integer('classified_category_version'),
+    /**
+     * Taxonomy version against which the historical reclassification last
+     * finished with the document (no findings, or your review done). Null:
+     * never. Written by the historical workflow only.
+     */
+    historicalReviewedVersion: integer('historical_reviewed_version'),
+    /** Version a run checked it against while its findings wait for your review. */
+    historicalProcessingVersion: integer('historical_processing_version'),
+    /** Null: normal. RECLASSIFYING while a run checks it, PENDING_REVIEW while findings wait. */
+    historicalStatus: historicalStatus('historical_status'),
+    historicalSuggestions: jsonb('historical_suggestions')
+      .$type<HistoricalSuggestion[]>()
+      .notNull()
+      .default([]),
+    /** The run that set RECLASSIFYING, so a crashed run's documents can be reset. */
+    historicalRunId: uuid('historical_run_id'),
+    /** Categories declined for this document (by any workflow); never proposed for it again. */
+    rejectedCategories: text('rejected_categories')
+      .array()
+      .notNull()
+      .default([]),
     ...timestamps,
   },
   (table) => [
     index('uploads_claim_idx').on(table.status, table.nextAttemptAt),
+    index('uploads_historical_status_idx')
+      .on(table.historicalStatus)
+      .where(sql`${table.historicalStatus} is not null`),
     index('uploads_created_at_idx').on(table.createdAt),
     index('uploads_categories_idx').using('gin', table.categories),
     uniqueIndex('uploads_sha256_idx').on(table.sha256),
@@ -180,9 +228,12 @@ export const documentCategories = ingestion.table(
       { onDelete: 'restrict' },
     ),
     dimension: categoryDimension('dimension'),
+    /** The taxonomy version that confirmed it (one per confirming operation). */
+    taxonomyVersion: integer('taxonomy_version').notNull().default(0),
     ...timestamps,
   },
   (table) => [
+    index('document_categories_version_idx').on(table.taxonomyVersion),
     check(
       'document_categories_id_format',
       sql`${table.id} ~ '^[A-Z][A-Z0-9_]{1,63}$'`,
@@ -259,9 +310,63 @@ export const parseQueue = ingestion.table('parse_queue', {
     .defaultNow(),
 });
 
+/**
+ * The taxonomy's state: one row (`id = 'global'`). `version` goes up by one
+ * for every operation that confirms categories, however many it confirms,
+ * in the same transaction. Also the reclassification schedule and requests.
+ */
+export const taxonomyState = ingestion.table('taxonomy_state', {
+  id: text('id').primaryKey(),
+  version: integer('version').notNull().default(0),
+  nextReclassificationAt: timestamp('next_reclassification_at', {
+    withTimezone: true,
+  }),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * One row per reclassification run, including those that could not start
+ * (BLOCKED). A RUNNING row whose lease has not expired is the global lock:
+ * at most one exists (unique partial index).
+ */
+export const reclassificationRuns = ingestion.table(
+  'reclassification_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    trigger: text('trigger').$type<ReclassificationTrigger>().notNull(),
+    status: reclassificationRunStatus('status').notNull(),
+    targetVersion: integer('target_version'),
+    blockedReasons: jsonb('blocked_reasons')
+      .$type<ReclassificationBlock[]>()
+      .notNull()
+      .default([]),
+    /** Renewed by the worker while it runs; once past, the lock is free. */
+    leaseUntil: timestamp('lease_until', { withTimezone: true }),
+    requestedAt: timestamp('requested_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    summary: jsonb('summary')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
+    lastError: text('last_error'),
+  },
+  (table) => [
+    uniqueIndex('reclassification_runs_one_running_idx')
+      .on(sql`(true)`)
+      .where(sql`${table.status} = 'RUNNING'`),
+    index('reclassification_runs_requested_at_idx').on(table.requestedAt),
+  ],
+);
+
 export type UploadRow = typeof uploads.$inferSelect;
 export type CategoryRow = typeof documentCategories.$inferSelect;
 export type CategorySuggestionRow = typeof categorySuggestions.$inferSelect;
 export type ParseQueueRow = typeof parseQueue.$inferSelect;
+export type ReclassificationRunRow = typeof reclassificationRuns.$inferSelect;
 export type NewUploadRow = typeof uploads.$inferInsert;
 export type ParseRunRow = typeof parseRuns.$inferInsert;

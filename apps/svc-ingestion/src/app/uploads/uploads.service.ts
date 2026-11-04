@@ -26,9 +26,11 @@ import {
   listUploadsQuerySchema,
   MAX_UPLOAD_BYTES,
   reparseUploadsRequestSchema,
+  categoryDecisionsSchema,
   updateUploadRequestSchema,
   UPLOAD_COMPLETED_EVENT,
   UPLOAD_REPARSE_REQUESTED_EVENT,
+  type CategoryDecisions,
   type CompleteUploadResponse,
   type CreateUploadResponse,
   type Page,
@@ -38,6 +40,7 @@ import {
   type UploadDto,
 } from '@life-island/contracts';
 import {
+  assertWritable,
   categorySuggestions,
   documentCategories,
   editFieldValues,
@@ -51,6 +54,7 @@ import {
 } from '@life-island/ingestion-db';
 import { and, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import type pg from 'pg';
 import type { z } from 'zod';
 import {
   CONFIG,
@@ -58,6 +62,7 @@ import {
   STORAGE,
   type IngestionConfig,
 } from '../config.js';
+import { CategoriesService } from '../categories/categories.service.js';
 import { inspectFile } from './file-inspection.js';
 
 type CreateUpload = z.output<typeof createUploadRequestSchema>;
@@ -101,6 +106,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
     @Inject(STORAGE) private readonly storage: ObjectStorage,
     @Inject(CONFIG) private readonly config: IngestionConfig,
+    @Inject(CategoriesService) private readonly categories: CategoriesService,
   ) {}
 
   onModuleInit(): void {
@@ -131,14 +137,19 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     const month = String(now.getUTCMonth() + 1).padStart(2, '0');
     // The original name stays last in the key, so downloads keep it.
     const storageKey = `${now.getUTCFullYear()}/${month}/${id}/${safeFilename(request.filename)}`;
-    await this.svc.db.insert(uploads).values({
-      id,
-      title: request.title ?? titleFromFilename(request.filename),
-      description: request.description ?? null,
-      originalFilename: request.filename,
-      declaredMime: request.mimeType,
-      sizeBytes: request.sizeBytes,
-      storageKey,
+    await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
+      await drizzle(client)
+        .insert(uploads)
+        .values({
+          id,
+          title: request.title ?? titleFromFilename(request.filename),
+          description: request.description ?? null,
+          originalFilename: request.filename,
+          declaredMime: request.mimeType,
+          sizeBytes: request.sizeBytes,
+          storageKey,
+        });
     });
     const expiresInSeconds = 15 * 60;
     return {
@@ -162,6 +173,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     const row = await this.findRow(id);
     if (row.status !== 'UPLOADING')
       return { upload: toUploadDto(row), duplicate: false };
+    await withTransaction(this.svc.pool, (client) => assertWritable(client));
 
     const head = await this.storage.head(row.storageKey);
     if (!head)
@@ -198,6 +210,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const updated = await withTransaction(this.svc.pool, async (client) => {
+        await assertWritable(client);
         const [saved] = await drizzle(client)
           .update(uploads)
           .set({
@@ -287,7 +300,9 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
    * new ones' template fields as missing, for you to fill in.
    */
   async update(id: string, request: UpdateUpload): Promise<UploadDto> {
-    return withTransaction(this.svc.pool, async (client) => {
+    const others = new Set<string>();
+    const dto = await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       const db = drizzle(client);
       const [row] = await db
         .select()
@@ -297,14 +312,27 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       if (!row) throw new NotFoundException(`Upload ${id} not found`);
       if (row.status === 'UPLOADING' || !row.fileFormat)
         throw new ConflictException('This upload has no stored file to edit');
-      if (row.status === 'PARSING' && (request.categories || request.fields))
+      if (
+        row.status === 'PARSING' &&
+        (request.categories || request.fields || request.decisions)
+      )
         throw new ConflictException(
           'The AI is processing this document right now; change its categories and fields once it finishes',
         );
 
-      const categoryIds = request.categories
-        ? [...new Set(request.categories)]
-        : row.categories;
+      const decided = request.decisions
+        ? await this.applyDecisions(client, row, request.decisions)
+        : undefined;
+      for (const uploadId of decided?.otherUploads ?? []) others.add(uploadId);
+      const categoryIds = [
+        ...new Set([
+          ...(request.categories ?? decided?.categories ?? row.categories),
+          ...(decided?.added ?? []),
+        ]),
+      ];
+      const categoriesChanged =
+        !!request.categories ||
+        categoryIds.join() !== row.categories.join();
       const assigned = categoryIds.length
         ? await db
             .select()
@@ -315,13 +343,13 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         (categoryId) =>
           !assigned.some((category) => category.id === categoryId),
       );
-      if (request.categories && unknown.length)
+      if (categoriesChanged && unknown.length)
         throw new UnprocessableEntityException(
           `Unknown categories: ${unknown.join(', ')}`,
         );
       // Every dimension is optional, but a document has at most one document
       // type and one issuer (a category with its ancestors counts as one).
-      if (request.categories) {
+      if (categoriesChanged) {
         const tree = new CategoryHierarchy(
           await db.select().from(documentCategories),
         );
@@ -342,7 +370,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       );
 
       let extractedFields = row.extractedFields;
-      if (request.categories)
+      if (categoriesChanged)
         extractedFields = syncTemplateFields(extractedFields, ordered);
       if (request.fields && Object.keys(request.fields).length) {
         try {
@@ -365,15 +393,156 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           ...(request.description !== undefined
             ? { description: request.description }
             : {}),
-          ...(request.categories ? { categories: categoryIds } : {}),
+          ...(categoriesChanged ? { categories: categoryIds } : {}),
+          ...(decided?.historical ?? {}),
+          // Ticking a category by hand overrides an earlier decline of it.
+          rejectedCategories: [
+            ...new Set([
+              ...(decided?.rejected ?? row.rejectedCategories),
+            ]),
+          ].filter((categoryId) => !categoryIds.includes(categoryId)),
           extractedFields,
           updatedAt: new Date(),
         })
         .where(eq(uploads.id, id))
         .returning();
       await enqueueUploadUpdated(client, this.svc.schema, [id]);
+      others.delete(id);
+      // Other documents that suggested a category you approved got it too.
+      if (others.size)
+        await this.categories.resyncUploads(client, [...others]);
       return toUploadDto(saved);
     });
+    return dto;
+  }
+
+  /**
+   * Your decisions on a document's suggested categories, sent once with the
+   * review panel's Confirm. Approved parser suggestions become categories in
+   * one taxonomy version (and join every document that suggested them);
+   * declined ones are declined for this document only. Accepted historical
+   * findings join the document; rejected ones are remembered so they are
+   * never proposed for it again. When no finding is left undecided the
+   * historical review is complete, rejected or not: the document counts as
+   * checked against the version it was processed for (never a newer one).
+   */
+  private async applyDecisions(
+    client: pg.PoolClient,
+    row: UploadRow,
+    decisions: CategoryDecisions,
+  ): Promise<{
+    categories: string[];
+    added: string[];
+    rejected: string[];
+    otherUploads: string[];
+    historical?: Partial<UploadRow>;
+  }> {
+    const parsed = categoryDecisionsSchema.parse(decisions);
+    const both = parsed.approveSuggestions.filter((suggestionId) =>
+      parsed.declineSuggestions.includes(suggestionId),
+    );
+    const contradicting = parsed.acceptHistorical.filter((categoryId) =>
+      parsed.rejectHistorical.includes(categoryId),
+    );
+    if (both.length || contradicting.length)
+      throw new UnprocessableEntityException(
+        'A suggestion cannot be accepted and declined at once',
+      );
+    const db = drizzle(client);
+    const decidedSuggestions = [
+      ...parsed.approveSuggestions,
+      ...parsed.declineSuggestions,
+    ];
+    if (decidedSuggestions.length) {
+      const mine = await db
+        .select({ id: categorySuggestions.id })
+        .from(categorySuggestions)
+        .where(
+          and(
+            inArray(categorySuggestions.id, decidedSuggestions),
+            eq(categorySuggestions.status, 'PENDING'),
+            sql`${row.id}::uuid = any(${categorySuggestions.uploadIds})`,
+          ),
+        );
+      const missing = decidedSuggestions.filter(
+        (suggestionId) => !mine.some((suggestion) => suggestion.id === suggestionId),
+      );
+      if (missing.length)
+        throw new ConflictException(
+          'Some suggested categories were already decided or are no longer suggested for this document; reload it and try again',
+        );
+    }
+    for (const suggestionId of parsed.declineSuggestions)
+      await this.categories.dismissInTransaction(client, suggestionId, row.id);
+    let otherUploads: string[] = [];
+    let added: string[] = [];
+    if (parsed.approveSuggestions.length) {
+      const approved = await this.categories.approveInTransaction(
+        client,
+        parsed.approveSuggestions.map((suggestionId) => ({ id: suggestionId })),
+      );
+      added = approved.categoryIds;
+      otherUploads = approved.uploadIds;
+    }
+    const [fresh] = await db.select().from(uploads).where(eq(uploads.id, row.id));
+
+    const historicalDecided = [
+      ...parsed.acceptHistorical,
+      ...parsed.rejectHistorical,
+    ];
+    let historical: Partial<UploadRow> | undefined;
+    let rejected = fresh.rejectedCategories;
+    if (historicalDecided.length) {
+      if (fresh.historicalStatus !== 'PENDING_REVIEW')
+        throw new ConflictException(
+          'This document has no newer categories waiting for review',
+        );
+      const offered = fresh.historicalSuggestions.map(
+        (suggestion) => suggestion.categoryId,
+      );
+      const unknown = historicalDecided.filter(
+        (categoryId) => !offered.includes(categoryId),
+      );
+      if (unknown.length)
+        throw new UnprocessableEntityException(
+          `Not suggested for this document: ${unknown.join(', ')}`,
+        );
+      // A category deleted since it was found can no longer be added.
+      const existing = parsed.acceptHistorical.length
+        ? (
+            await db
+              .select({ id: documentCategories.id })
+              .from(documentCategories)
+              .where(inArray(documentCategories.id, parsed.acceptHistorical))
+          ).map((category) => category.id)
+        : [];
+      added = [
+        ...added,
+        ...parsed.acceptHistorical.filter((categoryId) =>
+          existing.includes(categoryId),
+        ),
+      ];
+      rejected = [...new Set([...rejected, ...parsed.rejectHistorical])];
+      const remaining = fresh.historicalSuggestions.filter(
+        (suggestion) => !historicalDecided.includes(suggestion.categoryId),
+      );
+      historical = remaining.length
+        ? { historicalSuggestions: remaining }
+        : {
+            historicalStatus: null,
+            historicalSuggestions: [],
+            historicalReviewedVersion: fresh.historicalProcessingVersion,
+            historicalProcessingVersion: null,
+            historicalRunId: null,
+          };
+    }
+    return {
+      categories: fresh.categories,
+      added,
+      rejected,
+      otherUploads,
+      historical,
+    };
   }
 
   /**
@@ -390,6 +559,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
   async reparse(request: ReparseUploads): Promise<ReparseUploadsResponse> {
     const ids = [...new Set(request.uploadIds)];
     return withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       const now = new Date();
       const requeued = await drizzle(client)
         .update(uploads)
@@ -409,6 +579,13 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           confidence: null,
           flags: [],
           parsedAt: null,
+          // Read from scratch, so its CLASSIFY sees every category: what a
+          // later check found no longer matters. Declines stay.
+          classifiedCategoryVersion: null,
+          historicalStatus: null,
+          historicalSuggestions: [],
+          historicalProcessingVersion: null,
+          historicalRunId: null,
           updatedAt: now,
         })
         // Only finished documents: never one the worker holds.
@@ -458,6 +635,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
    */
   async remove(id: string): Promise<void> {
     const storageKey = await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
       const db = drizzle(client);
       const [row] = await db
         .select()

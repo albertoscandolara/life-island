@@ -18,7 +18,7 @@ export interface ParseInput {
 
 /** One model call, stored in `ingestion.parse_runs`. */
 export interface ParseRunRecord {
-  step: 'classify' | 'extract' | 'correct' | 'discover';
+  step: 'classify' | 'extract' | 'correct' | 'discover' | 'reclassify';
   model: string;
   promptVersion: string;
   inputTokens?: number;
@@ -80,6 +80,25 @@ export interface DiscoveryContext {
   assignedIds: string[];
 }
 
+/** A confirmed category a later check found to apply to a document. */
+export interface CategoryMatch {
+  categoryId: string;
+  evidence: string;
+  confidence: number;
+}
+
+/** What historical reclassification tells the analyzer besides the candidates. */
+export interface MatchContext {
+  /** What CLASSIFY read when the document was first parsed. */
+  analysis: DocumentAnalysis | null;
+  /** The categories the document already has. */
+  assigned: CategoryDefinition[];
+}
+
+export interface CategoryMatches {
+  matches: CategoryMatch[];
+}
+
 /** A step's result plus the model calls it made. */
 export interface StepOutput<T> {
   result: T;
@@ -105,6 +124,16 @@ export interface DocumentAnalyzer {
     input: ParseInput,
     context: DiscoveryContext,
   ): Promise<StepOutput<Discovery>>;
+  /**
+   * Historical reclassification: which of these confirmed categories (all
+   * newer than the document's last check) apply. Only candidate ids may come
+   * back; nothing else about the document is read again.
+   */
+  matchCategories(
+    input: ParseInput,
+    candidates: CategoryDefinition[],
+    context: MatchContext,
+  ): Promise<StepOutput<CategoryMatches>>;
 }
 
 /** Base of the errors a step can throw; `runs` are the calls made before it failed. */

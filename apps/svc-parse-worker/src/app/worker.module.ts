@@ -18,6 +18,8 @@ import { ClaudeParser } from './parsers/claude-parser.js';
 import type { DocumentAnalyzer } from './parsers/document-parser.js';
 import { FakeParser } from './parsers/fake-parser.js';
 import { ParseScheduler } from './scheduler.js';
+import { ReclassificationScheduler } from './historical/reclassification.scheduler.js';
+import { ReclassificationService } from './historical/reclassification.service.js';
 
 function createParser(config: WorkerConfig): DocumentAnalyzer {
   if (config.parser === 'fake')
@@ -33,6 +35,7 @@ function createParser(config: WorkerConfig): DocumentAnalyzer {
       classify: config.classifyModel,
       extract: config.extractModel,
       discover: config.discoverModel,
+      reclassify: config.reclassifyModel,
     },
     { chunkChars: config.chunkChars },
   );
@@ -55,6 +58,8 @@ export class WorkerModule {
         { provide: PARSER, useValue: createParser(config) },
         ParseService,
         ParseScheduler,
+        ReclassificationService,
+        ReclassificationScheduler,
         {
           provide: EventsRuntime,
           useFactory: (db: ServiceDb) =>

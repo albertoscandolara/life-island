@@ -36,6 +36,17 @@ export interface WorkerConfig {
   classifyModel: string;
   extractModel: string;
   discoverModel: string;
+  /**
+   * Historical reclassification: cron of the automatic run (monthly by
+   * default), or null when RECLASSIFY_SCHEDULE=off. Reclassify now works either way.
+   */
+  reclassifySchedule: string | null;
+  reclassifyTimezone?: string;
+  /** Documents read from the database per batch. */
+  reclassifyBatchSize: number;
+  /** The global lock's lease; renewed every third of it while a run is alive. */
+  reclassifyLeaseMinutes: number;
+  reclassifyModel: string;
   /** Fake parser only: simulate a usage quota of this many AI steps per period (0 = unlimited). */
   fakeQuotaSteps: number;
   fakeQuotaPeriodMinutes: number;
@@ -53,6 +64,12 @@ export function scheduleToCron(value: string | undefined): string {
   if (hours > 23 || minutes > 59)
     throw new Error(`PARSE_SCHEDULE "${schedule}" is not a valid time of day`);
   return `${minutes} ${hours} * * *`;
+}
+
+/** Monthly by default: 03:00 on the 1st. `off` (or `none`) disables the automatic run. */
+export function reclassifyCron(value: string | undefined): string | null {
+  const schedule = value?.trim() || '0 3 1 * *';
+  return /^(off|none|false)$/i.test(schedule) ? null : schedule;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
@@ -81,6 +98,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     classifyModel: env['PARSE_CLASSIFY_MODEL'] || 'claude-haiku-5-5',
     extractModel: env['PARSE_EXTRACT_MODEL'] || 'claude-sonnet-5-5',
     discoverModel: env['PARSE_DISCOVER_MODEL'] || 'claude-sonnet-5-5',
+    reclassifySchedule: reclassifyCron(env['RECLASSIFY_SCHEDULE']),
+    reclassifyTimezone:
+      env['RECLASSIFY_TIMEZONE'] || env['PARSE_TIMEZONE'] || undefined,
+    reclassifyBatchSize: numberEnv('RECLASSIFY_BATCH_SIZE', 50, env),
+    reclassifyLeaseMinutes: numberEnv('RECLASSIFY_LEASE_MINUTES', 5, env),
+    reclassifyModel:
+      env['RECLASSIFY_MODEL'] ||
+      env['PARSE_CLASSIFY_MODEL'] ||
+      'claude-haiku-5-5',
     fakeQuotaSteps: numberEnv('FAKE_QUOTA_STEPS', 0, env),
     fakeQuotaPeriodMinutes: numberEnv('FAKE_QUOTA_PERIOD_MINUTES', 60, env),
   };

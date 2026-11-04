@@ -239,3 +239,45 @@ export const DELETE_DOCUMENTS_OPTIONS = [
   'MOVE_TO_PARENT', // they get the parent category instead
 ] as const;
 export type DeleteDocumentsOption = (typeof DELETE_DOCUMENTS_OPTIONS)[number];
+
+/**
+ * Where a document stands in the historical reclassification, on top of its
+ * normal status (which never changes because of it). Null on the document
+ * means "normal": not being checked and nothing to review.
+ */
+export const HISTORICAL_STATUSES = [
+  'RECLASSIFYING', // a reclassification run is checking it against newer categories
+  'PENDING_REVIEW', // newer categories may apply: waiting for your decision
+] as const;
+export type HistoricalStatus = (typeof HISTORICAL_STATUSES)[number];
+
+/** A reclassification run (the job), as opposed to a document's state. */
+export const RECLASSIFICATION_RUN_STATUSES = [
+  'RUNNING', // holds the global lock: documents and categories are read-only
+  'COMPLETED',
+  'FAILED', // stopped by an error it could not get past
+  'INTERRUPTED', // stopped early (AI quota, crash, shutdown); the next run resumes
+  'BLOCKED', // could not start: see its blocked reasons; nothing was changed
+] as const;
+export type ReclassificationRunStatus =
+  (typeof RECLASSIFICATION_RUN_STATUSES)[number];
+
+export const RECLASSIFICATION_TRIGGERS = [
+  'MANUAL', // Reclassify now
+  'SCHEDULED', // the monthly schedule
+] as const;
+export type ReclassificationTrigger =
+  (typeof RECLASSIFICATION_TRIGGERS)[number];
+
+/** Why a reclassification run cannot start. */
+export const RECLASSIFICATION_BLOCK_REASONS = [
+  'PENDING_SUGGESTIONS', // suggested categories wait for a decision
+  'PARSING_RUNNING', // the initial parser is working
+  'ALREADY_RUNNING', // another reclassification holds the lock
+  'AI_PAUSED', // the AI quota or rate limit paused processing
+] as const;
+export type ReclassificationBlockReason =
+  (typeof RECLASSIFICATION_BLOCK_REASONS)[number];
+
+/** The `code` of a 423 answer while a reclassification holds the lock. */
+export const RECLASSIFICATION_LOCKED_CODE = 'RECLASSIFICATION_RUNNING';
