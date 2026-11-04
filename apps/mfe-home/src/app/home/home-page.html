@@ -1,0 +1,371 @@
+<ui-page-header
+  emblem="🏡"
+  heading="Home"
+  subtitle="Your homes, and everything done to them: renovations, repairs and maintenance, with what they cost and their invoices."
+>
+  <button
+    uiButton
+    uiPageActions
+    type="button"
+    (click)="add()"
+    [disabled]="!store.properties()?.length"
+  >
+    <ui-icon name="plus" [size]="18" /> New work
+  </button>
+</ui-page-header>
+
+<home-area-nav
+  area="home"
+  [property]="selected()?.id ?? null"
+  (manage)="managing.set(true)"
+/>
+<home-properties-dialog [(open)]="managing" />
+<home-work-dialog
+  [(open)]="editorOpen"
+  [work]="editing()"
+  [propertyId]="selected()?.id ?? null"
+  (saved)="onSaved($event)"
+/>
+<home-document-picker [(open)]="pickerOpen" (picked)="onPicked($event)" />
+<ui-confirm-dialog
+  [open]="removing() !== null"
+  (openChange)="$event || removing.set(null)"
+  heading="Delete this work?"
+  confirmLabel="Delete"
+  tone="danger"
+  (confirmed)="remove()"
+>
+  “{{ removing()?.title }}” will be deleted. The documents filed with it stay in
+  your documents.
+</ui-confirm-dialog>
+
+@if (error() ?? store.error(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
+}
+
+<section class="stage">
+  @defer (on idle) {
+  <home-houses-view class="stage__houses" [selected]="selected()?.id ?? null" />
+  } @placeholder {
+  <div
+    class="stage__houses stage__houses--placeholder"
+    aria-hidden="true"
+  ></div>
+  }
+  <div class="stage__panel">
+    @if (selected(); as p) {
+    <span class="eyebrow"
+      ><span class="dot" [style.background]="propertyColor(p.colorSlot)"></span>
+      Looking at</span
+    >
+    <h2 class="stage__title">{{ p.name }}</h2>
+    <p class="muted">{{ addressOf(p) || 'Add its address from Homes' }}</p>
+    } @else {
+    <span class="eyebrow">All your homes</span>
+    <h2 class="stage__title">
+      {{ store.properties()?.length ?? 0 }} {{ store.properties()?.length === 1
+      ? 'home' : 'homes' }}
+    </h2>
+    <p class="muted">Pick one to see only its works and bills.</p>
+    }
+    <dl class="stats">
+      <div class="stat">
+        <dt>Spent on works</dt>
+        <dd>{{ formatEuroRound(summary().spent) }}</dd>
+        <dd class="stat__sub">
+          {{ formatEuroRound(summary().spentThisYear) }} this year
+        </dd>
+      </div>
+      <div class="stat">
+        <dt>Open works</dt>
+        <dd>{{ summary().open }}</dd>
+        <dd class="stat__sub">{{ summary().inProgress }} in progress</dd>
+      </div>
+      <div class="stat">
+        <dt>Planned budget</dt>
+        <dd>{{ formatEuroRound(summary().budget) }}</dd>
+        <dd class="stat__sub">estimates of open works</dd>
+      </div>
+      <div class="stat">
+        <dt>Documents filed</dt>
+        <dd>{{ summary().documents }}</dd>
+        <dd class="stat__sub">invoices, quotes, photos</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+@if (!selected() && cards().length) {
+<section class="cards" aria-label="Your homes">
+  @for (c of cards(); track c.property.id; let i = $index) {
+  <button
+    type="button"
+    class="home-card"
+    [style.--home-color]="propertyColor(c.property.colorSlot)"
+    [style.--i]="i"
+    (click)="choose(c.property.id)"
+  >
+    <span class="home-card__roof" aria-hidden="true"></span>
+    <span class="home-card__name">{{ c.property.name }}</span>
+    <span class="muted small"
+      >{{ addressOf(c.property) || 'No address yet' }}</span
+    >
+    <span class="home-card__row">
+      <span>
+        <span class="home-card__label">Bills, last 12 months</span>
+        <strong>{{ formatEuroRound(c.billsYear) }}</strong>
+      </span>
+      <home-sparkline
+        class="home-card__spark"
+        [values]="c.trend"
+        [color]="propertyColor(c.property.colorSlot)"
+      />
+    </span>
+    <span class="home-card__row home-card__row--meta">
+      <span>{{ c.open }} open · {{ c.done }} done</span>
+      <span>{{ formatEuroRound(c.spent) }} on works</span>
+    </span>
+  </button>
+  }
+</section>
+}
+
+<div class="layout">
+  <section class="works" aria-label="Works">
+    <header class="works__head">
+      <h2>Renovations and repairs</h2>
+      <div class="seg" role="group" aria-label="Status">
+        <button
+          type="button"
+          class="seg__item"
+          [class.seg__item--on]="status() === 'ALL'"
+          (click)="status.set('ALL')"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          class="seg__item"
+          [class.seg__item--on]="status() === 'PLANNED'"
+          (click)="status.set('PLANNED')"
+        >
+          Planned
+        </button>
+        <button
+          type="button"
+          class="seg__item"
+          [class.seg__item--on]="status() === 'IN_PROGRESS'"
+          (click)="status.set('IN_PROGRESS')"
+        >
+          In progress
+        </button>
+        <button
+          type="button"
+          class="seg__item"
+          [class.seg__item--on]="status() === 'DONE'"
+          (click)="status.set('DONE')"
+        >
+          Done
+        </button>
+      </div>
+    </header>
+
+    @if (works() === null) {
+    <p class="loading">Loading your works…</p>
+    } @else if (!visible().length) {
+    <ui-empty-state icon="wrench" heading="Nothing here yet">
+      Track a renovation, a repair or the yearly boiler service: what was done,
+      where, by whom, what it cost, and its invoices.
+      <button
+        uiButton
+        type="button"
+        (click)="add()"
+        [disabled]="!store.properties()?.length"
+      >
+        <ui-icon name="plus" [size]="16" /> New work
+      </button>
+    </ui-empty-state>
+    } @else { @for (group of timeline(); track group.key) {
+    <div class="year">
+      <div class="year__head">
+        <h3>{{ group.key }}</h3>
+        <span class="muted"
+          >{{ group.works.length }} {{ group.works.length === 1 ? 'work' :
+          'works' }} · {{ formatEuroRound(group.total) }}</span
+        >
+      </div>
+      <ol class="timeline">
+        @for (work of group.works; track work.id; let i = $index) {
+        <li
+          class="work"
+          [style.--i]="i"
+          [style.--home-color]="propertyColor(home(work.propertyId)?.colorSlot ?? -1)"
+        >
+          <span class="work__node" aria-hidden="true"
+            ><ui-icon [name]="kindIcons[work.kind]" [size]="16"
+          /></span>
+          <article class="work__card">
+            <header class="work__head">
+              <div class="work__title">
+                <h4>{{ work.title }}</h4>
+                <span class="work__meta">
+                  @if (!selected()) {
+                  <span class="work__home"
+                    ><span
+                      class="dot"
+                      [style.background]="propertyColor(home(work.propertyId)?.colorSlot ?? -1)"
+                    ></span
+                    >{{ home(work.propertyId)?.name }}</span
+                  >
+                  }
+                  <span>{{ kindLabels[work.kind] }}</span>
+                  @if (work.area) { <span>· {{ work.area }}</span> } @if
+                  (work.contractor) { <span>· {{ work.contractor }}</span> }
+                </span>
+              </div>
+              <select
+                class="ui-input compact status"
+                [attr.aria-label]="'Status of ' + work.title"
+                (change)="setStatus(work, $any(value($event)))"
+              >
+                <option value="PLANNED" [selected]="work.status === 'PLANNED'">
+                  Planned
+                </option>
+                <option
+                  value="IN_PROGRESS"
+                  [selected]="work.status === 'IN_PROGRESS'"
+                >
+                  In progress
+                </option>
+                <option value="DONE" [selected]="work.status === 'DONE'">
+                  Done
+                </option>
+              </select>
+            </header>
+            <div class="work__facts">
+              <span
+                ><ui-icon name="calendar" [size]="14" /> {{ dates(work) }}</span
+              >
+              <ui-badge [tone]="statusTones[work.status]"
+                >{{ statusLabels[work.status] }}</ui-badge
+              >
+              @if (work.actualCost !== null) {
+              <strong>{{ formatEuro(work.actualCost) }}</strong>
+              @if (work.estimatedCost) {
+              <span class="muted"
+                >of {{ formatEuroRound(work.estimatedCost) }} estimated</span
+              >
+              } } @else if (work.estimatedCost !== null) {
+              <span
+                >Estimate
+                <strong>{{ formatEuro(work.estimatedCost) }}</strong></span
+              >
+              }
+            </div>
+            @if (budgetUse(work); as use) {
+            <div
+              class="budget"
+              [class.budget--over]="use > 1"
+              [attr.aria-label]="'Final cost is ' + (use * 100).toFixed(0) + '% of the estimate'"
+              role="img"
+            >
+              <span
+                class="budget__fill"
+                [style.width.%]="(use / 1.5) * 100"
+              ></span>
+              <span class="budget__mark"></span>
+            </div>
+            } @if (work.notes) {
+            <p class="work__notes">{{ work.notes }}</p>
+            }
+            <div class="work__docs">
+              @for (doc of work.documents; track doc.uploadId) {
+              <span class="doc">
+                <ui-icon name="file" [size]="14" />
+                <a
+                  [href]="previewUrl(doc.uploadId)"
+                  target="_blank"
+                  rel="noopener"
+                  >{{ doc.deleted ? 'Deleted document' : doc.title }}</a
+                >
+                @if (doc.amount !== null) {
+                <span class="muted">{{ formatEuroRound(doc.amount) }}</span> }
+                <button
+                  type="button"
+                  class="doc__remove"
+                  [attr.aria-label]="'Remove ' + doc.title"
+                  (click)="detach(work, doc.uploadId)"
+                >
+                  <ui-icon name="x" [size]="12" />
+                </button>
+              </span>
+              }
+              <button
+                uiButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                (click)="file(work)"
+              >
+                <ui-icon name="plus" [size]="14" /> File a document
+              </button>
+              <span class="work__actions">
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  (click)="edit(work)"
+                >
+                  <ui-icon name="edit" [size]="14" /> Edit
+                </button>
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  [iconOnly]="true"
+                  type="button"
+                  [attr.aria-label]="'Delete ' + work.title"
+                  (click)="removing.set(work)"
+                >
+                  <ui-icon name="trash" [size]="14" />
+                </button>
+              </span>
+            </div>
+          </article>
+        </li>
+        }
+      </ol>
+    </div>
+    } }
+  </section>
+
+  <aside class="side">
+    <ui-card heading="Spent on works">
+      @if (spending(); as s) {
+      <home-column-chart
+        [buckets]="s.buckets"
+        [series]="s.series"
+        [format]="s.format"
+        [label]="label"
+        [shortLabel]="label"
+        [height]="240"
+        ariaLabel="Spending on works by year"
+      />
+      } @else {
+      <p class="muted">Works with a date show up here, year by year.</p>
+      }
+    </ui-card>
+    <ui-card heading="By kind">
+      <ul class="kinds" role="list">
+        @for (k of kinds; track k) {
+        <li>
+          <ui-icon [name]="kindIcons[k]" [size]="16" />
+          <span>{{ kindLabels[k] }}</span>
+          <strong>{{ formatEuroRound(kindTotal(k)) }}</strong>
+        </li>
+        }
+      </ul>
+    </ui-card>
+  </aside>
+</div>

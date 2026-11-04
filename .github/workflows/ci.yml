@@ -22,6 +22,7 @@ jobs:
       REVIEW_DATABASE_URL: postgres://review_svc:dev_review@localhost:5432/life_island
       GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@localhost:5432/life_island
       TAX730_DATABASE_URL: postgres://tax730_svc:dev_tax730@localhost:5432/life_island
+      HOME_DATABASE_URL: postgres://home_svc:dev_home@localhost:5432/life_island
       NATS_URL: nats://localhost:4222
       S3_ENDPOINT: http://localhost:8333
       S3_ACCESS_KEY: dev_access_key

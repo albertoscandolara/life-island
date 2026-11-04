@@ -9,12 +9,14 @@ Life Island is a personal life-management platform: two Angular apps. The docume
 
 You drop any document (receipt photo, PDF, spreadsheet, email) onto the island. A background AI service reads it, decides what it is and where its data belongs, and puts it in an inbox. You review and approve it, and only then does it reach the module that uses it.
 
-| Character             | Module                    | Mission                                                         | Status        |
-| --------------------- | ------------------------- | --------------------------------------------------------------- | ------------- |
-| Ptera (pterodactyl)   | Review inbox              | Lists AI-extracted records; you edit, approve or reject them    | First release |
-| Trice (triceratops)   | Groceries                 | Receipts, items, merchants, spending by category, price history | First release |
-| Ankylo (ankylosaurus) | 730 tax return            | Deductible expenses per tax year, totals, export for the CAF    | First release |
-| More to come          | Sport, travel, bills, car | Each a new module following the same checklist                  | Later         |
+| Character             | Module             | Mission                                                         | Status        |
+| --------------------- | ------------------ | --------------------------------------------------------------- | ------------- |
+| Ptera (pterodactyl)   | Review inbox       | Lists AI-extracted records; you edit, approve or reject them    | First release |
+| Trice (triceratops)   | Groceries          | Receipts, items, merchants, spending by category, price history | First release |
+| Ankylo (ankylosaurus) | 730 tax return     | Deductible expenses per tax year, totals, export for the CAF    | First release |
+| Bronto (brontosaurus) | Home               | Your properties and their renovations, repairs and maintenance  | Live          |
+| Stego (stegosaurus)   | Bills              | Electricity, gas and water of each home, read from your bills   | Live          |
+| More to come          | Sport, travel, car | Each a new module following the same checklist                  | Later         |
 
 Goals: a project you use every day, practice with modern Angular, micro-frontends, microservices, AI agent workflows, and a portfolio piece with a real wow moment.
 
@@ -90,11 +92,13 @@ life-island/
 │   ├── shell/                 # Angular host + 3D island hub (Life Island app)
 │   ├── mfe-groceries/         # Angular remote of the shell — Trice
 │   ├── mfe-tax730/            # Angular remote of the shell — Ankylo
+│   ├── mfe-home/              # Angular remote of the shell — Bronto (Home) and Stego (Bills)
 │   ├── svc-ingestion/         # Nest: upload API
 │   ├── svc-parse-worker/      # Nest standalone app (no HTTP): background AI processor
 │   ├── svc-review/            # Nest: target catalog, staging, approvals
 │   ├── svc-groceries/         # Nest: grocery domain
-│   └── svc-tax730/            # Nest: 730 domain
+│   ├── svc-tax730/            # Nest: 730 domain
+│   └── svc-home/              # Nest: properties, bills read from documents, works
 ├── libs/
 │   ├── design-system/         # tokens (CSS vars) + Angular components + Storybook
 │   ├── contracts/             # Zod: events, target schemas, DTOs

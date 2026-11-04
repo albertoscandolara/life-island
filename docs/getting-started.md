@@ -60,7 +60,7 @@ npm run test:integration   # also runs the tests that need Postgres and NATS
 | `INGESTION_DATABASE_URL`, `REVIEW_DATABASE_URL`, `GROCERY_DATABASE_URL`, `TAX730_DATABASE_URL`                          | `postgres://<role>:<password>@localhost:5432/life_island` | Each service's own connection; the integration tests use `GROCERY_DATABASE_URL`                          |
 | `NATS_URL`                                                                                                              | `nats://localhost:4222`                                   | Services and integration tests                                                                           |
 | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, `S3_PUBLIC_ENDPOINT`, `STORAGE_CORS_ORIGINS` | `http://localhost:8333`, dev keys, `us-east-1`, `uploads` | Upload flow ([storage guide](guides/storage-and-gateway.md))                                             |
-| `GROCERY_PORT`, `TAX730_PORT`, `INGESTION_URL`                                                                          | `3003`, `3004`, `http://localhost:3001`                   | Local ports of the domain services; where `svc-tax730` reads original files for the commercialista's zip |
+| `GROCERY_PORT`, `TAX730_PORT`, `HOME_PORT`, `INGESTION_URL`                                                             | `3003`, `3004`, `3005`, `http://localhost:3001`           | Local ports of the domain services; where `svc-tax730` reads original files for the commercialista's zip |
 | `INGESTION_PORT`, `REVIEW_PORT`                                                                                         | `3001`, `3002`                                            | Local ports of `svc-ingestion` and `svc-review` (3000 in containers)                                     |
 | `PARSE_SCHEDULE`, `PARSE_TIMEZONE`, `PARSE_RUN_ON_START`                                                                | `06:00`, `Europe/Rome`, `true`                            | When the parse worker runs ([documents loader](guides/documents-loader.md))                              |
 | `PARSE_QUOTA_RETRY_MINUTES`, `CATEGORY_AUTO_APPROVE`, `FAKE_QUOTA_STEPS`                                                | `360`, `false`, `0`                                       | Quota pauses, category approval, simulated quota ([documents loader](guides/documents-loader.md))        |
@@ -71,6 +71,8 @@ Every value here is for local development only. Production gets its secrets from
 ## Troubleshooting
 
 **A port is already in use.** Change the matching `*_PORT` variable in `.env` and run `npm run infra:up` again. If you change `POSTGRES_PORT`, also change the port in the `*_DATABASE_URL` values.
+
+**A new service says its role or schema does not exist.** Your database volume was created before that service was added. Run `npm run db:upgrade`: it adds the missing schemas and roles and keeps your data.
 
 **I changed an init script but nothing happened.** Postgres runs `infra/postgres/init/01-*.sql` and `02-*.sql` only when its volume is empty. Run `npm run infra:reset` and then `npm run infra:up`. This deletes all local data.
 

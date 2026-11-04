@@ -57,6 +57,20 @@
   --shadow-popover: 0 12px 32px -4px rgb(17 23 34 / 18%);
   --shadow-dialog: 0 32px 80px -12px rgb(17 23 34 / 32%);
 
+  /*
+   * Chart colours. Each one follows an entity, never a rank: a utility keeps
+   * its hue in every chart, a property keeps the slot it was given.
+   */
+  --viz-electricity: var(--viz-yellow-500);
+  --viz-gas: var(--viz-magenta-400);
+  --viz-water: var(--viz-blue-450);
+  --viz-property-1: var(--viz-aqua-500);
+  --viz-property-2: var(--viz-orange-500);
+  --viz-property-3: var(--viz-violet-600);
+  --viz-other: var(--ink-400);
+  --viz-grid: var(--ink-100);
+  --viz-axis: var(--ink-300);
+
   --control-height: 40px;
   --control-height-sm: 32px;
   --control-radius: var(--radius-sm);
@@ -110,6 +124,16 @@
   --tone-success-soft: color-mix(in srgb, var(--leaf-400) 16%, transparent);
   --tone-danger: var(--lava-400);
   --tone-danger-soft: color-mix(in srgb, var(--lava-400) 18%, transparent);
+
+  --viz-electricity: var(--viz-yellow-600);
+  --viz-gas: var(--viz-magenta-500);
+  --viz-water: var(--viz-blue-400);
+  --viz-property-1: var(--viz-aqua-600);
+  --viz-property-2: var(--viz-orange-600);
+  --viz-property-3: var(--viz-violet-400);
+  --viz-other: var(--abyss-400);
+  --viz-grid: var(--abyss-700);
+  --viz-axis: var(--abyss-600);
 
   --shadow-card:
     0 1px 0 rgb(255 255 255 / 3%) inset, 0 4px 16px rgb(0 0 0 / 30%);

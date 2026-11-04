@@ -65,6 +65,23 @@
   --violet-400: #a68bf0;
   --violet-500: #7556cf;
 
+  /*
+   * Data-viz hues, validated for colour-blind separation on the card
+   * surfaces of both themes (the dataviz palette's slots, stepped per theme).
+   */
+  --viz-yellow-500: #eda100;
+  --viz-yellow-600: #c98500;
+  --viz-magenta-400: #e87ba4;
+  --viz-magenta-500: #d55181;
+  --viz-blue-450: #2a78d6;
+  --viz-blue-400: #3987e5;
+  --viz-aqua-500: #1baf7a;
+  --viz-aqua-600: #199e70;
+  --viz-orange-500: #eb6834;
+  --viz-orange-600: #d95926;
+  --viz-violet-600: #6250d6;
+  --viz-violet-400: #9085e9;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

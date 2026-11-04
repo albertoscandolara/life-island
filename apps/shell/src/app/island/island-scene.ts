@@ -398,6 +398,25 @@ export class IslandScene {
         add(this.mesh(new SphereGeometry(0.22, 8, 6), tint), 0, 1.45, 0);
         break;
       }
+      case 'house': {
+        add(this.mesh(new BoxGeometry(0.8, 0.55, 0.65), 'foam'), 0, 0.42, 0);
+        const roof = add(
+          this.mesh(new CylinderGeometry(0.5, 0.5, 0.95, 3), tint),
+          0,
+          0.86,
+          0,
+        );
+        roof.rotation.z = Math.PI / 2;
+        roof.rotation.x = -Math.PI / 2;
+        roof.scale.set(1, 1, 0.7);
+        add(
+          this.mesh(new BoxGeometry(0.12, 0.3, 0.12), 'foam'),
+          0.22,
+          1.02,
+          -0.1,
+        );
+        break;
+      }
       case 'library': {
         add(this.mesh(new BoxGeometry(0.9, 0.55, 0.55), 'foam'), 0, 0.42, 0);
         for (let i = 0; i < 3; i++)

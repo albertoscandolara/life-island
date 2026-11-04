@@ -29,6 +29,9 @@
     },
     {
       "path": "./apps/svc-tax730"
+    },
+    {
+      "path": "./apps/svc-home"
     }
   ],
   "compilerOptions": {}

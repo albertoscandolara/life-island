@@ -18,6 +18,8 @@ services:
       - ./infra/postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
       - ./infra/postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
       - ./infra/postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
+      # Idempotent upgrades for a volume created before a schema existed: npm run db:upgrade.
+      - ./infra/postgres/upgrades:/upgrades:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d life_island']
       interval: 5s
@@ -90,6 +92,7 @@ services:
       REVIEW_DATABASE_URL: postgres://review_svc:dev_review@postgres:5432/life_island
       GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@postgres:5432/life_island
       TAX730_DATABASE_URL: postgres://tax730_svc:dev_tax730@postgres:5432/life_island
+      HOME_DATABASE_URL: postgres://home_svc:dev_home@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -157,6 +160,17 @@ services:
     environment:
       <<: *service-env
       # The commercialista's zip reads the original files through svc-ingestion's API.
+      INGESTION_URL: http://svc-ingestion:3000
+    depends_on: *service-deps
+
+  svc-home:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-home }
+    environment:
+      <<: *service-env
+      # Previews of bills and work invoices are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
     depends_on: *service-deps
 

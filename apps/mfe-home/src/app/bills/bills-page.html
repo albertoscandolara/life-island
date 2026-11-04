@@ -1,0 +1,531 @@
+<ui-page-header
+  emblem="⚡"
+  heading="Bills"
+  subtitle="Electricity, gas and water of every home: what you pay, what you use and how it changes, read from the bills you confirmed."
+>
+</ui-page-header>
+
+<home-area-nav
+  area="bills"
+  [property]="selected()?.id ?? null"
+  [split]="isSplit()"
+  (manage)="managing.set(true)"
+/>
+<home-properties-dialog [(open)]="managing" />
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
+} @if (bills() === null) {
+<p class="loading">Reading your bills…</p>
+} @else if (!bills()!.length) {
+<ui-empty-state icon="inbox" heading="No bills yet">
+  Load your electricity, gas and water bills in the documents app. Once you
+  confirm them with a bill category they show up here, filed under their home.
+</ui-empty-state>
+} @else {
+<!-- Filters: one row, above everything they scope. -->
+<section class="filters" aria-label="Filters">
+  <div class="seg" role="group" aria-label="Period">
+    @for (p of presets; track p.id) {
+    <button
+      type="button"
+      class="seg__item"
+      [class.seg__item--on]="preset() === p.id"
+      [attr.aria-pressed]="preset() === p.id"
+      (click)="preset.set(p.id)"
+    >
+      {{ p.label }}
+    </button>
+    }
+  </div>
+  <label class="month">
+    <span>From</span>
+    <input
+      type="month"
+      class="ui-input"
+      [value]="range().from"
+      (change)="setCustom('from', $event)"
+    />
+  </label>
+  <label class="month">
+    <span>To</span>
+    <input
+      type="month"
+      class="ui-input"
+      [value]="range().to"
+      (change)="setCustom('to', $event)"
+    />
+  </label>
+  <div class="utilities" role="group" aria-label="Utilities">
+    @for (kind of kinds; track kind) {
+    <button
+      type="button"
+      class="utility"
+      [class.utility--on]="utilities().includes(kind)"
+      [attr.aria-pressed]="utilities().includes(kind)"
+      (click)="toggleUtility(kind)"
+    >
+      <span class="utility__key" [style.background]="utilityColor(kind)"></span>
+      <ui-icon [name]="icons[kind]" [size]="16" />
+      {{ utilityLabel(kind) }}
+    </button>
+    }
+  </div>
+  <label class="select">
+    <span>Group by</span>
+    <select
+      class="ui-input"
+      [value]="grainChoice()"
+      (change)="grainChoice.set($any(value($event)))"
+    >
+      <option value="auto">Auto ({{ grain() }})</option>
+      <option value="month">Month</option>
+      <option value="quarter">Quarter</option>
+      <option value="year">Year</option>
+    </select>
+  </label>
+  <label
+    class="select"
+    title="Spread each bill over the months it covers, or count it in the month it was issued"
+  >
+    <span>Count bills</span>
+    <select
+      class="ui-input"
+      [value]="basis()"
+      (change)="basis.set($any(value($event)))"
+    >
+      <option value="period">Over the months they cover</option>
+      <option value="date">In the month issued</option>
+    </select>
+  </label>
+</section>
+
+@if (unassigned()) {
+<ui-alert tone="warning" class="notice">
+  {{ unassigned() }} {{ unassigned() === 1 ? 'bill is' : 'bills are' }} not
+  matched to a home yet.
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="onlyUnassigned.set(true); showAllBills.set(true)"
+  >
+    Assign them
+  </button>
+  or add the address words and supply codes of each home.
+</ui-alert>
+}
+
+<section class="hero" [class.hero--busy]="false">
+  <div class="headline">
+    <span class="headline__label">
+      Spent on {{ selected()?.name ?? (isSplit() ? 'every home' : 'all homes')
+      }} · {{ rangeLabel() }}
+    </span>
+    <span class="headline__value">{{ formatEuroRound(total()) }}</span>
+    <span class="headline__meta">
+      @if (delta() !== null) {
+      <span
+        class="delta"
+        [class.delta--up]="delta()! > 0"
+        [class.delta--down]="delta()! < 0"
+      >
+        <ui-icon
+          [name]="delta()! > 0 ? 'arrow-up' : 'arrow-down'"
+          [size]="14"
+        />
+        {{ (delta()! * 100).toFixed(0) }}%
+      </span>
+      vs the {{ months() }} months before ({{ formatEuroRound(previousTotal())
+      }}) } @else { Nothing in the {{ months() }} months before to compare with
+      }
+    </span>
+    <dl class="facts">
+      <div>
+        <dt>Per month</dt>
+        <dd>{{ formatEuro(perMonth()) }}</dd>
+      </div>
+      @if (nextDue(); as due) {
+      <div>
+        <dt>Next due</dt>
+        <dd>{{ formatEuro(due.amount) }} · {{ formatDate(due.dueDate!) }}</dd>
+        <dd class="facts__sub">
+          {{ utilityLabel(due.utility) }} · {{ due.provider ?? due.title }}
+        </dd>
+      </div>
+      } @else if (latest(); as last) {
+      <div>
+        <dt>Latest bill</dt>
+        <dd>
+          {{ formatEuro(last.amount) }} · {{ utilityLabel(last.utility) }}
+        </dd>
+        <dd class="facts__sub">{{ period(last) }}</dd>
+      </div>
+      }
+    </dl>
+  </div>
+  <home-houses-view
+    class="houses"
+    [compact]="true"
+    [selected]="selected()?.id ?? null"
+  />
+</section>
+
+<section class="tiles" aria-label="By utility">
+  @for (s of stats(); track s.utility) {
+  <article
+    class="tile"
+    [style.--tile-color]="utilityColor(s.utility)"
+    [style.--i]="$index"
+  >
+    <header class="tile__head">
+      <span class="tile__icon"
+        ><ui-icon [name]="icons[s.utility]" [size]="18"
+      /></span>
+      <span class="tile__label">{{ utilityLabel(s.utility) }}</span>
+      <span class="tile__bills"
+        >{{ s.bills }} {{ s.bills === 1 ? 'bill' : 'bills' }}</span
+      >
+    </header>
+    <span class="tile__value">{{ formatEuroRound(s.amount) }}</span>
+    <span class="tile__meta">
+      @if (s.consumption) { {{ formatNumber(s.consumption) }} {{
+      info[s.utility].unit }} @if (s.unitCost !== null) { · {{
+      formatEuro(s.unitCost) }}/{{ info[s.utility].unit }} } } @else { No
+      consumption on these bills }
+    </span>
+    <home-sparkline
+      [values]="trends()[s.utility]"
+      [color]="utilityColor(s.utility)"
+    />
+  </article>
+  }
+</section>
+
+<div class="grid">
+  <ui-card
+    class="wide"
+    [heading]="isSplit() ? 'Cost over time, home by home' : 'Cost over time'"
+  >
+    <span uiCardActions class="card-actions">
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="toggleTable('cost')"
+      >
+        <ui-icon [name]="tableFor()['cost'] ? 'chart' : 'file'" [size]="16" />
+        {{ tableFor()['cost'] ? 'Chart' : 'Table' }}
+      </button>
+    </span>
+    @if (tableFor()['cost']) {
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            @for (s of costChart().series; track s.id) {
+            <th scope="col" class="num">{{ s.label }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of costChart().buckets; track b; let i = $index) {
+          <tr>
+            <th scope="row">{{ label(b) }}</th>
+            @for (s of costChart().series; track s.id) {
+            <td class="num">{{ formatEuro(s.values[i] ?? 0) }}</td>
+            }
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <home-column-chart
+      [buckets]="costChart().buckets"
+      [series]="costChart().series"
+      [mode]="isSplit() ? 'grouped' : 'stacked'"
+      [format]="formatAxis()"
+      [label]="label"
+      [shortLabel]="short()"
+      [height]="300"
+      ariaLabel="Cost of bills over time"
+    />
+    }
+  </ui-card>
+
+  <ui-card heading="Where the money goes">
+    <h3 class="sub">By utility</h3>
+    <home-segmented-bar [parts]="utilityParts()" [format]="formatEuroRound" />
+    @if (homeParts().length > 1) {
+    <h3 class="sub">By home</h3>
+    <home-segmented-bar [parts]="homeParts()" [format]="formatEuroRound" />
+    } @if (providers().length) {
+    <h3 class="sub">Top providers</h3>
+    <ol class="providers">
+      @for (p of providers(); track p.key) {
+      <li>
+        <span>{{ p.key }}</span>
+        <span class="muted"
+          >{{ p.bills }} {{ p.bills === 1 ? 'bill' : 'bills' }}</span
+        >
+        <strong>{{ formatEuroRound(p.amount) }}</strong>
+      </li>
+      }
+    </ol>
+    }
+  </ui-card>
+</div>
+
+@if (isSplit()) {
+<section class="multiples" aria-label="Every home on the same scale">
+  @for (m of homeMultiples(); track m.home.id) {
+  <ui-card>
+    <header class="multiple__head">
+      <span
+        class="dot"
+        [style.background]="propertyColor(m.home.colorSlot)"
+      ></span>
+      <h3>{{ m.home.name }}</h3>
+      <strong>{{ formatEuroRound(m.total) }}</strong>
+    </header>
+    <home-column-chart
+      [buckets]="m.buckets"
+      [series]="m.series"
+      [maxValue]="m.max"
+      [format]="formatAxis()"
+      [label]="label"
+      [shortLabel]="short()"
+      [height]="220"
+      [ariaLabel]="'Cost of bills at ' + m.home.name"
+    />
+  </ui-card>
+  }
+</section>
+}
+
+<div class="grid grid--even">
+  <ui-card heading="Year over year">
+    <span uiCardActions class="card-actions">
+      <select
+        class="ui-input compact"
+        aria-label="What to compare"
+        [value]="yoyUtility()"
+        (change)="yoyUtility.set($any(value($event)))"
+      >
+        <option value="ALL">Cost of every utility (€)</option>
+        @for (kind of utilities(); track kind) {
+        <option [value]="kind">
+          {{ utilityLabel(kind) }} use ({{ info[kind].unit }})
+        </option>
+        }
+      </select>
+    </span>
+    @if (yoy().series.length) {
+    <home-line-chart
+      [categories]="monthNames"
+      [series]="yoy().series"
+      [format]="yoy().metric === 'amount' ? formatAxis() : unitFormat(yoy().unit)"
+      [title]="monthTitle"
+      [height]="280"
+      ariaLabel="The same months of different years"
+    />
+    } @else {
+    <p class="muted">No bills to compare yet.</p>
+    }
+  </ui-card>
+
+  <ui-card heading="What you use">
+    <div class="consumption">
+      @for (c of consumption(); track c.utility) {
+      <div class="consumption__item">
+        <header class="consumption__head">
+          <span
+            class="utility__key"
+            [style.background]="utilityColor(c.utility)"
+          ></span>
+          <strong>{{ utilityLabel(c.utility) }}</strong>
+          <span class="muted">
+            @if (c.stat?.consumption) { {{ formatNumber(c.stat!.consumption) }}
+            {{ c.unit }} @if (c.stat!.unitCost !== null) { · avg {{
+            formatEuro(c.stat!.unitCost!) }}/{{ c.unit }} } }
+          </span>
+        </header>
+        @if (c.empty) {
+        <p class="muted small">These bills print no consumption.</p>
+        } @else {
+        <home-column-chart
+          [buckets]="c.buckets"
+          [series]="c.series"
+          [format]="unitFormat(c.unit)"
+          [label]="label"
+          [shortLabel]="short()"
+          [height]="150"
+          [ariaLabel]="utilityLabel(c.utility) + ' used over time'"
+        />
+        }
+      </div>
+      }
+    </div>
+  </ui-card>
+</div>
+
+<div class="grid grid--even">
+  <ui-card heading="Totals">
+    <span uiCardActions class="card-actions">
+      <select
+        class="ui-input compact"
+        aria-label="Group totals by"
+        [value]="groupBy()"
+        (change)="groupBy.set($any(value($event)))"
+      >
+        <option value="period">By {{ grain() }}</option>
+        <option value="utility">By utility</option>
+        <option value="property">By home</option>
+        <option value="provider">By provider</option>
+      </select>
+    </span>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">
+              {{ groupBy() === 'period' ? 'Period' : groupBy() === 'utility' ?
+              'Utility' : groupBy() === 'property' ? 'Home' : 'Provider' }}
+            </th>
+            <th scope="col" class="num">Bills</th>
+            @for (kind of utilities(); track kind) {
+            <th scope="col" class="num">{{ info[kind].unit }}</th>
+            }
+            <th scope="col" class="num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of groups(); track row.key) {
+          <tr>
+            <th scope="row">{{ groupLabel(row.key) }}</th>
+            <td class="num">{{ row.bills }}</td>
+            @for (kind of utilities(); track kind) {
+            <td class="num">
+              {{ row.consumption[kind] === undefined ? '–' :
+              formatNumber(row.consumption[kind]!) }}
+            </td>
+            }
+            <td class="num"><strong>{{ formatEuro(row.amount) }}</strong></td>
+          </tr>
+          } @empty {
+          <tr>
+            <td [attr.colspan]="3 + utilities().length" class="muted">
+              No bills in this period.
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </ui-card>
+
+  <ui-card [heading]="onlyUnassigned() ? 'Bills to assign' : 'Bills'">
+    <span uiCardActions class="card-actions">
+      @if (onlyUnassigned()) {
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="onlyUnassigned.set(false)"
+      >
+        Show all
+      </button>
+      }
+    </span>
+    <ul class="bill-list" role="list">
+      @for (bill of listed(); track bill.uploadId) {
+      <li class="bill">
+        <span
+          class="bill__icon"
+          [style.--tile-color]="utilityColor(bill.utility)"
+        >
+          <ui-icon [name]="icons[bill.utility]" [size]="16" />
+        </span>
+        <div class="bill__text">
+          <a
+            class="bill__title"
+            [href]="previewUrl(bill.uploadId)"
+            target="_blank"
+            rel="noopener"
+            >{{ bill.provider ?? bill.title }}</a
+          >
+          <span class="muted small">
+            {{ period(bill) }} @if (bill.consumption !== null) { · {{
+            formatNumber(bill.consumption) }} {{ bill.unit }} }
+          </span>
+        </div>
+        <strong class="bill__amount">{{ formatEuro(bill.amount) }}</strong>
+        <div class="bill__controls">
+          <select
+            class="ui-input compact"
+            [attr.aria-label]="'Home of ' + (bill.provider ?? bill.title)"
+            [title]="assignmentHint(bill)"
+            (change)="assign(bill, value($event))"
+          >
+            <option value="none" [selected]="bill.propertyId === null">
+              No home
+            </option>
+            @for (p of store.properties() ?? []; track p.id) {
+            <option [value]="p.id" [selected]="bill.propertyId === p.id">
+              {{ p.name }}
+            </option>
+            } @if (bill.assignment === 'MANUAL') {
+            <option value="auto">Match automatically</option>
+            }
+          </select>
+          <select
+            class="ui-input compact"
+            [attr.aria-label]="'Utility of ' + (bill.provider ?? bill.title)"
+            (change)="setUtility(bill, value($event))"
+          >
+            @for (kind of kinds; track kind) {
+            <option [value]="kind" [selected]="bill.utility === kind">
+              {{ utilityLabel(kind) }}
+            </option>
+            }
+          </select>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [attr.aria-label]="'Not a bill: hide ' + (bill.provider ?? bill.title)"
+            title="Not a utility bill: hide it"
+            (click)="exclude(bill)"
+          >
+            <ui-icon name="x" [size]="16" />
+          </button>
+        </div>
+        @if (bill.assignment && bill.assignment !== 'MANUAL') {
+        <ui-badge class="bill__why">{{ assignmentHint(bill) }}</ui-badge>
+        }
+      </li>
+      } @empty {
+      <li class="muted">No bills in this period.</li>
+      }
+    </ul>
+    @if (!showAllBills() && listedTotal() > listed().length) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="showAllBills.set(true)"
+    >
+      Show every bill
+    </button>
+    }
+  </ui-card>
+</div>
+}
