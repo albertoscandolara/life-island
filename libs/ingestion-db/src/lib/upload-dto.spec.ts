@@ -31,6 +31,13 @@ describe('toUploadDto', () => {
     flags: [],
     uploadedAt: new Date('2026-10-01T10:00:00Z'),
     parsedAt: null,
+    classifiedCategoryVersion: null,
+    historicalReviewedVersion: null,
+    historicalProcessingVersion: null,
+    historicalStatus: null,
+    historicalSuggestions: [],
+    historicalRunId: null,
+    rejectedCategories: [],
     createdAt: new Date('2026-10-01T09:59:00Z'),
     updatedAt: new Date('2026-10-01T10:00:00Z'),
   };

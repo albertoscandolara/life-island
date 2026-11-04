@@ -14,6 +14,7 @@ import {
 } from './records/document-events.handler.js';
 import { RecordsController } from './records/records.controller.js';
 import { RecordsService } from './records/records.service.js';
+import { IngestionLockGuard } from './reclassification/ingestion-lock.js';
 
 const logger = new Logger('DocumentEvents');
 
@@ -34,6 +35,7 @@ export class AppModule {
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         RecordsService,
+        IngestionLockGuard,
         ...(options.events === false
           ? []
           : [

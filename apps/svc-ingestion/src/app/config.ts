@@ -15,6 +15,11 @@ export interface IngestionConfig {
   storageCorsOrigins: string[];
   /** Rows left in UPLOADING longer than this are marked FAILED. */
   staleUploadMinutes: number;
+  /**
+   * Lease of the reclassification lock taken by Reclassify now; the worker
+   * renews it. Same variable as the worker's.
+   */
+  reclassifyLeaseMinutes: number;
 }
 
 export function loadConfig(
@@ -27,6 +32,7 @@ export function loadConfig(
     storage: storageOptionsFromEnv(env),
     storageCorsOrigins: listEnv('STORAGE_CORS_ORIGINS', env),
     staleUploadMinutes: numberEnv('STALE_UPLOAD_MINUTES', 60, env),
+    reclassifyLeaseMinutes: numberEnv('RECLASSIFY_LEASE_MINUTES', 5, env),
   };
 }
 

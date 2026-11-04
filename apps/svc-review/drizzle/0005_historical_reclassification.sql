@@ -1,0 +1,2 @@
+ALTER TABLE "review"."staging_records" ADD COLUMN "historical_status" text;--> statement-breakpoint
+ALTER TABLE "review"."staging_records" ADD COLUMN "historical_suggestions" text[] DEFAULT '{}' NOT NULL;

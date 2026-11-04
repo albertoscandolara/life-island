@@ -185,6 +185,8 @@ export class RecordsService {
       );
     }
     if (query.status) conditions.push(eq(stagingRecords.status, query.status));
+    if (query.historical)
+      conditions.push(eq(stagingRecords.historicalStatus, query.historical));
     if (query.category)
       conditions.push(eq(stagingRecords.category, query.category));
     if (query.fileFormat)

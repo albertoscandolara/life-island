@@ -8,6 +8,9 @@ export default defineConfig(() => ({
     watch: false,
     globals: true,
     environment: 'node',
+    // The integration tests share one database, and the reclassification
+    // test holds the global lock while it runs: one file after another.
+    fileParallelism: false,
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {

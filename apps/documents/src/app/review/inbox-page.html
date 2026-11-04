@@ -11,13 +11,26 @@
     uiPageActions
     uiButton
     type="button"
-    [disabled]="!banner.parseNow()?.enabled"
+    [disabled]="!banner.parseNow()?.enabled || reclassification.locked()"
     [loading]="banner.requesting()"
     [attr.title]="banner.parseNow()?.hint"
     [attr.aria-describedby]="banner.parseNow() ? 'parse-now-hint' : null"
     (click)="banner.runNow()"
   >
     <ui-icon name="refresh" [size]="18" /> Parse now
+  </button>
+  <button
+    uiPageActions
+    uiButton
+    variant="secondary"
+    type="button"
+    [disabled]="!reclassifyState().enabled"
+    [loading]="reclassification.starting()"
+    [attr.title]="reclassifyState().hint"
+    aria-describedby="reclassify-hint"
+    (click)="confirmingReclassify.set(true)"
+  >
+    <ui-icon name="refresh" [size]="18" /> Reclassify past documents
   </button>
   <button
     uiPageActions
@@ -32,6 +45,25 @@
 </ui-page-header>
 
 <app-queue-banner #banner class="banner" (runFinished)="onRunFinished()" />
+
+<div class="reclassify-line">
+  <p class="muted" id="reclassify-hint">
+    Reclassify past documents: {{ reclassifyState().hint }}
+  </p>
+  @if (reclassification.notice(); as text) {
+  <p class="muted" role="status">{{ text }}</p>
+  } @if (reclassification.pendingReview() > 0 && historical() !==
+  'PENDING_REVIEW') {
+  <p>
+    {{ reclassification.pendingReview() }} document{{
+    reclassification.pendingReview() === 1 ? '' : 's' }} may also belong to
+    categories confirmed after they were read.
+    <button type="button" class="link" (click)="showHistorical()">
+      Show them
+    </button>
+  </p>
+  }
+</div>
 
 <form class="filters" role="search" (submit)="$event.preventDefault()">
   <ui-form-field label="Search" class="filters__search">
@@ -51,6 +83,16 @@
       clearLabel="Any status"
       placeholder="Any status"
       aria-label="Status"
+    />
+  </ui-form-field>
+  <ui-form-field label="Later check">
+    <ui-dropdown
+      [options]="historicalOptions"
+      [(value)]="historical"
+      [clearable]="true"
+      clearLabel="Any"
+      placeholder="Any"
+      aria-label="Later check against new categories"
     />
   </ui-form-field>
   <!-- Not a ui-form-field: its label would forward clicks inside the panel to the trigger. -->
@@ -125,6 +167,7 @@
     uiButton
     size="sm"
     type="button"
+    [disabled]="reclassification.locked()"
     (click)="reparseMessage.set(null); confirmingReparse.set(true)"
   >
     <ui-icon name="refresh" [size]="16" /> Parse again
@@ -184,7 +227,14 @@
       <ui-badge tone="warning" [attr.title]="id + ' (to confirm)'"
         >{{ store.titleOf(id) }}</ui-badge
       >
-      } @empty {
+      } @for (id of row.historicalSuggestions ?? []; track id) {
+      <ui-badge
+        tone="progress"
+        [attr.title]="id + ' (found in a later check, to confirm)'"
+        >{{ store.titleOf(id) }}</ui-badge
+      >
+      } @if (!row.suggestedCategories.length &&
+      !row.historicalSuggestions?.length) {
       <span class="muted">–</span>
       }
     </span>
@@ -195,6 +245,14 @@
       [label]="statusView[row.status].label"
       [pulse]="!!statusView[row.status].pulse"
     />
+    @if (row.historicalStatus) {
+    <ui-status-dot
+      class="historical"
+      [tone]="historicalView[row.historicalStatus].tone"
+      [label]="historicalView[row.historicalStatus].label"
+      [pulse]="!!historicalView[row.historicalStatus].pulse"
+    />
+    }
   </ng-template>
   <ng-template uiCell="uploadedAt" [uiCellOf]="rows()" let-row>
     {{ row.uploadedAt | date: 'dd MMM yyyy, HH:mm' }}
@@ -217,6 +275,25 @@
     </button>
   </ng-template>
 </ui-table>
+
+<ui-confirm-dialog
+  [(open)]="confirmingReclassify"
+  heading="Check past documents against new categories?"
+  confirmLabel="Start"
+  [busy]="reclassification.starting()"
+  (confirmed)="startReclassify()"
+>
+  <p>
+    The AI looks at the documents read before the newest categories were
+    confirmed, and suggests only those newer categories. Nothing is changed
+    without you: findings wait in the review panel for your decision.
+  </p>
+  <p class="muted">
+    While it runs, uploads, parsing and changes to documents and categories are
+    paused. It uses AI calls only for documents that have new categories to
+    check.
+  </p>
+</ui-confirm-dialog>
 
 <ui-confirm-dialog
   [(open)]="confirmingReparse"

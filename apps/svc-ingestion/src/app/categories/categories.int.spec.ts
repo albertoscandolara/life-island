@@ -13,6 +13,7 @@ import type {
 import {
   categorySuggestions,
   documentCategories,
+  expireStaleRuns,
   uploads,
 } from '@life-island/ingestion-db';
 import { eq, inArray } from 'drizzle-orm';
@@ -628,5 +629,179 @@ describe.skipIf(!configured)('categories and suggestions API', () => {
       status: expect.any(String),
       pendingDocuments: expect.any(Number),
     });
+  });
+
+  // ---- taxonomy versions and historical reclassification -------------------
+
+  const taxonomyVersion = async () =>
+    (
+      await svc.pool.query<{ version: number }>(
+        `select version from ingestion.taxonomy_state where id = 'global'`,
+      )
+    ).rows[0]?.version ?? 0;
+
+  it('confirms several suggestions in one operation with one new taxonomy version', async () => {
+    const upload = await parsedUpload();
+    const first = await suggestion([upload]);
+    const second = await suggestion([upload]);
+    const before = await taxonomyVersion();
+
+    const { status, body } = await call<CategorySuggestionDto[]>(
+      'POST',
+      '/category-suggestions/approve',
+      { items: [{ id: first.id }, { id: second.id }] },
+    );
+    expect(status).toBe(200);
+    expect(body.map((s) => s.status)).toEqual(['APPROVED', 'APPROVED']);
+
+    const saved = await db()
+      .select()
+      .from(documentCategories)
+      .where(
+        inArray(documentCategories.id, [first.categoryId, second.categoryId]),
+      );
+    const versions = new Set(saved.map((category) => category.taxonomyVersion));
+    // One version for the whole batch, though other tests may confirm too.
+    expect(versions.size).toBe(1);
+    expect([...versions][0]).toBeGreaterThan(before);
+    const [doc] = await db()
+      .select()
+      .from(uploads)
+      .where(eq(uploads.id, upload));
+    expect(doc.categories).toEqual(
+      expect.arrayContaining([first.categoryId, second.categoryId]),
+    );
+  });
+
+  it('applies the review decisions on newer categories in one save', async () => {
+    const upload = await parsedUpload();
+    const accept = await suggestion([]);
+    const reject = await suggestion([]);
+    await call('POST', '/category-suggestions/approve', {
+      items: [{ id: accept.id }, { id: reject.id }],
+    });
+    await db()
+      .update(uploads)
+      .set({
+        historicalStatus: 'PENDING_REVIEW',
+        historicalProcessingVersion: 7,
+        historicalSuggestions: [
+          {
+            categoryId: accept.categoryId,
+            evidence: 'Says so',
+            confidence: 0.9,
+          },
+          { categoryId: reject.categoryId, evidence: 'Maybe', confidence: 0.6 },
+        ],
+      })
+      .where(eq(uploads.id, upload));
+
+    const { status, body } = await call<UploadDto>(
+      'PATCH',
+      `/uploads/${upload}`,
+      {
+        decisions: {
+          acceptHistorical: [accept.categoryId],
+          rejectHistorical: [reject.categoryId],
+        },
+      },
+    );
+    expect(status).toBe(200);
+    expect(body.categories).toContain(accept.categoryId);
+    expect(body.categories).not.toContain(reject.categoryId);
+    expect(body.rejectedCategories).toEqual([reject.categoryId]);
+    expect(body.historicalStatus).toBeNull();
+    const [doc] = await db()
+      .select()
+      .from(uploads)
+      .where(eq(uploads.id, upload));
+    // Reviewed up to the version the run checked, not the current one.
+    expect(doc.historicalReviewedVersion).toBe(7);
+    expect((await lastSnapshot(upload))?.historicalStatus).toBeNull();
+
+    // A finding not offered to this document is refused.
+    const again = await call('PATCH', `/uploads/${upload}`, {
+      decisions: { acceptHistorical: [accept.categoryId] },
+    });
+    expect(again.status).toBe(409);
+  });
+
+  it('refuses document and category writes with 423 while a reclassification runs', async () => {
+    const upload = await parsedUpload();
+    const { rows } = await svc.pool.query<{ id: string }>(
+      `insert into ingestion.reclassification_runs
+         (trigger, status, target_version, lease_until, started_at)
+       values ('MANUAL', 'RUNNING', 0, now() + interval '1 minute', now())
+       returning id`,
+    );
+    try {
+      const state = await call<{ locked: boolean; canStart: boolean }>(
+        'GET',
+        '/reclassification',
+      );
+      expect(state.body).toMatchObject({ locked: true, canStart: false });
+      const patch = await call<{ code: string; runId: string }>(
+        'PATCH',
+        `/uploads/${upload}`,
+        { title: 'Changed' },
+      );
+      expect(patch.status).toBe(423);
+      expect(patch.body).toMatchObject({
+        code: 'RECLASSIFICATION_RUNNING',
+        runId: rows[0].id,
+      });
+      expect((await call('POST', '/reclassification/run')).status).toBe(423);
+      // Reading is never blocked.
+      expect((await call('GET', `/uploads/${upload}`)).status).toBe(200);
+    } finally {
+      await svc.pool.query(
+        `delete from ingestion.reclassification_runs where id = $1`,
+        [rows[0].id],
+      );
+    }
+    expect(
+      (await call('PATCH', `/uploads/${upload}`, { title: 'Changed' })).status,
+    ).toBe(200);
+  });
+
+  it('ends a run whose lease expired and frees its documents', async () => {
+    const upload = await parsedUpload();
+    const { rows } = await svc.pool.query<{ id: string }>(
+      `insert into ingestion.reclassification_runs
+         (trigger, status, target_version, lease_until, started_at)
+       values ('SCHEDULED', 'RUNNING', 0, now() - interval '1 second', now())
+       returning id`,
+    );
+    await db()
+      .update(uploads)
+      .set({ historicalStatus: 'RECLASSIFYING', historicalRunId: rows[0].id })
+      .where(eq(uploads.id, upload));
+    try {
+      // An expired lease no longer locks anything.
+      expect(
+        (await call('PATCH', `/uploads/${upload}`, { title: 'Free' })).status,
+      ).toBe(200);
+      const client = await svc.pool.connect();
+      try {
+        expect(await expireStaleRuns(client)).toBeGreaterThanOrEqual(1);
+      } finally {
+        client.release();
+      }
+      const { rows: runs } = await svc.pool.query<{ status: string }>(
+        `select status from ingestion.reclassification_runs where id = $1`,
+        [rows[0].id],
+      );
+      expect(runs[0].status).toBe('INTERRUPTED');
+      const [doc] = await db()
+        .select()
+        .from(uploads)
+        .where(eq(uploads.id, upload));
+      expect(doc.historicalStatus).toBeNull();
+    } finally {
+      await svc.pool.query(
+        `delete from ingestion.reclassification_runs where id = $1`,
+        [rows[0].id],
+      );
+    }
   });
 });

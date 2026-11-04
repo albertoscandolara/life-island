@@ -17,6 +17,7 @@ export function categoryDto(
     template: { fields: [] },
     parentId,
     dimension: 'DOCUMENT_TYPE',
+    taxonomyVersion: 0,
     documentCount: 0,
     totalDocumentCount: 0,
     createdAt: '2026-11-01T00:00:00.000Z',

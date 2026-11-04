@@ -14,6 +14,7 @@ import {
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveSuggestionRequestSchema,
+  approveSuggestionsRequestSchema,
   categoryIdSchema,
   createCategoryRequestSchema,
   deleteCategoryQuerySchema,
@@ -95,7 +96,19 @@ export class CategoriesController {
     );
   }
 
-  /** Saves a suggested category, as proposed or with your edits. */
+  /**
+   * Confirms the suggestions you selected, in one operation: all or nothing,
+   * and one taxonomy version for the whole batch.
+   */
+  @Post('category-suggestions/approve')
+  @HttpCode(200)
+  approveMany(@Body() body: unknown): Promise<CategorySuggestionDto[]> {
+    return this.categories.approveMany(
+      parseOrThrow(approveSuggestionsRequestSchema, body),
+    );
+  }
+
+  /** Saves one suggested category, as proposed or with your edits (a batch of one). */
   @Post('category-suggestions/:id/approve')
   @HttpCode(200)
   approve(

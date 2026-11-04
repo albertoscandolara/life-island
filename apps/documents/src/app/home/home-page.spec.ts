@@ -5,6 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { flushReclassification } from '../testing/reclassification';
 import { HomePage } from './home-page';
 
 describe('HomePage', () => {
@@ -19,6 +20,7 @@ describe('HomePage', () => {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    flushReclassification(http);
     return { fixture, http, element: fixture.nativeElement as HTMLElement };
   }
 
@@ -41,7 +43,7 @@ describe('HomePage', () => {
   it('hides the count when the review service is down', async () => {
     const { fixture, http, element } = await setup();
     http
-      .expectOne(() => true)
+      .expectOne((req) => req.url === '/api/review/records')
       .flush('down', { status: 502, statusText: 'Bad Gateway' });
     await fixture.whenStable();
     expect(element.querySelector('.choice__badge')).toBeNull();

@@ -10,6 +10,7 @@ import {
   provideRouter,
 } from '@angular/router';
 import { SAMPLE_CATEGORIES } from '../testing/categories';
+import { flushReclassification } from '../testing/reclassification';
 import { CategoriesPage, editsOf, parentCandidates } from './categories-page';
 
 const original = {
@@ -111,6 +112,7 @@ describe('CategoriesPage', () => {
     http
       .expectOne((req) => req.url === '/api/ingestion/category-suggestions')
       .flush([]);
+    flushReclassification(http);
     await fixture.whenStable();
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;

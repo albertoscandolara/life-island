@@ -5,6 +5,8 @@ import {
   type DocumentFieldValue,
   type ExtractedFields,
   type FileFormat,
+  type HistoricalStatus,
+  type HistoricalSuggestion,
   type UploadDeletedV1,
   type UploadUpdatedV1,
 } from '@life-island/contracts';
@@ -20,6 +22,8 @@ interface SnapshotRow {
   categories: string[];
   suggested: string[];
   extracted_fields: ExtractedFields | null;
+  historical_status: HistoricalStatus | null;
+  historical_suggestions: HistoricalSuggestion[] | null;
   now: Date;
 }
 
@@ -49,7 +53,7 @@ export async function enqueueUploadUpdated(
   const { rows } = await client.query<SnapshotRow>(
     `select u.id, u.title, u.description, u.original_filename, u.file_format,
             coalesce(u.uploaded_at, u.created_at) as uploaded_at, u.categories,
-            u.extracted_fields,
+            u.extracted_fields, u.historical_status, u.historical_suggestions,
             coalesce((select array_agg(s.category_id order by s.created_at)
                         from ingestion.category_suggestions s
                        where s.status = 'PENDING' and u.id = any(s.upload_ids)),
@@ -73,6 +77,10 @@ export async function enqueueUploadUpdated(
       categories: row.categories,
       suggestedCategories: row.suggested,
       fields: fieldValues(row.extracted_fields),
+      historicalStatus: row.historical_status,
+      historicalSuggestions: (row.historical_suggestions ?? []).map(
+        (suggestion) => suggestion.categoryId,
+      ),
       updatedAt: row.now.toISOString(),
     };
     await enqueueEvent(client, schema, {

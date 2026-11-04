@@ -17,6 +17,8 @@ export function toRecordDto(row: StagingRecordRow): RecordDto {
     targetKey: row.targetKey,
     categories: row.categories,
     suggestedCategories: row.suggestedCategories,
+    historicalStatus: row.historicalStatus as RecordDto['historicalStatus'],
+    historicalSuggestions: row.historicalSuggestions,
     confidence: row.confidence,
     flags: row.flags,
     uploadedAt: row.uploadedAt.toISOString(),

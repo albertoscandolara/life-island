@@ -36,6 +36,13 @@
       "when": 1793552699390,
       "tag": "0004_reject_retarget_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793821601381,
+      "tag": "0005_historical_reclassification",
+      "breakpoints": true
     }
   ]
 }

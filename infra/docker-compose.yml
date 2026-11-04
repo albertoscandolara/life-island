@@ -119,6 +119,10 @@ services:
       PARSE_QUOTA_RETRY_MINUTES: ${PARSE_QUOTA_RETRY_MINUTES:-360}
       PARSE_QUOTA_RETRY_MAX_MINUTES: ${PARSE_QUOTA_RETRY_MAX_MINUTES:-1440}
       CATEGORY_AUTO_APPROVE: ${CATEGORY_AUTO_APPROVE:-false}
+      RECLASSIFY_SCHEDULE: ${RECLASSIFY_SCHEDULE:-0 3 1 * *}
+      RECLASSIFY_TIMEZONE: ${RECLASSIFY_TIMEZONE:-Europe/Rome}
+      RECLASSIFY_BATCH_SIZE: ${RECLASSIFY_BATCH_SIZE:-50}
+      RECLASSIFY_LEASE_MINUTES: ${RECLASSIFY_LEASE_MINUTES:-5}
       PARSER: ${PARSER:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
@@ -130,7 +134,10 @@ services:
     build:
       <<: *service-build
       args: { SERVICE: svc-review }
-    environment: *service-env
+    environment:
+      <<: *service-env
+      # Review writes pause while svc-ingestion runs a historical reclassification.
+      INGESTION_URL: http://svc-ingestion:3000
     depends_on: *service-deps
 
   # Domain modules: each loads the confirmed records of its own targets.

@@ -1,15 +1,21 @@
-import type { ServiceDb } from '@life-island/be-common';
+import { withTransaction, type ServiceDb } from '@life-island/be-common';
 import type {
   ParseQueueStatus,
   ProviderErrorDetails,
 } from '@life-island/contracts';
 import {
+  activeRun,
+  lockExclusive,
   PARSE_QUEUE_ID,
   parseQueue,
   type ParseQueueRow,
 } from '@life-island/ingestion-db';
 import { and, eq, sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import type { WorkerConfig } from './config.js';
+
+/** Whether a run could begin: not during a pause, nor during a reclassification. */
+export type BeginResult = 'started' | 'paused' | 'reclassifying';
 
 export type PauseKind = 'PAUSED_QUOTA' | 'PAUSED_RATE_LIMIT';
 
@@ -100,20 +106,35 @@ export class ParseQueue {
    * Starts a run unless a pause is still in force. A pause whose time has come
    * is kept as the status until an AI call succeeds (`markHealthy`), so a
    * quota that is still exhausted extends the pause rather than resetting it.
-   * A credentials block is lifted: the key may have been fixed since.
+   * A credentials block is lifted: the key may have been fixed since. Never
+   * while a historical reclassification holds the global lock.
    */
-  async beginRun(now = new Date()): Promise<boolean> {
+  async beginRun(now = new Date()): Promise<BeginResult> {
     const row = await this.get();
-    if (this.isPaused(row, now)) return false;
-    await this.svc.db
-      .update(parseQueue)
-      .set({
-        status: PAUSED.includes(row.status) ? row.status : 'RUNNING',
-        runStartedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(parseQueue.id, PARSE_QUEUE_ID));
-    return true;
+    if (this.isPaused(row, now)) return 'paused';
+    return withTransaction(this.svc.pool, async (client) => {
+      // Mutual exclusion with historical reclassification: the same lock its
+      // start takes, so the two can never begin together.
+      await lockExclusive(client);
+      if (await activeRun(client)) {
+        // Remembered as a request, so the run happens once reclassification ends.
+        await client.query(
+          `update ingestion.parse_queue set run_requested_at = now(), updated_at = now()
+            where id = $1`,
+          [PARSE_QUEUE_ID],
+        );
+        return 'reclassifying';
+      }
+      await drizzle(client)
+        .update(parseQueue)
+        .set({
+          status: PAUSED.includes(row.status) ? row.status : 'RUNNING',
+          runStartedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(parseQueue.id, PARSE_QUEUE_ID));
+      return 'started';
+    });
   }
 
   /** May the worker send AI requests right now? Checked before every document. */

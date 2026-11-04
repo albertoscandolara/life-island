@@ -109,6 +109,47 @@ describe.skipIf(!configured)(
       return { status: response.status, body: (await response.json()) as T };
     };
 
+    it('mirrors the findings of a later check and filters by them', async () => {
+      const u = upload('later');
+      await apply('upload.completed@1', u);
+      await apply('document.parsed@1', parsed(u));
+      const { sizeBytes: _size, ...metadata } = u;
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: [],
+        suggestedCategories: [],
+        historicalStatus: 'PENDING_REVIEW',
+        historicalSuggestions: ['INSURANCE'],
+        updatedAt: new Date().toISOString(),
+      });
+      const q = `q=${encodeURIComponent(u.title)}`;
+      const found = await get<Page<RecordDto>>(
+        `/records?historical=PENDING_REVIEW&${q}`,
+      );
+      expect(found.body.items).toEqual([
+        expect.objectContaining({
+          status: 'PARSED',
+          historicalStatus: 'PENDING_REVIEW',
+          historicalSuggestions: ['INSURANCE'],
+        }),
+      ]);
+      expect(
+        (await get<Page<RecordDto>>(`/records?historical=RECLASSIFYING&${q}`))
+          .body.items,
+      ).toEqual([]);
+      // An older event without the overlay keeps what is stored.
+      await apply('upload.updated@1', {
+        ...metadata,
+        categories: [],
+        suggestedCategories: [],
+        updatedAt: new Date(Date.now() + 1000).toISOString(),
+      });
+      expect(
+        (await get<Page<RecordDto>>(`/records?historical=PENDING_REVIEW&${q}`))
+          .body.items,
+      ).toHaveLength(1);
+    });
+
     it('mirrors the document categories and keeps your edited details for confirmation', async () => {
       const u = upload('acqua');
       await apply('upload.completed@1', u);

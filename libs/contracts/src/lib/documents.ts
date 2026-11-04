@@ -20,6 +20,12 @@ import {
   type DocumentAnalysis,
   type ExtractedFields,
 } from './categories.js';
+import {
+  categoryDecisionsSchema,
+  historicalStatusSchema,
+  type HistoricalSuggestion,
+} from './reclassification.js';
+import type { HistoricalStatus } from './constants.js';
 
 export * from './constants.js';
 
@@ -86,6 +92,12 @@ export const updateUploadRequestSchema = z.object({
       z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]),
     )
     .optional(),
+  /**
+   * Decisions on the document's suggested categories (the parser's and the
+   * historical ones), applied in the same transaction. Categories they add
+   * join `categories`.
+   */
+  decisions: categoryDecisionsSchema.optional(),
 });
 export type UpdateUploadRequest = z.input<typeof updateUploadRequestSchema>;
 
@@ -148,6 +160,12 @@ export interface UploadDto {
   createdAt: string;
   uploadedAt: string | null;
   parsedAt: string | null;
+  /** Historical reclassification overlay; null when the document is in its normal state. */
+  historicalStatus: HistoricalStatus | null;
+  /** Confirmed categories a later check found for it, awaiting your decision. */
+  historicalSuggestions: HistoricalSuggestion[];
+  /** Categories declined for this document; never suggested for it again. */
+  rejectedCategories: string[];
 }
 
 export interface CompleteUploadResponse {
@@ -192,6 +210,8 @@ const optionalDate = z.iso.date().optional();
 export const listRecordsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
   status: recordStatusSchema.optional(),
+  /** Only records in this historical reclassification state (e.g. PENDING_REVIEW). */
+  historical: historicalStatusSchema.optional(),
   category: z.string().trim().max(64).optional(),
   /**
    * Confirmed document category ids, comma separated (`BILL` or
@@ -231,6 +251,10 @@ export interface RecordDto {
   confirmedAt: string | null;
   loadedAt: string | null;
   rejectedAt: string | null;
+  /** Historical reclassification overlay; null when the document is in its normal state. */
+  historicalStatus: HistoricalStatus | null;
+  /** Ids of confirmed categories a later check found for it, awaiting your decision. */
+  historicalSuggestions: string[];
 }
 
 /**

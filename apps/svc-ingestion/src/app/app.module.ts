@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import {
   createServiceDb,
   ObjectStorage,
@@ -9,6 +10,8 @@ import { CategoriesController } from './categories/categories.controller.js';
 import { CategoriesService } from './categories/categories.service.js';
 import { CONFIG, SERVICE_DB, STORAGE, type IngestionConfig } from './config.js';
 import { HealthController } from './health.controller.js';
+import { ReclassificationLockedFilter } from './reclassification/locked.filter.js';
+import { ReclassificationController } from './reclassification/reclassification.controller.js';
 import { UploadsController } from './uploads/uploads.controller.js';
 import { UploadsService } from './uploads/uploads.service.js';
 
@@ -25,11 +28,17 @@ export class AppModule {
     const storage = new ObjectStorage(config.storage);
     return {
       module: AppModule,
-      controllers: [HealthController, UploadsController, CategoriesController],
+      controllers: [
+        HealthController,
+        UploadsController,
+        CategoriesController,
+        ReclassificationController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         { provide: STORAGE, useValue: storage },
+        { provide: APP_FILTER, useClass: ReclassificationLockedFilter },
         UploadsService,
         CategoriesService,
         ...(options.events === false

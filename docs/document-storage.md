@@ -140,6 +140,30 @@ create table ingestion.document_categories (
   updated_at    timestamptz not null default now()
 );
 
+-- historical reclassification, on ingestion.uploads (see guides/documents-loader.md)
+alter table ingestion.uploads add
+  classified_category_version   int,               -- taxonomy version CLASSIFY saw
+  historical_reviewed_version   int,               -- last version it was checked against
+  historical_processing_version int,               -- version the pending findings come from
+  historical_status             ingestion.historical_status,  -- RECLASSIFYING, PENDING_REVIEW; null: normal
+  historical_suggestions        jsonb not null default '[]', -- [{categoryId, evidence, confidence}]
+  historical_run_id             uuid,
+  rejected_categories           text[] not null default '{}'; -- declined for this document
+
+create table ingestion.taxonomy_state (            -- one row: 'global'
+  id text primary key, version int not null default 0,
+  next_reclassification_at timestamptz, updated_at timestamptz not null default now()
+);
+create table ingestion.reclassification_runs (
+  id uuid primary key default gen_random_uuid(),
+  trigger text not null,                            -- MANUAL, SCHEDULED
+  status ingestion.reclassification_run_status not null, -- RUNNING, COMPLETED, FAILED, INTERRUPTED, BLOCKED
+  target_version int, blocked_reasons jsonb, lease_until timestamptz,
+  requested_at, started_at, finished_at, summary jsonb, last_error text
+);
+create unique index on ingestion.reclassification_runs ((true)) where status = 'RUNNING';
+-- and document_categories.taxonomy_version int: the version that confirmed it
+
 create type ingestion.suggestion_status as enum ('PENDING', 'APPROVED', 'REJECTED');
 create table ingestion.category_suggestions (       -- proposed by the AI, approved by you
   id                   uuid primary key default gen_random_uuid(),

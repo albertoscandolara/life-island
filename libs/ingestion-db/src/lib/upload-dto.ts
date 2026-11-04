@@ -76,6 +76,9 @@ export function toUploadDto(row: UploadRow): UploadDto {
     createdAt: row.createdAt.toISOString(),
     uploadedAt: row.uploadedAt?.toISOString() ?? null,
     parsedAt: row.parsedAt?.toISOString() ?? null,
+    historicalStatus: row.historicalStatus ?? null,
+    historicalSuggestions: row.historicalSuggestions ?? [],
+    rejectedCategories: row.rejectedCategories ?? [],
   };
 }
 
@@ -96,6 +99,7 @@ export function toCategoryDto(
     template: row.templateJson,
     parentId: row.parentId,
     dimension: row.dimension,
+    taxonomyVersion: row.taxonomyVersion,
     documentCount: counts.documentCount,
     totalDocumentCount: counts.totalDocumentCount,
     createdAt: row.createdAt.toISOString(),

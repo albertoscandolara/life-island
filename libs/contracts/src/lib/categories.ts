@@ -102,6 +102,8 @@ export interface CategoryDto {
   parentId: string | null;
   /** The metadata dimension (shared by the whole tree); null for a general category. */
   dimension: CategoryDimension | null;
+  /** The taxonomy version in which it was confirmed (0: before versions existed). */
+  taxonomyVersion: number;
   /** Documents that have this category itself. */
   documentCount: number;
   /** Documents that have this category or any of its descendants (each counted once). */

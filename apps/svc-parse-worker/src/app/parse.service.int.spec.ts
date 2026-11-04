@@ -80,6 +80,9 @@ class ScriptedAnalyzer implements DocumentAnalyzer {
     return this.inner.extract(input, plan);
   };
 
+  matchCategories: DocumentAnalyzer['matchCategories'] = (input, candidates) =>
+    this.inner.matchCategories(input, candidates);
+
   discover: DocumentAnalyzer['discover'] = async (input, context) => {
     this.check('discover');
     if (!this.suggestions) return this.inner.discover(input, context);
@@ -187,7 +190,8 @@ describe.skipIf(!configured)(
           storageKey: key,
           status: 'TO_BE_PARSED',
           uploadedAt: new Date(),
-          createdAt: new Date('2000-01-01T00:00:00Z'),
+          // Old enough to come first, and in seeding order (ties have no order).
+          createdAt: new Date(Date.UTC(2000, 0, 1) + created.length * 1000),
         });
       created.push(id);
       return id;
