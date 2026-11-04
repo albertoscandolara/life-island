@@ -262,7 +262,12 @@ describe.skipIf(!configured)(
         'EXTRACT',
       ]);
       // Several existing categories at once, only ids that exist.
-      expect([...saved.categories].sort()).toEqual(['BILL', 'EXPENSE', 'HOME']);
+      expect([...saved.categories].sort()).toEqual([
+        'BILL',
+        'ELECTRICITY_BILL',
+        'EXPENSE',
+        'HOME',
+      ]);
       expect(saved.extractedFields?.fields['total_amount']).toMatchObject({
         status: 'found',
         value: 84.2,
@@ -278,12 +283,9 @@ describe.skipIf(!configured)(
       expect(saved.analysis?.categoryEvidence.map((item) => item.id)).toContain(
         'BILL',
       );
-      // New categories are suggested even though BILL and EXPENSE matched; none is saved yet.
+      // A new category is suggested even though existing ones matched; it is not saved yet.
       const suggested = await suggestionsFor(id);
-      expect(suggested.map((s) => s.categoryId).sort()).toEqual([
-        'ELECTRICITY_BILL',
-        'ENEL',
-      ]);
+      expect(suggested.map((s) => s.categoryId)).toEqual(['ENEL']);
       expect(suggested.every((s) => s.status === 'PENDING')).toBe(true);
       // Each says what kind of metadata it is and where it goes.
       expect(
@@ -294,16 +296,13 @@ describe.skipIf(!configured)(
             dimension,
           }))
           .sort((a, b) => a.categoryId.localeCompare(b.categoryId)),
-      ).toEqual([
-        { categoryId: 'ELECTRICITY_BILL', parentId: 'BILL', dimension: null },
-        { categoryId: 'ENEL', parentId: null, dimension: 'ISSUER' },
-      ]);
+      ).toEqual([{ categoryId: 'ENEL', parentId: null, dimension: 'ISSUER' }]);
       expect(suggested[0].templateJson.fields.length).toBeGreaterThan(0);
       expect(
         await db()
           .select()
           .from(documentCategories)
-          .where(inArray(documentCategories.id, ['ENEL', 'ELECTRICITY_BILL'])),
+          .where(inArray(documentCategories.id, ['ENEL'])),
       ).toEqual([]);
       // The inbox hears about the categories after CLASSIFY and the suggestions after DISCOVER.
       expect(await events(id)).toEqual([
@@ -321,10 +320,7 @@ describe.skipIf(!configured)(
         [id],
       );
       expect(rows[0].payload.categories).toEqual(saved.categories);
-      expect([...rows[0].payload.suggestedCategories].sort()).toEqual([
-        'ELECTRICITY_BILL',
-        'ENEL',
-      ]);
+      expect(rows[0].payload.suggestedCategories).toEqual(['ENEL']);
     });
 
     it('pauses on an exhausted quota, keeps the finished steps, and makes no more AI calls', async () => {

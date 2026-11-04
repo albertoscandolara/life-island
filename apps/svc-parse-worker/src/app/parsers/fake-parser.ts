@@ -40,6 +40,8 @@ const CATEGORY_WORDS: Record<string, RegExp> = {
   INVOICE: /(fattura|invoice)/i,
   BILL: /(bolletta|bill\b|utility|fornitura)/i,
   WATER_BILL: /(acqua|water|acque)/i,
+  ELECTRICITY_BILL: /(electricity|energia elettrica|\bluce\b|kwh)/i,
+  GAS_BILL: /(\bgas\b|metano|\bsmc\b)/i,
   HOME: /\b(bolletta|affitto|rent|condominio|acqua|luce|gas)\b/i,
   MEDICAL: /(farmacia|pharmacy|medic|doctor|dottor|visita|clinic)/i,
   TAX_DEDUCTIBLE: /(farmacia|pharmacy|medic|visita|scuola|school)/i,
