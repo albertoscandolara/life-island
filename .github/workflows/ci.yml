@@ -56,7 +56,10 @@ jobs:
       - run: npx nx format:check
       - run: npx nx sync:check
       - run: npm run lint:styles
-      - run: npx nx affected -t lint test build typecheck
+      - run: npx nx affected -t lint build typecheck
+      # One project at a time: the integration tests share one database, and
+      # the reclassification tests briefly hold its global write lock.
+      - run: npx nx affected -t test --parallel=1
 
       - name: Stop infrastructure
         if: always()
