@@ -331,8 +331,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         ]),
       ];
       const categoriesChanged =
-        !!request.categories ||
-        categoryIds.join() !== row.categories.join();
+        !!request.categories || categoryIds.join() !== row.categories.join();
       const assigned = categoryIds.length
         ? await db
             .select()
@@ -397,9 +396,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           ...(decided?.historical ?? {}),
           // Ticking a category by hand overrides an earlier decline of it.
           rejectedCategories: [
-            ...new Set([
-              ...(decided?.rejected ?? row.rejectedCategories),
-            ]),
+            ...new Set([...(decided?.rejected ?? row.rejectedCategories)]),
           ].filter((categoryId) => !categoryIds.includes(categoryId)),
           extractedFields,
           updatedAt: new Date(),
@@ -409,8 +406,7 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       await enqueueUploadUpdated(client, this.svc.schema, [id]);
       others.delete(id);
       // Other documents that suggested a category you approved got it too.
-      if (others.size)
-        await this.categories.resyncUploads(client, [...others]);
+      if (others.size) await this.categories.resyncUploads(client, [...others]);
       return toUploadDto(saved);
     });
     return dto;
@@ -465,7 +461,8 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           ),
         );
       const missing = decidedSuggestions.filter(
-        (suggestionId) => !mine.some((suggestion) => suggestion.id === suggestionId),
+        (suggestionId) =>
+          !mine.some((suggestion) => suggestion.id === suggestionId),
       );
       if (missing.length)
         throw new ConflictException(
@@ -484,7 +481,10 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       added = approved.categoryIds;
       otherUploads = approved.uploadIds;
     }
-    const [fresh] = await db.select().from(uploads).where(eq(uploads.id, row.id));
+    const [fresh] = await db
+      .select()
+      .from(uploads)
+      .where(eq(uploads.id, row.id));
 
     const historicalDecided = [
       ...parsed.acceptHistorical,

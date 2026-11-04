@@ -106,3 +106,17 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+.reclassify-line {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.reclassify-line p {
+  margin: 0 0 var(--space-1);
+}
+
+.historical {
+  display: block;
+  margin-top: var(--space-1);
+}

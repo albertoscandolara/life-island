@@ -586,7 +586,11 @@ export class CategoriesService {
   ): Promise<CategorySuggestionDto> {
     return withTransaction(this.svc.pool, async (client) => {
       await assertWritable(client);
-      const row = await this.dismissInTransaction(client, suggestionId, uploadId);
+      const row = await this.dismissInTransaction(
+        client,
+        suggestionId,
+        uploadId,
+      );
       await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
       return row;
     });

@@ -251,6 +251,27 @@ The worker sorts every provider error by what can fix it (`parsers/provider-erro
 
 To see it locally without an API key: `FAKE_QUOTA_STEPS=7 FAKE_QUOTA_PERIOD_MINUTES=3 PARSE_RUN_ON_START=true npx nx serve svc-parse-worker` pauses after seven AI steps and resumes three minutes later.
 
+### Historical reclassification
+
+Categories keep growing, so a document read last spring may also belong to a category confirmed last week. Historical reclassification checks past documents against the categories confirmed since they were read, and asks you before anything changes.
+
+**Taxonomy version.** `ingestion.taxonomy_state` holds one global version. It goes up by one per confirming operation, however many categories that operation confirms: **Confirm selected** on the Categories page (any number of ticked suggestions), the final **Confirm** of a review that confirms suggestions, **New category**, and auto-approval in the worker. Each category records the version that confirmed it (`document_categories.taxonomy_version`); categories that existed before versions are numbered by creation order.
+
+**Which documents, which categories.** Every parsed document stores the version its CLASSIFY step saw (`classified_category_version`; existing documents were backfilled from their parse date) and the version it was last checked against (`historical_reviewed_version`). A document is eligible when the later of the two is below the current version. For each one, only categories confirmed after that point may be proposed, and never one it already has (or an ancestor of one), one the parser suggested for it and still waits, or one you declined for it (`rejected_categories`, which also remembers **Not this one** from the initial review). A document with no such category is marked checked without an AI call. Otherwise the AI reads the full document again, with what CLASSIFY found, and answers only which of those candidate categories apply.
+
+**What it changes.** Nothing you have confirmed. Findings go to `historical_suggestions` and the document gets the overlay status `PENDING_REVIEW` (`RECLASSIFYING` while it is being checked) next to its normal status, so a document in its module stays in its module. In the review panel they appear as **Found in a later check**, ticked: the final **Confirm** (or **Confirm categories** on a record already confirmed) adds the ticked ones and declines the others for this document. The document is then reviewed up to the version the run checked against, even if you declined everything. The inbox has a **Later check** filter and a link to the documents waiting.
+
+**The lock.** While a run is going, uploads, parsing, and changes to documents and categories wait: the ingestion and review APIs answer `423 Locked` with code `RECLASSIFICATION_RUNNING`, and the app shows a banner and disables those controls. Reading is never blocked, and the modules (groceries, 730) are not affected. The lock is a `reclassification_runs` row in `RUNNING` with a lease the worker renews; every write takes a shared advisory lock and checks for it, and starting a run (or a parse run) takes it exclusively, so nothing slips in between. If the worker dies, the lease expires within `RECLASSIFY_LEASE_MINUTES`, the run becomes `INTERRUPTED` and its documents go back to normal; the next run continues where it stopped, because each document's result is committed on its own.
+
+**When it runs.** Once a month (`RECLASSIFY_SCHEDULE`, 03:00 on the 1st by default; `off` disables it), and when you press **Reclassify past documents** in the inbox. A run starts only when no suggested category waits for a decision, the parser is idle, no other run is going and the AI is not paused; otherwise the button says why, and a scheduled attempt is recorded as `BLOCKED` and waits for next month (no retries in between). An exhausted quota or a rate limit ends the run as `INTERRUPTED`; refused credentials end it as `FAILED`. A Parse now or scheduled parse that arrived during a run starts right after it.
+
+| Call                                                | What happens                                                                                                                       |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/ingestion/reclassification`               | Locked or not, the current and last run, whether a run can start and why not, documents to review                                  |
+| `POST /api/ingestion/reclassification/run`          | Reclassify now; 409 with the reasons when it cannot start, 423 while a run holds the lock                                          |
+| `POST /api/ingestion/category-suggestions/approve`  | `{ items: [{ id, overrides? }] }`: confirms several suggestions with one version                                                   |
+| `PATCH /api/ingestion/uploads/:id` with `decisions` | `{ approveSuggestions, declineSuggestions, acceptHistorical, rejectHistorical }`, applied with your other edits in one transaction |
+
 ## Categories and target schemas
 
 Every parsed document gets a **category**, and its details follow a **target schema** that belongs to that category. The schema is versioned, so details stay consistent: every grocery receipt has the same fields.
@@ -277,7 +298,7 @@ The inbox opens on the documents **waiting for your review** (`Parsed, to review
 
 1. **Status**: the module (Groceries, 730 tax return, or Documents only), the AI's confidence and flags, the original file (shown in place or in a new tab), and the AI processing steps on demand.
 2. **Document**: title and description.
-3. **Categories**: each category the AI suggested for this document, in dimension order and labelled with its kind and parent (`Issuer / supplier`, `Document type, under Bill`), with **Accept** (creates the category and adds it to every document that suggested it) and **Not this one** (declines it for this document only; the last decline rejects the suggestion). Below, the confirmed categories as checkboxes by dimension.
+3. **Categories**: each category the AI suggested for this document, in dimension order and labelled with its kind and parent (`Issuer / supplier`, `Document type, under Bill`), as a ticked checkbox, and the categories a later check found (see [Historical reclassification](#historical-reclassification)). Nothing is decided until the final **Confirm**: ticked suggestions are confirmed together (one taxonomy version) and added to every document that suggested them; unticked ones are declined for this document only (the last decline rejects the suggestion). Below, the confirmed categories as checkboxes by dimension.
 4. **Kept with the document**: the template fields of its categories. They belong to the document (ingestion) and are sent along on Confirm as `documentFields`, so no correction is lost.
 5. **Sent to the module**: the module, which you can change when the AI picked the wrong one, and the details as a form generated from the target's JSON Schema (choices, dates, number fields, an editable table for receipt items). **Edit as JSON** is still there for anything unusual.
 
@@ -311,6 +332,7 @@ The footer holds the decisions: **Delete** (the document and its file; what a mo
 | `document.extracted`, one per target                      | `document.parsed@1`, one target per document; several targets per document later                          |
 | Staging statuses `PENDING_REVIEW`, `APPROVED`, `REJECTED` | `UPLOADED`…`PARSED`, `CONFIRMED`, `LOADED`, `LOAD_FAILED`: the inbox lists documents from upload on       |
 | `/staging-records` with bulk approve, reject, edit        | `/records` with list, detail, edit, retarget, confirm, reject and reopen; bulk approve later              |
+| No historical reclassification                            | Monthly and on-demand check of past documents against newer categories, under a global write lock         |
 | Domains publish their targets at startup                  | Catalog is static in `libs/contracts` and served by `GET /catalog`                                        |
 | Ajv for validation                                        | The targets' Zod schemas, which also hold the domain rules                                                |
 | Upload row without title, description or results          | Title, description, file format, categories, target key, details, confidence and dates on the row         |

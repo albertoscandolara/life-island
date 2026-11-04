@@ -15,6 +15,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   CategoryCountsQuery,
   FileFormat,
+  HistoricalStatus,
   ListRecordsQuery,
   RecordDto,
   RecordStatus,
@@ -22,6 +23,7 @@ import type {
 } from '@life-island/contracts';
 import {
   FILE_FORMATS,
+  HISTORICAL_STATUSES,
   MODULE_LABELS,
   RECORD_STATUSES,
 } from '@life-island/contracts/constants';
@@ -49,7 +51,9 @@ import { CategoryFilter } from './category-filter';
 import { firstValueFrom } from 'rxjs';
 import type { DocumentChanges } from './document-changes';
 import { QueueBanner } from './queue-banner';
-import { RECORD_STATUS_VIEW } from './record-status';
+import { HISTORICAL_STATUS_VIEW, RECORD_STATUS_VIEW } from './record-status';
+import { ReclassificationState } from '../reclassification/reclassification-state';
+import { reclassifyStartState } from '../reclassification/start-state';
 import { ReviewPanel, type ReviewOutcome } from './review-panel';
 
 const PAGE_SIZE = 20;
@@ -148,6 +152,11 @@ export class InboxPage {
   private readonly ingestion = inject(IngestionApi);
   private readonly banner = viewChild.required(QueueBanner);
   protected readonly store = inject(CategoryStore);
+  protected readonly reclassification = inject(ReclassificationState);
+  protected readonly reclassifyState = computed(() =>
+    reclassifyStartState(this.reclassification.value()),
+  );
+  protected readonly confirmingReclassify = signal(false);
   /** Category suggestions waiting for a decision; a hint, so errors just hide it. */
   protected readonly pendingSuggestions = computed(() =>
     this.store.suggested.hasValue() ? this.store.suggested.value().length : 0,
@@ -162,6 +171,14 @@ export class InboxPage {
   /** Opens on the review queue; "Any status" shows everything. */
   protected readonly status = signal<RecordStatus | null>(
     statusFromParam(this.params.get('status')),
+  );
+  /** Records with findings of a later check against new categories (or being checked). */
+  protected readonly historical = signal<HistoricalStatus | null>(
+    (HISTORICAL_STATUSES as readonly string[]).includes(
+      this.params.get('historical') ?? '',
+    )
+      ? (this.params.get('historical') as HistoricalStatus)
+      : null,
   );
   /** Selected category ids; each includes its subcategories. */
   protected readonly categories = signal<string[]>(
@@ -193,6 +210,13 @@ export class InboxPage {
   } | null>(null);
   protected readonly panelOpen = signal(false);
   protected readonly statusView = RECORD_STATUS_VIEW;
+  protected readonly historicalView = HISTORICAL_STATUS_VIEW;
+  protected readonly historicalOptions: UiOption<HistoricalStatus>[] =
+    HISTORICAL_STATUSES.map((value) => ({
+      value,
+      label: HISTORICAL_STATUS_VIEW[value].label,
+      tone: HISTORICAL_STATUS_VIEW[value].tone,
+    }));
   protected readonly moduleLabels = MODULE_LABELS;
   protected readonly defaultStatus = DEFAULT_STATUS;
   private readonly destroyRef = inject(DestroyRef);
@@ -225,6 +249,7 @@ export class InboxPage {
   private readonly otherFilters = computed<CategoryCountsQuery>(() => ({
     q: this.search() || undefined,
     status: this.status() ?? undefined,
+    historical: this.historical() ?? undefined,
     fileFormat: this.fileFormat() ?? undefined,
     uploadedFrom: this.uploadedFrom() || undefined,
     uploadedTo: this.uploadedTo() || undefined,
@@ -274,6 +299,7 @@ export class InboxPage {
       !!(
         this.search() ||
         this.status() !== DEFAULT_STATUS ||
+        this.historical() ||
         this.categories().length ||
         this.fileFormat() ||
         this.uploadedFrom() ||
@@ -286,6 +312,14 @@ export class InboxPage {
       clearTimeout(this.catchUp);
       clearTimeout(this.runReload);
     });
+    // A reclassification ended: its findings are in the inbox now.
+    effect(() => {
+      if (!this.reclassification.finished()) return;
+      untracked(() => {
+        this.records.reload();
+        this.store.reload();
+      });
+    });
     // Debounce typing in the search box.
     effect((onCleanup) => {
       const text = this.searchText().trim();
@@ -297,6 +331,7 @@ export class InboxPage {
     effect(() => {
       this.search();
       this.status();
+      this.historical();
       this.categories();
       this.fileFormat();
       this.uploadedFrom();
@@ -316,6 +351,7 @@ export class InboxPage {
         queryParams: {
           q: query.q,
           status: statusToParam(this.status()),
+          historical: this.historical() ?? undefined,
           category: this.categories().join(',') || undefined,
           fileFormat: query.fileFormat,
           uploadedFrom: query.uploadedFrom,
@@ -341,6 +377,18 @@ export class InboxPage {
 
   protected showAll(): void {
     this.status.set(null);
+  }
+
+  /** The documents a later check found new categories for, in any status. */
+  protected showHistorical(): void {
+    this.status.set(null);
+    this.historical.set('PENDING_REVIEW');
+  }
+
+  protected async startReclassify(): Promise<void> {
+    await this.reclassification.start();
+    this.confirmingReclassify.set(false);
+    this.records.reload();
   }
 
   /**
@@ -484,6 +532,7 @@ export class InboxPage {
     this.searchText.set('');
     this.search.set('');
     this.status.set(DEFAULT_STATUS);
+    this.historical.set(null);
     this.categories.set([]);
     this.fileFormat.set(null);
     this.uploadedFrom.set('');

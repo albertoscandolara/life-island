@@ -39,6 +39,10 @@
       <span class="choice__pulse" aria-hidden="true"></span>
       {{ count }} waiting for review
     </span>
+    } @if (pendingReview(); as count) {
+    <span class="choice__badge">
+      {{ count }} with newer categories to review
+    </span>
     }
   </a>
   <a class="choice" routerLink="/categories" style="--stagger: 2">

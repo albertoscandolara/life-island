@@ -1,4 +1,8 @@
-import type { ProcessingState, RecordStatus } from '@life-island/contracts';
+import type {
+  HistoricalStatus,
+  ProcessingState,
+  RecordStatus,
+} from '@life-island/contracts';
 import type { UiTone } from '@life-island/design-system';
 
 export interface StatusView {
@@ -38,3 +42,13 @@ export const STEP_LABELS = {
   EXTRACT: 'Extract template fields',
   DISCOVER: 'Suggest new categories',
 } as const;
+
+/** The historical reclassification overlay, shown next to the normal status. */
+export const HISTORICAL_STATUS_VIEW: Record<HistoricalStatus, StatusView> = {
+  RECLASSIFYING: {
+    label: 'Checking new categories',
+    tone: 'progress',
+    pulse: true,
+  },
+  PENDING_REVIEW: { label: 'New categories to review', tone: 'warning' },
+};

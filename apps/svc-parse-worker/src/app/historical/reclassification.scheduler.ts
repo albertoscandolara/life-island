@@ -46,7 +46,9 @@ export class ReclassificationScheduler
   async onApplicationBootstrap(): Promise<void> {
     const ended = await this.reclassification.recoverStale();
     if (ended)
-      this.logger.warn(`Ended ${ended} reclassification run(s) left by a crash`);
+      this.logger.warn(
+        `Ended ${ended} reclassification run(s) left by a crash`,
+      );
     if (this.config.reclassifySchedule) {
       this.job = new Cron(
         this.config.reclassifySchedule,
@@ -93,7 +95,9 @@ export class ReclassificationScheduler
             .join('; ')}`,
         );
     } catch (error) {
-      this.logger.error(`Monthly reclassification failed to start: ${String(error)}`);
+      this.logger.error(
+        `Monthly reclassification failed to start: ${String(error)}`,
+      );
     } finally {
       await this.saveNextRun().catch(() => undefined);
     }
@@ -112,7 +116,9 @@ export class ReclassificationScheduler
       try {
         await this.reclassification.run(run);
       } catch (error) {
-        this.logger.error(`Reclassification ${run.id} crashed: ${String(error)}`);
+        this.logger.error(
+          `Reclassification ${run.id} crashed: ${String(error)}`,
+        );
       } finally {
         this.current = undefined;
       }

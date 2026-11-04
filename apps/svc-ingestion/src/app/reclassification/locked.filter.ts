@@ -1,4 +1,8 @@
-import { Catch, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import {
+  Catch,
+  type ArgumentsHost,
+  type ExceptionFilter,
+} from '@nestjs/common';
 import type { ReclassificationLockedError as LockedBody } from '@life-island/contracts';
 import { ReclassificationLockedError } from '@life-island/ingestion-db';
 

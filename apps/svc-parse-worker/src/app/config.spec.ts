@@ -1,4 +1,4 @@
-import { loadConfig, scheduleToCron } from './config.js';
+import { loadConfig, reclassifyCron, scheduleToCron } from './config.js';
 
 describe('worker config', () => {
   const env = {
@@ -17,6 +17,13 @@ describe('worker config', () => {
     expect(loadConfig({ ...env, PARSE_SCHEDULE: '0 */6 * * *' }).schedule).toBe(
       '0 */6 * * *',
     );
+  });
+
+  it('reclassifies past documents once a month unless turned off', () => {
+    expect(loadConfig(env).reclassifySchedule).toBe('0 3 1 * *');
+    expect(reclassifyCron('0 4 15 * *')).toBe('0 4 15 * *');
+    expect(reclassifyCron('off')).toBeNull();
+    expect(reclassifyCron('None')).toBeNull();
   });
 
   it('rejects an impossible time of day', () => {

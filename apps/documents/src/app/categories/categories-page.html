@@ -13,7 +13,13 @@
   >
     <ui-icon name="refresh" [size]="18" /> Refresh
   </button>
-  <button uiPageActions uiButton type="button" (click)="startNew()">
+  <button
+    uiPageActions
+    uiButton
+    type="button"
+    [disabled]="locked()"
+    (click)="startNew()"
+  >
     <ui-icon name="plus" [size]="18" /> New category
   </button>
 </ui-page-header>
@@ -33,10 +39,32 @@
     >The suggestions could not be loaded. Is the ingestion service
     running?</ui-alert
   >
-  } @else {
+  } @else { @if (suggested().length) {
+  <div class="selection" role="region" aria-label="Selected suggestions">
+    <span class="muted small"
+      >Tick the suggestions to confirm. Confirming them together counts as one
+      change to the categories (version {{ taxonomyVersion() }} now), so past
+      documents are checked against all of them in one go.</span
+    >
+    <button
+      uiButton
+      size="sm"
+      type="button"
+      [loading]="busy() === 'confirm'"
+      [disabled]="!picked().length || busy() !== null || locked()"
+      (click)="confirmPicked()"
+    >
+      <ui-icon name="check" [size]="16" /> Confirm selected ({{ picked().length
+      }})
+    </button>
+  </div>
+  }
   <ui-table
     [columns]="suggestedColumns"
     [rows]="suggested()"
+    [selectable]="selectable"
+    [selectLabel]="pickLabel"
+    [(selected)]="picked"
     [loading]="store.suggested.isLoading()"
     caption="Categories the AI suggested"
     emptyMessage="No suggestions waiting. New categories the AI proposes while reading documents appear here."
@@ -68,21 +96,12 @@
       <div class="actions">
         <button
           uiButton
-          size="sm"
-          type="button"
-          [loading]="busy() === row.id"
-          [disabled]="busy() !== null"
-          (click)="confirm(row)"
-        >
-          <ui-icon name="check" [size]="16" /> Confirm
-        </button>
-        <button
-          uiButton
           variant="ghost"
           size="sm"
           [iconOnly]="true"
           type="button"
           [attr.aria-label]="'Edit ' + row.title"
+          [disabled]="locked()"
           (click)="editSuggested(row)"
         >
           <ui-icon name="edit" [size]="16" />
@@ -94,6 +113,7 @@
           [iconOnly]="true"
           type="button"
           [attr.aria-label]="'Delete ' + row.title"
+          [disabled]="locked()"
           (click)="askDelete({ kind: 'suggested', suggestion: row })"
         >
           <ui-icon name="trash" [size]="16" />
@@ -105,7 +125,7 @@
 </ui-card>
 
 <ui-card
-  [heading]="'Confirmed categories' + (confirmed().length ? ' (' + confirmed().length + ')' : '')"
+  [heading]="'Confirmed categories' + (confirmed().length ? ' (' + confirmed().length + ')' : '') + ' · version ' + taxonomyVersion()"
   class="section"
 >
   @if (store.confirmed.error()) {
@@ -304,7 +324,7 @@
             clearLabel="None (top level)"
             placeholder="None (top level)"
             aria-label="Parent category"
-            [disabled]="busy() === 'move'"
+            [disabled]="busy() === 'move' || locked()"
             (valueChange)="move(category, $event)"
           />
         </ui-form-field>
@@ -336,7 +356,7 @@
             clearLabel="General (no dimension)"
             placeholder="General (no dimension)"
             aria-label="Dimension"
-            [disabled]="busy() === 'dimension'"
+            [disabled]="busy() === 'dimension' || locked()"
             (valueChange)="setDimension(category, $event)"
           />
         </ui-form-field>

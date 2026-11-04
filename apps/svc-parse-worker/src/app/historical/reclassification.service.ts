@@ -215,7 +215,10 @@ export class ReclassificationService {
       (this.config.reclassifyLeaseMinutes * 60_000) / 3,
     );
     heartbeat.unref();
-    let outcome: { status: 'COMPLETED' | 'INTERRUPTED' | 'FAILED'; error?: string } = {
+    let outcome: {
+      status: 'COMPLETED' | 'INTERRUPTED' | 'FAILED';
+      error?: string;
+    } = {
       status: 'COMPLETED',
     };
     try {
@@ -264,12 +267,15 @@ export class ReclassificationService {
         );
         outcome = {
           status: 'INTERRUPTED',
-          error: 'The run lost its lock; the next run continues where it stopped',
+          error:
+            'The run lost its lock; the next run continues where it stopped',
         };
       } else if (error instanceof StopRun) {
         outcome = { status: error.status, error: error.message };
       } else {
-        this.logger.error(`Reclassification ${run.id} failed: ${String(error)}`);
+        this.logger.error(
+          `Reclassification ${run.id} failed: ${String(error)}`,
+        );
         outcome = {
           status: 'FAILED',
           error: (error instanceof Error ? error.message : String(error)).slice(
@@ -314,7 +320,11 @@ export class ReclassificationService {
     }
     await this.markReclassifying(runId, upload.id);
     try {
-      const { matches, runs } = await this.match(upload, candidates, categories);
+      const { matches, runs } = await this.match(
+        upload,
+        candidates,
+        categories,
+      );
       await this.persist(runId, upload.id, target, matches, runs);
       if (matches.length) summary.suggested++;
       else summary.unchanged++;
@@ -397,7 +407,9 @@ export class ReclassificationService {
           runs,
         };
       } catch (error) {
-        runs.push(...((error as { runs?: ParseRunRecord[] } | null)?.runs ?? []));
+        runs.push(
+          ...((error as { runs?: ParseRunRecord[] } | null)?.runs ?? []),
+        );
         const permanent =
           error instanceof PermanentParseError ||
           error instanceof ContextTooLargeError ||
@@ -405,13 +417,17 @@ export class ReclassificationService {
           error instanceof CredentialsError;
         const wait =
           error instanceof RateLimitedError
-            ? Math.max(1000, (error.retryAt?.getTime() ?? Date.now() + 60_000) - Date.now())
+            ? Math.max(
+                1000,
+                (error.retryAt?.getTime() ?? Date.now() + 60_000) - Date.now(),
+              )
             : RETRY_DELAYS_MS[attempt];
         const retry =
           !permanent &&
           attempt < RETRY_DELAYS_MS.length &&
           !this.stopRequested &&
-          (!(error instanceof RateLimitedError) || wait <= MAX_RATE_LIMIT_WAIT_MS);
+          (!(error instanceof RateLimitedError) ||
+            wait <= MAX_RATE_LIMIT_WAIT_MS);
         if (!retry) throw Object.assign(error as object, { runs });
         await new Promise((resolve) => setTimeout(resolve, wait));
       }
@@ -437,7 +453,10 @@ export class ReclassificationService {
     });
   }
 
-  private async markReclassifying(runId: string, uploadId: string): Promise<void> {
+  private async markReclassifying(
+    runId: string,
+    uploadId: string,
+  ): Promise<void> {
     await this.whileLocked(runId, async (client) => {
       await drizzle(client)
         .update(uploads)
@@ -514,7 +533,8 @@ export class ReclassificationService {
           })),
         );
       // The inbox shows the overlay; a document that never left normal needs no event.
-      if (matches) await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
+      if (matches)
+        await enqueueUploadUpdated(client, this.svc.schema, [uploadId]);
     });
   }
 
@@ -528,8 +548,14 @@ export class ReclassificationService {
       const db = drizzle(client);
       await db
         .update(uploads)
-        .set({ historicalStatus: null, historicalRunId: null, updatedAt: new Date() })
-        .where(and(eq(uploads.id, uploadId), eq(uploads.historicalRunId, runId)));
+        .set({
+          historicalStatus: null,
+          historicalRunId: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(uploads.id, uploadId), eq(uploads.historicalRunId, runId)),
+        );
       if (runs.length)
         await db.insert(parseRuns).values(
           runs.map((run) => ({
@@ -620,7 +646,9 @@ export class ReclassificationService {
     return this.svc.db
       .select()
       .from(uploads)
-      .where(sql`${this.eligibleWhere(target)} and ${uploads.id} > ${after}::uuid`)
+      .where(
+        sql`${this.eligibleWhere(target)} and ${uploads.id} > ${after}::uuid`,
+      )
       .orderBy(asc(uploads.id))
       .limit(this.config.reclassifyBatchSize);
   }
@@ -642,7 +670,9 @@ export class ReclassificationService {
   }
 
   /** Category ids the parser suggested for each document, still pending. */
-  private async pendingSuggestionsByUpload(): Promise<Map<string, Set<string>>> {
+  private async pendingSuggestionsByUpload(): Promise<
+    Map<string, Set<string>>
+  > {
     const { rows } = await this.svc.pool.query<{
       upload_id: string;
       category_id: string;

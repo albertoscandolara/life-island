@@ -53,10 +53,13 @@ import {
 } from './details-form-model';
 import { DetailsView, humanize, type SchemaShape } from './details-view';
 import {
+  categoryDecisions,
   fieldText,
   uploadChanges,
   type DocumentChanges,
+  type Picks,
 } from './document-changes';
+import { ReclassificationState } from '../reclassification/reclassification-state';
 import { ProcessingPanel } from './processing-panel';
 import { RECORD_STATUS_VIEW } from './record-status';
 
@@ -119,6 +122,8 @@ export class ReviewPanel {
   private readonly ingestion = inject(IngestionApi);
   private readonly sanitizer = inject(DomSanitizer);
   protected readonly store = inject(CategoryStore);
+  /** While a reclassification holds the lock, nothing here can be changed. */
+  protected readonly locked = inject(ReclassificationState).locked;
 
   readonly recordId = input<string | null>(null);
   /** The next record waiting for review, for Confirm and next; null when none. */
@@ -226,6 +231,42 @@ export class ReviewPanel {
       )
       .sort((a, b) => rank(a) - rank(b));
   });
+
+  /** Ticked suggestions are confirmed by Confirm; all ticked at first. */
+  protected readonly suggestionPicks = linkedSignal<string | undefined, Picks>({
+    source: () => this.upload.value()?.id,
+    computation: () => ({}),
+  });
+
+  /**
+   * Categories a later check (historical reclassification) found for this
+   * document, confirmed after it was first read. Ticked ones are added by
+   * Confirm, unticked ones are not offered again.
+   */
+  protected readonly historical = computed(() => {
+    const upload = this.upload.value();
+    if (upload?.historicalStatus !== 'PENDING_REVIEW') return [];
+    return upload.historicalSuggestions;
+  });
+  protected readonly historicalPicks = linkedSignal<string | undefined, Picks>({
+    source: () => this.upload.value()?.id,
+    computation: () => ({}),
+  });
+
+  protected picked(picks: Picks, id: string): boolean {
+    return picks[id] ?? true;
+  }
+
+  private readonly decisions = computed(() =>
+    categoryDecisions(
+      this.suggestions().map((suggestion) => suggestion.id),
+      this.suggestionPicks(),
+      this.historical().map((finding) => finding.categoryId),
+      this.historicalPicks(),
+    ),
+  );
+  /** Something to decide: Save turns into Confirm on a record already confirmed. */
+  protected readonly hasDecisions = computed(() => !!this.decisions());
 
   /** What kind of metadata a suggestion is, and where it would go: `Issuer / supplier`, `Document type, under Bill`. */
   protected placementOf(suggestion: CategorySuggestionDto): string {
@@ -352,37 +393,21 @@ export class ReviewPanel {
 
   // ---- actions --------------------------------------------------------------
 
-  /** Accepts a suggestion: it becomes a category for every document that suggested it. */
-  protected async acceptSuggestion(
-    suggestion: CategorySuggestionDto,
-  ): Promise<void> {
-    await this.run(suggestion.id, async () => {
-      const approved = await firstValueFrom(
-        this.ingestion.approveSuggestion(suggestion.id),
-      );
-      const id = approved.approvedCategoryId ?? suggestion.categoryId;
-      this.categories.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
-      this.store.reload();
-    });
+  protected toggleSuggestion(id: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.suggestionPicks.update((picks) => ({ ...picks, [id]: checked }));
   }
 
-  /** Declines a suggestion for this document only. */
-  protected async declineSuggestion(
-    suggestion: CategorySuggestionDto,
-  ): Promise<void> {
-    const uploadId = this.upload.value()?.id;
-    if (!uploadId) return;
-    await this.run(suggestion.id, async () => {
-      await firstValueFrom(
-        this.ingestion.dismissSuggestion(suggestion.id, uploadId),
-      );
-      this.store.reload();
-    });
+  protected toggleHistorical(id: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.historicalPicks.update((picks) => ({ ...picks, [id]: checked }));
   }
 
   protected async save(): Promise<void> {
     await this.run('save', async () => {
-      const changes = await this.persist();
+      // Decisions go with the final Confirm; here, only for a record that
+      // cannot be confirmed any more (a later check on a document in its module).
+      const changes = await this.persist(!this.editable());
       if (changes) this.changed.emit({ kind: 'saved', changes });
       this.open.set(false);
     });
@@ -392,7 +417,7 @@ export class ReviewPanel {
     const record = this.record.value();
     if (!record) return;
     await this.run(andNext ? 'confirm-next' : 'confirm', async () => {
-      const changes = await this.persist();
+      const changes = await this.persist(true);
       const confirmed = await firstValueFrom(this.review.confirm(record.id));
       this.changed.emit({ kind: 'status', record: confirmed, changes });
       this.finish(andNext);
@@ -442,7 +467,9 @@ export class ReviewPanel {
    * Saves what you changed: the document (ingestion) and, before you confirm,
    * the details and module (review). Returns the document's new state.
    */
-  private async persist(): Promise<DocumentChanges | undefined> {
+  private async persist(
+    withDecisions: boolean,
+  ): Promise<DocumentChanges | undefined> {
     const record = this.record.value();
     const upload = this.upload.value();
     if (!record || !upload) return undefined;
@@ -460,11 +487,17 @@ export class ReviewPanel {
       categories: this.categories(),
       fields: this.fieldValues(),
     });
+    const decisions = withDecisions ? this.decisions() : undefined;
+    if (decisions) changes.decisions = decisions;
     let saved = upload;
     if (Object.keys(changes).length)
       saved = await firstValueFrom(
         this.ingestion.updateUpload(upload.id, changes),
       );
+    if (decisions) {
+      this.store.reload();
+      this.upload.reload();
+    }
     const schema = this.schema();
     const detailsChanged =
       this.editable() &&

@@ -41,6 +41,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { categoryRows, textMatch, type CategoryRow } from './category-rows';
+import { ReclassificationState } from '../reclassification/reclassification-state';
 import { CategoryStore, errorMessage } from './category-store';
 
 export interface Draft {
@@ -166,8 +167,25 @@ export class CategoriesPage {
     { key: 'placement', header: 'Kind', width: '11rem' },
     { key: 'description', header: 'Description' },
     { key: 'documents', header: 'Documents', width: '7rem' },
-    { key: 'actions', header: 'Actions', align: 'end', width: '14rem' },
+    { key: 'actions', header: 'Actions', align: 'end', width: '8rem' },
   ];
+  /** Suggestion ids ticked for Confirm selected. */
+  protected readonly picked = signal<readonly unknown[]>([]);
+  protected readonly selectable = () => true;
+  protected readonly pickLabel = (row: CategorySuggestionDto) =>
+    `Select ${row.title}`;
+  private readonly reclassification = inject(ReclassificationState);
+  /** While a reclassification holds the lock, categories cannot change. */
+  protected readonly locked = this.reclassification.locked;
+  /** The taxonomy version: one step per confirming operation. */
+  protected readonly taxonomyVersion = computed(
+    () =>
+      this.reclassification.value()?.taxonomyVersion ??
+      Math.max(
+        0,
+        ...this.confirmed().map((category) => category.taxonomyVersion),
+      ),
+  );
 
   // --- Tree and selection -------------------------------------------------
 
@@ -531,19 +549,27 @@ export class CategoriesPage {
     }
   }
 
-  /** Makes a suggestion a category; the documents that suggested it get it. */
-  protected async confirm(suggestion: CategorySuggestionDto): Promise<void> {
-    this.busy.set(suggestion.id);
+  /**
+   * Confirms the ticked suggestions in one operation (one taxonomy version);
+   * the documents that suggested each one get it.
+   */
+  protected async confirmPicked(): Promise<void> {
+    const ids = new Set(this.picked() as string[]);
+    const items = this.suggested()
+      .filter((suggestion) => ids.has(suggestion.id))
+      .map((suggestion) => ({ id: suggestion.id }));
+    if (!items.length) return;
+    this.busy.set('confirm');
     this.error.set('');
     try {
-      const approved = await firstValueFrom(
-        this.api.approveSuggestion(suggestion.id),
-      );
-      const count = approved.uploadIds.length;
+      const approved = await firstValueFrom(this.api.approveSuggestions(items));
+      const documents = new Set(approved.flatMap((s) => s.uploadIds)).size;
       this.notice.set(
-        `${approved.title} is now a confirmed category${count ? ` and was added to ${count} document${count === 1 ? '' : 's'}` : ''}.`,
+        `${approved.length === 1 ? `${approved[0].title} is now a confirmed category` : `${approved.length} categories are now confirmed`}${documents ? ` and ${approved.length === 1 ? 'was' : 'were'} added to ${documents} document${documents === 1 ? '' : 's'}` : ''}.`,
       );
+      this.picked.set([]);
       this.store.reload();
+      this.reclassification.reload();
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

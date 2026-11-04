@@ -118,14 +118,21 @@
     </ui-form-field>
   </div>
 
-  <!-- 2. Categories, with the AI's suggestions to accept or decline -->
+  <!-- 2. Categories, with the AI's suggestions to confirm or decline -->
   <h3 class="section-title">Categories</h3>
   @if (suggestions().length) {
-  <ul class="suggestions" aria-label="Suggested categories">
+  <fieldset class="suggestions">
+    <legend class="group">Suggested by the AI</legend>
     @for (suggestion of suggestions(); track suggestion.id) {
-    <li class="suggestion">
+    <label class="suggestion">
+      <input
+        type="checkbox"
+        [checked]="picked(suggestionPicks(), suggestion.id)"
+        [disabled]="!!busy() || locked()"
+        (change)="toggleSuggestion(suggestion.id, $event)"
+      />
       <span class="suggestion__text">
-        <ui-badge tone="warning">Suggested</ui-badge>
+        <ui-badge tone="warning">New category</ui-badge>
         <strong>{{ suggestion.title }}</strong>
         @if (placementOf(suggestion); as placement) {
         <ui-badge tone="info">{{ placement }}</ui-badge>
@@ -133,36 +140,35 @@
         <span class="muted small-inline">{{ suggestion.reason }}</span>
         }
       </span>
-      <span class="suggestion__actions">
-        <button
-          uiButton
-          size="sm"
-          variant="secondary"
-          type="button"
-          [loading]="busy() === suggestion.id"
-          [disabled]="!!busy()"
-          (click)="acceptSuggestion(suggestion)"
-        >
-          <ui-icon name="check" [size]="16" /> Accept
-        </button>
-        <button
-          uiButton
-          size="sm"
-          variant="ghost"
-          type="button"
-          [disabled]="!!busy()"
-          [attr.aria-label]="'Decline ' + suggestion.title + ' for this document'"
-          (click)="declineSuggestion(suggestion)"
-        >
-          <ui-icon name="x" [size]="16" /> Not this one
-        </button>
-      </span>
-    </li>
+    </label>
     }
-  </ul>
+  </fieldset>
+  } @if (historical().length) {
+  <fieldset class="suggestions">
+    <legend class="group">Found in a later check</legend>
+    @for (finding of historical(); track finding.categoryId) {
+    <label class="suggestion">
+      <input
+        type="checkbox"
+        [checked]="picked(historicalPicks(), finding.categoryId)"
+        [disabled]="!!busy() || locked()"
+        (change)="toggleHistorical(finding.categoryId, $event)"
+      />
+      <span class="suggestion__text">
+        <ui-badge tone="progress">Newer category</ui-badge>
+        <strong [attr.title]="store.pathOf(finding.categoryId)"
+          >{{ store.titleOf(finding.categoryId) }}</strong
+        >
+        <span class="muted small-inline">{{ finding.evidence }}</span>
+      </span>
+    </label>
+    }
+  </fieldset>
+  } @if (suggestions().length || historical().length) {
   <p class="muted small">
-    Accept creates the category and adds it to every document that suggested it.
-    Not this one removes it from this document only.
+    Ticked categories are added when you press {{ editable() ? 'Confirm' :
+    'Confirm categories' }}; a new category is created for every document that
+    suggested it. Unticked ones are declined for this document only.
   </p>
   } @if (parsing()) {
   <p class="muted small">
@@ -183,7 +189,7 @@
       <input
         type="checkbox"
         [checked]="categories().includes(item.category.id)"
-        [disabled]="parsing()"
+        [disabled]="parsing() || locked()"
         (change)="toggleCategory(item.category.id, $event)"
       />
       <span
@@ -359,7 +365,7 @@
           uiButton
           variant="ghost"
           type="button"
-          [disabled]="!!busy() || parsing()"
+          [disabled]="!!busy() || parsing() || locked()"
           [attr.title]="parsing() ? 'Wait until the AI finishes reading it' : null"
           (click)="confirmingDelete.set(true); rejecting.set(false)"
         >
@@ -371,7 +377,7 @@
           variant="secondary"
           type="button"
           [loading]="busy() === 'reopen'"
-          [disabled]="!!busy()"
+          [disabled]="!!busy() || locked()"
           (click)="reopen()"
         >
           <ui-icon name="refresh" [size]="16" /> Reopen
@@ -381,7 +387,7 @@
           uiButton
           variant="secondary"
           type="button"
-          [disabled]="!!busy()"
+          [disabled]="!!busy() || locked()"
           (click)="rejecting.set(true); confirmingDelete.set(false)"
         >
           <ui-icon name="x" [size]="16" /> Reject
@@ -394,17 +400,17 @@
           variant="secondary"
           type="button"
           [loading]="busy() === 'save'"
-          [disabled]="!!busy() || !upload.value()"
+          [disabled]="!!busy() || !upload.value() || locked()"
           (click)="save()"
         >
-          Save
+          {{ !editable() && hasDecisions() ? 'Confirm categories' : 'Save' }}
         </button>
         @if (editable()) {
         <button
           uiButton
           type="button"
           [loading]="busy() === 'confirm'"
-          [disabled]="!!busy()"
+          [disabled]="!!busy() || locked()"
           (click)="confirm(false)"
         >
           <ui-icon name="check" [size]="16" /> Confirm
@@ -414,7 +420,7 @@
           uiButton
           type="button"
           [loading]="busy() === 'confirm-next'"
-          [disabled]="!!busy()"
+          [disabled]="!!busy() || locked()"
           (click)="confirm(true)"
         >
           Confirm and next

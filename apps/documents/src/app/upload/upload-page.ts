@@ -36,6 +36,7 @@ import {
 } from '@life-island/design-system';
 import { concatMap, firstValueFrom, last, tap } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { ReclassificationState } from '../reclassification/reclassification-state';
 import { PROCESSING_VIEW } from '../review/record-status';
 import { CameraDialog } from './camera-dialog';
 import { PreviewDialog } from './preview-dialog';
@@ -108,8 +109,11 @@ export class UploadPage {
       (item) => item.state() === 'ready' || item.state() === 'error',
     ),
   );
+  /** While a reclassification holds the lock, uploads wait. */
+  protected readonly locked = inject(ReclassificationState).locked;
   protected readonly canUpload = computed(
     () =>
+      !this.locked() &&
       !this.uploading() &&
       this.pending().length > 0 &&
       this.pending().every((item) => !item.invalidReason),

@@ -7,6 +7,8 @@ import {
 import { inject, Injectable } from '@angular/core';
 import type {
   ApproveSuggestionRequest,
+  ApproveSuggestionsRequest,
+  ReclassificationStateDto,
   CategoryDto,
   CategorySuggestionDto,
   CompleteUploadResponse,
@@ -159,6 +161,19 @@ export class IngestionApi {
     );
   }
 
+  /**
+   * Confirms several suggestions in one operation: the taxonomy version goes
+   * up once, however many categories it confirms.
+   */
+  approveSuggestions(
+    items: ApproveSuggestionsRequest['items'],
+  ): Observable<CategorySuggestionDto[]> {
+    return this.http.post<CategorySuggestionDto[]>(
+      `${INGESTION_API}/category-suggestions/approve`,
+      { items },
+    );
+  }
+
   rejectSuggestion(id: string): Observable<CategorySuggestionDto> {
     return this.http.post<CategorySuggestionDto>(
       `${INGESTION_API}/category-suggestions/${id}/reject`,
@@ -204,6 +219,21 @@ export class IngestionApi {
   /** Whether AI parsing is idle, running or paused, and until when. */
   parseQueue(): Observable<ParseQueueDto> {
     return this.http.get<ParseQueueDto>(`${INGESTION_API}/parse-queue`);
+  }
+
+  /** Historical reclassification: the lock, the last run, whether one can start. */
+  reclassification(): Observable<ReclassificationStateDto> {
+    return this.http.get<ReclassificationStateDto>(
+      `${INGESTION_API}/reclassification`,
+    );
+  }
+
+  /** Reclassify now: checks past documents against the categories confirmed since. */
+  runReclassification(): Observable<ReclassificationStateDto> {
+    return this.http.post<ReclassificationStateDto>(
+      `${INGESTION_API}/reclassification/run`,
+      {},
+    );
   }
 
   /** Shows the file in the browser (redirects to a short-lived storage link). */

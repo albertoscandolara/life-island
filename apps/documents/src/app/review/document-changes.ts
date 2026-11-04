@@ -1,4 +1,5 @@
 import type {
+  CategoryDecisions,
   ExtractedField,
   UpdateUploadRequest,
   UploadDto,
@@ -45,4 +46,35 @@ export function uploadChanges(
   }
   if (Object.keys(fields).length) changes.fields = fields;
   return changes;
+}
+
+/** Ticked or not, per suggestion id (parser) or category id (later check). */
+export type Picks = Record<string, boolean>;
+
+/**
+ * The decisions the final Confirm applies: ticked suggestions are confirmed
+ * (all in one operation, so the taxonomy version goes up once), unticked ones
+ * declined for this document; the same for the findings of a later check.
+ * Undefined when there is nothing to decide.
+ */
+export function categoryDecisions(
+  suggestionIds: string[],
+  suggestionPicks: Picks,
+  historicalIds: string[],
+  historicalPicks: Picks,
+): CategoryDecisions | undefined {
+  if (!suggestionIds.length && !historicalIds.length) return undefined;
+  const picked = (picks: Picks, id: string) => picks[id] ?? true;
+  return {
+    approveSuggestions: suggestionIds.filter((id) =>
+      picked(suggestionPicks, id),
+    ),
+    declineSuggestions: suggestionIds.filter(
+      (id) => !picked(suggestionPicks, id),
+    ),
+    acceptHistorical: historicalIds.filter((id) => picked(historicalPicks, id)),
+    rejectHistorical: historicalIds.filter(
+      (id) => !picked(historicalPicks, id),
+    ),
+  };
 }

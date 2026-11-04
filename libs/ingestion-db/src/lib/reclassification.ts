@@ -42,9 +42,7 @@ export async function lockShared(client: pg.ClientBase): Promise<void> {
 }
 
 export async function lockExclusive(client: pg.ClientBase): Promise<void> {
-  await client.query('select pg_advisory_xact_lock(hashtext($1))', [
-    LOCK_KEY,
-  ]);
+  await client.query('select pg_advisory_xact_lock(hashtext($1))', [LOCK_KEY]);
 }
 
 /** The taxonomy version now (0 before any category was confirmed). */
