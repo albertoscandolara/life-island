@@ -7,3 +7,4 @@ export * from './lib/field-values.js';
 export * from './lib/targets/index.js';
 export * from './lib/domain-dtos.js';
 export * from './lib/reclassification.js';
+export * from './lib/home.js';

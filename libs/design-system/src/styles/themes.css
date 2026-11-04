@@ -23,6 +23,22 @@
   --accent-2: var(--amber-700);
 }
 
+[data-character='bronto'] {
+  /* home: properties, renovations and repairs */
+  --accent: var(--lava-600);
+  --accent-hover: var(--lava-500);
+  --accent-soft: var(--lava-50);
+  --accent-2: var(--sun-600);
+}
+
+[data-character='stego'] {
+  /* bills: electricity, gas and water */
+  --accent: var(--violet-500);
+  --accent-hover: color-mix(in srgb, var(--violet-500) 82%, var(--ink-900));
+  --accent-soft: var(--violet-50);
+  --accent-2: var(--sky-600);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -40,6 +56,18 @@
   --accent: var(--sun-400);
   --accent-hover: var(--sun-300);
   --accent-2: var(--coral-400);
+}
+
+:root[data-theme='dark'] [data-character='bronto'] {
+  --accent: var(--coral-400);
+  --accent-hover: var(--lava-400);
+  --accent-2: var(--sun-400);
+}
+
+:root[data-theme='dark'] [data-character='stego'] {
+  --accent: var(--violet-400);
+  --accent-hover: var(--sky-300);
+  --accent-2: var(--sky-400);
 }
 
 :root[data-theme='dark'] [data-character] {

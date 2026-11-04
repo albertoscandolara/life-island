@@ -2,11 +2,12 @@
 
 The Life Island app is where you use your data. It is a Native Federation **host** (`apps/shell`) that shows the island and loads each area of life from its own **remote** (`apps/mfe-<area>`) at runtime. Every area is backed by its own service (`apps/svc-<area>`), which owns its schema and builds what it knows from the documents you upload and confirm.
 
-| Area                                | Remote       | Service         | Status                         |
-| ----------------------------------- | ------------ | --------------- | ------------------------------ |
-| 730 & taxes                         | `mfe-tax730` | `svc-tax730`    | Live                           |
-| Groceries                           | planned      | `svc-groceries` | Service live, screen coming    |
-| Health, Work, Bills & home, Studies | planned      | planned         | On the island as "coming soon" |
+| Area                  | Remote       | Service         | Status                         |
+| --------------------- | ------------ | --------------- | ------------------------------ |
+| 730 & taxes           | `mfe-tax730` | `svc-tax730`    | Live                           |
+| Home, Bills           | `mfe-home`   | `svc-home`      | Live                           |
+| Groceries             | planned      | `svc-groceries` | Service live, screen coming    |
+| Health, Work, Studies | planned      | planned         | On the island as "coming soon" |
 
 The list of areas, their order on the island and their routes live in `apps/shell/src/app/hub/modules.ts`.
 
@@ -17,10 +18,12 @@ npm run infra:up              # Postgres, NATS, storage, gateway
 npx nx serve svc-ingestion    # files for previews and the zip (port 3001)
 npx nx serve svc-tax730       # the 730 service (port 3004)
 npx nx serve mfe-tax730       # the 730 remote (port 4203), also usable on its own
+npx nx serve svc-home         # properties, bills and works (port 3005)
+npx nx serve mfe-home         # the Home and Bills remote (port 4204), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 (`proxy.conf.json` in each app). The remote also runs standalone at http://localhost:4203.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203 and http://localhost:4204.
 
 ## Native Federation
 
@@ -77,3 +80,35 @@ DOCUMENTI MANCANTI.txt     (only when something is missing)
 ```
 
 Each expense folder is "date - invoice no. - supplier - description"; each file starts with its own document's date. Files are read from `svc-ingestion`'s API (`INGESTION_URL`), never from its storage.
+
+## Home and Bills
+
+Two zones of the island, one area: **Home** (Bronto, `/home`) keeps your properties and the works done on them; **Bills** (Stego, `/home/bills`) is the dashboard of their electricity, gas and water. Both are served by `mfe-home` and `svc-home`, because they share the properties. The bar at the top of both switches view and home: **All homes** (together), one home, or **Side by side** on Bills. The choice lives in the URL (`?property=<id>&split=1`).
+
+| Table                 | What it holds                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `home.properties`     | Your homes (Via Ponzilovo and Via dei Bandi to start), with the words and supply codes that recognise their bills and a fixed chart colour |
+| `home.documents`      | A copy of your documents and their confirmed categories and fields, kept from `upload.*` events                                            |
+| `home.category_tree`  | The category hierarchy, kept from `category.changed`, so a subcategory of `GAS_BILL` still counts as gas                                   |
+| `home.bill_overrides` | Your corrections: another home, another utility, or "not a bill"                                                                           |
+| `home.works`          | Renovations, repairs, maintenance and improvements: where, who, when, estimate and final cost                                              |
+| `home.work_documents` | Documents filed with a work (invoices, quotes, photos), by id                                                                              |
+
+**Bills are read, not stored.** A bill is a document whose confirmed categories include `ELECTRICITY_BILL`, `GAS_BILL` or `WATER_BILL` (or a subcategory, or a plain `BILL` that prints a consumption). Amount, period, dates, consumption and provider come from its template fields, so fixing a field in the documents app fixes the dashboard. A bill without an amount is left out. Its home is, in order: the one you picked; the one whose category the document has; the one whose POD/PDR/customer code it prints; the one whose words (e.g. `ponzilovo`) appear in its address or title. Two homes matching equally leave it unassigned, and the dashboard asks you to assign it.
+
+The Bills dashboard: one row of filters (period presets or any months, utilities, month/quarter/year, and whether a bill counts over the months it covers or in the month it was issued) scopes everything under it: the total against the period before, a tile per utility with cost, use, cost per unit and trend, cost over time (stacked by utility, or the homes side by side plus one chart per home on a shared scale), year over year (January to December, a line per year, cost or use), use per utility in its own unit, the split by utility, home and provider, totals grouped any way, and the bills themselves with their corrections. Every chart has a table view or a table beside it.
+
+Chart colours follow the entity, never its rank: electricity, gas and water and the first three homes have fixed hues (`--viz-*` tokens, checked for colour-blind separation in both themes); a fourth home shares the "other" grey.
+
+The Home view shows your homes as small 3D houses (three.js, loaded with `@defer`) with roofs in each home's colour; click one to look at it. Beside them, what the works add up to; under them, a card per home with its bills of the last 12 months, and the works on a timeline, year by year, with status, cost against the estimate and their documents.
+
+| Endpoint (`/api/home/...`)                                           | Purpose                                                                |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET/POST /properties`, `PATCH/DELETE /properties/:id`               | Your homes                                                             |
+| `GET /bills?property=&utility=&from=&to=`                            | Bills as read now (`property=unassigned` for the ones to assign)       |
+| `PATCH /bills/:uploadId`                                             | `{propertyId}`, `{automaticProperty: true}`, `{utility}`, `{excluded}` |
+| `GET/POST /works`, `PATCH/DELETE /works/:id`                         | Works, filtered by `property` and `status`                             |
+| `POST /works/:id/documents`, `DELETE /works/:id/documents/:uploadId` | File or remove a document                                              |
+| `GET /documents?search=`, `GET /documents/:uploadId/preview`         | Documents to file, and their original file (from svc-ingestion)        |
+
+A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent). svc-ingestion's migration `0009` adds the `ELECTRICITY_BILL` and `GAS_BILL` categories, with POD/PDR, supply address and consumption fields, unless you already have categories with those ids or titles.

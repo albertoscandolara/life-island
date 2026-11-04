@@ -1,0 +1,7 @@
+{
+  "/api/home": {
+    "target": "http://localhost:3005",
+    "pathRewrite": { "^/api/home": "" },
+    "changeOrigin": true
+  }
+}

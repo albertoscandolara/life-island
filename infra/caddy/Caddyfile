@@ -32,6 +32,10 @@
 		import protected
 		reverse_proxy svc-tax730:3000
 	}
+	handle_path /api/home/* {
+		import protected
+		reverse_proxy svc-home:3000
+	}
 
 	handle {
 		import protected

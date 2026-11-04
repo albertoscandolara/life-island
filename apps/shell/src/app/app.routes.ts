@@ -32,5 +32,11 @@ export const appRoutes: Route[] = [
     path: 'taxes/730',
     loadChildren: remote('mfe-tax730', './routes', 'TAX730_ROUTES'),
   },
+  // Home and Bills: one remote, one service, your properties shared by both.
+  {
+    path: 'home',
+    loadChildren: remote('mfe-home', './routes', 'HOME_ROUTES'),
+  },
+  { path: 'bills', pathMatch: 'full', redirectTo: 'home/bills' },
   { path: '**', redirectTo: '' },
 ];

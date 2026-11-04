@@ -2,7 +2,7 @@
 export interface IslandModule {
   id: string;
   /** The character theme (`[data-character]`); null for an area not built yet. */
-  character: 'trice' | 'ankylo' | null;
+  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | null;
   emblem: string;
   name: string;
   mission: string;
@@ -11,7 +11,14 @@ export interface IslandModule {
   /** Where its zone sits on the island, as an angle around the centre (degrees). */
   angle: number;
   /** What its zone's landmark looks like in 3D. */
-  landmark: 'vault' | 'market' | 'clinic' | 'office' | 'lighthouse' | 'library';
+  landmark:
+    | 'vault'
+    | 'market'
+    | 'clinic'
+    | 'office'
+    | 'lighthouse'
+    | 'library'
+    | 'house';
 }
 
 /**
@@ -38,7 +45,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Receipts, items and shops: spending by category and price history.',
     path: null,
-    angle: 30,
+    angle: 39,
     landmark: 'market',
   },
   {
@@ -48,7 +55,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     name: 'Health',
     mission: 'Visits, prescriptions, test results and medical expenses.',
     path: null,
-    angle: 330,
+    angle: 347,
     landmark: 'clinic',
   },
   {
@@ -59,18 +66,29 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Payslips, contracts and the Certificazione Unica, year after year.',
     path: null,
-    angle: 270,
+    angle: 296,
     landmark: 'office',
   },
   {
-    id: 'bills',
-    character: null,
-    emblem: '💡',
-    name: 'Bills & home',
+    id: 'home',
+    character: 'bronto',
+    emblem: '🏡',
+    name: 'Home',
     mission:
-      'Electricity, gas, water and internet: consumption and costs over time.',
-    path: null,
-    angle: 210,
+      'Every home you have, side by side: renovations, repairs and maintenance, with what they cost and their invoices.',
+    path: '/home',
+    angle: 244,
+    landmark: 'house',
+  },
+  {
+    id: 'bills',
+    character: 'stego',
+    emblem: '⚡',
+    name: 'Bills',
+    mission:
+      'Electricity, gas and water of each home: what you pay and use, month by month and year over year.',
+    path: '/home/bills',
+    angle: 193,
     landmark: 'lighthouse',
   },
   {
@@ -80,7 +98,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     name: 'Studies',
     mission: 'Courses, certificates, exams and what they cost.',
     path: null,
-    angle: 150,
+    angle: 141,
     landmark: 'library',
   },
 ];

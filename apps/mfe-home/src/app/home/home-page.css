@@ -1,0 +1,411 @@
+/* The stage: your homes in 3D beside what they add up to. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stage__houses {
+  display: block;
+  min-height: 22rem;
+}
+
+.stage__houses--placeholder {
+  border-radius: var(--card-radius);
+  background: var(--surface-sunken);
+}
+
+.stage__panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  background:
+    radial-gradient(
+      24rem 14rem at 100% 0%,
+      color-mix(in srgb, var(--accent) 14%, transparent),
+      transparent 70%
+    ),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
+  animation: rise var(--duration-slow) var(--ease-out) both;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stage__title {
+  font-size: var(--text-2xl);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+
+.stat dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.stat dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.stat .stat__sub {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+/* One card per home, its colour on a little roof. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.home-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-8) var(--space-5) var(--space-4);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: rise var(--duration-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out);
+}
+
+.home-card:hover {
+  border-color: var(--home-color);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(calc(var(--space-1) * -1)) rotateX(4deg);
+}
+
+.home-card__roof {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--space-4);
+  background: linear-gradient(
+    90deg,
+    var(--home-color),
+    color-mix(in srgb, var(--home-color) 50%, transparent)
+  );
+  clip-path: polygon(0 0, 100% 0, 100% 40%, 50% 100%, 0 40%);
+}
+
+.home-card__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.home-card__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.home-card__row strong {
+  display: block;
+  font-size: var(--text-xl);
+}
+
+.home-card__row--meta {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.home-card__label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.home-card__spark {
+  width: 45%;
+}
+
+/* Works on a timeline, year by year, beside the totals. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  position: sticky;
+  top: calc(var(--space-16) + var(--space-6));
+}
+
+.works__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.works__head h2 {
+  font-size: var(--text-xl);
+}
+
+.year {
+  margin-bottom: var(--space-6);
+}
+
+.year__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.year__head h3 {
+  font-size: var(--text-lg);
+}
+
+.timeline {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 0 0 var(--space-10);
+  list-style: none;
+}
+
+/* The line the works hang from. */
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  left: calc(var(--space-4) - var(--space-1) / 4);
+  width: 2px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(var(--accent), var(--border-subtle));
+}
+
+.work {
+  position: relative;
+  animation: rise var(--duration-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.work__node {
+  position: absolute;
+  top: var(--space-4);
+  left: calc(var(--space-10) * -1);
+  display: grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: 2px solid var(--home-color);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.work__card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--home-color);
+  border-radius: var(--card-radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.work__card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.work__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.work__title h4 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.work__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.work__home {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.work__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.work__facts > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.budget {
+  position: relative;
+  height: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+}
+
+.budget__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--tone-success);
+}
+
+.budget--over .budget__fill {
+  background: var(--tone-warning);
+}
+
+/* The estimate, at two thirds of the track (the track runs to 150%). */
+.budget__mark {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  left: 66.6%;
+  width: 2px;
+  height: var(--space-3);
+  background: var(--text-muted);
+}
+
+.work__notes {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  white-space: pre-line;
+}
+
+.work__docs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doc {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+}
+
+.doc a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.doc a:hover {
+  color: var(--accent);
+}
+
+.doc__remove {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.work__actions {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.kinds {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kinds li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.kinds strong {
+  color: var(--text-primary);
+}
+
+@media (width <= 56rem) {
+  .stage,
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    position: static;
+  }
+}
