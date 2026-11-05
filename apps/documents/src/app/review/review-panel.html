@@ -90,6 +90,29 @@
   </ui-alert>
   } }
 
+  <!-- The document at a glance, and where it goes -->
+  @let sum = summary();
+  <section class="summary" aria-label="At a glance">
+    <p class="summary__what">
+      <strong>{{ sum.type ?? 'Document' }}</strong>
+      @if (sum.issuer) { · {{ sum.issuer }} } @if (sum.date) { · {{ sum.date |
+      date: 'dd MMM yyyy' }} }
+    </p>
+    @if (sum.amount !== null) {
+    <p class="summary__amount">
+      {{ sum.amount | number: '1.2-2' }} {{ sum.currency ?? '' }}
+    </p>
+    }
+    <p class="summary__where">
+      <ui-icon name="chevron-right" [size]="14" />
+      Goes to {{ sum.destinations.join(' and ') }} @if (sum.properties.length) {
+      · {{ sum.properties.join(', ') }} } @else if
+      (sum.destinations.includes('Bills')) {
+      <span class="summary__warn">· no home yet: pick one under Property</span>
+      }
+    </p>
+  </section>
+
   <details class="processing">
     <summary>AI processing steps</summary>
     <app-processing-panel [uploadId]="rec.uploadId" />
@@ -204,18 +227,60 @@
   <p class="muted small">No categories yet.</p>
   }
 
-  <!-- 3. Fields kept with the document -->
-  <h3 class="section-title">Kept with the document</h3>
-  @if (fields().length) {
-  <p class="muted small">
-    The fields of its categories. They stay with the document and travel with it
-    when you confirm. Leave one empty when it is not in the document.
-  </p>
+  <!-- 3. The fields: what to check first, then what was read -->
+  @let groups = fieldGroups();
+  <h3 class="section-title">Fields</h3>
+  @if (fields().length) { @if (groups.doubtful.length) {
+  <div class="doubts">
+    <p class="doubts__title">
+      <ui-icon name="alert" [size]="16" />
+      Check {{ groups.doubtful.length === 1 ? 'this field' : 'these ' +
+      groups.doubtful.length + ' fields' }}
+    </p>
+    <div class="fields">
+      @for (field of groups.doubtful; track field.key) {
+      <div>
+        <ui-form-field
+          [label]="field.label + (field.required ? ' *' : '') + (field.unit ? ' (' + field.unit + ')' : '')"
+          [hint]="field.note ?? (field.required ? 'Required, not found in the document' : '')"
+        >
+          <input
+            uiInput
+            [type]="field.type === 'date' ? 'date' : 'text'"
+            [value]="fieldValues()[field.key] ?? ''"
+            [disabled]="parsing()"
+            (input)="setField(field.key, $event)"
+          />
+        </ui-form-field>
+        @if (field.candidates?.length) {
+        <div
+          class="candidates"
+          role="group"
+          [attr.aria-label]="'Readings of ' + field.label"
+        >
+          @for (candidate of field.candidates; track candidate) {
+          <button
+            type="button"
+            class="candidate"
+            [class.candidate--picked]="fieldValues()[field.key] === candidate"
+            [disabled]="parsing()"
+            (click)="pickCandidate(field.key, candidate)"
+          >
+            {{ candidate }}
+          </button>
+          }
+        </div>
+        }
+      </div>
+      }
+    </div>
+  </div>
+  } @if (groups.found.length) {
   <div class="fields">
-    @for (field of fields(); track field.key) {
+    @for (field of groups.found; track field.key) {
     <ui-form-field
-      [label]="field.label + (field.required ? ' *' : '') + (field.unit ? ' (' + field.unit + ')' : '')"
-      [hint]="field.status !== 'found' && field.note ? field.note : field.editedAt ? 'Edited by you' : ''"
+      [label]="field.label + (field.unit ? ' (' + field.unit + ')' : '')"
+      [hint]="field.editedAt ? 'Edited by you' : ''"
     >
       <input
         uiInput
@@ -227,14 +292,36 @@
     </ui-form-field>
     }
   </div>
-  } @else {
+  } @if (groups.empty.length) {
+  <details class="empty-fields">
+    <summary>
+      Not in the document ({{ groups.empty.length }}): add one if it is
+    </summary>
+    <div class="fields">
+      @for (field of groups.empty; track field.key) {
+      <ui-form-field
+        [label]="field.label + (field.unit ? ' (' + field.unit + ')' : '')"
+      >
+        <input
+          uiInput
+          [type]="field.type === 'date' ? 'date' : 'text'"
+          [value]="fieldValues()[field.key] ?? ''"
+          [disabled]="parsing()"
+          (input)="setField(field.key, $event)"
+        />
+      </ui-form-field>
+      }
+    </div>
+  </details>
+  } } @else {
   <p class="muted small">
-    {{ doc.completedSteps.includes('EXTRACT') ? 'Its categories define no
-    fields.' : 'Nothing extracted yet.' }}
+    {{ doc.completedSteps.includes('EXTRACT') ? 'Nothing was read from it.' :
+    'Nothing extracted yet.' }}
   </p>
   }
 
-  <!-- 4. What is sent to the module -->
+  <!-- 4. What is sent to the module: only when a module loads it -->
+  @if (showModuleData()) {
   <h3 class="section-title">
     {{ hasModule() ? 'Sent to the ' + moduleLabel() + ' module' : 'Details of
     the record' }}
@@ -298,6 +385,13 @@
   <app-details-view [details]="rec.details" [schema]="schemaShape()" />
   } @else {
   <p class="muted small">Nothing to send until the AI has read the document.</p>
+  } } @else if (editable()) {
+  <p class="muted small spaced">
+    Its fields stay with the document.
+    <button type="button" class="link" (click)="changingTarget.set(true)">
+      Send it to a module instead
+    </button>
+  </p>
   } } @if (error()) {
   <ui-alert tone="danger" class="spaced">{{ error() }}</ui-alert>
   } @if (rejecting()) {

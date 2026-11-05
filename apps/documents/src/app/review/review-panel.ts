@@ -1,4 +1,4 @@
-import { DatePipe, PercentPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, PercentPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -62,6 +62,7 @@ import {
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { ProcessingPanel } from './processing-panel';
 import { RECORD_STATUS_VIEW } from './record-status';
+import { groupFields, summarize, type CategoryLookup } from './review-summary';
 
 /** What the inbox needs to know after an action in the panel. */
 export type ReviewOutcome =
@@ -101,6 +102,7 @@ function canonical(value: unknown, schema: JsonSchema | undefined): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    DecimalPipe,
     DetailsForm,
     DetailsView,
     PercentPipe,
@@ -173,6 +175,38 @@ export class ReviewPanel {
   protected readonly fieldValues = linkedSignal(() =>
     Object.fromEntries(
       this.fields().map((field) => [field.key, fieldText(field)]),
+    ),
+  );
+  /**
+   * The fields to check, the ones read and the empty ones. Grouped by what
+   * was stored, not by what you type, so a field does not jump away while
+   * you fill it in.
+   */
+  protected readonly fieldGroups = computed(() =>
+    groupFields(
+      this.fields(),
+      Object.fromEntries(
+        this.fields().map((field) => [field.key, fieldText(field)]),
+      ),
+    ),
+  );
+  private readonly lookup: CategoryLookup = (id) => {
+    const category = this.store.hierarchy().get(id);
+    return category
+      ? {
+          title: category.title,
+          parentId: category.parentId,
+          dimension: category.dimension,
+        }
+      : undefined;
+  };
+  /** The document at a glance, and where it goes once confirmed. */
+  protected readonly summary = computed(() =>
+    summarize(
+      this.categories(),
+      this.fieldValues(),
+      this.target()?.category ?? this.record.value()?.category ?? null,
+      this.lookup,
     ),
   );
   protected readonly parsing = computed(
@@ -337,6 +371,21 @@ export class ReviewPanel {
     );
   });
 
+  /** You asked to send it to another module than the AI's choice. */
+  protected readonly changingTarget = signal(false);
+  /**
+   * The module's own data shows only when a module loads it (groceries, 730),
+   * when you move it to another module, or when loading failed. A document
+   * that only stays in the archive has nothing more than its fields.
+   */
+  protected readonly showModuleData = computed(
+    () =>
+      this.hasModule() ||
+      this.changingTarget() ||
+      this.targetChanged() ||
+      this.record.value()?.status === 'LOAD_FAILED',
+  );
+
   protected readonly canReject = computed(() => {
     const record = this.record.value();
     return !!record && REJECTABLE_STATUSES.includes(record.status);
@@ -366,6 +415,11 @@ export class ReviewPanel {
 
   protected setField(key: string, event: Event): void {
     const value = (event.target as HTMLInputElement).value;
+    this.fieldValues.update((values) => ({ ...values, [key]: value }));
+  }
+
+  /** One of the readings the AI hesitated between, picked with a tap. */
+  protected pickCandidate(key: string, value: string): void {
     this.fieldValues.update((values) => ({ ...values, [key]: value }));
   }
 
@@ -535,6 +589,7 @@ export class ReviewPanel {
     this.rejectReason.set('');
     this.jsonMode.set(false);
     this.showOriginal.set(false);
+    this.changingTarget.set(false);
   }
 
   private async run(name: string, action: () => Promise<void>): Promise<void> {
