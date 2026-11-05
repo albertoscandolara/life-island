@@ -281,3 +281,86 @@ export type ReclassificationBlockReason =
 
 /** The `code` of a 423 answer while a reclassification holds the lock. */
 export const RECLASSIFICATION_LOCKED_CODE = 'RECLASSIFICATION_RUNNING';
+
+/**
+ * The common record: the facts every document can have, read from every
+ * document whatever its categories (a type fills what it has and leaves the
+ * rest empty). Category templates add the fields of their type on top. A
+ * template that already asks for the same fact under another key (a bill's
+ * `provider`, a payslip's `pay_period`) covers it: the alias stands in for the
+ * core key, so nothing is asked twice.
+ */
+export interface CoreField {
+  key: string;
+  label: string;
+  type: 'string' | 'date' | 'period' | 'amount' | 'currency';
+  description: string;
+  /** Template keys with the same meaning, in order of preference. */
+  aliases: readonly string[];
+}
+
+export const CORE_FIELDS: readonly CoreField[] = [
+  {
+    key: 'issuer',
+    label: 'Issuer',
+    type: 'string',
+    description:
+      'Who issued the document (company, shop, office, employer), as printed, without the legal form',
+    aliases: ['provider', 'merchant_name', 'supplier_name', 'employer'],
+  },
+  {
+    key: 'issue_date',
+    label: 'Document date',
+    type: 'date',
+    description: 'The date of the document (issue, invoice or purchase date)',
+    aliases: ['document_date', 'invoice_date', 'purchase_date', 'expense_date'],
+  },
+  {
+    key: 'period',
+    label: 'Period',
+    type: 'period',
+    description:
+      'The period the document covers (billing or pay period), first and last day',
+    aliases: ['billing_period', 'pay_period'],
+  },
+  {
+    key: 'total_amount',
+    label: 'Total amount',
+    type: 'amount',
+    description:
+      'The total to pay or paid, or received, as printed (on a bill "Totale da pagare"), never a partial line, a tax or a unit price',
+    aliases: [],
+  },
+  {
+    key: 'currency',
+    label: 'Currency',
+    type: 'currency',
+    description: 'ISO 4217 code of the total, e.g. EUR',
+    aliases: [],
+  },
+  {
+    key: 'due_date',
+    label: 'Due date',
+    type: 'date',
+    description: 'Date by which it must be paid, if any',
+    aliases: ['payment_due_date'],
+  },
+];
+
+/** The key a document's fields use for a core fact: the core key, else its first alias present. */
+export function coreFieldKey(
+  core: CoreField,
+  keys: Iterable<string>,
+): string | null {
+  const present = new Set(keys);
+  if (present.has(core.key)) return core.key;
+  return core.aliases.find((alias) => present.has(alias)) ?? null;
+}
+
+/** Field keys in reading order: the common record first, then the type's own fields. */
+export function orderFieldKeys(keys: readonly string[]): string[] {
+  const core = CORE_FIELDS.map((field) => coreFieldKey(field, keys)).filter(
+    (key): key is string => key !== null,
+  );
+  return [...core, ...keys.filter((key) => !core.includes(key))];
+}

@@ -1,4 +1,6 @@
 import {
+  CORE_FIELDS,
+  coreFieldKey,
   findTarget,
   GENERAL_TARGET_KEY,
   normalizeFieldValue,
@@ -6,6 +8,7 @@ import {
   type ExtractedFields,
   type FieldStatus,
   type TargetDefinition,
+  orderFieldKeys,
   type TemplateField,
 } from '@life-island/contracts';
 import type { CategoryDefinition } from './parsers/document-parser.js';
@@ -71,8 +74,20 @@ export function buildExtractionPlan(
         ];
     }
   }
+  // The common record: asked of every document, unless a template already
+  // asks for the same fact under one of its aliases.
+  for (const core of CORE_FIELDS)
+    if (!coreFieldKey(core, byKey.keys()))
+      byKey.set(core.key, {
+        key: core.key,
+        label: core.label,
+        type: core.type,
+        description: core.description,
+        required: false,
+        categories: [],
+      });
   return {
-    fields: [...byKey.values()],
+    fields: orderFieldKeys([...byKey.keys()]).map((key) => byKey.get(key)!),
     target: findTarget(targetKey) ?? findTarget(GENERAL_TARGET_KEY)!,
     warnings,
   };
@@ -235,21 +250,24 @@ export function alignDetails(
     const field = extracted.fields[key];
     return field?.status === 'found' ? field.value : null;
   };
-  const record = { ...(details as Record<string, unknown>) };
-  const total = found('total_amount');
-  if (typeof total === 'number') record['amount'] = total;
-  const fillIn = (target: string, keys: string[]) => {
-    if (record[target] !== undefined && record[target] !== '') return;
-    for (const key of keys) {
-      const value = found(key);
-      if (typeof value === 'string' && value) {
-        record[target] = value;
-        return;
-      }
+  const core = (key: string) => {
+    const field = CORE_FIELDS.find((candidate) => candidate.key === key)!;
+    for (const name of [field.key, ...field.aliases]) {
+      const value = found(name);
+      if (value !== null) return value;
     }
+    return null;
   };
-  fillIn('currency', ['currency']);
-  fillIn('issuer', ['provider', 'issuer', 'merchant_name']);
-  fillIn('date', ['issue_date', 'document_date', 'invoice_date']);
+  const record = { ...(details as Record<string, unknown>) };
+  const total = core('total_amount');
+  if (typeof total === 'number') record['amount'] = total;
+  const fillIn = (target: string, key: string) => {
+    if (record[target] !== undefined && record[target] !== '') return;
+    const value = core(key);
+    if (typeof value === 'string' && value) record[target] = value;
+  };
+  fillIn('currency', 'currency');
+  fillIn('issuer', 'issuer');
+  fillIn('date', 'issue_date');
   return record;
 }

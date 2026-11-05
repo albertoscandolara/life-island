@@ -166,3 +166,25 @@ describe('syncTemplateFields', () => {
     expect(syncTemplateFields(null, [])).toBeNull();
   });
 });
+
+describe('syncTemplateFields and the common record', () => {
+  it('keeps an empty field of the common record when no category asks for it', () => {
+    const result = syncTemplateFields(
+      {
+        fields: {
+          due_date: {
+            label: 'Due date',
+            type: 'date',
+            value: null,
+            status: 'missing',
+            required: false,
+            categories: [],
+          },
+        },
+        warnings: [],
+      },
+      [],
+    );
+    expect(Object.keys(result!.fields)).toEqual(['due_date']);
+  });
+});
