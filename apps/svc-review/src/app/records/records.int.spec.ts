@@ -328,14 +328,14 @@ describe.skipIf(!configured)(
     });
 
     it('confirms on its own a document with nothing to check, and sends it back to review on request', async () => {
-      const sure = upload('sure bill');
+      const sure = upload('quiet invoice');
       await apply('upload.completed@1', sure);
       await apply(
         'document.parsed@1',
         { ...parsed(sure), reviewReasons: [] },
         true,
       );
-      const unsure = upload('unsure bill');
+      const unsure = upload('homeless invoice');
       await apply('upload.completed@1', unsure);
       await apply(
         'document.parsed@1',
