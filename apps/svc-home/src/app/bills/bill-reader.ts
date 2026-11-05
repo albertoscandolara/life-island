@@ -177,22 +177,38 @@ function codesOf(fields: Fields): string[] {
     .map(normalizeCode);
 }
 
-function addressesOf(document: DocumentLike): string {
+/** Where the energy or water is delivered: the home a bill is about. */
+const SUPPLY_ADDRESS_KEY =
+  /supply|fornitura|ubicazione|immobile|pod_address|pdr_address/;
+/**
+ * Where the bill is mailed, or who pays it: often a different home (you get
+ * the bills of the house in Tregnago at your residence), so never evidence.
+ */
+const MAILING_ADDRESS_KEY =
+  /billing|customer|cliente|recapito|mailing|intestatario|holder|sede|invio|residenza|residence/;
+const ADDRESS_KEY = /address|indirizzo|location|ubicazione|fornitura/;
+
+function addressText(document: DocumentLike, supplyOnly: boolean): string {
   const fields = document.fields ?? {};
   const parts = Object.entries(fields)
     .filter(([key]) =>
-      /address|indirizzo|location|ubicazione|fornitura/.test(key),
+      supplyOnly
+        ? SUPPLY_ADDRESS_KEY.test(key)
+        : ADDRESS_KEY.test(key) &&
+          (SUPPLY_ADDRESS_KEY.test(key) || !MAILING_ADDRESS_KEY.test(key)),
     )
     .map(([, value]) => asText(value))
     .filter((value): value is string => value !== null);
-  return ` ${normalizeText([document.title, ...parts].join(' '))} `;
+  return ` ${normalizeText((supplyOnly ? parts : [document.title, ...parts]).join(' '))} `;
 }
 
 /**
  * The property a bill belongs to, and why. Your manual choice wins; then the
- * strongest automatic evidence: a category of the property, then a supply
- * code, then an address that contains a match term. Two properties with
- * evidence of the same strength leave the bill unassigned.
+ * strongest automatic evidence: a supply code (POD, PDR), then the supply
+ * address, then a category of the property, then any other address or the
+ * title. The mailing address of the account holder is never evidence: bills
+ * of one home are often sent to another. Two properties with evidence of the
+ * same strength leave the bill unassigned.
  */
 export function matchProperty(
   document: DocumentLike,
@@ -213,21 +229,24 @@ export function matchProperty(
     const hits = properties.filter(test);
     return hits.length === 1 ? { propertyId: hits[0].id, assignment } : null;
   };
+  const mentions = (text: string) => (property: PropertyLike) =>
+    property.matchTerms.some((term) => {
+      const needle = normalizeText(term);
+      return needle.length > 1 && text.includes(` ${needle} `);
+    });
 
   const categories = expandCategories(document.categories, parentOf);
   const codes = new Set(codesOf(document.fields ?? {}));
-  const text = addressesOf(document);
   return (
-    pick('CATEGORY', (p) => p.categoryIds.some((id) => categories.has(id))) ??
     pick('SUPPLY_CODE', (p) =>
       p.supplyCodes.some((code) => codes.has(normalizeCode(code))),
     ) ??
-    pick('ADDRESS', (p) =>
-      p.matchTerms.some((term) => {
-        const needle = normalizeText(term);
-        return needle.length > 1 && text.includes(` ${needle} `);
-      }),
-    ) ?? { propertyId: null, assignment: null }
+    pick('ADDRESS', mentions(addressText(document, true))) ??
+    pick('CATEGORY', (p) => p.categoryIds.some((id) => categories.has(id))) ??
+    pick('ADDRESS', mentions(addressText(document, false))) ?? {
+      propertyId: null,
+      assignment: null,
+    }
   );
 }
 

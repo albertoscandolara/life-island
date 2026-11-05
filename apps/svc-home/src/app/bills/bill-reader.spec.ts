@@ -126,6 +126,40 @@ describe('matchProperty', () => {
     ).toBeNull();
   });
 
+  it('trusts the supply address over a category read from the mailing address', () => {
+    // The gas bill of the house in Via dei Bandi, mailed to Via Ponzilovo.
+    expect(
+      matchProperty(
+        doc({
+          categories: ['GAS_BILL', 'PONZILOVO'],
+          fields: {
+            customer_address: 'Via Ponzilovo 3, Verona',
+            supply_address: 'Via dei Bandi 4, Tregnago',
+          },
+        }),
+        props,
+        parentOf,
+        null,
+      ),
+    ).toEqual({ propertyId: 'p2', assignment: 'ADDRESS' });
+  });
+
+  it('never assigns a bill by the address it is mailed to', () => {
+    expect(
+      matchProperty(
+        doc({
+          fields: {
+            billing_address: 'Via Ponzilovo 3, Verona',
+            indirizzo_cliente: 'Via Ponzilovo 3',
+          },
+        }),
+        props,
+        parentOf,
+        null,
+      ),
+    ).toEqual({ propertyId: null, assignment: null });
+  });
+
   it('leaves a bill unassigned when two properties match equally', () => {
     expect(
       matchProperty(

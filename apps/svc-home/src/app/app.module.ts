@@ -17,6 +17,7 @@ import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { PropertiesController } from './properties/properties.controller.js';
 import { PropertiesService } from './properties/properties.service.js';
+import { PropertyCategories } from './properties/property-categories.js';
 import { WorksController } from './works/works.controller.js';
 import { WorksService } from './works/works.service.js';
 
@@ -45,6 +46,7 @@ export class AppModule {
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         PropertiesService,
+        PropertyCategories,
         BillsService,
         WorksService,
         IngestionFiles,

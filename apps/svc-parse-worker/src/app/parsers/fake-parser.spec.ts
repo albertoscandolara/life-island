@@ -79,6 +79,26 @@ describe('FakeParser', () => {
     },
   );
 
+  it('keeps a bill that mentions "spesa" out of groceries and reads its total to pay', async () => {
+    const text =
+      'LENA ENERGIA Bolletta luce. Spesa per la materia energia: totale 7,20 €. Totale da pagare € 50,12';
+    const { result } = await parser.classify(
+      inputOf('lena.pdf', text),
+      categories,
+    );
+    expect(result.targetKey).toBe('general.document@1');
+    expect(result.categoryIds).not.toContain('GROCERIES');
+    const plan = buildExtractionPlan(
+      categories.filter((category) => category.id === 'BILL'),
+      'general.document@1',
+    );
+    const extracted = await parser.extract(inputOf('lena.pdf', text), plan);
+    expect(extracted.result.fields.fields['total_amount']).toMatchObject({
+      status: 'found',
+      value: 50.12,
+    });
+  });
+
   it('reads only what the text shows and leaves the rest missing', async () => {
     const plan = buildExtractionPlan(
       categories.slice(0, 1),

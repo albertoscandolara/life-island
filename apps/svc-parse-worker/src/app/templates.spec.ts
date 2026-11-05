@@ -1,5 +1,6 @@
 import type { CategoryDefinition } from './parsers/document-parser.js';
 import {
+  alignDetails,
   buildExtractedFields,
   buildExtractionPlan,
   mergeChunkResults,
@@ -241,5 +242,66 @@ describe('splitText', () => {
       'c'.repeat(40),
     ]);
     expect(splitText('short', 90)).toEqual(['short']);
+  });
+});
+
+describe('alignDetails', () => {
+  const field = (
+    value: string | number,
+    type: 'amount' | 'string' | 'date',
+  ) => ({
+    label: '',
+    type,
+    value,
+    status: 'found' as const,
+    required: false,
+    categories: ['BILL'],
+  });
+  const extracted = {
+    fields: {
+      total_amount: field(50.12, 'amount'),
+      provider: field('Lena Energia', 'string'),
+      issue_date: field('2026-10-02', 'date'),
+    },
+    warnings: [],
+  };
+
+  it('makes the amount of a general document the total read from its fields', () => {
+    expect(
+      alignDetails(
+        'general.document@1',
+        {
+          documentType: 'electricity bill',
+          amount: 7,
+          summary: '',
+          keyFacts: [],
+        },
+        extracted,
+      ),
+    ).toEqual({
+      documentType: 'electricity bill',
+      amount: 50.12,
+      issuer: 'Lena Energia',
+      date: '2026-10-02',
+      summary: '',
+      keyFacts: [],
+    });
+  });
+
+  it('keeps details of other targets and values the fields do not have', () => {
+    const receipt = { total: 7.47 };
+    expect(alignDetails('grocery.receipt@1', receipt, extracted)).toBe(receipt);
+    expect(
+      alignDetails(
+        'general.document@1',
+        { documentType: 'letter', issuer: 'Comune', summary: '', keyFacts: [] },
+        { fields: {}, warnings: [] },
+      ),
+    ).toEqual({
+      documentType: 'letter',
+      issuer: 'Comune',
+      summary: '',
+      keyFacts: [],
+    });
   });
 });

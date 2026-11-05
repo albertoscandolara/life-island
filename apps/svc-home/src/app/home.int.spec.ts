@@ -31,7 +31,11 @@ describe.skipIf(!configured)(
     const uploads: string[] = [];
 
     beforeAll(async () => {
-      const config = { ...loadConfig(), port: 0 };
+      const config = {
+        ...loadConfig(),
+        port: 0,
+        linkPropertyCategories: false,
+      };
       app = await createApp(config, { events: false });
       await app.listen(0);
       base = (await app.getUrl()).replace('[::1]', 'localhost');

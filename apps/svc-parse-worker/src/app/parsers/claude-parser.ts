@@ -35,7 +35,7 @@ import {
 } from './document-parser.js';
 import { classifyProviderError } from './provider-errors.js';
 
-export const PROMPT_VERSION = 'categories-4';
+export const PROMPT_VERSION = 'categories-5';
 const LOW_CONFIDENCE = 0.8;
 
 const GROUNDING = `Base every answer only on what the document itself shows. Never invent, guess or fill in information from general knowledge: when something is not in the document, say so.`;
@@ -48,7 +48,7 @@ ${GROUNDING}
 
 1. Identify the document type, its purpose and its useful characteristics (one-off or recurring, paid or to be paid, how it is paid, who issued it, who it is for).
 2. Assign EVERY existing category that applies. A document usually has several: what it is (BILL, INVOICE, RECEIPT), what it is about (HOME, MEDICAL), its role (EXPENSE for money you pay, INCOME for money you receive, such as a payslip) and, when one exists, its issuer (for a payslip, the employer). Always use a broader category that applies, even when no specific one exists for this document. Give the evidence from the document for each category. Never assign a category the document does not support.
-   Some categories belong to a dimension (document type, subject, property / location, person, issuer, attribute) and some sit under a parent category. A document has at most one document type and at most one issuer (a category together with its parents counts as one); list the best one first. Every dimension is optional: assign a property, a person or an issuer only when the document names it, never by default.
+   Some categories belong to a dimension (document type, subject, property / location, person, issuer, attribute) and some sit under a parent category. A document has at most one document type and at most one issuer (a category together with its parents counts as one); list the best one first. Every dimension is optional: assign a property, a person or an issuer only when the document names it, never by default. The property categories are the person's homes: for a utility bill, the property is where the supply is delivered (indirizzo di fornitura, the POD or PDR), never the address the bill is mailed to or the account holder's residence, which is often another home.
 3. Choose the target where the extracted data will be reviewed:
 ${TARGET_CATALOG.map((target) => `- ${target.targetKey}: ${target.description}`).join('\n')}
    Prefer a specific target over ${GENERAL_TARGET_KEY} whenever the document plausibly fits it.
@@ -160,7 +160,7 @@ ${GROUNDING}
 Propose the NEW categories this document calls for that no existing category or pending suggestion already covers. Go through every dimension and ask what this document shows for it:
 - DOCUMENT_TYPE: what it is, as specific as is useful (ELECTRICITY_BILL under BILL, CAR_INSURANCE_POLICY).
 - SUBJECT: what it is about (WATER_SUPPLY, CAR, SCHOOL).
-- PROPERTY: the property or place it concerns, when it names one (a supply address, a rented flat, a car plate): name it by the place (TREGNAGO_HOUSE, VIA_ROMA_FLAT).
+- PROPERTY: the property or place it concerns, when it names one (a supply address, a rented flat, a car plate): name it by the place (TREGNAGO_HOUSE, VIA_ROMA_FLAT). For a bill this is the supply address, never the mailing address of the account holder. Never propose a property that an existing PROPERTY category already stands for under another name.
 - PERSON: who it concerns, when it names a person other than a company (the account holder, the patient), by name as printed.
 - ISSUER: who issued it (the utility, shop, insurer, employer, doctor, public office), with the name as printed and without the legal form (ACQUE_VERONESI for "Acque Veronesi S.c.a r.l.", ENEL, LIDL). When the document names its issuer and no existing issuer category is that issuer, ALWAYS propose it.
 - ATTRIBUTE: lasting traits worth filtering on (RECURRING, DIRECT_DEBIT, TAX_DEDUCTIBLE).

@@ -215,3 +215,41 @@ export function splitText(text: string, maxChars: number): string[] {
   if (rest) chunks.push(rest);
   return chunks;
 }
+
+/**
+ * The record details of a general document, made to agree with the template
+ * fields read from the same document. The amount the review shows and the
+ * amount Bills counts must be one number: the focused `total_amount` field
+ * (the total to pay, read as printed) wins over the details' "main amount",
+ * which a model can take from any line. Its date, issuer and currency fill
+ * gaps only. Other targets keep their details as they are.
+ */
+export function alignDetails(
+  targetKey: string | null,
+  details: unknown,
+  extracted: ExtractedFields,
+): unknown {
+  if (targetKey !== GENERAL_TARGET_KEY) return details;
+  if (typeof details !== 'object' || details === null) return details;
+  const found = (key: string) => {
+    const field = extracted.fields[key];
+    return field?.status === 'found' ? field.value : null;
+  };
+  const record = { ...(details as Record<string, unknown>) };
+  const total = found('total_amount');
+  if (typeof total === 'number') record['amount'] = total;
+  const fillIn = (target: string, keys: string[]) => {
+    if (record[target] !== undefined && record[target] !== '') return;
+    for (const key of keys) {
+      const value = found(key);
+      if (typeof value === 'string' && value) {
+        record[target] = value;
+        return;
+      }
+    }
+  };
+  fillIn('currency', ['currency']);
+  fillIn('issuer', ['provider', 'issuer', 'merchant_name']);
+  fillIn('date', ['issue_date', 'document_date', 'invoice_date']);
+  return record;
+}

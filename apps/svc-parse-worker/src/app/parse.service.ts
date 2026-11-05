@@ -59,7 +59,7 @@ import {
   type ParseRunRecord,
   type ProposedCategory,
 } from './parsers/document-parser.js';
-import { buildExtractionPlan } from './templates.js';
+import { alignDetails, buildExtractionPlan } from './templates.js';
 
 /** Minutes to wait before attempt n+1: 1, 4, 16, 64... capped at one day. */
 export function backoffMinutes(attempts: number): number {
@@ -482,7 +482,11 @@ export class ParseService {
         field.status === 'invalid',
     );
     await this.writeStep(progress, runs, {
-      details: result.details,
+      details: alignDetails(
+        progress.upload.targetKey ?? GENERAL_TARGET_KEY,
+        result.details,
+        result.fields,
+      ),
       extractedFields: result.fields,
       flags: this.mergeFlags(progress, [
         ...result.flags,
