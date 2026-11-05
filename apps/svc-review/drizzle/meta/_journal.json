@@ -43,6 +43,13 @@
       "when": 1793821601381,
       "tag": "0005_historical_reclassification",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793898748587,
+      "tag": "0006_auto_confirm",
+      "breakpoints": true
     }
   ]
 }

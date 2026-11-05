@@ -17,9 +17,6 @@
       [label]="statusView[rec.status].label"
       [pulse]="!!statusView[rec.status].pulse"
     />
-    <ui-badge tone="info" title="The module that receives the details"
-      >{{ moduleLabel() }}</ui-badge
-    >
     @if (rec.confidence !== null) {
     <span class="muted small-inline"
       >AI confidence {{ rec.confidence | percent }}</span
@@ -61,13 +58,27 @@
   }
 
   <!-- What happened to it -->
-  @switch (rec.status) { @case ('CONFIRMED') {
+  @switch (rec.status) { @case ('CONFIRMED') { @if (rec.autoConfirmedAt) {
+  <ui-alert tone="info" class="spaced">
+    Confirmed on its own {{ rec.autoConfirmedAt | date: 'dd MMM yyyy, HH:mm' }}:
+    nothing needed a check. @if (canUndoAuto()) {
+    <button
+      type="button"
+      class="link"
+      [disabled]="!!busy() || locked()"
+      (click)="undoAuto()"
+    >
+      Send it back to review
+    </button>
+    }
+  </ui-alert>
+  } @else {
   <ui-alert tone="info" class="spaced">
     Confirmed {{ rec.confirmedAt | date: 'dd MMM yyyy, HH:mm' }}. @if
     (hasModule()) { Sending it to the {{ moduleLabel() }} module. } @else { Kept
     with the document: no module loads this type yet. }
   </ui-alert>
-  } @case ('LOADED') {
+  } } @case ('LOADED') {
   <ui-alert tone="success" class="spaced">
     Confirmed {{ rec.confirmedAt | date: 'dd MMM yyyy, HH:mm' }} and stored in
     the {{ moduleLabel() }} module.
@@ -102,12 +113,27 @@
     <p class="summary__amount">
       {{ sum.amount | number: '1.2-2' }} {{ sum.currency ?? '' }}
     </p>
+    } @if (rec.status === 'PARSED' && rec.reviewReasons.length) {
+    <p class="summary__why">
+      Waiting for you: {{ rec.reviewReasons.map(reasonOf).join(' · ') }}
+    </p>
     }
     <p class="summary__where">
       <ui-icon name="chevron-right" [size]="14" />
       Goes to {{ sum.destinations.join(' and ') }} @if (sum.properties.length) {
-      · {{ sum.properties.join(', ') }} } @else if
-      (sum.destinations.includes('Bills')) {
+      · {{ sum.properties.join(', ') }} } @else if (suggestedHome(); as home) {
+      <span class="summary__warn"
+        >· the supply address is in {{ home.title }}</span
+      >
+      <button
+        type="button"
+        class="link"
+        [disabled]="parsing() || locked()"
+        (click)="putOnHome(home.id)"
+      >
+        Put it on {{ home.title }}
+      </button>
+      } @else if (sum.destinations.includes('Bills')) {
       <span class="summary__warn">· no home yet: pick one under Property</span>
       }
     </p>

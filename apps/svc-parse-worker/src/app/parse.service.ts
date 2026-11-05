@@ -59,6 +59,7 @@ import {
   type ParseRunRecord,
   type ProposedCategory,
 } from './parsers/document-parser.js';
+import { reviewReasons } from './review-readiness.js';
 import { alignDetails, buildExtractionPlan } from './templates.js';
 
 /** Minutes to wait before attempt n+1: 1, 4, 16, 64... capped at one day. */
@@ -611,6 +612,11 @@ export class ParseService {
 
   /** Every step is saved: mark the document PARSED and tell the review inbox. */
   private async finish(progress: Progress): Promise<void> {
+    // What there is left for a person to check, read before the final write.
+    const [categories, pending] = await Promise.all([
+      this.loadCategories(),
+      this.loadSuggestedFor(progress.upload.id),
+    ]);
     await withTransaction(this.svc.pool, async (client) => {
       const [saved] = await drizzle(client)
         .update(uploads)
@@ -643,6 +649,17 @@ export class ParseService {
         confidence: saved.confidence ?? 0,
         flags: saved.flags,
         parsedAt: saved.parsedAt!.toISOString(),
+        reviewReasons: reviewReasons(
+          {
+            confidence: saved.confidence ?? 0,
+            flags: saved.flags,
+            categories: saved.categories,
+            targetKey: saved.targetKey,
+            extractedFields: saved.extractedFields ?? null,
+            pendingSuggestions: pending.length,
+          },
+          categories,
+        ),
       };
       await enqueueEvent(client, this.svc.schema, {
         type: DOCUMENT_PARSED_EVENT,

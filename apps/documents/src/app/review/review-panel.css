@@ -210,6 +210,11 @@
   font-size: var(--text-sm);
 }
 
+.summary__why {
+  color: var(--tone-warning);
+  font-size: var(--text-sm);
+}
+
 .summary__warn {
   color: var(--tone-warning);
 }

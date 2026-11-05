@@ -1,0 +1,2 @@
+ALTER TABLE "review"."staging_records" ADD COLUMN "review_reasons" text[] DEFAULT '{}' NOT NULL;--> statement-breakpoint
+ALTER TABLE "review"."staging_records" ADD COLUMN "auto_confirmed_at" timestamp with time zone;

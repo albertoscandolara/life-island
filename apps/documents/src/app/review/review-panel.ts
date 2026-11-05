@@ -19,6 +19,7 @@ import type {
 } from '@life-island/contracts';
 import { toggleCategory } from '@life-island/contracts/category-tree';
 import {
+  AUTO_CONFIRM_UNDO_DAYS,
   CATEGORY_DIMENSION_LABELS,
   CATEGORY_DIMENSIONS,
   CONFIRMABLE_STATUSES,
@@ -26,6 +27,7 @@ import {
   MODULE_LABELS,
   PREVIEWABLE_FORMATS,
   REJECTABLE_STATUSES,
+  REVIEW_REASON_LABELS,
   SINGLE_VALUED_DIMENSIONS,
   type CategoryDimension,
 } from '@life-island/contracts/constants';
@@ -62,7 +64,12 @@ import {
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { ProcessingPanel } from './processing-panel';
 import { RECORD_STATUS_VIEW } from './record-status';
-import { groupFields, summarize, type CategoryLookup } from './review-summary';
+import {
+  groupFields,
+  homeFromSupplyAddress,
+  summarize,
+  type CategoryLookup,
+} from './review-summary';
 
 /** What the inbox needs to know after an action in the panel. */
 export type ReviewOutcome =
@@ -209,6 +216,25 @@ export class ReviewPanel {
       this.lookup,
     ),
   );
+  /** A bill with no home yet whose supply address names one of yours. */
+  protected readonly suggestedHome = computed(() => {
+    const summary = this.summary();
+    if (summary.properties.length || !summary.destinations.includes('Bills'))
+      return null;
+    const homes = this.store
+      .hierarchy()
+      .roots.filter((root) => root.dimension === 'PROPERTY')
+      .flatMap((root) => [
+        root,
+        ...this.store.hierarchy().descendants(root.id),
+      ]);
+    return homeFromSupplyAddress(this.fieldValues(), homes);
+  });
+  protected putOnHome(id: string): void {
+    this.categories.update((ids) =>
+      toggleCategory(ids, id, true, this.store.hierarchy()),
+    );
+  }
   protected readonly parsing = computed(
     () => this.upload.value()?.status === 'PARSING',
   );
@@ -489,6 +515,33 @@ export class ReviewPanel {
       );
       this.changed.emit({ kind: 'status', record: rejected });
       this.finish(true);
+    });
+  }
+
+  /** Within AUTO_CONFIRM_UNDO_DAYS of being confirmed on its own. */
+  protected readonly canUndoAuto = computed(() => {
+    const at = this.record.value()?.autoConfirmedAt;
+    return (
+      !!at &&
+      this.record.value()?.status === 'CONFIRMED' &&
+      Date.now() - Date.parse(at) < AUTO_CONFIRM_UNDO_DAYS * 86_400_000
+    );
+  });
+  protected readonly reasonLabels = REVIEW_REASON_LABELS as Record<
+    string,
+    string
+  >;
+
+  protected readonly reasonOf = (reason: string): string =>
+    this.reasonLabels[reason] ?? humanize(reason);
+
+  protected async undoAuto(): Promise<void> {
+    const record = this.record.value();
+    if (!record) return;
+    await this.run('undo-auto', async () => {
+      const back = await firstValueFrom(this.review.undoAutoConfirm(record.id));
+      this.changed.emit({ kind: 'status', record: back });
+      this.record.reload();
     });
   }
 

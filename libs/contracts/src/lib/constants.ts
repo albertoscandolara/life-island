@@ -364,3 +364,33 @@ export function orderFieldKeys(keys: readonly string[]): string[] {
   );
   return [...core, ...keys.filter((key) => !core.includes(key))];
 }
+
+/**
+ * Why a parsed document waits for you instead of being confirmed on its
+ * own. A document with none of these is confirmed automatically (you can
+ * undo it for a while). Documents that a module loads (Groceries, 730) always
+ * wait: what a module stored cannot be taken back from here.
+ */
+export const REVIEW_REASONS = [
+  'LOW_CONFIDENCE', // the AI is not sure what the document is
+  'DOUBTFUL_FIELDS', // a field is unsure, unreadable, or required and not found
+  'NEW_CATEGORIES', // it suggests categories that do not exist yet
+  'NO_DOCUMENT_TYPE', // none of its categories says what it is
+  'MODULE', // a module loads it
+  'NO_PROPERTY', // a utility bill without a home
+  'OFFLINE_PARSER', // read by the offline parser: sample data
+] as const;
+export type ReviewReason = (typeof REVIEW_REASONS)[number];
+
+export const REVIEW_REASON_LABELS: Record<ReviewReason, string> = {
+  LOW_CONFIDENCE: 'The AI is not sure what it is',
+  DOUBTFUL_FIELDS: 'Some fields need a check',
+  NEW_CATEGORIES: 'It suggests new categories',
+  NO_DOCUMENT_TYPE: 'No document type',
+  MODULE: 'It goes to a module',
+  NO_PROPERTY: 'A bill without a home',
+  OFFLINE_PARSER: 'Read by the offline parser',
+};
+
+/** Days during which a document confirmed on its own can be sent back to review. */
+export const AUTO_CONFIRM_UNDO_DAYS = 7;

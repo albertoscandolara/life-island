@@ -121,3 +121,35 @@ export function summarize(
     ],
   };
 }
+
+const normalize = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+const STREET_WORD = /^(via|viale|piazza|corso|vicolo|strada|localita|loc)\s+/;
+const SUPPLY_KEY = /supply|fornitura|ubicazione|immobile/;
+
+/**
+ * The home a bill's supply address names, among your property categories:
+ * "Via dei Bandi 4, Tregnago" → Via dei Bandi. Null when none or several do.
+ */
+export function homeFromSupplyAddress<T extends { title: string }>(
+  values: Record<string, string>,
+  homes: readonly T[],
+): T | null {
+  const address = ` ${normalize(
+    Object.entries(values)
+      .filter(([key]) => SUPPLY_KEY.test(key))
+      .map(([, value]) => value)
+      .join(' '),
+  )} `;
+  if (!address.trim()) return null;
+  const hits = homes.filter((home) => {
+    const name = normalize(home.title).replace(STREET_WORD, '');
+    return name.length > 1 && address.includes(` ${name} `);
+  });
+  return hits.length === 1 ? hits[0] : null;
+}

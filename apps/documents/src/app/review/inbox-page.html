@@ -147,10 +147,20 @@
 
 @if (showingQueue() && !records.error()) {
 <p class="queue-note muted">
-  Showing the documents waiting for your review.
+  Showing the documents waiting for your review; the ones with nothing to check
+  are confirmed on their own.
   <button type="button" class="link" (click)="showAll()">
     Show any status
   </button>
+  ·
+  <button type="button" class="link" (click)="showAutoConfirmed()">
+    Show the ones confirmed on their own
+  </button>
+</p>
+} @else if (autoConfirmed() && !records.error()) {
+<p class="queue-note muted">
+  Showing the documents confirmed on their own. Open one to send it back to
+  review.
 </p>
 } @if (records.error()) {
 <ui-alert tone="danger" class="error"
@@ -245,7 +255,9 @@
       [label]="statusView[row.status].label"
       [pulse]="!!statusView[row.status].pulse"
     />
-    @if (row.historicalStatus) {
+    @if (row.autoConfirmedAt) {
+    <ui-badge tone="info" title="Nothing needed a check">On its own</ui-badge>
+    } @if (row.historicalStatus) {
     <ui-status-dot
       class="historical"
       [tone]="historicalView[row.historicalStatus].tone"

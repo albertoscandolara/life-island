@@ -24,6 +24,7 @@ import {
 } from '../db/schema.js';
 import {
   billSpan,
+  normalizeCode,
   readBill,
   withAncestors,
   type ParentOf,
@@ -118,7 +119,40 @@ export class BillsService {
       .insert(billOverrides)
       .values({ uploadId, ...changes })
       .onConflictDoUpdate({ target: billOverrides.uploadId, set: changes });
-    return this.read(document);
+    const bill = await this.read(document);
+    if (request.propertyId && bill?.customerId)
+      await this.learnSupplyCode(request.propertyId, bill.customerId);
+    return bill;
+  }
+
+  /**
+   * You put a bill on a home: its supply code (POD, PDR) now belongs to that
+   * home, so the next bills of that supply find it on their own. A code moves
+   * with your choice: it leaves the home that had it before.
+   */
+  private async learnSupplyCode(
+    propertyId: string,
+    code: string,
+  ): Promise<void> {
+    const wanted = normalizeCode(code);
+    if (wanted.length < 6) return; // too short to tell supplies apart
+    const rows = await this.svc.db.select().from(properties);
+    for (const row of rows) {
+      const has = row.supplyCodes.some((c) => normalizeCode(c) === wanted);
+      const supplyCodes =
+        row.id === propertyId
+          ? has
+            ? null
+            : [...row.supplyCodes, code]
+          : has
+            ? row.supplyCodes.filter((c) => normalizeCode(c) !== wanted)
+            : null;
+      if (supplyCodes)
+        await this.svc.db
+          .update(properties)
+          .set({ supplyCodes })
+          .where(eq(properties.id, row.id));
+    }
   }
 
   private async read(document: DocumentRow): Promise<BillDto | null> {

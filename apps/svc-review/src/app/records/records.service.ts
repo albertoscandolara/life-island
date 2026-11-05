@@ -11,6 +11,7 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import {
+  AUTO_CONFIRM_UNDO_DAYS,
   categoryCountsQuerySchema,
   CONFIRMABLE_STATUSES,
   findTarget,
@@ -36,6 +37,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   or,
@@ -189,6 +191,12 @@ export class RecordsService {
       conditions.push(eq(stagingRecords.historicalStatus, query.historical));
     if (query.category)
       conditions.push(eq(stagingRecords.category, query.category));
+    if (query.autoConfirmed !== undefined)
+      conditions.push(
+        query.autoConfirmed
+          ? isNotNull(stagingRecords.autoConfirmedAt)
+          : isNull(stagingRecords.autoConfirmedAt),
+      );
     if (query.fileFormat)
       conditions.push(eq(stagingRecords.fileFormat, query.fileFormat));
     if (query.uploadedFrom) {
@@ -287,6 +295,41 @@ export class RecordsService {
         current.status === 'CONFIRMED' || current.status === 'LOADED'
           ? 'This record is already confirmed; its module owns the data now'
           : `This record cannot be rejected while it is ${current.status}`,
+      );
+    }
+    return toRecordDetailDto(row);
+  }
+
+  /**
+   * Sends a record that was confirmed on its own back to review, within
+   * AUTO_CONFIRM_UNDO_DAYS. Only the archive kept it (no module loads what
+   * is confirmed on its own), so nothing has to be taken back elsewhere.
+   */
+  async undoAutoConfirm(id: string): Promise<RecordDetailDto> {
+    const since = new Date(Date.now() - AUTO_CONFIRM_UNDO_DAYS * 86_400_000);
+    const [row] = await this.svc.db
+      .update(stagingRecords)
+      .set({
+        status: 'PARSED',
+        confirmedAt: null,
+        autoConfirmedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(stagingRecords.id, id),
+          isNull(stagingRecords.deletedAt),
+          eq(stagingRecords.status, 'CONFIRMED'),
+          gte(stagingRecords.autoConfirmedAt, since),
+        ),
+      )
+      .returning();
+    if (!row) {
+      const current = await this.findRow(id);
+      throw new ConflictException(
+        current.autoConfirmedAt
+          ? `It was confirmed on its own more than ${AUTO_CONFIRM_UNDO_DAYS} days ago, or is no longer confirmed`
+          : 'Only a record confirmed on its own can be sent back to review',
       );
     }
     return toRecordDetailDto(row);

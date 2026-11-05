@@ -47,7 +47,7 @@ describe.skipIf(!configured)(
       await app?.close();
     });
 
-    const apply = (type: string, payload: unknown) => {
+    const apply = (type: string, payload: unknown, autoConfirm = false) => {
       const event: EventEnvelope = {
         id: randomUUID(),
         type,
@@ -56,7 +56,7 @@ describe.skipIf(!configured)(
         payload,
       };
       return withTransaction(svc.pool, (client) =>
-        applyDocumentEvent(event, client),
+        applyDocumentEvent(event, client, { autoConfirm }),
       );
     };
 
@@ -325,6 +325,58 @@ describe.skipIf(!configured)(
         method: 'POST',
       });
       expect(twice.status).toBe(409);
+    });
+
+    it('confirms on its own a document with nothing to check, and sends it back to review on request', async () => {
+      const sure = upload('sure bill');
+      await apply('upload.completed@1', sure);
+      await apply(
+        'document.parsed@1',
+        { ...parsed(sure), reviewReasons: [] },
+        true,
+      );
+      const unsure = upload('unsure bill');
+      await apply('upload.completed@1', unsure);
+      await apply(
+        'document.parsed@1',
+        { ...parsed(unsure), reviewReasons: ['NO_PROPERTY'] },
+        true,
+      );
+
+      const auto = await findByTitle(sure.title);
+      expect(auto).toMatchObject({ status: 'CONFIRMED', reviewReasons: [] });
+      expect(auto.autoConfirmedAt).not.toBeNull();
+      expect(await findByTitle(unsure.title)).toMatchObject({
+        status: 'PARSED',
+        reviewReasons: ['NO_PROPERTY'],
+        autoConfirmedAt: null,
+      });
+      const { rows } = await svc.pool.query(
+        `select 1 from review.outbox where event_type = 'record.approved@1' and payload->>'recordId' = $1`,
+        [auto.id],
+      );
+      expect(rows).toHaveLength(1);
+
+      const listed = await get<Page<RecordDto>>(
+        `/records?status=CONFIRMED&autoConfirmed=true&q=${encodeURIComponent(marker)}`,
+      );
+      expect(listed.body.items.map((item) => item.id)).toEqual([auto.id]);
+
+      const undone = await send<RecordDetailDto>(
+        'POST',
+        `/records/${auto.id}/undo-auto-confirm`,
+        {},
+      );
+      expect(undone.body).toMatchObject({
+        status: 'PARSED',
+        autoConfirmedAt: null,
+      });
+      const again = await send<unknown>(
+        'POST',
+        `/records/${auto.id}/undo-auto-confirm`,
+        {},
+      );
+      expect(again.status).toBe(409);
     });
 
     it('rejects and reopens a record, which then cannot be confirmed while rejected', async () => {

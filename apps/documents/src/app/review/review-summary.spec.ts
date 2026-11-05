@@ -1,5 +1,6 @@
 import {
   groupFields,
+  homeFromSupplyAddress,
   summarize,
   type CategoryInfo,
   type ReviewField,
@@ -109,5 +110,36 @@ describe('summarize', () => {
     expect(other.destinations).toEqual(['Documents only']);
     expect(other.issuer).toBe('Lena');
     expect(other.amount).toBeNull();
+  });
+});
+
+describe('homeFromSupplyAddress', () => {
+  const homes = [
+    { id: 'VIA_PONZILOVO', title: 'Via Ponzilovo' },
+    { id: 'VIA_DEI_BANDI', title: 'Via dei Bandi' },
+  ];
+
+  it('finds the home a supply address names, whatever its case and accents', () => {
+    expect(
+      homeFromSupplyAddress(
+        {
+          supply_address: 'VIA DEI BÀNDI 4, Tregnago',
+          customer_address: 'Via Ponzilovo 3',
+        },
+        homes,
+      )?.id,
+    ).toBe('VIA_DEI_BANDI');
+  });
+
+  it('does not guess without a supply address or between two homes', () => {
+    expect(
+      homeFromSupplyAddress({ customer_address: 'Via Ponzilovo 3' }, homes),
+    ).toBeNull();
+    expect(
+      homeFromSupplyAddress(
+        { supply_address: 'Ponzilovo, angolo dei Bandi' },
+        homes,
+      ),
+    ).toBeNull();
   });
 });

@@ -54,7 +54,10 @@ export class AppModule {
                         schema: db.schema,
                         durableName: 'review-document-events',
                         eventTypes: HANDLED_EVENTS,
-                        handle: applyDocumentEvent,
+                        handle: (event, client) =>
+                          applyDocumentEvent(event, client, {
+                            autoConfirm: config.autoConfirm,
+                          }),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,
