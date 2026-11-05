@@ -31,7 +31,11 @@ describe.skipIf(!configured)(
     const uploads: string[] = [];
 
     beforeAll(async () => {
-      const config = { ...loadConfig(), port: 0 };
+      const config = {
+        ...loadConfig(),
+        port: 0,
+        linkPropertyCategories: false,
+      };
       app = await createApp(config, { events: false });
       await app.listen(0);
       base = (await app.getUrl()).replace('[::1]', 'localhost');
@@ -206,6 +210,30 @@ describe.skipIf(!configured)(
       expect(excluded.bill).toBeNull();
       const bills = await json<BillDto[]>(await send('GET', '/bills'));
       expect(bills.some((bill) => bill.uploadId === uploadId)).toBe(false);
+    });
+
+    it('learns the supply code of a bill you put on a home', async () => {
+      const home = await createProperty(`Casa L${run}`);
+      const pdr = `0099${run}77`;
+      const first = await upload(['GAS_BILL'], {
+        customer_id: pdr,
+        issue_date: '2026-06-02',
+        total_amount: 61.2,
+      });
+      await send('PATCH', `/bills/${first}`, { propertyId: home.id });
+      const list = await json<PropertyDto[]>(await send('GET', '/properties'));
+      expect(list.find((p) => p.id === home.id)?.supplyCodes).toEqual([pdr]);
+      // The next bill of that supply finds its home by itself.
+      const next = await upload(['GAS_BILL'], {
+        customer_id: pdr,
+        issue_date: '2026-08-02',
+        total_amount: 48.9,
+      });
+      const bills = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(bills.find((bill) => bill.uploadId === next)).toMatchObject({
+        propertyId: home.id,
+        assignment: 'SUPPLY_CODE',
+      });
     });
 
     it('tracks a work with its invoice', async () => {

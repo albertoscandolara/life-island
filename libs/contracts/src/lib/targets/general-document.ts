@@ -22,7 +22,9 @@ export const GeneralDocumentV1 = z.object({
   amount: z
     .number()
     .optional()
-    .describe('Main amount, if the document has one'),
+    .describe(
+      'Total to pay or paid, as printed (on a bill "Totale da pagare"), not a partial line, a tax or a unit price',
+    ),
   currency: z.string().optional(),
   summary: z
     .string()

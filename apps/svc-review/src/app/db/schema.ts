@@ -77,6 +77,10 @@ export const stagingRecords = review.table(
       mode: 'number',
     }),
     flags: text('flags').array().notNull().default([]),
+    /** Why it waits for a review (REVIEW_REASONS), as the parser judged it. */
+    reviewReasons: text('review_reasons').array().notNull().default([]),
+    /** Set when it was confirmed on its own, with nothing to check. */
+    autoConfirmedAt: timestamp('auto_confirmed_at', { withTimezone: true }),
     parseError: text('parse_error'),
     loadError: text('load_error'),
     domainRecordId: text('domain_record_id'),

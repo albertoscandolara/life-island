@@ -21,9 +21,12 @@ import {
   uploadParsingStartedV1,
   uploadReparseRequestedV1,
   uploadUpdatedV1,
+  RECORD_APPROVED_EVENT,
   type EventEnvelope,
+  type RecordApprovedV1,
   type RecordStatus,
 } from '@life-island/contracts';
+import { enqueueEvent } from '@life-island/be-common';
 import { and, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -77,6 +80,7 @@ const INTERRUPTED_STATUS = {
 export async function applyDocumentEvent(
   event: EventEnvelope,
   client: pg.PoolClient,
+  options: { autoConfirm?: boolean } = {},
 ): Promise<void> {
   const db = drizzle(client);
   const now = new Date();
@@ -229,6 +233,8 @@ export async function applyDocumentEvent(
         aiPayload: e.details,
         confidence: e.confidence,
         flags: e.flags,
+        // Older events say nothing: something to check, by default.
+        reviewReasons: e.reviewReasons ?? ['LOW_CONFIDENCE'],
         parseError: null,
         parsedAt: new Date(e.parsedAt),
         updatedAt: now,
@@ -255,6 +261,8 @@ export async function applyDocumentEvent(
           },
           setWhere: inArray(stagingRecords.status, BEFORE_REVIEW),
         });
+      if (options.autoConfirm && e.reviewReasons?.length === 0)
+        await autoConfirm(client, e.uploadId);
       return;
     }
     case DOCUMENT_PARSE_FAILED_EVENT: {
@@ -324,4 +332,49 @@ export async function applyDocumentEvent(
       return;
     }
   }
+}
+
+/**
+ * Nothing to check: the record is confirmed on its own, in the same
+ * transaction as the parse, with the same `record.approved` a click on
+ * Confirm sends. Only a record that keeps its data in the archive gets here
+ * (the parser holds back anything a module loads), so it can be sent back
+ * to review for AUTO_CONFIRM_UNDO_DAYS.
+ */
+async function autoConfirm(
+  client: pg.PoolClient,
+  uploadId: string,
+): Promise<void> {
+  const now = new Date();
+  const [row] = await drizzle(client)
+    .update(stagingRecords)
+    .set({
+      status: 'CONFIRMED',
+      confirmedAt: now,
+      autoConfirmedAt: now,
+      loadError: null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(stagingRecords.uploadId, uploadId),
+        eq(stagingRecords.status, 'PARSED'),
+        isNull(stagingRecords.deletedAt),
+      ),
+    )
+    .returning();
+  if (!row?.targetKey || !row.category) return;
+  const approved: RecordApprovedV1 = {
+    recordId: row.id,
+    uploadId: row.uploadId,
+    category: row.category,
+    targetKey: row.targetKey,
+    payload: row.reviewedPayload ?? row.aiPayload,
+    ...(row.documentFields ? { documentFields: row.documentFields } : {}),
+    approvedAt: now.toISOString(),
+  };
+  await enqueueEvent(client, 'review', {
+    type: RECORD_APPROVED_EVENT,
+    payload: approved,
+  });
 }

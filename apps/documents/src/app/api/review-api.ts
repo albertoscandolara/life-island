@@ -79,6 +79,14 @@ export class ReviewApi {
     );
   }
 
+  /** Sends a record confirmed on its own back to review. */
+  undoAutoConfirm(id: string): Observable<RecordDetailDto> {
+    return this.http.post<RecordDetailDto>(
+      `${REVIEW_API}/records/${id}/undo-auto-confirm`,
+      {},
+    );
+  }
+
   /** Brings a rejected record back to review. */
   reopen(id: string): Observable<RecordDetailDto> {
     return this.http.post<RecordDetailDto>(

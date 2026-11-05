@@ -184,6 +184,8 @@ export class InboxPage {
   protected readonly categories = signal<string[]>(
     (this.params.get('category') ?? '').split(',').filter(Boolean),
   );
+  /** Only the records confirmed on their own, with nothing to check. */
+  protected readonly autoConfirmed = signal(this.params.get('auto') === '1');
   protected readonly fileFormat = signal<FileFormat | null>(
     (this.params.get('fileFormat') as FileFormat) || null,
   );
@@ -250,6 +252,7 @@ export class InboxPage {
     q: this.search() || undefined,
     status: this.status() ?? undefined,
     historical: this.historical() ?? undefined,
+    autoConfirmed: this.autoConfirmed() || undefined,
     fileFormat: this.fileFormat() ?? undefined,
     uploadedFrom: this.uploadedFrom() || undefined,
     uploadedTo: this.uploadedTo() || undefined,
@@ -300,6 +303,7 @@ export class InboxPage {
         this.search() ||
         this.status() !== DEFAULT_STATUS ||
         this.historical() ||
+        this.autoConfirmed() ||
         this.categories().length ||
         this.fileFormat() ||
         this.uploadedFrom() ||
@@ -332,6 +336,7 @@ export class InboxPage {
       this.search();
       this.status();
       this.historical();
+      this.autoConfirmed();
       this.categories();
       this.fileFormat();
       this.uploadedFrom();
@@ -352,6 +357,7 @@ export class InboxPage {
           q: query.q,
           status: statusToParam(this.status()),
           historical: this.historical() ?? undefined,
+          auto: this.autoConfirmed() ? '1' : undefined,
           category: this.categories().join(',') || undefined,
           fileFormat: query.fileFormat,
           uploadedFrom: query.uploadedFrom,
@@ -383,6 +389,12 @@ export class InboxPage {
   protected showHistorical(): void {
     this.status.set(null);
     this.historical.set('PENDING_REVIEW');
+  }
+
+  /** What was confirmed on its own: to look over, and send back if needed. */
+  protected showAutoConfirmed(): void {
+    this.status.set('CONFIRMED');
+    this.autoConfirmed.set(true);
   }
 
   protected async startReclassify(): Promise<void> {
@@ -533,6 +545,7 @@ export class InboxPage {
     this.search.set('');
     this.status.set(DEFAULT_STATUS);
     this.historical.set(null);
+    this.autoConfirmed.set(false);
     this.categories.set([]);
     this.fileFormat.set(null);
     this.uploadedFrom.set('');

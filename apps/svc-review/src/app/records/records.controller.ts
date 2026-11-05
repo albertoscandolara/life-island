@@ -84,6 +84,16 @@ export class RecordsController {
     );
   }
 
+  /** Sends a record confirmed on its own back to review. */
+  @Post(':id/undo-auto-confirm')
+  @UseGuards(IngestionLockGuard)
+  @HttpCode(200)
+  undoAutoConfirm(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<RecordDetailDto> {
+    return this.records.undoAutoConfirm(id);
+  }
+
   /** Brings a rejected record back to review. */
   @Post(':id/reopen')
   @UseGuards(IngestionLockGuard)

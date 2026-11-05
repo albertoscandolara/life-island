@@ -1,4 +1,6 @@
 import {
+  CORE_FIELDS,
+  coreFieldKey,
   findTarget,
   GENERAL_TARGET_KEY,
   normalizeFieldValue,
@@ -6,6 +8,7 @@ import {
   type ExtractedFields,
   type FieldStatus,
   type TargetDefinition,
+  orderFieldKeys,
   type TemplateField,
 } from '@life-island/contracts';
 import type { CategoryDefinition } from './parsers/document-parser.js';
@@ -71,8 +74,20 @@ export function buildExtractionPlan(
         ];
     }
   }
+  // The common record: asked of every document, unless a template already
+  // asks for the same fact under one of its aliases.
+  for (const core of CORE_FIELDS)
+    if (!coreFieldKey(core, byKey.keys()))
+      byKey.set(core.key, {
+        key: core.key,
+        label: core.label,
+        type: core.type,
+        description: core.description,
+        required: false,
+        categories: [],
+      });
   return {
-    fields: [...byKey.values()],
+    fields: orderFieldKeys([...byKey.keys()]).map((key) => byKey.get(key)!),
     target: findTarget(targetKey) ?? findTarget(GENERAL_TARGET_KEY)!,
     warnings,
   };
@@ -214,4 +229,45 @@ export function splitText(text: string, maxChars: number): string[] {
   }
   if (rest) chunks.push(rest);
   return chunks;
+}
+
+/**
+ * The record details of a general document, made to agree with the template
+ * fields read from the same document. The amount the review shows and the
+ * amount Bills counts must be one number: the focused `total_amount` field
+ * (the total to pay, read as printed) wins over the details' "main amount",
+ * which a model can take from any line. Its date, issuer and currency fill
+ * gaps only. Other targets keep their details as they are.
+ */
+export function alignDetails(
+  targetKey: string | null,
+  details: unknown,
+  extracted: ExtractedFields,
+): unknown {
+  if (targetKey !== GENERAL_TARGET_KEY) return details;
+  if (typeof details !== 'object' || details === null) return details;
+  const found = (key: string) => {
+    const field = extracted.fields[key];
+    return field?.status === 'found' ? field.value : null;
+  };
+  const core = (key: string) => {
+    const field = CORE_FIELDS.find((candidate) => candidate.key === key)!;
+    for (const name of [field.key, ...field.aliases]) {
+      const value = found(name);
+      if (value !== null) return value;
+    }
+    return null;
+  };
+  const record = { ...(details as Record<string, unknown>) };
+  const total = core('total_amount');
+  if (typeof total === 'number') record['amount'] = total;
+  const fillIn = (target: string, key: string) => {
+    if (record[target] !== undefined && record[target] !== '') return;
+    const value = core(key);
+    if (typeof value === 'string' && value) record[target] = value;
+  };
+  fillIn('currency', 'currency');
+  fillIn('issuer', 'issuer');
+  fillIn('date', 'issue_date');
+  return record;
 }

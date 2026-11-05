@@ -213,6 +213,8 @@ export const listRecordsQuerySchema = z.object({
   /** Only records in this historical reclassification state (e.g. PENDING_REVIEW). */
   historical: historicalStatusSchema.optional(),
   category: z.string().trim().max(64).optional(),
+  /** Only the records confirmed on their own (true) or by you (false). */
+  autoConfirmed: booleanParam.optional(),
   /**
    * Confirmed document category ids, comma separated (`BILL` or
    * `BILL,MEDICAL`). A record matches when it has any of them or any of their
@@ -255,6 +257,10 @@ export interface RecordDto {
   historicalStatus: HistoricalStatus | null;
   /** Ids of confirmed categories a later check found for it, awaiting your decision. */
   historicalSuggestions: string[];
+  /** Why it waits for your review (REVIEW_REASONS); empty once nothing is left to check. */
+  reviewReasons: string[];
+  /** Set when it was confirmed on its own, with nothing to check. */
+  autoConfirmedAt: string | null;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { DatePipe, PercentPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, PercentPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,6 +19,7 @@ import type {
 } from '@life-island/contracts';
 import { toggleCategory } from '@life-island/contracts/category-tree';
 import {
+  AUTO_CONFIRM_UNDO_DAYS,
   CATEGORY_DIMENSION_LABELS,
   CATEGORY_DIMENSIONS,
   CONFIRMABLE_STATUSES,
@@ -26,6 +27,7 @@ import {
   MODULE_LABELS,
   PREVIEWABLE_FORMATS,
   REJECTABLE_STATUSES,
+  REVIEW_REASON_LABELS,
   SINGLE_VALUED_DIMENSIONS,
   type CategoryDimension,
 } from '@life-island/contracts/constants';
@@ -62,6 +64,12 @@ import {
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { ProcessingPanel } from './processing-panel';
 import { RECORD_STATUS_VIEW } from './record-status';
+import {
+  groupFields,
+  homeFromSupplyAddress,
+  summarize,
+  type CategoryLookup,
+} from './review-summary';
 
 /** What the inbox needs to know after an action in the panel. */
 export type ReviewOutcome =
@@ -101,6 +109,7 @@ function canonical(value: unknown, schema: JsonSchema | undefined): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    DecimalPipe,
     DetailsForm,
     DetailsView,
     PercentPipe,
@@ -175,6 +184,57 @@ export class ReviewPanel {
       this.fields().map((field) => [field.key, fieldText(field)]),
     ),
   );
+  /**
+   * The fields to check, the ones read and the empty ones. Grouped by what
+   * was stored, not by what you type, so a field does not jump away while
+   * you fill it in.
+   */
+  protected readonly fieldGroups = computed(() =>
+    groupFields(
+      this.fields(),
+      Object.fromEntries(
+        this.fields().map((field) => [field.key, fieldText(field)]),
+      ),
+    ),
+  );
+  private readonly lookup: CategoryLookup = (id) => {
+    const category = this.store.hierarchy().get(id);
+    return category
+      ? {
+          title: category.title,
+          parentId: category.parentId,
+          dimension: category.dimension,
+        }
+      : undefined;
+  };
+  /** The document at a glance, and where it goes once confirmed. */
+  protected readonly summary = computed(() =>
+    summarize(
+      this.categories(),
+      this.fieldValues(),
+      this.target()?.category ?? this.record.value()?.category ?? null,
+      this.lookup,
+    ),
+  );
+  /** A bill with no home yet whose supply address names one of yours. */
+  protected readonly suggestedHome = computed(() => {
+    const summary = this.summary();
+    if (summary.properties.length || !summary.destinations.includes('Bills'))
+      return null;
+    const homes = this.store
+      .hierarchy()
+      .roots.filter((root) => root.dimension === 'PROPERTY')
+      .flatMap((root) => [
+        root,
+        ...this.store.hierarchy().descendants(root.id),
+      ]);
+    return homeFromSupplyAddress(this.fieldValues(), homes);
+  });
+  protected putOnHome(id: string): void {
+    this.categories.update((ids) =>
+      toggleCategory(ids, id, true, this.store.hierarchy()),
+    );
+  }
   protected readonly parsing = computed(
     () => this.upload.value()?.status === 'PARSING',
   );
@@ -337,6 +397,21 @@ export class ReviewPanel {
     );
   });
 
+  /** You asked to send it to another module than the AI's choice. */
+  protected readonly changingTarget = signal(false);
+  /**
+   * The module's own data shows only when a module loads it (groceries, 730),
+   * when you move it to another module, or when loading failed. A document
+   * that only stays in the archive has nothing more than its fields.
+   */
+  protected readonly showModuleData = computed(
+    () =>
+      this.hasModule() ||
+      this.changingTarget() ||
+      this.targetChanged() ||
+      this.record.value()?.status === 'LOAD_FAILED',
+  );
+
   protected readonly canReject = computed(() => {
     const record = this.record.value();
     return !!record && REJECTABLE_STATUSES.includes(record.status);
@@ -366,6 +441,11 @@ export class ReviewPanel {
 
   protected setField(key: string, event: Event): void {
     const value = (event.target as HTMLInputElement).value;
+    this.fieldValues.update((values) => ({ ...values, [key]: value }));
+  }
+
+  /** One of the readings the AI hesitated between, picked with a tap. */
+  protected pickCandidate(key: string, value: string): void {
     this.fieldValues.update((values) => ({ ...values, [key]: value }));
   }
 
@@ -435,6 +515,33 @@ export class ReviewPanel {
       );
       this.changed.emit({ kind: 'status', record: rejected });
       this.finish(true);
+    });
+  }
+
+  /** Within AUTO_CONFIRM_UNDO_DAYS of being confirmed on its own. */
+  protected readonly canUndoAuto = computed(() => {
+    const at = this.record.value()?.autoConfirmedAt;
+    return (
+      !!at &&
+      this.record.value()?.status === 'CONFIRMED' &&
+      Date.now() - Date.parse(at) < AUTO_CONFIRM_UNDO_DAYS * 86_400_000
+    );
+  });
+  protected readonly reasonLabels = REVIEW_REASON_LABELS as Record<
+    string,
+    string
+  >;
+
+  protected readonly reasonOf = (reason: string): string =>
+    this.reasonLabels[reason] ?? humanize(reason);
+
+  protected async undoAuto(): Promise<void> {
+    const record = this.record.value();
+    if (!record) return;
+    await this.run('undo-auto', async () => {
+      const back = await firstValueFrom(this.review.undoAutoConfirm(record.id));
+      this.changed.emit({ kind: 'status', record: back });
+      this.record.reload();
     });
   }
 
@@ -535,6 +642,7 @@ export class ReviewPanel {
     this.rejectReason.set('');
     this.jsonMode.set(false);
     this.showOriginal.set(false);
+    this.changingTarget.set(false);
   }
 
   private async run(name: string, action: () => Promise<void>): Promise<void> {

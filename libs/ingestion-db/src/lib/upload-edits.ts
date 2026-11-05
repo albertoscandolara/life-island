@@ -1,10 +1,14 @@
 import {
+  CORE_FIELDS,
   normalizeFieldValue,
   type CategoryTemplate,
   type ExtractedField,
   type ExtractedFields,
   type TemplateField,
 } from '@life-island/contracts';
+
+/** Keys of the common record, which every document keeps, empty or not. */
+const CORE_KEYS = new Set(CORE_FIELDS.map((field) => field.key));
 
 /** A field's warnings start with its label: "Total amount: conflicting", "Total amount is required but missing". */
 function withoutWarningsFor(warnings: string[], label: string): string[] {
@@ -99,7 +103,8 @@ export function syncTemplateFields(
   const assigned = new Set(categories.map((category) => category.id));
   for (const [key, field] of Object.entries(extracted.fields)) {
     const remaining = field.categories.filter((id) => assigned.has(id));
-    if (remaining.length || field.value !== null)
+    // A field of the common record stays even when empty: every document has one.
+    if (remaining.length || field.value !== null || CORE_KEYS.has(key))
       fields[key] = { ...field, categories: remaining };
   }
   for (const category of categories) {

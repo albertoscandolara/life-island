@@ -98,6 +98,12 @@ export const documentParsedV1 = uploadCompletedV1.extend({
   confidence: z.number().min(0).max(1),
   flags: z.array(z.string()),
   parsedAt: z.iso.datetime({ offset: true }),
+  /**
+   * Why the document needs your review (REVIEW_REASONS). Empty: nothing to
+   * check, the review inbox may confirm it on its own. Absent (older
+   * events): always reviewed.
+   */
+  reviewReasons: z.array(z.string()).optional(),
 });
 export type DocumentParsedV1 = z.infer<typeof documentParsedV1>;
 

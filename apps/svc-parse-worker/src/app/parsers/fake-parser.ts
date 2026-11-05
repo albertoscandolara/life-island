@@ -30,6 +30,13 @@ const GROCERY_WORDS =
 const TAX_WORDS =
   /(farmacia|pharmacy|medic|doctor|dottor|ticket|visita|clinic|scuola|school)/i;
 
+/**
+ * Utility bills: they say "spesa per la materia energia", which is no grocery
+ * shopping, so they are checked first and go to the general target.
+ */
+const BILL_WORDS =
+  /(bolletta|fornitura|energia elettrica|\bkwh\b|\bsmc\b|\bpod\b|\bpdr\b|gas naturale)/i;
+
 const PAYSLIP_WORDS =
   /\b(busta paga|cedolino|payslip|pay slip|netto in busta|mese di retribuzione|LUL)\b/i;
 
@@ -224,11 +231,13 @@ export class FakeParser implements DocumentAnalyzer {
   ): Promise<StepOutput<Classification>> {
     this.spend();
     const haystack = haystackOf(input);
-    const targetKey = TAX_WORDS.test(haystack)
-      ? 'tax730.expense@1'
-      : GROCERY_WORDS.test(haystack)
-        ? 'grocery.receipt@1'
-        : GENERAL_TARGET_KEY;
+    const targetKey = BILL_WORDS.test(haystack)
+      ? GENERAL_TARGET_KEY
+      : TAX_WORDS.test(haystack)
+        ? 'tax730.expense@1'
+        : GROCERY_WORDS.test(haystack)
+          ? 'grocery.receipt@1'
+          : GENERAL_TARGET_KEY;
     const target = findTarget(targetKey)!;
     const categoryIds = categories
       .filter((category) => {
@@ -244,7 +253,9 @@ export class FakeParser implements DocumentAnalyzer {
         (id, _, all) =>
           id !== 'EXPENSE' ||
           !all.some((other) => NOT_AN_EXPENSE.includes(other)),
-      );
+      )
+      // "Spesa" on a bill is a cost, not grocery shopping.
+      .filter((id) => id !== 'GROCERIES' || !BILL_WORDS.test(haystack));
     const documentType = categories.find(
       (category) =>
         category.dimension === 'DOCUMENT_TYPE' &&
@@ -319,8 +330,13 @@ export class FakeParser implements DocumentAnalyzer {
   ): Promise<StepOutput<Extraction>> {
     this.spend();
     const text = haystackOf(input);
+    // The total to pay first: a bill prints many partial totals before it.
     const total =
-      /tota(?:le|l)\s*(?:eur|€)?\s*([\d.,]+\d)/i.exec(text)?.[1] ?? null;
+      /totale\s+(?:da\s+pagare|bolletta|fattura|documento)\s*:?\s*(?:eur|€)?\s*([\d.,]+\d)/i.exec(
+        text,
+      )?.[1] ??
+      /tota(?:le|l)\s*:?\s*(?:eur|€)?\s*([\d.,]+\d)/i.exec(text)?.[1] ??
+      null;
     const date = firstDate(text);
     const currency = /€|\beur\b/i.test(text) ? 'EUR' : null;
     const period = monthPeriod(text);

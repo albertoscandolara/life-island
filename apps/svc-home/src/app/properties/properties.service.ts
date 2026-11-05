@@ -10,6 +10,7 @@ import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import { properties, type PropertyRow } from '../db/schema.js';
 import { normalizeText } from '../bills/bill-reader.js';
+import { PropertyCategories } from './property-categories.js';
 
 type CreateProperty = z.output<typeof createPropertyRequestSchema>;
 type UpdateProperty = z.output<typeof updatePropertyRequestSchema>;
@@ -46,7 +47,10 @@ export function nextColorSlot(taken: number[]): number {
 
 @Injectable()
 export class PropertiesService {
-  constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
+  constructor(
+    @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+    @Inject(PropertyCategories) private readonly links: PropertyCategories,
+  ) {}
 
   async list(): Promise<PropertyDto[]> {
     const rows = await this.svc.db
@@ -73,7 +77,8 @@ export class PropertiesService {
         notes: request.notes ?? null,
       })
       .returning();
-    return toPropertyDto(row);
+    // A new home shows up in the review inbox as a property at once.
+    return toPropertyDto(await this.links.ensure(row));
   }
 
   async update(id: string, request: UpdateProperty): Promise<PropertyDto> {

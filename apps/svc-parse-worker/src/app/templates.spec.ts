@@ -1,5 +1,6 @@
 import type { CategoryDefinition } from './parsers/document-parser.js';
 import {
+  alignDetails,
   buildExtractedFields,
   buildExtractionPlan,
   mergeChunkResults,
@@ -89,21 +90,40 @@ const found = (key: string, value: string): RawFieldResult => ({
 describe('buildExtractionPlan', () => {
   it('asks for a field shared by several templates once, and reports type clashes', () => {
     const plan = buildExtractionPlan([bill, waterBill], 'general.document@1');
+    // The common record first (provider and billing_period stand in for
+    // issuer and period), then the type's own fields.
     expect(plan.fields.map((field) => field.key)).toEqual([
       'provider',
-      'total_amount',
+      'issue_date',
       'billing_period',
+      'total_amount',
+      'currency',
+      'due_date',
       'water_consumption',
     ]);
-    expect(plan.fields[1]).toMatchObject({
+    expect(plan.fields[3]).toMatchObject({
       categories: ['BILL', 'WATER_BILL'],
       required: true,
     });
+    expect(plan.fields[1]).toMatchObject({ categories: [], required: false });
     expect(plan.fields[2].type).toBe('period');
     expect(plan.warnings).toEqual([
       'Field "billing_period" is a period in BILL but a string in WATER_BILL; extracted as period',
     ]);
     expect(plan.target.targetKey).toBe('general.document@1');
+  });
+
+  it('asks every document for the common record', () => {
+    expect(
+      buildExtractionPlan([], 'general.document@1').fields.map((f) => f.key),
+    ).toEqual([
+      'issuer',
+      'issue_date',
+      'period',
+      'total_amount',
+      'currency',
+      'due_date',
+    ]);
   });
 
   it('falls back to the general target for an unknown key', () => {
@@ -241,5 +261,66 @@ describe('splitText', () => {
       'c'.repeat(40),
     ]);
     expect(splitText('short', 90)).toEqual(['short']);
+  });
+});
+
+describe('alignDetails', () => {
+  const field = (
+    value: string | number,
+    type: 'amount' | 'string' | 'date',
+  ) => ({
+    label: '',
+    type,
+    value,
+    status: 'found' as const,
+    required: false,
+    categories: ['BILL'],
+  });
+  const extracted = {
+    fields: {
+      total_amount: field(50.12, 'amount'),
+      provider: field('Lena Energia', 'string'),
+      issue_date: field('2026-10-02', 'date'),
+    },
+    warnings: [],
+  };
+
+  it('makes the amount of a general document the total read from its fields', () => {
+    expect(
+      alignDetails(
+        'general.document@1',
+        {
+          documentType: 'electricity bill',
+          amount: 7,
+          summary: '',
+          keyFacts: [],
+        },
+        extracted,
+      ),
+    ).toEqual({
+      documentType: 'electricity bill',
+      amount: 50.12,
+      issuer: 'Lena Energia',
+      date: '2026-10-02',
+      summary: '',
+      keyFacts: [],
+    });
+  });
+
+  it('keeps details of other targets and values the fields do not have', () => {
+    const receipt = { total: 7.47 };
+    expect(alignDetails('grocery.receipt@1', receipt, extracted)).toBe(receipt);
+    expect(
+      alignDetails(
+        'general.document@1',
+        { documentType: 'letter', issuer: 'Comune', summary: '', keyFacts: [] },
+        { fields: {}, warnings: [] },
+      ),
+    ).toEqual({
+      documentType: 'letter',
+      issuer: 'Comune',
+      summary: '',
+      keyFacts: [],
+    });
   });
 });
