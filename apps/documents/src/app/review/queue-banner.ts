@@ -278,7 +278,7 @@ export class QueueBanner {
       else if (this.requestedUntil) {
         this.requestedUntil = 0;
         this.notice.set(
-          'The run has not started yet. Press Refresh in a moment to check again.',
+          'The parse worker has not started the run. Is svc-parse-worker running? Look at its output in the terminal where you ran npm start, then press Refresh.',
         );
       }
     });

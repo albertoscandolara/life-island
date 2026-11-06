@@ -11,6 +11,23 @@ import type pg from 'pg';
 import { CONFIG, SERVICE_DB, type WorkerConfig } from './config.js';
 import { ParseService } from './parse.service.js';
 
+/**
+ * How often the worker also looks for a Parse now request in the database, in
+ * case its NOTIFY was lost (a listener connection that died without an error).
+ */
+export const REQUEST_POLL_MS = 15_000;
+
+/** Parse now was pressed after the last run started. */
+function requestedSinceLastRun(queue: {
+  runRequestedAt: Date | null;
+  runStartedAt: Date | null;
+}): boolean {
+  return (
+    !!queue.runRequestedAt &&
+    (!queue.runStartedAt || queue.runRequestedAt > queue.runStartedAt)
+  );
+}
+
 /** setTimeout cannot wait longer than ~24.8 days; longer waits re-check on wake. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
@@ -34,6 +51,9 @@ export class ParseScheduler
   private rerun = false;
   private listener?: pg.PoolClient;
   private listenRetry?: NodeJS.Timeout;
+  private requestPoll?: NodeJS.Timeout;
+  /** How often to look for a missed Parse now request (tests shorten it). */
+  pollMs = REQUEST_POLL_MS;
 
   constructor(
     @Inject(ParseService) private readonly parse: ParseService,
@@ -53,6 +73,7 @@ export class ParseScheduler
       `Parsing on "${this.config.schedule}"${this.config.timezone ? ` (${this.config.timezone})` : ''}, next run ${next?.toISOString()}`,
     );
     await this.listen();
+    this.pollRequests();
     if (this.config.runOnStart) void this.trigger('startup');
     else if (await this.parse.queue.wasInterrupted())
       void this.trigger('recovery after restart');
@@ -86,6 +107,31 @@ export class ParseScheduler
     }
   }
 
+  /**
+   * The fallback for a lost NOTIFY: a Parse now request newer than the last
+   * run start, seen while no run is going, starts one.
+   */
+  private pollRequests(): void {
+    if (this.stopping) return;
+    this.requestPoll = setTimeout(async () => {
+      try {
+        const queue = this.current ? null : await this.parse.queue.get();
+        if (
+          queue &&
+          requestedSinceLastRun(queue) &&
+          // A pause or a credentials block ends on its own terms, not here.
+          !this.parse.queue.isPaused(queue) &&
+          queue.status !== 'BLOCKED_CREDENTIALS'
+        )
+          void this.trigger('parse now (found by polling)');
+      } catch (error) {
+        this.logger.warn(`Could not check for Parse now: ${String(error)}`);
+      }
+      this.pollRequests();
+    }, this.pollMs);
+    this.requestPoll.unref();
+  }
+
   private retryListen(): void {
     if (this.stopping) return;
     clearTimeout(this.listenRetry);
@@ -94,11 +140,7 @@ export class ParseScheduler
   }
 
   private async runRequestedSinceLastRun(): Promise<boolean> {
-    const queue = await this.parse.queue.get();
-    return (
-      !!queue.runRequestedAt &&
-      (!queue.runStartedAt || queue.runRequestedAt > queue.runStartedAt)
-    );
+    return requestedSinceLastRun(await this.parse.queue.get());
   }
 
   async onApplicationShutdown(): Promise<void> {
@@ -106,6 +148,7 @@ export class ParseScheduler
     this.job?.stop();
     clearTimeout(this.wakeTimer);
     clearTimeout(this.listenRetry);
+    clearTimeout(this.requestPoll);
     if (this.listener) {
       await this.listener.query('UNLISTEN *').catch(() => undefined);
       this.listener.release();
