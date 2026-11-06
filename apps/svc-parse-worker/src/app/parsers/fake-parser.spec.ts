@@ -79,6 +79,28 @@ describe('FakeParser', () => {
     },
   );
 
+  it.each([
+    ['Carta d’identità.jpg', 'IDENTITY_CARD'],
+    ['Passaporto.jpg', 'PASSPORT'],
+    ['Tessera sanitaria.jpg', 'HEALTH_CARD'],
+    ['patente fronte.jpg', 'DRIVING_LICENCE'],
+  ])('recognises %s as an ID document (%s)', async (filename, type) => {
+    const ids = [
+      'ID_DOCUMENT',
+      'IDENTITY_CARD',
+      'PASSPORT',
+      'HEALTH_CARD',
+      'DRIVING_LICENCE',
+    ].map((id) => ({ ...categories[0], id, title: id }));
+    const { result } = await parser.classify(inputOf(filename), [
+      ...categories,
+      ...ids,
+    ]);
+    expect([...result.categoryIds].sort()).toEqual(
+      ['ID_DOCUMENT', type].sort(),
+    );
+  });
+
   it('keeps a bill that mentions "spesa" out of groceries and reads its total to pay', async () => {
     const text =
       'LENA ENERGIA Bolletta luce. Spesa per la materia energia: totale 7,20 €. Totale da pagare € 50,12';

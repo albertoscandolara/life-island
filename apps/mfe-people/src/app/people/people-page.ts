@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import {
   ID_DOCUMENT_STATUS_LABELS,
+  identifiesSomeone,
   PERSON_FIELD_LABELS,
   PERSON_FIELDS,
   type ChangeSuggestion,
@@ -89,6 +90,8 @@ export class PeoplePage {
   protected readonly busy = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   private readonly drafts = signal<Record<string, Draft>>({});
+  /** The values being edited on the selected person, or null when not editing. */
+  protected readonly editing = signal<Record<PersonField, string> | null>(null);
 
   protected readonly fields = PERSON_FIELDS;
   protected readonly fieldLabels = PERSON_FIELD_LABELS;
@@ -182,6 +185,11 @@ export class PeoplePage {
       : [];
   }
 
+  /** Whether it says whose it is: a document read as nothing never makes a person. */
+  protected readable(review: PendingReviewDto): boolean {
+    return identifiesSomeone(review.holder);
+  }
+
   protected isNewPerson(review: PendingReviewDto): boolean {
     return this.draft(review).personId === 'new';
   }
@@ -220,15 +228,57 @@ export class PeoplePage {
     this.run(uploadId, () => this.api.mark(uploadId, { status }));
   }
 
+  // ---- edit a person ------------------------------------------------------
+
+  protected select(personId: string): void {
+    this.selectedId.set(personId);
+    this.editing.set(null);
+  }
+
+  protected edit(person: PersonDto): void {
+    this.editing.set(
+      Object.fromEntries(
+        this.fields.map((field) => [field, person[field] ?? '']),
+      ) as Record<PersonField, string>,
+    );
+  }
+
+  protected setValue(field: PersonField, value: string): void {
+    this.editing.update((values) =>
+      values ? { ...values, [field]: value } : values,
+    );
+  }
+
+  /** Saves what you typed; an emptied field goes back to unknown. */
+  protected save(person: PersonDto): void {
+    const values = this.editing();
+    if (!values) return;
+    const changed = Object.fromEntries(
+      this.fields
+        .map((field) => [field, values[field].trim() || null] as const)
+        .filter(([field, value]) => value !== person[field]),
+    );
+    this.run(
+      person.id,
+      () => this.api.updatePerson(person.id, changed),
+      () => this.editing.set(null),
+    );
+  }
+
   protected previewUrl(uploadId: string): string {
     return this.api.previewUrl(uploadId);
   }
 
-  private run(key: string, call: () => Observable<void>): void {
+  private run(
+    key: string,
+    call: () => Observable<void>,
+    done?: () => void,
+  ): void {
     this.busy.set(key);
     call().subscribe({
       next: () => {
         this.busy.set(null);
+        done?.();
         this.drafts.update((all) => {
           const rest = { ...all };
           delete rest[key];

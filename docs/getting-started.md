@@ -33,6 +33,8 @@ npm run test:integration   # also runs the tests that need Postgres and NATS
 
 | Command                         | What it does                                                                                            |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `npm start`                     | Starts the infrastructure, applies `db:upgrade`, then serves every app and service (`npm run dev`)      |
+| `npm run dev`                   | Serves every app and service in watch mode (`nx run-many -t serve`); needs the infrastructure up        |
 | `npm run infra:up`              | Starts the Docker stack in the background and waits for health checks                                   |
 | `npm run infra:down`            | Stops the stack and keeps the data volumes                                                              |
 | `npm run infra:reset`           | Stops the stack and **deletes** the volumes. The database init scripts run again on the next `infra:up` |

@@ -122,6 +122,15 @@ const personValues = z.object({
 });
 export type PersonValues = z.infer<typeof personValues>;
 
+/**
+ * Whether the printed values say who the holder is: a name or a tax code.
+ * A document read as nothing (a photo the offline parser cannot read) does
+ * not, so it can be filed under someone you pick but never makes a person.
+ */
+export function identifiesSomeone(holder: PersonValues): boolean {
+  return !!(holder.lastName || holder.firstName || holder.taxCode);
+}
+
 export interface IdDocumentVersionDto {
   uploadId: string;
   title: string;

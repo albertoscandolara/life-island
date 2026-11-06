@@ -22,7 +22,7 @@
       variant="ghost"
       size="sm"
       type="button"
-      (click)="selectedId.set(alert.personId)"
+      (click)="select(alert.personId)"
     >
       Show
     </button>
@@ -64,7 +64,17 @@
       </a>
     </header>
 
-    @if (review.outdated) {
+    @if (!readable(review)) {
+    <ui-alert tone="warning">
+      Nothing was read from this document yet, so it does not say whose it is.
+      Photos are read only with the Claude parser (<span class="mono"
+        >PARSER=claude</span
+      >
+      in <span class="mono">.env</span>). Open it in the documents app and press
+      Parse again, or type the holder's name there. You can still file it under
+      someone you already have.
+    </ui-alert>
+    } @if (review.outdated) {
     <ui-alert tone="info">
       This document has expired or is older than one you already have, so it
       suggests keeping your current data.
@@ -93,7 +103,7 @@
       </select>
     </label>
 
-    @if (isNewPerson(review)) {
+    @if (isNewPerson(review)) { @if (readable(review)) {
     <p class="sub">A new person with what it prints</p>
     <dl class="facts">
       @for (row of printed(review); track row.field) {
@@ -103,10 +113,10 @@
       </div>
       }
     </dl>
-    } @else if (draft(review).personId !== review.personId) {
+    } } @else if (draft(review).personId !== review.personId) {
     <ui-alert tone="info">
-      Filed under this person, it keeps their data as it is. Edit the person
-      afterwards if something printed is right.
+      Filed under this person, it keeps their data as it is. Use Edit on the
+      person afterwards if something printed is right.
     </ui-alert>
     } @else if (changesFor(review).length) {
     <p class="sub">New or different from what you have</p>
@@ -168,7 +178,7 @@
         uiButton
         type="button"
         [loading]="busy() === review.uploadId"
-        [disabled]="busy() !== null"
+        [disabled]="busy() !== null || (isNewPerson(review) && !readable(review))"
         (click)="approve(review)"
       >
         <ui-icon name="check" [size]="18" />
@@ -195,7 +205,7 @@
     class="person-chip"
     [class.person-chip--on]="selected()?.id === person.id"
     [attr.aria-pressed]="selected()?.id === person.id"
-    (click)="selectedId.set(person.id)"
+    (click)="select(person.id)"
   >
     <span class="avatar">{{ initials(person) }}</span>
     {{ personName(person) }} @if (person.alerts.length) {
@@ -212,6 +222,51 @@
 } @if (selected(); as person) {
 <div class="person">
   <ui-card [heading]="personName(person)">
+    @if (!editing()) {
+    <button
+      uiCardActions
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="edit(person)"
+    >
+      Edit
+    </button>
+    } @if (editing(); as values) {
+    <form class="edit" (submit)="$event.preventDefault(); save(person)">
+      @for (field of fields; track field) {
+      <label class="edit__field">
+        <span>{{ fieldLabels[field] }}</span>
+        <input
+          class="ui-input compact"
+          [type]="field === 'birthDate' ? 'date' : 'text'"
+          [value]="values[field]"
+          (input)="setValue(field, $any($event.target).value)"
+        />
+      </label>
+      }
+      <footer class="review__actions">
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="editing.set(null)"
+        >
+          Cancel
+        </button>
+        <button
+          uiButton
+          type="submit"
+          [loading]="busy() === person.id"
+          [disabled]="busy() !== null"
+        >
+          <ui-icon name="check" [size]="18" /> Save
+        </button>
+      </footer>
+    </form>
+    } @else {
     <dl class="facts">
       @for (field of fields; track field) {
       <div>
@@ -223,9 +278,10 @@
       }
     </dl>
     <p class="muted small">
-      Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, only through
-      the reviews above.
+      Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, through the
+      reviews above or by you.
     </p>
+    }
   </ui-card>
 
   <div class="series">

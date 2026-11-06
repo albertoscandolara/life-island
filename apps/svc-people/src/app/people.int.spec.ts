@@ -262,6 +262,18 @@ describe.skipIf(!configured)(
       expect(all.reviews.some((r) => r.uploadId === stray)).toBe(true);
     });
 
+    it('never makes a person from a document read as nothing', async () => {
+      const blank = await upload(['PASSPORT'], {});
+      expect(
+        (await send('POST', `/reviews/${blank}/approve`, { personId: null }))
+          .status,
+      ).toBe(422);
+      // It can still be filed under someone you pick.
+      expect(
+        (await send('POST', `/reviews/${blank}/approve`, { personId })).status,
+      ).toBe(204);
+    });
+
     it('refuses a second person with the same tax code', async () => {
       const twin = await upload(['IDENTITY_CARD'], {
         last_name: lastName,

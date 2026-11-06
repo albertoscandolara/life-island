@@ -3,9 +3,11 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  identifiesSomeone,
   PERSON_FIELDS,
   type ApproveReviewRequest,
   type IdDocumentStatus,
@@ -188,6 +190,10 @@ export class PeopleService {
   async approve(uploadId: string, request: ApproveReviewRequest) {
     const doc = await this.idDocument(uploadId);
     const accept = new Set(request.accept ?? []);
+    if (request.personId === null && !identifiesSomeone(doc.reading.holder))
+      throw new UnprocessableEntityException(
+        'Nothing on this document says who it belongs to yet: fill in its name in the documents app, or parse it again, before adding a person',
+      );
     try {
       return await this.svc.db.transaction(async (tx) => {
         const [existing] = await tx

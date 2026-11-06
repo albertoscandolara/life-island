@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "start": "npm run infra:up && npm run db:upgrade && npm run dev",
+    "dev": "nx run-many -t serve",
     "infra:up": "docker compose --project-directory . -f infra/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --project-directory . -f infra/docker-compose.yml down",
     "infra:reset": "docker compose --project-directory . -f infra/docker-compose.yml down -v",
