@@ -71,6 +71,13 @@
       "when": 1794002400000,
       "tag": "0009_utility_bill_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794470400000,
+      "tag": "0010_id_document_categories",
+      "breakpoints": true
     }
   ]
 }

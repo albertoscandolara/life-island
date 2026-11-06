@@ -369,7 +369,9 @@ export function orderFieldKeys(keys: readonly string[]): string[] {
  * Why a parsed document waits for you instead of being confirmed on its
  * own. A document with none of these is confirmed automatically (you can
  * undo it for a while). Documents that a module loads (Groceries, 730) always
- * wait: what a module stored cannot be taken back from here.
+ * wait: what a module stored cannot be taken back from here. ID documents
+ * always wait too: new or different data about a person is never taken
+ * without you.
  */
 export const REVIEW_REASONS = [
   'LOW_CONFIDENCE', // the AI is not sure what the document is
@@ -378,6 +380,7 @@ export const REVIEW_REASONS = [
   'NO_DOCUMENT_TYPE', // none of its categories says what it is
   'MODULE', // a module loads it
   'NO_PROPERTY', // a utility bill without a home
+  'PERSON_DATA', // an ID document: its holder data is checked against the person
   'OFFLINE_PARSER', // read by the offline parser: sample data
 ] as const;
 export type ReviewReason = (typeof REVIEW_REASONS)[number];
@@ -389,6 +392,7 @@ export const REVIEW_REASON_LABELS: Record<ReviewReason, string> = {
   NO_DOCUMENT_TYPE: 'No document type',
   MODULE: 'It goes to a module',
   NO_PROPERTY: 'A bill without a home',
+  PERSON_DATA: 'An ID document: check the person data',
   OFFLINE_PARSER: 'Read by the offline parser',
 };
 
