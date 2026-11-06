@@ -8,6 +8,7 @@ import {
 import type { ServiceDb } from '@life-island/be-common';
 import { Cron } from 'croner';
 import type pg from 'pg';
+import { PARSE_QUEUE_ID } from '@life-island/ingestion-db';
 import { CONFIG, SERVICE_DB, type WorkerConfig } from './config.js';
 import { ParseService } from './parse.service.js';
 
@@ -73,6 +74,7 @@ export class ParseScheduler
       `Parsing on "${this.config.schedule}"${this.config.timezone ? ` (${this.config.timezone})` : ''}, next run ${next?.toISOString()}`,
     );
     await this.listen();
+    await this.beat();
     this.pollRequests();
     if (this.config.runOnStart) void this.trigger('startup');
     else if (await this.parse.queue.wasInterrupted())
@@ -114,6 +116,7 @@ export class ParseScheduler
   private pollRequests(): void {
     if (this.stopping) return;
     this.requestPoll = setTimeout(async () => {
+      await this.beat();
       try {
         const queue = this.current ? null : await this.parse.queue.get();
         if (
@@ -130,6 +133,23 @@ export class ParseScheduler
       this.pollRequests();
     }, this.pollMs);
     this.requestPoll.unref();
+  }
+
+  /**
+   * Says the worker is alive (parse_queue.worker_seen_at), so the inbox can
+   * tell you when it is not running instead of waiting for nothing.
+   */
+  private async beat(alive = true): Promise<void> {
+    try {
+      await this.svc.pool.query(
+        `insert into ingestion.parse_queue (id, worker_seen_at)
+         values ($1, case when $2 then now() end)
+         on conflict (id) do update set worker_seen_at = excluded.worker_seen_at`,
+        [PARSE_QUEUE_ID, alive],
+      );
+    } catch (error) {
+      this.logger.warn(`Could not record the heartbeat: ${String(error)}`);
+    }
   }
 
   private retryListen(): void {
@@ -149,6 +169,7 @@ export class ParseScheduler
     clearTimeout(this.wakeTimer);
     clearTimeout(this.listenRetry);
     clearTimeout(this.requestPoll);
+    await this.beat(false);
     if (this.listener) {
       await this.listener.query('UNLISTEN *').catch(() => undefined);
       this.listener.release();

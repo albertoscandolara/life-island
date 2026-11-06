@@ -305,6 +305,8 @@ export const parseQueue = ingestion.table('parse_queue', {
   /** When you last pressed Parse now; the worker hears it through NOTIFY parse_requested. */
   runRequestedAt: timestamp('run_requested_at', { withTimezone: true }),
   lastRunSummary: jsonb('last_run_summary').$type<Record<string, number>>(),
+  /** The parse worker's heartbeat: it writes it every few seconds while it runs. */
+  workerSeenAt: timestamp('worker_seen_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

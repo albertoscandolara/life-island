@@ -5,6 +5,7 @@ import {
   parseNowError,
   parseNowState,
   queueMessage,
+  workerOffline,
 } from './queue-banner';
 
 const base: ParseQueueDto = {
@@ -19,6 +20,7 @@ const base: ParseQueueDto = {
   nextScheduledRunAt: '2026-10-30T05:00:00.000Z',
   runRequestedAt: null,
   lastRunSummary: null,
+  workerSeenAt: new Date().toISOString(),
   pendingDocuments: 3,
 };
 const format = (iso: string) => iso.slice(0, 16);
@@ -153,5 +155,27 @@ describe('parseNowError', () => {
       error: { message: 'Database is down' },
     });
     expect(parseNowError(error)).toBe('Database is down');
+  });
+});
+
+describe('the parse worker heartbeat', () => {
+  it('counts a worker silent for over a minute, or never seen, as not running', () => {
+    const now = Date.parse('2026-11-06T12:00:00.000Z');
+    expect(workerOffline({ workerSeenAt: null }, now)).toBe(true);
+    expect(
+      workerOffline({ workerSeenAt: '2026-11-06T11:58:30.000Z' }, now),
+    ).toBe(true);
+    expect(
+      workerOffline({ workerSeenAt: '2026-11-06T11:59:45.000Z' }, now),
+    ).toBe(false);
+  });
+
+  it('says so instead of "waiting for the next run", and turns Parse now off', () => {
+    const offline = { ...base, workerSeenAt: null };
+    expect(queueMessage(offline, format)).toMatchObject({
+      tone: 'danger',
+      heading: 'Status: The parse worker is not running',
+    });
+    expect(parseNowState(offline, format)).toMatchObject({ enabled: false });
   });
 });
