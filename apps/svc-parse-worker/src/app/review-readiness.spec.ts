@@ -20,6 +20,10 @@ const categories = [
   category('LETTER', 'DOCUMENT_TYPE'),
   category('VIA_DEI_BANDI', 'PROPERTY'),
   category('AGSM', 'ISSUER'),
+  category('ID_DOCUMENT', 'DOCUMENT_TYPE'),
+  category('PASSPORT', 'DOCUMENT_TYPE', 'ID_DOCUMENT'),
+  // The subtypes stay top-level when you already had an "ID document".
+  category('DRIVING_LICENCE', 'DOCUMENT_TYPE'),
 ];
 const found = (value: number | string): ExtractedField => ({
   label: '',
@@ -100,5 +104,26 @@ describe('reviewReasons', () => {
         categories,
       ),
     ).toEqual(['DOUBTFUL_FIELDS']);
+  });
+
+  it('always holds an ID document back for its person data', () => {
+    const passport: ParsedDocument = {
+      ...bill,
+      categories: ['PASSPORT'],
+      extractedFields: {
+        fields: { last_name: found('ROSSI'), document_number: found('YA1') },
+        warnings: [],
+      },
+    };
+    expect(reviewReasons(passport, categories)).toEqual(['PERSON_DATA']);
+    expect(
+      reviewReasons({ ...passport, categories: ['ID_DOCUMENT'] }, categories),
+    ).toEqual(['PERSON_DATA']);
+    expect(
+      reviewReasons(
+        { ...passport, categories: ['DRIVING_LICENCE'] },
+        categories,
+      ),
+    ).toEqual(['PERSON_DATA']);
   });
 });

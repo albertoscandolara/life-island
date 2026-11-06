@@ -9,6 +9,14 @@ import type { CategoryDefinition } from './parsers/document-parser.js';
 export const AUTO_CONFIRM_MIN_CONFIDENCE = 0.85;
 
 const UTILITY_BILLS = ['ELECTRICITY_BILL', 'GAS_BILL', 'WATER_BILL'];
+/** ID documents: their root and the types below it (or top-level, if you moved them). */
+const ID_DOCUMENT_TYPES = [
+  'ID_DOCUMENT',
+  'IDENTITY_CARD',
+  'PASSPORT',
+  'HEALTH_CARD',
+  'DRIVING_LICENCE',
+];
 const DOUBTFUL = ['ambiguous', 'conflicting', 'invalid', 'illegible'];
 
 export interface ParsedDocument {
@@ -24,7 +32,8 @@ export interface ParsedDocument {
 /**
  * Why a parsed document needs a person to look at it. None means there is
  * nothing to check: the AI knows what it is, read every field without doubt,
- * proposes no new category, and only the archive (and Bills) read it.
+ * proposes no new category, only the archive (and Bills) read it, and it is
+ * not an ID document.
  */
 export function reviewReasons(
   document: ParsedDocument,
@@ -68,5 +77,13 @@ export function reviewReasons(
     !document.categories.some((id) => dimensionOf(id) === 'PROPERTY')
   )
     reasons.push('NO_PROPERTY');
+  // Who a document identifies is never confirmed on its own: a new person, or
+  // a name, birth date or address that differs, is for you to accept.
+  if (
+    document.categories.some((id) =>
+      lineage(id).some((ancestor) => ID_DOCUMENT_TYPES.includes(ancestor)),
+    )
+  )
+    reasons.push('PERSON_DATA');
   return reasons;
 }
