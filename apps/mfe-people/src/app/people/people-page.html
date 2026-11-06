@@ -1,0 +1,330 @@
+<ui-page-header
+  emblem="🪪"
+  heading="People & IDs"
+  subtitle="Everyone your ID documents belong to: identity cards, passports, health cards and driving licences, every version kept, and a warning before one expires."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+} @if (alerts().length) {
+<section class="alerts" aria-label="Expiry warnings">
+  @for (alert of alerts(); track alert.uploadId) {
+  <ui-alert [tone]="alert.level === 'expired' ? 'danger' : 'warning'">
+    <strong>{{ alertText(alert) }}</strong>
+    <span class="muted">
+      {{ alert.level === 'expired' ? 'Expired on' : 'Valid until' }} {{
+      alert.expiryDate | date: 'd MMM y' }}. {{ alert.level === 'expired' ?
+      'Renew it, then add the new one to your documents.' : 'Time to book the
+      renewal.' }}
+    </span>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="selectedId.set(alert.personId)"
+    >
+      Show
+    </button>
+  </ui-alert>
+  }
+</section>
+} @if (reviews().length) {
+<ui-card heading="To review" class="block">
+  <ui-badge uiCardActions tone="warning"
+    >{{ reviews().length }} waiting</ui-badge
+  >
+  <p class="muted intro">
+    New ID documents never change anyone's data on their own. Pick whose
+    document it is and which printed values to take.
+  </p>
+  @for (review of reviews(); track review.uploadId) {
+  <article class="review" [class.review--busy]="busy() === review.uploadId">
+    <header class="review__head">
+      <div>
+        <h3 class="review__title">
+          {{ typeLabel(review.type) }} @if (review.documentNumber) {
+          <span class="mono">· {{ review.documentNumber }}</span>
+          }
+        </h3>
+        <p class="muted">
+          {{ review.title }} @if (review.expiryDate) { · valid until {{
+          review.expiryDate | date: 'd MMM y' }} }
+        </p>
+      </div>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="previewUrl(review.uploadId)"
+        target="_blank"
+        rel="noopener"
+      >
+        <ui-icon name="eye" [size]="16" /> Open
+      </a>
+    </header>
+
+    @if (review.outdated) {
+    <ui-alert tone="info">
+      This document has expired or is older than one you already have, so it
+      suggests keeping your current data.
+    </ui-alert>
+    }
+
+    <label class="review__whose">
+      <span>Whose is it?</span>
+      <select
+        class="ui-input compact"
+        (change)="choosePerson(review, $any($event.target).value)"
+      >
+        <option value="new" [selected]="isNewPerson(review)">
+          A new person
+        </option>
+        @for (person of people(); track person.id) {
+        <option
+          [value]="person.id"
+          [selected]="draft(review).personId === person.id"
+        >
+          {{ personName(person) }} @if (person.id === review.personId) {
+          (matched by {{ review.match === 'tax_code' ? 'tax code' : 'name and
+          birth date' }}) }
+        </option>
+        }
+      </select>
+    </label>
+
+    @if (isNewPerson(review)) {
+    <p class="sub">A new person with what it prints</p>
+    <dl class="facts">
+      @for (row of printed(review); track row.field) {
+      <div>
+        <dt>{{ fieldLabels[row.field] }}</dt>
+        <dd>{{ row.value }}</dd>
+      </div>
+      }
+    </dl>
+    } @else if (draft(review).personId !== review.personId) {
+    <ui-alert tone="info">
+      Filed under this person, it keeps their data as it is. Edit the person
+      afterwards if something printed is right.
+    </ui-alert>
+    } @else if (changesFor(review).length) {
+    <p class="sub">New or different from what you have</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Take</th>
+            <th scope="col">Field</th>
+            <th scope="col">You have</th>
+            <th scope="col">Printed</th>
+            <th scope="col">Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of changesFor(review); track change.field) {
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                [attr.aria-label]="'Take ' + fieldLabels[change.field]"
+                [checked]="draft(review).accept.has(change.field)"
+                (change)="toggle(review, change.field)"
+              />
+            </td>
+            <th scope="row">{{ fieldLabels[change.field] }}</th>
+            <td class="muted">{{ change.current ?? '—' }}</td>
+            <td>
+              <strong>{{ change.proposed }}</strong>
+            </td>
+            <td>
+              <ui-badge [tone]="suggestionTones[change.suggestion]"
+                >{{ suggestionLabels[change.suggestion] }}</ui-badge
+              >
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <p class="muted">
+      <ui-icon name="check" [size]="16" /> Same data as this person: it only
+      adds the document.
+    </p>
+    }
+
+    <footer class="review__actions">
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reject(review)"
+      >
+        Not an ID document of anyone
+      </button>
+      <button
+        uiButton
+        type="button"
+        [loading]="busy() === review.uploadId"
+        [disabled]="busy() !== null"
+        (click)="approve(review)"
+      >
+        <ui-icon name="check" [size]="18" />
+        {{ isNewPerson(review) ? 'Add the person' : 'Approve' }}
+      </button>
+    </footer>
+  </article>
+  }
+</ui-card>
+} @if (overview() && !people().length && !reviews().length) {
+<ui-card class="block">
+  <ui-empty-state heading="No ID documents yet" icon="folder">
+    <p>
+      Load an identity card, passport, health card or driving licence in the
+      documents app. Once it is read, it shows up here for review.
+    </p>
+  </ui-empty-state>
+</ui-card>
+} @if (people().length) {
+<nav class="people-nav" aria-label="People">
+  @for (person of people(); track person.id) {
+  <button
+    type="button"
+    class="person-chip"
+    [class.person-chip--on]="selected()?.id === person.id"
+    [attr.aria-pressed]="selected()?.id === person.id"
+    (click)="selectedId.set(person.id)"
+  >
+    <span class="avatar">{{ initials(person) }}</span>
+    {{ personName(person) }} @if (person.alerts.length) {
+    <span
+      class="chip-alert"
+      [class.chip-alert--danger]="person.alerts[0].level === 'expired'"
+      [attr.aria-label]="person.alerts.length + ' warnings'"
+      >{{ person.alerts.length }}</span
+    >
+    }
+  </button>
+  }
+</nav>
+} @if (selected(); as person) {
+<div class="person">
+  <ui-card [heading]="personName(person)">
+    <dl class="facts">
+      @for (field of fields; track field) {
+      <div>
+        <dt>{{ fieldLabels[field] }}</dt>
+        <dd [class.muted]="!person[field]">
+          {{ person[field] ?? 'Not on any document yet' }}
+        </dd>
+      </div>
+      }
+    </dl>
+    <p class="muted small">
+      Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, only through
+      the reviews above.
+    </p>
+  </ui-card>
+
+  <div class="series">
+    @for (series of person.series; track series.type) {
+    <ui-card [heading]="typeLabel(series.type)">
+      <ui-badge uiCardActions tone="neutral"
+        >{{ series.versions.length }} {{ series.versions.length === 1 ?
+        'version' : 'versions' }}</ui-badge
+      >
+      <ol class="versions">
+        @for (version of series.versions; track version.uploadId) {
+        <li
+          class="version"
+          [class.version--old]="version.status === 'superseded'"
+        >
+          <span class="version__number">v{{ version.version }}</span>
+          <div class="version__body">
+            <div class="version__line">
+              <ui-badge [tone]="statusTones[version.status]"
+                >{{ statusLabels[version.status] }}</ui-badge
+              >
+              @if (alertsOf(person, version.uploadId); as alert) {
+              <ui-badge
+                [tone]="alert.level === 'expired' ? 'danger' : 'warning'"
+              >
+                {{ alert.level === 'expired' ? 'Renew it' : alert.daysLeft + '
+                days left' }}
+              </ui-badge>
+              } @if (version.documentNumber) {
+              <span class="mono">{{ version.documentNumber }}</span>
+              }
+            </div>
+            <p class="muted small">
+              @if (version.issueDate) { Issued {{ version.issueDate | date: 'd
+              MMM y' }} } @if (version.expiryDate) { · valid until {{
+              version.expiryDate | date: 'd MMM y' }} } @if (version.issuer) { ·
+              {{ version.issuer }} }
+            </p>
+          </div>
+          <div class="version__actions">
+            <a
+              uiButton
+              variant="ghost"
+              size="sm"
+              [iconOnly]="true"
+              [href]="previewUrl(version.uploadId)"
+              target="_blank"
+              rel="noopener"
+              [attr.aria-label]="'Open version ' + version.version"
+            >
+              <ui-icon name="eye" [size]="16" />
+            </a>
+            <select
+              class="ui-input compact"
+              [attr.aria-label]="'Mark version ' + version.version"
+              [value]="
+                      ['lost', 'stolen', 'withdrawn'].includes(version.status)
+                        ? version.status
+                        : ''
+                    "
+              [disabled]="busy() !== null"
+              (change)="mark(version.uploadId, $any($event.target).value)"
+            >
+              <option value="">By its dates</option>
+              <option value="lost">Lost</option>
+              <option value="stolen">Stolen</option>
+              <option value="withdrawn">Withdrawn</option>
+            </select>
+          </div>
+        </li>
+        }
+      </ol>
+    </ui-card>
+    } @empty {
+    <ui-card>
+      <p class="muted">No approved documents for this person yet.</p>
+    </ui-card>
+    }
+  </div>
+</div>
+} @if (rejected().length) {
+<details class="rejected">
+  <summary>Rejected: {{ rejected().length }} not about anyone</summary>
+  <ul>
+    @for (doc of rejected(); track doc.uploadId) {
+    <li>
+      {{ typeLabel(doc.type) }} · {{ doc.title }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reopen(doc.uploadId)"
+      >
+        Review again
+      </button>
+    </li>
+    }
+  </ul>
+</details>
+}

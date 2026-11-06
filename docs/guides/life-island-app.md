@@ -6,6 +6,7 @@ The Life Island app is where you use your data. It is a Native Federation **host
 | --------------------- | ------------ | --------------- | ------------------------------ |
 | 730 & taxes           | `mfe-tax730` | `svc-tax730`    | Live                           |
 | Home, Bills           | `mfe-home`   | `svc-home`      | Live                           |
+| People & IDs          | `mfe-people` | `svc-people`    | Live                           |
 | Groceries             | planned      | `svc-groceries` | Service live, screen coming    |
 | Health, Work, Studies | planned      | planned         | On the island as "coming soon" |
 
@@ -20,10 +21,12 @@ npx nx serve svc-tax730       # the 730 service (port 3004)
 npx nx serve mfe-tax730       # the 730 remote (port 4203), also usable on its own
 npx nx serve svc-home         # properties, bills and works (port 3005)
 npx nx serve mfe-home         # the Home and Bills remote (port 4204), also usable on its own
+npx nx serve svc-people       # people, ID documents and their reviews (port 3006)
+npx nx serve mfe-people       # the People & IDs remote (port 4205), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203 and http://localhost:4204.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005 and `/api/people` to port 3006 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204 and http://localhost:4205.
 
 ## Native Federation
 
@@ -114,3 +117,30 @@ The Home view shows your homes as small 3D houses (three.js, loaded with `@defer
 | `GET /documents?search=`, `GET /documents/:uploadId/preview`         | Documents to file, and their original file (from svc-ingestion)        |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent). svc-ingestion's migration `0009` adds the `ELECTRICITY_BILL` and `GAS_BILL` categories, with POD/PDR, supply address and consumption fields, unless you already have categories with those ids or titles.
+
+## People & IDs
+
+Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity documents of everyone at home: identity cards, passports, health cards (tessera sanitaria / codice fiscale) and driving licences.
+
+**ID documents are read, not stored.** An ID document is a document whose categories are, or sit under, `ID_DOCUMENT`, `IDENTITY_CARD`, `PASSPORT`, `HEALTH_CARD` or `DRIVING_LICENCE` (svc-ingestion's migration `0010`). Every one of those templates uses the same keys for the holder (`last_name`, `first_name`, `tax_code`, `birth_date`, `birth_place`, `sex`, `citizenship`, `residence_address`) and the document (`document_number`, `issuer`, `issue_date`, `expiry_date`), so their data lines up into one person. Fixing a field in the documents app fixes it here.
+
+**Nothing changes a person on its own.** A new ID document waits under **To review**:
+
+- It is matched to a person by tax code, else by last name, first name and birth date (a passport or a licence prints no tax code). A different tax code is always another person. No match: **A new person** with everything it prints.
+- Against a matched person it lists only what is new or different, with a suggestion: take a new value; **check** a different name, tax code, birth date, birth place or sex (those never change: it is a misread or someone else); take a different residence or citizenship, unless the document is expired or older than one you already have, then keep yours.
+- You pick the person and tick the values to take. **Approve** writes them and files the document; **Not an ID document of anyone** sets it aside (you can review it again). Every decision is kept in `people.reviews` with what each field was before, so a person's data has its history.
+
+**Versions.** The approved documents of a person form one series per type, numbered from the oldest (by issue date, else expiry date): the newest is **Current** (or **Expired** once past its date), the older ones **Replaced by a newer one**, and none is ever deleted. You can mark a version **Lost**, **Stolen** or **Withdrawn**.
+
+**Expiry warnings** cover the latest version of each series only: **expired**, or **expiring** within 180 days for a passport (many countries want six months left), 90 for an identity card and a driving licence, 60 for a health card (`EXPIRY_WARNING_DAYS` in `libs/contracts`). They sit at the top of the page, on the person and on the version. A document you marked lost, stolen or withdrawn, or one with no expiry date, never warns.
+
+| Endpoint (`/api/people/...`)                                       | Purpose                                                                                            |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                    | People with their series and warnings, documents to review, rejected ones                          |
+| `POST /reviews/:uploadId/approve`                                  | `{personId, accept: [fields]}`; `personId: null` adds a new person (409 on a tax code someone has) |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not anyone's ID document, and back to review                                                       |
+| `PATCH /documents/:uploadId`                                       | `{status: 'lost' \| 'stolen' \| 'withdrawn' \| null}`                                              |
+| `PATCH /people/:id`                                                | Correct a person by hand                                                                           |
+| `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                             |
+
+A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/002-people-schema.sql`).

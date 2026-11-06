@@ -2,7 +2,7 @@
 export interface IslandModule {
   id: string;
   /** The character theme (`[data-character]`); null for an area not built yet. */
-  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | null;
+  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | null;
   emblem: string;
   name: string;
   mission: string;
@@ -18,7 +18,8 @@ export interface IslandModule {
     | 'office'
     | 'lighthouse'
     | 'library'
-    | 'house';
+    | 'house'
+    | 'gate';
 }
 
 /**
@@ -45,7 +46,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Receipts, items and shops: spending by category and price history.',
     path: null,
-    angle: 39,
+    angle: 45,
     landmark: 'market',
   },
   {
@@ -55,7 +56,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     name: 'Health',
     mission: 'Visits, prescriptions, test results and medical expenses.',
     path: null,
-    angle: 347,
+    angle: 0,
     landmark: 'clinic',
   },
   {
@@ -66,7 +67,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Payslips, contracts and the Certificazione Unica, year after year.',
     path: null,
-    angle: 296,
+    angle: 315,
     landmark: 'office',
   },
   {
@@ -77,7 +78,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every home you have, side by side: renovations, repairs and maintenance, with what they cost and their invoices.',
     path: '/home',
-    angle: 244,
+    angle: 270,
     landmark: 'house',
   },
   {
@@ -88,7 +89,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Electricity, gas and water of each home: what you pay and use, month by month and year over year.',
     path: '/home/bills',
-    angle: 193,
+    angle: 225,
     landmark: 'lighthouse',
   },
   {
@@ -98,7 +99,18 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     name: 'Studies',
     mission: 'Courses, certificates, exams and what they cost.',
     path: null,
-    angle: 141,
+    angle: 180,
     landmark: 'library',
+  },
+  {
+    id: 'people',
+    character: 'para',
+    emblem: '🪪',
+    name: 'People & IDs',
+    mission:
+      'Identity cards, passports, health cards and licences of everyone at home: every version kept, a review before personal data changes, and a warning before one expires.',
+    path: '/people',
+    angle: 135,
+    landmark: 'gate',
   },
 ];

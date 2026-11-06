@@ -428,6 +428,20 @@ export class IslandScene {
           ).rotation.z = (i - 1) * 0.12;
         break;
       }
+      case 'gate': {
+        // A checkpoint arch with an ID card standing in it.
+        for (const x of [-0.38, 0.38])
+          add(this.mesh(new BoxGeometry(0.16, 0.9, 0.2), 'foam'), x, 0.6, 0);
+        add(this.mesh(new BoxGeometry(0.94, 0.16, 0.24), tint), 0, 1.1, 0);
+        const card = add(
+          this.mesh(new BoxGeometry(0.42, 0.28, 0.04), tint),
+          0,
+          0.55,
+          0,
+        );
+        card.rotation.y = 0.35;
+        break;
+      }
     }
 
     const rad = (module.angle * Math.PI) / 180;

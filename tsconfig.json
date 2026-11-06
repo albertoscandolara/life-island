@@ -32,6 +32,9 @@
     },
     {
       "path": "./apps/svc-home"
+    },
+    {
+      "path": "./apps/svc-people"
     }
   ],
   "compilerOptions": {}
