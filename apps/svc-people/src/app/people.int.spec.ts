@@ -286,6 +286,38 @@ describe.skipIf(!configured)(
       ).toBe(409);
     });
 
+    it('links a residence to a house, and a typed address unlinks it', async () => {
+      const house = randomUUID();
+      expect(
+        (
+          await send('PATCH', `/people/${personId}`, {
+            residencePropertyId: house,
+            residenceAddress: 'Via Ponzilovo 1, Verona',
+          })
+        ).status,
+      ).toBe(204);
+      expect(await person(personId)).toMatchObject({
+        residencePropertyId: house,
+        residenceAddress: 'Via Ponzilovo 1, Verona',
+      });
+      await send('PATCH', `/people/${personId}`, {
+        residenceAddress: 'Via Roma 2, Milano',
+      });
+      expect(await person(personId)).toMatchObject({
+        residencePropertyId: null,
+        residenceAddress: 'Via Roma 2, Milano',
+      });
+      await send('PATCH', `/people/${personId}`, { residenceAddress: null });
+    });
+
+    it('says when the Home area cannot list its houses', async () => {
+      const houses = await json<{ available: boolean; houses: unknown[] }>(
+        await send('GET', '/houses'),
+      );
+      // Either svc-home answered, or Residence falls back to typing.
+      expect(houses.available || houses.houses.length === 0).toBe(true);
+    });
+
     it('merges a duplicate into a person, moving its documents and filling only unknown details', async () => {
       const passport = await upload(['PASSPORT'], {
         last_name: lastName,

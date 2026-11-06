@@ -17,12 +17,23 @@ import {
   mergePeopleRequestSchema,
   updatePersonRequestSchema,
   type PeopleOverviewDto,
+  type ResidenceHousesDto,
 } from '@life-island/contracts';
+import { HomeHouses } from './home-houses.js';
 import { PeopleService } from './people.service.js';
 
 @Controller()
 export class PeopleController {
-  constructor(@Inject(PeopleService) private readonly people: PeopleService) {}
+  constructor(
+    @Inject(PeopleService) private readonly people: PeopleService,
+    @Inject(HomeHouses) private readonly houses: HomeHouses,
+  ) {}
+
+  /** The Home area's houses, to pick one as a person's residence. */
+  @Get('houses')
+  residenceHouses(): Promise<ResidenceHousesDto> {
+    return this.houses.list();
+  }
 
   /** Everyone, their ID documents version by version, what waits for review, and expiry warnings. */
   @Get('overview')

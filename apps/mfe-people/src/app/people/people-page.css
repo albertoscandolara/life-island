@@ -213,6 +213,31 @@
   grid-column: 1 / -1;
 }
 
+.edit__residence {
+  grid-column: 1 / -1;
+}
+
+.edit__residence input,
+.edit__residence select {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.edit__hint {
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.house-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .person__actions {
   display: flex;
   flex-wrap: wrap;

@@ -185,6 +185,8 @@ services:
       <<: *service-env
       # Previews of ID documents are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
+      # Residence can point to a house, read from svc-home's API.
+      HOME_URL: http://svc-home:3000
     depends_on: *service-deps
 
 volumes:

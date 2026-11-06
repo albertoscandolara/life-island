@@ -167,6 +167,11 @@ export interface ExpiryAlertDto {
 
 export interface PersonDto extends PersonValues {
   id: string;
+  /**
+   * The house of the Home area this person lives in, when you picked one for
+   * Residence; `residenceAddress` then holds that house's address.
+   */
+  residencePropertyId: string | null;
   createdAt: string;
   updatedAt: string;
   series: IdDocumentSeriesDto[];
@@ -235,7 +240,15 @@ export const markDocumentRequestSchema = z.object({
 });
 export type MarkDocumentRequest = z.input<typeof markDocumentRequestSchema>;
 
-export const updatePersonRequestSchema = personValues.partial();
+/**
+ * A change to a person. Residence is a house picked from the Home area
+ * (`residencePropertyId`, with its address in `residenceAddress`) or a typed
+ * address: sending `residenceAddress` without `residencePropertyId` unlinks
+ * the house.
+ */
+export const updatePersonRequestSchema = personValues.partial().extend({
+  residencePropertyId: z.uuid().nullable().optional(),
+});
 export type UpdatePersonRequest = z.input<typeof updatePersonRequestSchema>;
 
 /**
@@ -246,4 +259,18 @@ export const mergePeopleRequestSchema = z.object({
   /** The duplicate, removed once its documents have moved. */
   from: z.uuid(),
 });
+/** A house of the Home area, as People offers it for Residence. */
+export interface ResidenceHouseDto {
+  id: string;
+  name: string;
+  /** Address and city as one line, or null when the house has neither. */
+  address: string | null;
+}
+
+export interface ResidenceHousesDto {
+  houses: ResidenceHouseDto[];
+  /** False when the Home service could not be reached: Residence is typed for now. */
+  available: boolean;
+}
+
 export type MergePeopleRequest = z.input<typeof mergePeopleRequestSchema>;

@@ -132,6 +132,8 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 
 **Versions.** The approved documents of a person form one series per type, numbered from the oldest (by issue date, else expiry date): the newest is **Current** (or **Expired** once past its date), the older ones **Replaced by a newer one**, and none is ever deleted. You can mark a version **Lost**, **Stolen** or **Withdrawn**.
 
+**Editing, removing and merging people.** **Edit** corrects a person by hand. Their **Residence** can be one of your houses from Home or an address you type: a picked house shows as a link to its page in Home (`/home?property=<id>`), with its address kept as text. A typed address, or a different residence you take from a document, unlinks the house. svc-people reads the houses from svc-home's API (`HOME_URL`); when Home is not running, Residence is simply typed. **Remove** deletes a person and sends their ID documents back to review. **Merge a duplicate** moves a duplicate's documents to the person you are on, who keeps their details and takes only the missing ones; two different tax codes are never merged.
+
 **Expiry warnings** cover the latest version of each series only: **expired**, or **expiring** within 180 days for a passport (many countries want six months left), 90 for an identity card and a driving licence, 60 for a health card (`EXPIRY_WARNING_DAYS` in `libs/contracts`). They sit at the top of the page, on the person and on the version. A document you marked lost, stolen or withdrawn, or one with no expiry date, never warns.
 
 | Endpoint (`/api/people/...`)                                       | Purpose                                                                                            |
@@ -140,7 +142,9 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 | `POST /reviews/:uploadId/approve`                                  | `{personId, accept: [fields]}`; `personId: null` adds a new person (409 on a tax code someone has) |
 | `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not anyone's ID document, and back to review                                                       |
 | `PATCH /documents/:uploadId`                                       | `{status: 'lost' \| 'stolen' \| 'withdrawn' \| null}`                                              |
-| `PATCH /people/:id`                                                | Correct a person by hand                                                                           |
+| `PATCH /people/:id`                                                | Correct a person by hand; `residencePropertyId` links Residence to a house                         |
+| `DELETE /people/:id`, `POST /people/:id/merge`                     | Remove a person (documents back to review); merge `{from}`, a duplicate, into this person          |
+| `GET /houses`                                                      | The houses of Home, for Residence (`available: false` when svc-home cannot be reached)             |
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                             |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/002-people-schema.sql`).
