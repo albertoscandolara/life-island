@@ -219,9 +219,7 @@
         "persons_tax_code_unique": {
           "name": "persons_tax_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tax_code"
-          ]
+          "columns": ["tax_code"]
         }
       },
       "policies": {},
@@ -301,12 +299,8 @@
           "tableFrom": "reviews",
           "tableTo": "persons",
           "schemaTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
