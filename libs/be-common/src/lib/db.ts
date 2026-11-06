@@ -24,6 +24,9 @@ export function createServiceDb(options: ServiceDbOptions): ServiceDb {
     connectionString: options.connectionString,
     max: options.max ?? 10,
     options: `-c search_path=${schema}`,
+    // TCP keepalive: a connection that sits idle (a LISTEN, a quiet pool) is
+    // not dropped unnoticed by Docker's or the OS's NAT, and a dead one errors.
+    keepAlive: true,
   });
   return {
     pool,
