@@ -46,7 +46,7 @@ export function workerOffline(
 }
 
 const WORKER_OFFLINE_HELP =
-  'Start it with npm run dev (or npx nx serve svc-parse-worker) and look at its output in that terminal: an error there says why it stopped. It reads the waiting documents as soon as it starts.';
+  'To see why, run npx nx serve svc-parse-worker --tui=false and read the last lines it prints: the error names what to fix, most often PARSER (claude or fake) or ANTHROPIC_API_KEY in .env. It reads the waiting documents as soon as it starts.';
 
 /**
  * What the banner says about the parse queue. A resume time is stated as a

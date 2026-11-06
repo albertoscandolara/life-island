@@ -72,12 +72,30 @@ export function reclassifyCron(value: string | undefined): string | null {
   return /^(off|none|false)$/i.test(schedule) ? null : schedule;
 }
 
+/**
+ * `PARSER` in any case and with stray spaces (`Claude`, ` fake `); unset means
+ * `claude` when an API key is set, else `fake`. `claude` without a key, or any
+ * other value, stops the worker at startup with a message that says what to fix.
+ */
+export function parserFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ParserKind {
+  const hasKey = Boolean(env['ANTHROPIC_API_KEY']?.trim());
+  const parser =
+    env['PARSER']?.trim().toLowerCase() || (hasKey ? 'claude' : 'fake');
+  if (parser !== 'claude' && parser !== 'fake')
+    throw new Error(
+      `PARSER in .env must be "claude" or "fake", got "${env['PARSER']}". Fix it and start the worker again.`,
+    );
+  if (parser === 'claude' && !hasKey)
+    throw new Error(
+      'PARSER=claude needs ANTHROPIC_API_KEY in .env. Set the key, or use PARSER=fake, and start the worker again.',
+    );
+  return parser;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
-  const parser = (env['PARSER'] ||
-    (env['ANTHROPIC_API_KEY'] ? 'claude' : 'fake')) as ParserKind;
-  if (parser !== 'claude' && parser !== 'fake') {
-    throw new Error(`PARSER must be "claude" or "fake", got "${parser}"`);
-  }
+  const parser = parserFromEnv(env);
   return {
     databaseUrl: requiredEnv('INGESTION_DATABASE_URL', env),
     natsUrl: requiredEnv('NATS_URL', env),
