@@ -213,6 +213,26 @@
   grid-column: 1 / -1;
 }
 
+.person__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.confirm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.taken {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
 .series {
   display: grid;
   gap: var(--space-4);

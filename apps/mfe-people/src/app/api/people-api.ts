@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import type {
   ApproveReviewRequest,
   MarkDocumentRequest,
+  MergePeopleRequest,
   PeopleOverviewDto,
   UpdatePersonRequest,
 } from '@life-island/contracts';
@@ -43,6 +44,16 @@ export class PeopleApi {
 
   updatePerson(id: string, request: UpdatePersonRequest): Observable<void> {
     return this.http.patch<void>(`${PEOPLE_API}/people/${id}`, request);
+  }
+
+  /** Removes the person; their ID documents go back to review. */
+  removePerson(id: string): Observable<void> {
+    return this.http.delete<void>(`${PEOPLE_API}/people/${id}`);
+  }
+
+  /** Merges the duplicate `from` into this person. */
+  mergePeople(id: string, request: MergePeopleRequest): Observable<void> {
+    return this.http.post<void>(`${PEOPLE_API}/people/${id}/merge`, request);
   }
 
   previewUrl(uploadId: string): string {

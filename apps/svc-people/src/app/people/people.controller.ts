@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -13,6 +14,7 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveReviewRequestSchema,
   markDocumentRequestSchema,
+  mergePeopleRequestSchema,
   updatePersonRequestSchema,
   type PeopleOverviewDto,
 } from '@life-island/contracts';
@@ -37,6 +39,26 @@ export class PeopleController {
     return this.people.updatePerson(
       id,
       parseOrThrow(updatePersonRequestSchema, body),
+    );
+  }
+
+  /** Removes the person; their ID documents go back to review. */
+  @Delete('people/:id')
+  @HttpCode(204)
+  removePerson(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.people.removePerson(id);
+  }
+
+  /** Merges the duplicate `from` into this person. */
+  @Post('people/:id/merge')
+  @HttpCode(204)
+  mergePeople(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.people.mergePeople(
+      id,
+      parseOrThrow(mergePeopleRequestSchema, body),
     );
   }
 

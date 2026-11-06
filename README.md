@@ -43,6 +43,8 @@ npm ci
 cp .env.example .env
 ```
 
+Then open `.env` and check the settings in [Settings to check in `.env`](#settings-to-check-in-env) below. Every other value in it already works on your machine.
+
 Then, every time, one command starts everything:
 
 ```sh
@@ -62,7 +64,7 @@ When the infrastructure is already up, `npm run dev` alone restarts the apps and
 | http://localhost:4201           | Documents: upload, review inbox, Parse now            | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |
 | —                               | Groceries service (no page yet)                       | `svc-groceries` (3003)                                                        |
 
-Each remote also runs on its own at its port. The dev servers forward `/api/<service>` to the service's port, the same paths the gateway uses. The parse worker uses a fake parser by default; set `PARSER=claude` and `ANTHROPIC_API_KEY` in `.env` to read documents with Claude.
+Each remote also runs on its own at its port. The dev servers forward `/api/<service>` to the service's port, the same paths the gateway uses.
 
 | Infrastructure         | Local address                                                      |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -70,6 +72,32 @@ Each remote also runs on its own at its port. The dev servers forward `/api/<ser
 | S3 storage (SeaweedFS) | `http://localhost:8333`                                            |
 | NATS                   | `nats://localhost:4222`, monitoring on `http://localhost:8222`     |
 | Gateway (Caddy)        | `http://localhost:8080`, `/api/<service>/*` routes to each service |
+
+### Settings to check in `.env`
+
+These are the only values you may need to change. Write them exactly as shown, with no quotes and no spaces around `=`.
+
+| Setting              | Write                                      | What it does                                                                                                                                                                                                                                                                                     |
+| -------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PARSER`             | `PARSER=fake` (default) or `PARSER=claude` | Who reads your documents. `fake` works offline without a key but does not really understand documents: it cannot read photos or scans at all, and from PDFs and text it picks only totals, dates and a few keywords. `claude` reads everything, photos of IDs included, and needs the key below. |
+| `ANTHROPIC_API_KEY`  | `ANTHROPIC_API_KEY=sk-ant-...`             | Your Claude API key, from [console.anthropic.com](https://console.anthropic.com). Needed only with `PARSER=claude`. Leave it empty with `PARSER=fake`.                                                                                                                                           |
+| `PARSE_RUN_ON_START` | `true` (default) or `false`                | `true` reads the waiting documents every time the worker starts. Otherwise they are read at `PARSE_SCHEDULE` (06:00 every day) or when you press **Parse now** in the Documents app.                                                                                                             |
+| any `*_PORT`         | a free port number                         | Change one only if something else on your machine already uses it.                                                                                                                                                                                                                               |
+
+`PARSER` accepts any case (`claude`, `Claude`, `CLAUDE`). If the worker cannot use a value, for example `PARSER=claude` with no key, it stops at startup with a message that names the setting to fix. The worker reads `.env` only when it starts: after a change, stop `npm run dev` with Ctrl+C and run it again.
+
+The full list of settings, with defaults, is in [Getting started](docs/getting-started.md#settings-env).
+
+### When something does not start
+
+`npm run dev` shows every app and service in one screen, and **if any one of them crashes, Nx stops all of them** and only prints a summary such as "Successfully ran target serve" or a list of failed tasks. The reason is in that service's own output, which the summary does not show. Two ways to read it:
+
+- In the `npm run dev` screen, use the arrow keys to select the task (for example `svc-parse-worker:serve`) and press Space to see its output.
+- Or start that service alone, with its output printed straight to the terminal: `npx nx serve svc-parse-worker --tui=false`. The error, if any, is the last thing printed.
+
+If the Documents app says **"The parse worker is not running"**, the worker has crashed or was never started, and no document is read until it runs. Start it alone as above and read its error. The most common causes are a wrong `PARSER` value or a missing `ANTHROPIC_API_KEY`. More cases are in [Troubleshooting](docs/getting-started.md#troubleshooting).
+
+### Run in Docker
 
 To run the services in Docker instead of on your machine: `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`.
 

@@ -10,6 +10,7 @@ import {
   readIdDocument,
   type ApprovedDocument,
   type KnownPerson,
+  mergedValues,
 } from './id-documents.js';
 
 const parentOf = new Map<string, string | null>([
@@ -308,5 +309,33 @@ describe('isOutdated', () => {
 
   it('counts days across months', () => {
     expect(daysUntil('2027-04-25', '2026-11-06')).toBe(170);
+  });
+});
+
+describe('mergedValues', () => {
+  it('keeps the person merged into and takes only what they do not know', () => {
+    const into = { ...empty, lastName: 'ROSSI', firstName: 'MARIA' };
+    const from = {
+      ...empty,
+      lastName: 'ROSSI',
+      firstName: 'MARIA GRAZIA',
+      birthPlace: 'VERONA',
+    };
+    expect(mergedValues(into, from)).toEqual({
+      values: { ...into, birthPlace: 'VERONA' },
+      taken: ['birthPlace'],
+    });
+  });
+
+  it('never merges two different tax codes', () => {
+    expect(
+      mergedValues(
+        { ...empty, taxCode: 'RSSMRA80A41L781X' },
+        { ...empty, taxCode: 'BNCLRA85B50F205Y' },
+      ),
+    ).toEqual({ conflict: 'taxCode' });
+    expect(
+      mergedValues({ ...empty }, { ...empty, taxCode: 'BNCLRA85B50F205Y' }),
+    ).toMatchObject({ taken: ['taxCode'] });
   });
 });

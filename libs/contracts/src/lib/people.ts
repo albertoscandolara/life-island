@@ -237,3 +237,13 @@ export type MarkDocumentRequest = z.input<typeof markDocumentRequestSchema>;
 
 export const updatePersonRequestSchema = personValues.partial();
 export type UpdatePersonRequest = z.input<typeof updatePersonRequestSchema>;
+
+/**
+ * Merges a duplicate into this person: its ID documents move here, this
+ * person's details stay, and only the ones still unknown are taken from it.
+ */
+export const mergePeopleRequestSchema = z.object({
+  /** The duplicate, removed once its documents have moved. */
+  from: z.uuid(),
+});
+export type MergePeopleRequest = z.input<typeof mergePeopleRequestSchema>;

@@ -1,4 +1,9 @@
-import { loadConfig, reclassifyCron, scheduleToCron } from './config.js';
+import {
+  loadConfig,
+  parserFromEnv,
+  reclassifyCron,
+  scheduleToCron,
+} from './config.js';
 
 describe('worker config', () => {
   const env = {
@@ -36,5 +41,19 @@ describe('worker config', () => {
       loadConfig({ ...env, CATEGORY_AUTO_APPROVE: 'true' })
         .autoApproveCategories,
     ).toBe(true);
+  });
+
+  it('reads PARSER in any case and says clearly what is wrong', () => {
+    const key = { ANTHROPIC_API_KEY: 'sk-test' };
+    expect(parserFromEnv({ PARSER: 'CLAUDE', ...key })).toBe('claude');
+    expect(parserFromEnv({ PARSER: ' Fake ' })).toBe('fake');
+    expect(parserFromEnv({})).toBe('fake');
+    expect(parserFromEnv(key)).toBe('claude');
+    expect(() => parserFromEnv({ PARSER: 'gpt' })).toThrow(
+      'PARSER in .env must be "claude" or "fake", got "gpt"',
+    );
+    expect(() => parserFromEnv({ PARSER: 'claude' })).toThrow(
+      'PARSER=claude needs ANTHROPIC_API_KEY',
+    );
   });
 });
