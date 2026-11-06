@@ -187,6 +187,14 @@ describe('UiTable selection', () => {
     expect(host.selected()).toEqual([99]);
   });
 
+  it('hides the column while no row shown can be picked', async () => {
+    const { fixture, host, element, all } = await setup();
+    host.rows.set([{ id: 3, name: 'Cy', score: 0 }]);
+    await fixture.whenStable();
+    expect(all()).toBeNull();
+    expect(element.querySelectorAll('thead th')).toHaveLength(1);
+  });
+
   it('adds no column without `selectable`', async () => {
     const fixture = TestBed.createComponent(Host);
     await fixture.whenStable();

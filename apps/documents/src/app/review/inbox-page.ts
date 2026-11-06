@@ -51,7 +51,11 @@ import { CategoryFilter } from './category-filter';
 import { firstValueFrom } from 'rxjs';
 import type { DocumentChanges } from './document-changes';
 import { QueueBanner } from './queue-banner';
-import { HISTORICAL_STATUS_VIEW, RECORD_STATUS_VIEW } from './record-status';
+import {
+  canReparse,
+  HISTORICAL_STATUS_VIEW,
+  RECORD_STATUS_VIEW,
+} from './record-status';
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { reclassifyStartState } from '../reclassification/start-state';
 import { ReviewPanel, type ReviewOutcome } from './review-panel';
@@ -98,10 +102,7 @@ export function reflects(record: RecordDto, outcome: ReviewOutcome): boolean {
   );
 }
 
-/** Records you can send back to the parser: parsed, not yet confirmed. */
-export function canReparse(record: Pick<RecordDto, 'status'>): boolean {
-  return record.status === 'PARSED';
-}
+export { canReparse } from './record-status';
 
 /** What the inbox says after sending documents back to the parser. */
 export function reparseNotice(result: ReparseUploadsResponse): string {
@@ -110,11 +111,11 @@ export function reparseNotice(result: ReparseUploadsResponse): string {
   const parts: string[] = [];
   if (sent)
     parts.push(
-      `${sent} document${sent === 1 ? '' : 's'} will be parsed again on the next run; press Parse now to start right away.`,
+      `${sent} document${sent === 1 ? '' : 's'} sent back to the AI: reading starts now.`,
     );
   if (skipped)
     parts.push(
-      `${skipped} ${skipped === 1 ? 'was' : 'were'} left as ${skipped === 1 ? 'it was' : 'they were'}: no longer waiting for review.`,
+      `${skipped} ${skipped === 1 ? 'was' : 'were'} left as ${skipped === 1 ? 'it was' : 'they were'}: not waiting for review or failed.`,
     );
   return parts.join(' ');
 }
@@ -447,6 +448,12 @@ export class InboxPage {
    * A parse run ended: the review service hears about each parsed document
    * through an event, so the inbox reloads now and once more a moment later.
    */
+  /** One document sent back to the parser from its panel: read it now. */
+  protected onReparsed(): void {
+    void this.banner().runNow();
+    this.onRunFinished();
+  }
+
   protected onRunFinished(): void {
     const reload = () => {
       this.records.reload();
@@ -498,7 +505,7 @@ export class InboxPage {
         tone: 'success',
         text: reparseNotice(result),
       });
-      this.banner().reload();
+      if (sent.size) void this.banner().runNow();
       this.onRunFinished();
     } catch {
       this.reparseMessage.set({

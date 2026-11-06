@@ -176,6 +176,16 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
       'text/plain',
       Buffer.from(`waiting ${randomUUID()}`),
     );
+    const failedDoc = await upload(
+      'f.txt',
+      'text/plain',
+      Buffer.from(`failed ${randomUUID()}`),
+    );
+    const failedId = failedDoc.body.upload.id;
+    await svc.pool.query(
+      `update ingestion.uploads set status = 'FAILED', last_error = 'no API key' where id = $1`,
+      [failedId],
+    );
     const id = parsedDoc.body.upload.id;
     const other = randomUUID();
     const suggestion = `REPARSE_${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -200,11 +210,11 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
 
     const result = await post<{ requeued: string[]; skipped: string[] }>(
       '/uploads/reparse',
-      { uploadIds: [id, waiting.body.upload.id, id] },
+      { uploadIds: [id, waiting.body.upload.id, id, failedId] },
     );
     expect(result.status).toBe(200);
     expect(result.body).toEqual({
-      requeued: [id],
+      requeued: [id, failedId],
       skipped: [waiting.body.upload.id],
     });
 

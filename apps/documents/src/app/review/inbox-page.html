@@ -315,8 +315,9 @@
   (confirmed)="reparsePicked()"
 >
   <p>
-    They go back to “Uploaded, to parse”, and the AI reads them again from
-    scratch: it assigns their categories and extracts their fields anew.
+    They go back to “Uploaded, to parse”, and the AI starts reading them again
+    from scratch right away: it assigns their categories and extracts their
+    fields anew.
   </p>
   <p class="muted">
     The categories, field values and corrections they have now are replaced.
@@ -330,4 +331,5 @@
   [(open)]="panelOpen"
   (changed)="onChanged($event)"
   (advance)="showNext()"
+  (reparsed)="onReparsed()"
 />

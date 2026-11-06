@@ -163,8 +163,8 @@ export async function applyDocumentEvent(
     case UPLOAD_REPARSE_REQUESTED_EVENT: {
       // You sent the document back to the parser: what the AI read is gone,
       // and so are your corrections to it; the record waits to be parsed
-      // again. Only a record still waiting for review: a confirmed one has
-      // already gone to its module and stays as it is.
+      // again. Only a record still waiting for review, or whose reading
+      // failed: a confirmed one has already gone to its module and stays.
       const e = uploadReparseRequestedV1.parse(event.payload);
       await db
         .update(stagingRecords)
@@ -185,7 +185,7 @@ export async function applyDocumentEvent(
         .where(
           and(
             eq(stagingRecords.uploadId, e.uploadId),
-            eq(stagingRecords.status, 'PARSED'),
+            inArray(stagingRecords.status, ['PARSED', 'PARSE_FAILED']),
           ),
         );
       return;

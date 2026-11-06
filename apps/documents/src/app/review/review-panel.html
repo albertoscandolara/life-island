@@ -491,7 +491,19 @@
         >
           <ui-icon name="trash" [size]="16" /> Delete
         </button>
-        @if (rec.status === 'REJECTED') {
+        @if (canReparse()) {
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          [loading]="busy() === 'reparse'"
+          [disabled]="!!busy() || locked()"
+          title="The AI reads it again from scratch: its categories and fields are replaced"
+          (click)="reparse()"
+        >
+          <ui-icon name="refresh" [size]="16" /> Parse again
+        </button>
+        } @if (rec.status === 'REJECTED') {
         <button
           uiButton
           variant="secondary"

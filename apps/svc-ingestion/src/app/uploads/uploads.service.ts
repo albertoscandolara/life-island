@@ -552,8 +552,9 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
    * flags, completed steps) is cleared; title and description stay. Pending
    * category suggestions forget these documents, and a suggestion left with
    * none is dropped (not rejected: the AI may propose it again). Only PARSED
-   * documents qualify; the others are reported as skipped. One transaction
-   * tells the review inbox through `upload.reparse_requested` and
+   * and FAILED documents qualify (a failure is worth a new try once its cause
+   * is fixed, such as the parser or its API key); the others are reported as
+   * skipped. One transaction tells the review inbox through `upload.reparse_requested` and
    * `upload.updated`. The worker picks them up on its next run (or Parse now).
    */
   async reparse(request: ReparseUploads): Promise<ReparseUploadsResponse> {
@@ -588,8 +589,13 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           historicalRunId: null,
           updatedAt: now,
         })
-        // Only finished documents: never one the worker holds.
-        .where(and(inArray(uploads.id, ids), eq(uploads.status, 'PARSED')))
+        // Only finished documents (read, or failed): never one the worker holds.
+        .where(
+          and(
+            inArray(uploads.id, ids),
+            inArray(uploads.status, ['PARSED', 'FAILED']),
+          ),
+        )
         .returning({ id: uploads.id });
       const requeuedIds = requeued.map((row) => row.id);
       if (requeuedIds.length) {
