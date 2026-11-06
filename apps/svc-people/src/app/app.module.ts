@@ -12,6 +12,7 @@ import {
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
 import { IngestionFiles } from './documents/ingestion-files.js';
+import { HomeHouses } from './people/home-houses.js';
 import { HealthController } from './health.controller.js';
 import { PeopleController } from './people/people.controller.js';
 import { PeopleService } from './people/people.service.js';
@@ -36,6 +37,7 @@ export class AppModule {
         { provide: SERVICE_DB, useValue: svc },
         PeopleService,
         IngestionFiles,
+        HomeHouses,
         ...(options.events === false
           ? []
           : [

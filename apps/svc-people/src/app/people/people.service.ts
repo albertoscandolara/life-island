@@ -107,6 +107,7 @@ export class PeopleService {
         return {
           id: person.id,
           ...valuesOf(person),
+          residencePropertyId: person.residencePropertyId,
           createdAt: person.createdAt.toISOString(),
           updatedAt: person.updatedAt.toISOString(),
           series: series.map(({ type, versions }) => ({
@@ -237,11 +238,14 @@ export class PeopleService {
               decision: accept.has(c.field) ? 'accepted' : 'kept_current',
             }),
           );
-          const update = Object.fromEntries(
+          const update: Record<string, string | null> = Object.fromEntries(
             changes
               .filter((c) => c.decision === 'accepted')
               .map((c) => [c.field, c.proposed]),
           );
+          // A printed residence replaces the house you picked.
+          if ('residenceAddress' in update)
+            update['residencePropertyId'] = null;
           if (Object.keys(update).length)
             await tx
               .update(persons)
@@ -308,9 +312,14 @@ export class PeopleService {
 
   async updatePerson(id: string, request: UpdatePersonRequest): Promise<void> {
     try {
+      // A typed residence unlinks the house, unless a house comes with it.
+      const residence =
+        'residenceAddress' in request && !('residencePropertyId' in request)
+          ? { residencePropertyId: null }
+          : {};
       const updated = await this.svc.db
         .update(persons)
-        .set({ ...request, updatedAt: new Date() })
+        .set({ ...request, ...residence, updatedAt: new Date() })
         .where(eq(persons.id, id))
         .returning();
       if (!updated.length) throw new NotFoundException('Person not found');
@@ -371,7 +380,14 @@ export class PeopleService {
       if (merged.taken.length)
         await tx
           .update(persons)
-          .set({ ...merged.values, updatedAt: new Date() })
+          .set({
+            ...merged.values,
+            // The duplicate's residence comes with its house, if it had one.
+            ...(merged.taken.includes('residenceAddress')
+              ? { residencePropertyId: from.residencePropertyId }
+              : {}),
+            updatedAt: new Date(),
+          })
           .where(eq(persons.id, id));
     });
   }

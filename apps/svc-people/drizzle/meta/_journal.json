@@ -8,6 +8,13 @@
       "when": 1793959873436,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793981529279,
+      "tag": "0001_residence_property",
+      "breakpoints": true
     }
   ]
 }

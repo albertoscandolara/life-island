@@ -1,0 +1,1 @@
+ALTER TABLE "people"."persons" ADD COLUMN "residence_property_id" uuid;

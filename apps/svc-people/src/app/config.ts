@@ -6,6 +6,8 @@ export interface PeopleConfig {
   natsUrl: string;
   /** svc-ingestion, which serves the original files of ID documents. */
   ingestionUrl: string;
+  /** svc-home, which lists the houses a person's residence can point to. */
+  homeUrl: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): PeopleConfig {
@@ -16,6 +18,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PeopleConfig {
     ingestionUrl: (
       env['INGESTION_URL'] ??
       `http://localhost:${numberEnv('INGESTION_PORT', 3001, env)}`
+    ).replace(/\/+$/, ''),
+    homeUrl: (
+      env['HOME_URL'] ?? `http://localhost:${numberEnv('HOME_PORT', 3005, env)}`
     ).replace(/\/+$/, ''),
   };
 }

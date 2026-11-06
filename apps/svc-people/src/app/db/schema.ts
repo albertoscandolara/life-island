@@ -30,6 +30,11 @@ export const persons = people.table('persons', {
   sex: text('sex'),
   citizenship: text('citizenship'),
   residenceAddress: text('residence_address'),
+  /**
+   * The svc-home property picked as residence (no foreign key: it lives in
+   * the home schema). `residence_address` keeps its address as text.
+   */
+  residencePropertyId: uuid('residence_property_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

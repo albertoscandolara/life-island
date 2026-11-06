@@ -342,7 +342,44 @@
     </div>
     } @if (editing(); as values) {
     <form class="edit" (submit)="$event.preventDefault(); save(person)">
-      @for (field of fields; track field) {
+      @for (field of fields; track field) { @if (field === 'residenceAddress') {
+      <div class="edit__field edit__residence">
+        <label for="residence-house">{{ fieldLabels[field] }}</label>
+        @if (houses().length) {
+        <select
+          id="residence-house"
+          class="ui-input compact"
+          (change)="chooseHouse($any($event.target).value)"
+        >
+          <option value="" [selected]="!residenceHouse()">
+            An address I type
+          </option>
+          @for (house of houses(); track house.id) {
+          <option [value]="house.id" [selected]="residenceHouse() === house.id">
+            {{ house.name }}@if (house.address) { · {{ house.address }} }
+          </option>
+          }
+        </select>
+        } @if (!residenceHouse()) {
+        <input
+          class="ui-input compact"
+          type="text"
+          [attr.aria-label]="fieldLabels[field]"
+          [id]="houses().length ? null : 'residence-house'"
+          placeholder="Street, number, city"
+          [value]="values[field]"
+          (input)="setValue(field, $any($event.target).value)"
+        />
+        } @if (!housesAvailable()) {
+        <small class="edit__hint"
+          >The Home area is not reachable, so its houses cannot be picked right
+          now.</small
+        >
+        } @else if (!houses().length) {
+        <small class="edit__hint">Add a house in Home to pick it here.</small>
+        }
+      </div>
+      } @else {
       <label class="edit__field">
         <span>{{ fieldLabels[field] }}</span>
         <input
@@ -352,7 +389,7 @@
           (input)="setValue(field, $any($event.target).value)"
         />
       </label>
-      }
+      } }
       <footer class="review__actions">
         <button
           uiButton
@@ -378,9 +415,20 @@
       @for (field of fields; track field) {
       <div>
         <dt>{{ fieldLabels[field] }}</dt>
+        @if (field === 'residenceAddress' && residenceOf(person); as house) {
+        <dd>
+          <a class="house-link" [href]="houseUrl(house.id)"
+            ><ui-icon name="home" [size]="16" /> {{ house.name }}</a
+          >
+          @if (person.residenceAddress) {
+          <span class="muted"> · {{ person.residenceAddress }}</span>
+          }
+        </dd>
+        } @else {
         <dd [class.muted]="!person[field]">
           {{ person[field] ?? 'Not on any document yet' }}
         </dd>
+        }
       </div>
       }
     </dl>

@@ -5,6 +5,7 @@ import type {
   MarkDocumentRequest,
   MergePeopleRequest,
   PeopleOverviewDto,
+  ResidenceHousesDto,
   UpdatePersonRequest,
 } from '@life-island/contracts';
 import type { Observable } from 'rxjs';
@@ -54,6 +55,11 @@ export class PeopleApi {
   /** Merges the duplicate `from` into this person. */
   mergePeople(id: string, request: MergePeopleRequest): Observable<void> {
     return this.http.post<void>(`${PEOPLE_API}/people/${id}/merge`, request);
+  }
+
+  /** The Home area's houses, read through svc-people. */
+  residenceHouses(): Observable<ResidenceHousesDto> {
+    return this.http.get<ResidenceHousesDto>(`${PEOPLE_API}/houses`);
   }
 
   previewUrl(uploadId: string): string {

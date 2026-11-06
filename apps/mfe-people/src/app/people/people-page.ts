@@ -17,6 +17,8 @@ import {
   type PeopleOverviewDto,
   type PersonDto,
   type PersonField,
+  type ResidenceHouseDto,
+  type UpdatePersonRequest,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -94,6 +96,11 @@ export class PeoplePage {
   protected readonly action = signal<'remove' | 'merge' | null>(null);
   /** The duplicate picked for a merge. */
   protected readonly mergeFrom = signal<string | null>(null);
+  /** The Home area's houses, to pick one as residence. */
+  protected readonly houses = signal<ResidenceHouseDto[]>([]);
+  protected readonly housesAvailable = signal(true);
+  /** The house picked for Residence while editing; '' means a typed address. */
+  protected readonly residenceHouse = signal('');
   /** The values being edited on the selected person, or null when not editing. */
   protected readonly editing = signal<Record<PersonField, string> | null>(null);
 
@@ -117,6 +124,13 @@ export class PeoplePage {
 
   constructor() {
     this.load();
+    this.api.residenceHouses().subscribe({
+      next: ({ houses, available }) => {
+        this.houses.set(houses);
+        this.housesAvailable.set(available);
+      },
+      error: () => this.housesAvailable.set(false),
+    });
   }
 
   protected load(): void {
@@ -307,6 +321,9 @@ export class PeoplePage {
   }
 
   protected edit(person: PersonDto): void {
+    // Keep this person shown after saving, even if the list order changes.
+    this.selectedId.set(person.id);
+    this.residenceHouse.set(person.residencePropertyId ?? '');
     this.editing.set(
       Object.fromEntries(
         this.fields.map((field) => [field, person[field] ?? '']),
@@ -320,15 +337,40 @@ export class PeoplePage {
     );
   }
 
+  /** The house this person lives in, when one was picked and Home still has it. */
+  protected residenceOf(person: PersonDto): ResidenceHouseDto | null {
+    if (!person.residencePropertyId) return null;
+    return (
+      this.houses().find((h) => h.id === person.residencePropertyId) ?? null
+    );
+  }
+
+  /** The house's page in the Home area (the shell serves it at /home). */
+  protected houseUrl(id: string): string {
+    return `/home?property=${encodeURIComponent(id)}`;
+  }
+
+  protected chooseHouse(id: string): void {
+    this.residenceHouse.set(id);
+    const house = this.houses().find((h) => h.id === id);
+    if (house) this.setValue('residenceAddress', house.address ?? house.name);
+  }
+
   /** Saves what you typed; an emptied field goes back to unknown. */
   protected save(person: PersonDto): void {
     const values = this.editing();
     if (!values) return;
-    const changed = Object.fromEntries(
+    const changed: UpdatePersonRequest = Object.fromEntries(
       this.fields
         .map((field) => [field, values[field].trim() || null] as const)
         .filter(([field, value]) => value !== person[field]),
     );
+    const house = this.residenceHouse() || null;
+    if (house !== person.residencePropertyId) {
+      // A picked house sends its address too; a typed one unlinks the house.
+      changed.residencePropertyId = house;
+      changed.residenceAddress = values.residenceAddress.trim() || null;
+    }
     this.run(
       person.id,
       () => this.api.updatePerson(person.id, changed),
