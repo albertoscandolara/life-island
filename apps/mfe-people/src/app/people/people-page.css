@@ -186,6 +186,33 @@
   overflow-wrap: anywhere;
 }
 
+.edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.edit__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.edit__field input {
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.edit .review__actions {
+  grid-column: 1 / -1;
+}
+
 .series {
   display: grid;
   gap: var(--space-4);

@@ -40,8 +40,25 @@ const BILL_WORDS =
 const PAYSLIP_WORDS =
   /\b(busta paga|cedolino|payslip|pay slip|netto in busta|mese di retribuzione|LUL)\b/i;
 
+/** ID documents, by the names people give them (Italian and English). */
+const ID_WORDS = {
+  IDENTITY_CARD:
+    /(carta d['’ ]?identit|identity card|\bID card\b|\bCIE\b|documento d['’ ]?identit)/i,
+  PASSPORT: /(passaport|passport)/i,
+  HEALTH_CARD:
+    /(tessera sanitaria|health card|tesserino (del )?codice fiscale|\bEHIC\b|\bTEAM\b)/i,
+  DRIVING_LICENCE: /(patente|driving licen[cs]e|driver'?s licen[cs]e)/i,
+};
+
 /** Keyword rules for the categories the fake parser can recognize. */
 const CATEGORY_WORDS: Record<string, RegExp> = {
+  ...ID_WORDS,
+  ID_DOCUMENT: new RegExp(
+    Object.values(ID_WORDS)
+      .map((words) => words.source)
+      .join('|'),
+    'i',
+  ),
   GROCERIES: /(spesa|esselunga|coop|conad|lidl|carrefour|supermarket|grocery)/i,
   RECEIPT: /(receipt|scontrino)/i,
   INVOICE: /(fattura|invoice)/i,
