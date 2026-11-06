@@ -93,6 +93,7 @@ services:
       GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@postgres:5432/life_island
       TAX730_DATABASE_URL: postgres://tax730_svc:dev_tax730@postgres:5432/life_island
       HOME_DATABASE_URL: postgres://home_svc:dev_home@postgres:5432/life_island
+      PEOPLE_DATABASE_URL: postgres://people_svc:dev_people@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -171,6 +172,17 @@ services:
     environment:
       <<: *service-env
       # Previews of bills and work invoices are streamed from svc-ingestion's API.
+      INGESTION_URL: http://svc-ingestion:3000
+    depends_on: *service-deps
+
+  svc-people:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-people }
+    environment:
+      <<: *service-env
+      # Previews of ID documents are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
     depends_on: *service-deps
 

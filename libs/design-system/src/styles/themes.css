@@ -39,6 +39,14 @@
   --accent-2: var(--sky-600);
 }
 
+[data-character='para'] {
+  /* people & IDs: identity documents and personal data */
+  --accent: var(--lagoon-600);
+  --accent-hover: var(--lagoon-700);
+  --accent-soft: var(--lagoon-50);
+  --accent-2: var(--violet-500);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -68,6 +76,12 @@
   --accent: var(--violet-400);
   --accent-hover: var(--sky-300);
   --accent-2: var(--sky-400);
+}
+
+:root[data-theme='dark'] [data-character='para'] {
+  --accent: var(--lagoon-300);
+  --accent-hover: var(--lagoon-400);
+  --accent-2: var(--violet-400);
 }
 
 :root[data-theme='dark'] [data-character] {

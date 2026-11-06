@@ -12,5 +12,12 @@
       "^/api/home": ""
     },
     "changeOrigin": true
+  },
+  "/api/people": {
+    "target": "http://localhost:3006",
+    "pathRewrite": {
+      "^/api/people": ""
+    },
+    "changeOrigin": true
   }
 }
