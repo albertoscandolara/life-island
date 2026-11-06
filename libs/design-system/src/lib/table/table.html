@@ -7,7 +7,7 @@
     }
     <thead>
       <tr>
-        @if (selectable()) {
+        @if (showSelect()) {
         <th scope="col" class="ui-table__select">
           <input
             type="checkbox"
@@ -15,7 +15,6 @@
             aria-label="Select all rows shown"
             [checked]="allSelected()"
             [indeterminate]="someSelected()"
-            [disabled]="selectableKeys().length === 0"
             (change)="toggleAll(checked($event))"
           />
         </th>
@@ -48,8 +47,8 @@
     </thead>
     <tbody>
       @for (row of rows(); track keyOf(row, $index)) {
-      <tr [class.ui-table__row--selected]="selectable() && isSelected(row)">
-        @if (selectable(); as canSelect) {
+      <tr [class.ui-table__row--selected]="showSelect() && isSelected(row)">
+        @if (showSelect() && selectable(); as canSelect) {
         <td class="ui-table__select" data-label="Select">
           @if (canSelect(row)) {
           <input
@@ -78,7 +77,7 @@
       <tr>
         <td
           class="ui-table__empty"
-          [attr.colspan]="columns().length + (selectable() ? 1 : 0)"
+          [attr.colspan]="columns().length + (showSelect() ? 1 : 0)"
         >
           {{ loading() ? 'Loading…' : emptyMessage() }}
         </td>

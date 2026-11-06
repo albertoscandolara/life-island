@@ -5,6 +5,15 @@ import type {
 } from '@life-island/contracts';
 import type { UiTone } from '@life-island/design-system';
 
+/**
+ * Records you can send back to the parser: read but not confirmed yet, or
+ * whose reading failed (after you fixed what made it fail, such as the parser
+ * or its API key).
+ */
+export function canReparse(record: { status: RecordStatus }): boolean {
+  return record.status === 'PARSED' || record.status === 'PARSE_FAILED';
+}
+
 export interface StatusView {
   label: string;
   tone: UiTone;

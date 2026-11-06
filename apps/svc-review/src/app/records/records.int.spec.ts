@@ -261,6 +261,22 @@ describe.skipIf(!configured)(
       record = await findByTitle(u.title);
       expect(record.status).toBe('PARSED');
 
+      // A failed reading can be tried again too.
+      const failed = upload('reparse-failed');
+      await apply('upload.completed@1', failed);
+      await apply('document.parse_failed@1', {
+        uploadId: failed.uploadId,
+        error: 'no API key',
+        attempts: 5,
+        failedAt: new Date().toISOString(),
+      });
+      expect((await findByTitle(failed.title)).status).toBe('PARSE_FAILED');
+      await apply('upload.reparse_requested@1', {
+        uploadId: failed.uploadId,
+        requestedAt: new Date().toISOString(),
+      });
+      expect((await findByTitle(failed.title)).status).toBe('UPLOADED');
+
       // Once confirmed, the record has gone to its module and stays.
       await send('POST', `/records/${record.id}/confirm`, {});
       await apply('upload.reparse_requested@1', {

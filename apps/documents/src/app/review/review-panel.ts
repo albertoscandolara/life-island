@@ -63,7 +63,7 @@ import {
 } from './document-changes';
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { ProcessingPanel } from './processing-panel';
-import { RECORD_STATUS_VIEW } from './record-status';
+import { canReparse, RECORD_STATUS_VIEW } from './record-status';
 import {
   groupFields,
   homeFromSupplyAddress,
@@ -139,6 +139,8 @@ export class ReviewPanel {
   readonly nextRecordId = input<string | null>(null);
   readonly open = model(false);
   readonly changed = output<ReviewOutcome>();
+  /** This document went back to the parser: the inbox starts a run. */
+  readonly reparsed = output<void>();
   /** Asks the inbox to show `nextRecordId`. */
   readonly advance = output<void>();
 
@@ -542,6 +544,28 @@ export class ReviewPanel {
       const back = await firstValueFrom(this.review.undoAutoConfirm(record.id));
       this.changed.emit({ kind: 'status', record: back });
       this.record.reload();
+    });
+  }
+
+  protected readonly canReparse = computed(() => {
+    const status = this.record.value()?.status;
+    return status ? canReparse({ status }) : false;
+  });
+
+  /** Reads this one document again from scratch, now. */
+  protected async reparse(): Promise<void> {
+    const record = this.record.value();
+    if (!record) return;
+    await this.run('reparse', async () => {
+      const result = await firstValueFrom(
+        this.ingestion.reparseUploads([record.uploadId]),
+      );
+      if (!result.requeued.length)
+        throw new Error(
+          'It could not be sent back: it is no longer waiting for review.',
+        );
+      this.reparsed.emit();
+      this.finish(false);
     });
   }
 

@@ -66,7 +66,8 @@ export class UiCellDef<T = unknown> {
  *
  * Selection: pass `selectable` (which rows can be picked) and bind
  * `[(selected)]` to the picked rows' keys (`rowKey`). A checkbox column comes
- * first; the header checkbox picks or clears every selectable row shown.
+ * first, only while some row shown can be picked; the header checkbox picks
+ * or clears every selectable row shown.
  */
 @Component({
   selector: 'ui-table',
@@ -121,6 +122,10 @@ export class UiTable<T extends object> {
       .filter((row) => canSelect(row))
       .map((row) => this.keyOf(row, -1));
   });
+  /** The checkbox column: only when a row shown can be picked. */
+  protected readonly showSelect = computed(
+    () => this.selectableKeys().length > 0,
+  );
   protected readonly allSelected = computed(() => {
     const keys = this.selectableKeys();
     const selected = new Set(this.selected());

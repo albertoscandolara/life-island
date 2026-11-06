@@ -66,26 +66,26 @@ describe('reflects', () => {
 describe('parse again', () => {
   it('offers only records waiting for review', () => {
     expect(canReparse({ status: 'PARSED' })).toBe(true);
+    expect(canReparse({ status: 'PARSE_FAILED' })).toBe(true);
     for (const status of [
       'UPLOADED',
       'PARSING',
       'CONFIRMED',
       'LOADED',
       'REJECTED',
-      'PARSE_FAILED',
     ] as const)
       expect(canReparse({ status })).toBe(false);
   });
 
   it('says how many documents go back to the parser, and how many stayed', () => {
     expect(reparseNotice({ requeued: ['a'], skipped: [] })).toBe(
-      '1 document will be parsed again on the next run; press Parse now to start right away.',
+      '1 document sent back to the AI: reading starts now.',
     );
     expect(reparseNotice({ requeued: ['a', 'b'], skipped: ['c'] })).toBe(
-      '2 documents will be parsed again on the next run; press Parse now to start right away. 1 was left as it was: no longer waiting for review.',
+      '2 documents sent back to the AI: reading starts now. 1 was left as it was: not waiting for review or failed.',
     );
     expect(reparseNotice({ requeued: [], skipped: ['c', 'd'] })).toBe(
-      '2 were left as they were: no longer waiting for review.',
+      '2 were left as they were: not waiting for review or failed.',
     );
   });
 });
