@@ -13,6 +13,7 @@ import {
   WORK_KINDS,
   WORK_STATUS_LABELS,
   WORK_STATUSES,
+  type KnownCompanyDto,
   type WorkDto,
   type WorkKind,
   type WorkStatus,
@@ -113,9 +114,19 @@ const money = (text: string): number | null => {
               (input)="patch('area', $event)"
             />
           </ui-form-field>
-          <ui-form-field label="Who" hint="Company or tradesperson">
+          <ui-form-field
+            label="Who"
+            hint="Company or tradesperson: pick one already known, or type it"
+          >
+            <datalist id="work-known-companies">
+              @for (c of companies(); track c.name) {
+                <option [value]="c.name"></option>
+              }
+            </datalist>
             <input
               uiInput
+              list="work-known-companies"
+              autocomplete="off"
               [value]="draft().contractor"
               (input)="patch('contractor', $event)"
             />
@@ -218,11 +229,17 @@ export class WorkDialog {
   protected readonly draft = signal<Draft>(this.blank());
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Companies already on your bills, houses and works. */
+  protected readonly companies = signal<KnownCompanyDto[]>([]);
 
   constructor() {
     // A fresh form each time the dialog opens.
     effect(() => {
       if (!this.open()) return;
+      this.api.companies().subscribe({
+        next: (companies) => this.companies.set(companies),
+        error: () => this.companies.set([]),
+      });
       const work = this.work();
       this.error.set(null);
       this.draft.set(

@@ -8,6 +8,7 @@ import {
 import type {
   BillDto,
   EventEnvelope,
+  HouseSuggestionDto,
   PropertyDto,
   WorkDto,
 } from '@life-island/contracts';
@@ -53,6 +54,10 @@ describe.skipIf(!configured)(
       if (uploads.length) {
         await svc?.pool.query(
           'delete from home.bill_overrides where upload_id = any($1)',
+          [uploads],
+        );
+        await svc?.pool.query(
+          'delete from home.house_reviews where upload_id = any($1)',
           [uploads],
         );
         await svc?.pool.query(
@@ -294,6 +299,162 @@ describe.skipIf(!configured)(
 
       const removed = await send('DELETE', `/works/${work.id}`);
       expect(removed.status).toBe(204);
+    });
+
+    it('keeps a house with all its data, and only one residence', async () => {
+      const first = await createProperty(`Casa R1${run}`, {
+        isResidence: true,
+        address: `Via Erre${run} 3`,
+        postalCode: '37100',
+        areaSqm: 92.5,
+        owners: [{ personId: null, name: 'Mario Rossi', share: 50 }],
+        gasSupplier: 'Magis Energia',
+      });
+      expect(first).toMatchObject({
+        isResidence: true,
+        areaSqm: 92.5,
+        owners: [{ personId: null, name: 'Mario Rossi', share: 50 }],
+        matchTerms: [`erre${run}`],
+      });
+      const second = await createProperty(`Casa R2${run}`);
+      await json<PropertyDto>(
+        await send('PATCH', `/properties/${second.id}`, { isResidence: true }),
+      );
+      const list = await json<PropertyDto[]>(await send('GET', '/properties'));
+      expect(list.filter((p) => p.isResidence).map((p) => p.id)).toEqual([
+        second.id,
+      ]);
+      const companies = await json<{ name: string }[]>(
+        await send('GET', '/companies'),
+      );
+      expect(companies.map((c) => c.name)).toContain('Magis Energia');
+    });
+
+    it('suggests a new house from a bill, then new data for it', async () => {
+      const street = `Via Zeta${run}`;
+      const first = await upload(['GAS_BILL'], {
+        provider: 'Magis Energia',
+        customer_id: `0168${run}`,
+        supply_address: `${street} 7, 37039 Tregnago (VR)`,
+        billing_period: '2026-01-01/2026-02-28',
+        total_amount: 120,
+      });
+      const mine = (list: HouseSuggestionDto[]) =>
+        list.filter((s) =>
+          s.documents.some((d) => uploads.includes(d.uploadId)),
+        );
+
+      const suggested = mine(
+        await json<HouseSuggestionDto[]>(
+          await send('GET', '/houses/suggestions'),
+        ),
+      );
+      const fresh = suggested.find((s) => s.documents[0].uploadId === first);
+      expect(fresh).toMatchObject({
+        kind: 'new_house',
+        name: `${street} 7`,
+        propertyId: null,
+      });
+      expect(fresh?.changes.map((c) => c.field)).toEqual([
+        'address',
+        'postalCode',
+        'city',
+        'province',
+        'gasSupplier',
+        'supplyCodes',
+      ]);
+
+      const house = await json<PropertyDto>(
+        await send('POST', '/houses/suggestions/approve', {
+          uploadIds: [first],
+          propertyId: null,
+          accept: ['address', 'city', 'gasSupplier', 'supplyCodes'],
+        }),
+      );
+      createdProperties.push(house.id);
+      expect(house).toMatchObject({
+        name: `${street} 7`,
+        address: `${street} 7`,
+        city: 'Tregnago',
+        postalCode: null,
+        gasSupplier: 'Magis Energia',
+        supplyCodes: [`0168${run}`.toUpperCase()],
+      });
+
+      // A newer bill of the same house, from a new supplier.
+      const second = await upload(['GAS_BILL'], {
+        provider: 'Hera Comm',
+        customer_id: `0168${run}`,
+        billing_period: '2026-03-01/2026-04-30',
+        total_amount: 90,
+      });
+      const after = mine(
+        await json<HouseSuggestionDto[]>(
+          await send('GET', '/houses/suggestions'),
+        ),
+      );
+      expect(
+        after.some((s) => s.documents.some((d) => d.uploadId === first)),
+      ).toBe(false);
+      const info = after.find((s) => s.documents[0].uploadId === second);
+      expect(info).toMatchObject({
+        kind: 'new_info',
+        propertyId: house.id,
+        changes: [
+          {
+            field: 'gasSupplier',
+            kind: 'different_value',
+            current: 'Magis Energia',
+            proposed: 'Hera Comm',
+          },
+        ],
+      });
+      const dismissed = await send('POST', '/houses/suggestions/dismiss', {
+        uploadIds: [second],
+      });
+      expect(dismissed.status).toBe(204);
+      const again = await send('POST', '/houses/suggestions/approve', {
+        uploadIds: [second],
+        propertyId: house.id,
+        accept: ['gasSupplier'],
+      });
+      expect(again.status).toBe(422);
+    });
+
+    it('keeps a 3D model per house in its own bucket', async () => {
+      const house = await createProperty(`Casa M${run}`);
+      const glb = Buffer.concat([
+        Buffer.from('glTF', 'latin1'),
+        Buffer.alloc(16, 1),
+      ]);
+      const uploaded = await fetch(
+        `${base}/properties/${house.id}/model?filename=house.glb`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/octet-stream' },
+          body: glb,
+        },
+      );
+      const withModel = await json<PropertyDto>(uploaded);
+      expect(withModel.model).toMatchObject({
+        filename: 'house.glb',
+        format: 'GLB',
+        sizeBytes: glb.length,
+      });
+      const file = await fetch(`${base}/properties/${house.id}/model`);
+      expect(file.headers.get('content-type')).toBe('model/gltf-binary');
+      expect(Buffer.from(await file.arrayBuffer()).equals(glb)).toBe(true);
+
+      const wrong = await fetch(
+        `${base}/properties/${house.id}/model?filename=house.obj`,
+        { method: 'PUT', body: 'not a model' },
+      );
+      expect(wrong.status).toBe(400);
+
+      const removed = await json<PropertyDto>(
+        await send('DELETE', `/properties/${house.id}/model`),
+      );
+      expect(removed.model).toBeNull();
     });
   },
 );

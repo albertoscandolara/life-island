@@ -74,23 +74,12 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     id: 'home',
     character: 'bronto',
     emblem: '🏡',
-    name: 'Home',
+    name: 'Houses',
     mission:
-      'Every home you have, side by side: renovations, repairs and maintenance, with what they cost and their invoices.',
+      'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas and water bills.',
     path: '/home',
-    angle: 270,
+    angle: 250,
     landmark: 'house',
-  },
-  {
-    id: 'bills',
-    character: 'stego',
-    emblem: '⚡',
-    name: 'Bills',
-    mission:
-      'Electricity, gas and water of each home: what you pay and use, month by month and year over year.',
-    path: '/home/bills',
-    angle: 225,
-    landmark: 'lighthouse',
   },
   {
     id: 'studies',

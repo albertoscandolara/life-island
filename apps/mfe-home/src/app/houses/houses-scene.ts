@@ -1,5 +1,6 @@
 import {
   AmbientLight,
+  Box3,
   BoxGeometry,
   BufferGeometry,
   ConeGeometry,
@@ -44,6 +45,9 @@ export interface HouseLabel {
 interface House {
   id: string;
   group: Group;
+  /** The drawn house and its tree, hidden once a model of yours replaces them. */
+  building: Group;
+  model: Object3D | null;
   ring: Mesh;
   hover: number;
   phase: number;
@@ -69,7 +73,7 @@ export class HousesScene {
   private width = 1;
   private height = 1;
   private hovered: string | null = null;
-  private selected: string | null = null;
+  private selected: ReadonlySet<string> = new Set();
 
   /** Called every frame with where each house's label goes, in CSS pixels. */
   onFrame: (labels: HouseLabel[]) => void = () => undefined;
@@ -137,9 +141,42 @@ export class HousesScene {
     if (!this.motion) this.tick(0);
   }
 
-  select(id: string | null): void {
-    this.selected = id;
+  /** The houses you look at; none for all of them. */
+  select(ids: readonly string[]): void {
+    this.selected = new Set(ids);
     if (!this.motion) this.tick(0);
+  }
+
+  /**
+   * Puts your own model in place of the drawn house: scaled to stand on the
+   * tile, centred on it. Null brings the drawn house back.
+   */
+  setModel(id: string, model: Object3D | null): void {
+    const house = this.houses.find((h) => h.id === id);
+    if (!house) return;
+    if (house.model) house.group.remove(house.model);
+    house.model = null;
+    house.building.visible = !model;
+    if (model) {
+      const holder = new Group();
+      holder.add(model);
+      const box = new Box3().setFromObject(model);
+      const size = box.getSize(new Vector3());
+      const footprint = Math.max(size.x, size.z, 1e-6);
+      const scale = Math.min(1.7 / footprint, 1.9 / Math.max(size.y, 1e-6));
+      const centre = box.getCenter(new Vector3());
+      model.position.set(-centre.x, -box.min.y, -centre.z);
+      holder.scale.setScalar(scale);
+      holder.position.y = 0.08;
+      house.group.add(holder);
+      house.model = holder;
+    }
+    if (!this.motion) this.tick(0);
+  }
+
+  /** A plain material for models that bring none (an OBJ without its MTL). */
+  plainMaterial(): MeshStandardMaterial {
+    return this.material('walls');
   }
 
   /** The house under a point of the canvas (CSS pixels from its top-left). */
@@ -160,6 +197,15 @@ export class HousesScene {
 
   dispose(): void {
     cancelAnimationFrame(this.frame);
+    const shared = new Set<unknown>(this.materials.values());
+    for (const house of this.houses)
+      house.model?.traverse((object) => {
+        const mesh = object as Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry.dispose();
+        for (const material of [mesh.material].flat())
+          if (!shared.has(material)) material.dispose();
+      });
     this.geometries.forEach((g) => g.dispose());
     this.materials.forEach((m) => m.dispose());
     this.renderer.dispose();
@@ -182,10 +228,10 @@ export class HousesScene {
   private tick(time: number): void {
     const seconds = time / 1000;
     for (const house of this.houses) {
-      const on =
-        house.id === this.hovered || house.id === this.selected ? 1 : 0;
+      const chosen = this.selected.has(house.id);
+      const on = house.id === this.hovered || chosen ? 1 : 0;
       house.hover += (on - house.hover) * (this.motion ? 0.12 : 1);
-      const dimmed = this.selected && house.id !== this.selected ? 0.9 : 1;
+      const dimmed = this.selected.size && !chosen ? 0.9 : 1;
       house.group.scale.setScalar(dimmed + house.hover * 0.1);
       const bob = this.motion
         ? Math.sin(seconds * 1.1 + house.phase) * 0.06
@@ -194,7 +240,7 @@ export class HousesScene {
       house.group.rotation.y = this.motion
         ? Math.sin(seconds * 0.35 + house.phase) * 0.35 + house.hover * 0.2
         : -0.35;
-      house.ring.visible = house.id === this.selected;
+      house.ring.visible = chosen;
       house.ring.rotation.z = seconds * 0.6;
     }
     this.renderer.render(this.scene, this.camera);
@@ -235,9 +281,17 @@ export class HousesScene {
   private house(id: string, index: number, count: number): void {
     const group = new Group();
     group.userData['house'] = id;
-    const add = (mesh: Mesh, x: number, y: number, z: number) => {
+    const building = new Group();
+    group.add(building);
+    const add = (
+      mesh: Mesh,
+      x: number,
+      y: number,
+      z: number,
+      parent: Group = building,
+    ) => {
       mesh.position.set(x, y, z);
-      group.add(mesh);
+      parent.add(mesh);
       return mesh;
     };
 
@@ -247,12 +301,14 @@ export class HousesScene {
       0,
       -0.11,
       0,
+      group,
     );
     add(
       this.mesh(new CylinderGeometry(1.12, 1.12, 0.08, 6), 'grass'),
       0,
       0.04,
       0,
+      group,
     );
 
     // The house: walls, a pitched roof (a triangular prism), a chimney.
@@ -303,12 +359,21 @@ export class HousesScene {
       0,
       0.02,
       0,
+      group,
     );
     ring.rotation.x = -Math.PI / 2;
     ring.visible = false;
 
     group.position.x = (index - (count - 1) / 2) * SPACING;
     this.scene.add(group);
-    this.houses.push({ id, group, ring, hover: 0, phase: index * 1.7 });
+    this.houses.push({
+      id,
+      group,
+      building,
+      model: null,
+      ring,
+      hover: 0,
+      phase: index * 1.7,
+    });
   }
 }

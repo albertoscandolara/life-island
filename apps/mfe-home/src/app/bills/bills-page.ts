@@ -40,7 +40,8 @@ import {
   utilityColor,
   utilityLabel,
 } from '../shared/format';
-import { PropertiesDialog } from '../shared/properties-dialog';
+import { HouseDialog } from '../shared/house-dialog';
+import { scopeHouses, selectedIds } from '../shared/selection';
 import { PropertyStore } from '../shared/property-store';
 import {
   addMonths,
@@ -124,7 +125,7 @@ const YEAR_SHADES = [100, 72, 48, 30];
     LineChart,
     SegmentedBar,
     Sparkline,
-    PropertiesDialog,
+    HouseDialog,
     HousesView,
   ],
   host: { 'data-character': 'stego', class: 'bills' },
@@ -135,7 +136,8 @@ export class BillsPage {
   private readonly api = inject(HomeApi);
   protected readonly store = inject(PropertyStore);
 
-  /** `?property=<id>` from the URL; absent for every home. */
+  /** `?houses=<id>,<id>` from the URL (the older `?property=<id>` too); absent for every house. */
+  readonly houses = input<string>();
   readonly property = input<string>();
   /** `?split=1`: every home side by side instead of together. */
   readonly split = input<string>();
@@ -173,24 +175,42 @@ export class BillsPage {
   protected readonly propertyColor = propertyColor;
   protected readonly previewUrl = (id: string) => this.api.previewUrl(id);
 
-  protected readonly selected = computed(() => {
-    const id = this.property();
-    return this.store.properties()?.find((p) => p.id === id) ?? null;
-  });
+  /** The selected house ids; none for every house (and unassigned bills). */
+  protected readonly ids = computed(() =>
+    selectedIds(this.houses(), this.property()),
+  );
+  /** The houses in view: the selected ones, else all. */
+  protected readonly scope = computed(() =>
+    scopeHouses(this.store.properties() ?? [], this.ids()),
+  );
+  /** The one house in view, when only one is selected. */
+  protected readonly selected = computed(() =>
+    this.ids().length && this.scope().length === 1 ? this.scope()[0] : null,
+  );
   protected readonly isSplit = computed(
+    () => !this.selected() && this.split() === '1' && this.scope().length > 1,
+  );
+  protected readonly scopeLabel = computed(
     () =>
-      !this.selected() &&
-      this.split() === '1' &&
-      (this.store.properties()?.length ?? 0) > 1,
+      this.selected()?.name ??
+      (this.ids().length
+        ? this.scope()
+            .map((h) => h.name)
+            .join(' + ')
+        : this.isSplit()
+          ? 'every house'
+          : 'all houses'),
   );
 
-  /** Bills of the chosen home (all homes, unassigned included) and utilities, any date. */
+  /** Bills of the houses in view (all of them, unassigned included, when none is selected) and utilities, any date. */
   protected readonly scoped = computed(() => {
-    const property = this.selected();
+    const ids = this.ids().length
+      ? new Set(this.scope().map((h) => h.id))
+      : null;
     const utilities = this.utilities();
     return (this.bills() ?? []).filter(
       (bill) =>
-        (!property || bill.propertyId === property.id) &&
+        (!ids || (bill.propertyId !== null && ids.has(bill.propertyId))) &&
         utilities.includes(bill.utility),
     );
   });
@@ -317,7 +337,7 @@ export class BillsPage {
   /** One small chart per home, sharing a scale: utilities stacked in each. */
   protected readonly homeMultiples = computed(() => {
     if (!this.isSplit()) return [];
-    const homes = this.store.properties() ?? [];
+    const homes = this.scope();
     const charts = homes.map((home) => {
       const result = aggregate(this.scoped(), {
         range: this.range(),
@@ -427,7 +447,7 @@ export class BillsPage {
 
   protected readonly homeParts = computed<BarPart[]>(() => {
     if (this.selected()) return [];
-    const parts = (this.store.properties() ?? []).map((p) => ({
+    const parts = this.scope().map((p) => ({
       id: p.id,
       label: p.name,
       color: propertyColor(p.colorSlot),
@@ -594,7 +614,7 @@ export class BillsPage {
   }
 
   private byProperty(metric: 'amount') {
-    const homes = this.store.properties() ?? [];
+    const homes = this.scope();
     const result = aggregate(this.scoped(), {
       range: this.range(),
       grain: this.grain(),

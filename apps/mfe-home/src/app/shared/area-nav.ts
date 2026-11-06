@@ -10,67 +10,61 @@ import { Router, RouterLink } from '@angular/router';
 import { UiButton, UiIcon } from '@life-island/design-system';
 import { propertyColor } from './format';
 import { PropertyStore } from './property-store';
+import { selectionParams } from './selection';
 
 /**
- * The bar both views share: Home or Bills, and which home you look at, all
- * of them together, or side by side. The choice lives in the URL
- * (`?property=…&split=1`), so it survives switching view and reloading.
+ * The bar every view of Houses shares: the house itself, its renovations and
+ * its bills, and which houses you look at (one, several, or all of them,
+ * together or side by side). The choice lives in the URL
+ * (`?houses=…&split=1`), so it survives switching view and reloading.
  */
 @Component({
   selector: 'home-area-nav',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, UiIcon, UiButton],
   template: `
-    <nav class="tabs" aria-label="Home area">
-      <a
-        class="tab"
-        [class.tab--on]="area() === 'home'"
-        [attr.aria-current]="area() === 'home' ? 'page' : null"
-        [routerLink]="area() === 'home' ? [] : ['..']"
-        queryParamsHandling="preserve"
-        data-character="bronto"
-      >
-        <ui-icon name="home" [size]="18" /> Home
-      </a>
-      <a
-        class="tab"
-        [class.tab--on]="area() === 'bills'"
-        [attr.aria-current]="area() === 'bills' ? 'page' : null"
-        [routerLink]="area() === 'bills' ? [] : ['bills']"
-        queryParamsHandling="preserve"
-        data-character="stego"
-      >
-        <ui-icon name="bolt" [size]="18" /> Bills
-      </a>
+    <nav class="tabs" aria-label="Houses">
+      @for (tab of tabs; track tab.area) {
+        <a
+          class="tab"
+          [class.tab--on]="area() === tab.area"
+          [attr.aria-current]="area() === tab.area ? 'page' : null"
+          [routerLink]="link(tab.area)"
+          queryParamsHandling="preserve"
+          [attr.data-character]="tab.character"
+        >
+          <ui-icon [name]="tab.icon" [size]="18" /> {{ tab.label }}
+        </a>
+      }
     </nav>
 
-    <div class="homes" role="group" aria-label="Which home">
+    <div class="homes" role="group" aria-label="Which houses">
       <button
         type="button"
         class="chip"
-        [class.chip--on]="!property()"
-        [attr.aria-pressed]="!property()"
-        (click)="select(null)"
+        [class.chip--on]="!selected().length"
+        [attr.aria-pressed]="!selected().length"
+        (click)="clear()"
       >
-        <ui-icon name="layers" [size]="16" /> All homes
+        <ui-icon name="layers" [size]="16" /> All houses
       </button>
       @for (p of store.properties() ?? []; track p.id) {
         <button
           type="button"
           class="chip"
-          [class.chip--on]="property() === p.id"
-          [attr.aria-pressed]="property() === p.id"
-          (click)="select(p.id)"
+          [class.chip--on]="selected().includes(p.id)"
+          [attr.aria-pressed]="selected().includes(p.id)"
+          [title]="'Click to look at it alone, Ctrl/⌘-click to add it'"
+          (click)="toggle(p.id, $event)"
         >
           <span class="dot" [style.background]="color(p.colorSlot)"></span>
           {{ p.name }}
+          @if (p.isResidence) {
+            <ui-icon name="home" [size]="14" aria-label="Residence" />
+          }
         </button>
       }
-      @if (
-        area() === 'bills' &&
-        !property() &&
-        (store.properties()?.length ?? 0) > 1
-      ) {
+      @if (area() === 'bills' && selected().length !== 1 && count() > 1) {
         <span class="split" role="group" aria-label="How to show them">
           <button
             type="button"
@@ -100,7 +94,7 @@ import { PropertyStore } from './property-store';
         class="manage"
         (click)="manage.emit()"
       >
-        <ui-icon name="edit" [size]="16" /> Homes
+        <ui-icon name="plus" [size]="16" /> Add a house
       </button>
     </div>
   `,
@@ -214,22 +208,50 @@ export class AreaNav {
   protected readonly store = inject(PropertyStore);
   private readonly router = inject(Router);
 
-  readonly area = input.required<'home' | 'bills'>();
-  /** The selected property id; null for all of them. */
-  readonly property = input<string | null>(null);
+  readonly area = input.required<HousesArea>();
+  /** The selected house ids; none for all of them. */
+  readonly selected = input<string[]>([]);
   readonly split = input(false);
   readonly manage = output<void>();
+
+  protected readonly tabs = [
+    { area: 'overview', label: 'Houses', icon: 'home', character: 'bronto' },
+    {
+      area: 'renovations',
+      label: 'Renovations',
+      icon: 'wrench',
+      character: 'bronto',
+    },
+    { area: 'bills', label: 'Bills', icon: 'bolt', character: 'stego' },
+  ] as const;
 
   protected readonly color = propertyColor;
   protected readonly count = computed(
     () => this.store.properties()?.length ?? 0,
   );
 
-  protected select(id: string | null): void {
-    void this.router.navigate([], {
-      queryParams: { property: id, split: null },
-      queryParamsHandling: 'merge',
-    });
+  protected link(target: HousesArea): string[] {
+    if (target === this.area()) return [];
+    const up = this.area() === 'overview' ? [] : ['..'];
+    return target === 'overview' ? ['..'] : [...up, target];
+  }
+
+  /** A click looks at that house alone; Ctrl, ⌘ or Shift adds it to (or takes it from) the selection. */
+  protected toggle(id: string, event: MouseEvent): void {
+    const current = this.selected();
+    const many = event.ctrlKey || event.metaKey || event.shiftKey;
+    const next = many
+      ? current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id]
+      : current.length === 1 && current[0] === id
+        ? []
+        : [id];
+    this.navigate(next);
+  }
+
+  protected clear(): void {
+    this.navigate([]);
   }
 
   protected setSplit(on: boolean): void {
@@ -238,4 +260,13 @@ export class AreaNav {
       queryParamsHandling: 'merge',
     });
   }
+
+  private navigate(ids: string[]): void {
+    void this.router.navigate([], {
+      queryParams: { ...selectionParams(ids), split: null },
+      queryParamsHandling: 'merge',
+    });
+  }
 }
+
+export type HousesArea = 'overview' | 'renovations' | 'bills';

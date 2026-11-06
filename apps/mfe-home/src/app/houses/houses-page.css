@@ -1,0 +1,110 @@
+.suggestions {
+  margin-bottom: var(--space-6);
+}
+
+.houses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+  gap: var(--space-4);
+}
+
+.house {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-top: 4px solid var(--home-color);
+  border-radius: var(--card-radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  animation: rise var(--duration-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.house__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.house__roof {
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-4);
+  margin-top: var(--space-1);
+  background: var(--home-color);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.house__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.house__title h3,
+.house__title p {
+  margin: 0;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.facts .wide {
+  grid-column: 1 / -1;
+}
+
+.facts dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.person {
+  color: var(--accent);
+}
+
+.mono {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-sm);
+}
+
+.house__numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.house__numbers > span {
+  display: grid;
+}
+
+.label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.spark {
+  flex: 1;
+  min-width: 6rem;
+  max-width: 10rem;
+}
