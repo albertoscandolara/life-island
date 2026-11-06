@@ -259,6 +259,15 @@ export const mergePeopleRequestSchema = z.object({
   /** The duplicate, removed once its documents have moved. */
   from: z.uuid(),
 });
+/** A person in short, for other areas to pick (the Houses area offers them as owners). */
+export interface PersonSummaryDto {
+  id: string;
+  lastName: string | null;
+  firstName: string | null;
+  taxCode: string | null;
+  residencePropertyId: string | null;
+}
+
 /** A house of the Home area, as People offers it for Residence. */
 export interface ResidenceHouseDto {
   id: string;
