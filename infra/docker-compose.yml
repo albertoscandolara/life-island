@@ -18,7 +18,8 @@ services:
       - ./infra/postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
       - ./infra/postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
       - ./infra/postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
-      # Idempotent upgrades for a volume created before a schema existed: npm run db:upgrade.
+      # Idempotent upgrades for a volume created before a schema existed. npm run db:upgrade
+      # pipes them to psql, so this mount is only for running one by hand.
       - ./infra/postgres/upgrades:/upgrades:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d life_island']
