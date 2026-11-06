@@ -335,3 +335,24 @@ export function isOutdated(
     (d) => d.type === type && d.issueDate !== null && d.issueDate > issued,
   );
 }
+
+/**
+ * What a merge keeps: the person you merge into keeps every value they have,
+ * and takes from the duplicate only what they do not know yet. Two different
+ * tax codes mean two different people, so they are never merged.
+ */
+export function mergedValues(
+  into: PersonValues,
+  from: PersonValues,
+): { values: PersonValues; taken: PersonField[] } | { conflict: 'taxCode' } {
+  if (into.taxCode && from.taxCode && into.taxCode !== from.taxCode)
+    return { conflict: 'taxCode' };
+  const values = { ...into };
+  const taken: PersonField[] = [];
+  for (const field of PERSON_FIELDS)
+    if (values[field] === null && from[field] !== null) {
+      values[field] = from[field];
+      taken.push(field);
+    }
+  return { values, taken };
+}

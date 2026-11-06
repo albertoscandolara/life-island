@@ -222,17 +222,124 @@
 } @if (selected(); as person) {
 <div class="person">
   <ui-card [heading]="personName(person)">
-    @if (!editing()) {
-    <button
-      uiCardActions
-      uiButton
-      variant="ghost"
-      size="sm"
-      type="button"
-      (click)="edit(person)"
-    >
-      Edit
-    </button>
+    @if (!editing() && !action()) {
+    <div uiCardActions class="person__actions">
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="edit(person)"
+      >
+        Edit
+      </button>
+      @if (people().length > 1) {
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="startMerge(person)"
+      >
+        Merge a duplicate
+      </button>
+      }
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="action.set('remove')"
+      >
+        Remove
+      </button>
+    </div>
+    } @if (action() === 'remove') {
+    <div class="confirm" role="group" aria-label="Remove this person">
+      <p>
+        Remove <strong>{{ personName(person) }}</strong>? Their details are
+        deleted. Their ID documents are not: they go back to <em>To review</em>,
+        where you can file them under someone else or reject them.
+      </p>
+      <footer class="review__actions">
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="action.set(null)"
+        >
+          Cancel
+        </button>
+        <button
+          uiButton
+          variant="danger"
+          type="button"
+          [loading]="busy() === person.id"
+          [disabled]="busy() !== null"
+          (click)="remove(person)"
+        >
+          Remove the person
+        </button>
+      </footer>
+    </div>
+    } @if (action() === 'merge') {
+    <div class="confirm" role="group" aria-label="Merge a duplicate">
+      <label class="edit__field">
+        <span>The duplicate of {{ personName(person) }}</span>
+        <select
+          class="ui-input compact"
+          (change)="mergeFrom.set($any($event.target).value)"
+        >
+          @for (other of others(person); track other.id) {
+          <option [value]="other.id" [selected]="mergeFrom() === other.id">
+            {{ describe(other) }}
+          </option>
+          }
+        </select>
+      </label>
+      @if (mergePreview(person); as preview) { @if (preview.conflict) {
+      <ui-alert tone="danger">
+        These two have different tax codes, so they are different people. If one
+        tax code is a mistake, correct it with Edit first.
+      </ui-alert>
+      } @else {
+      <p>
+        The duplicate's ID documents move to the person shown here, and the
+        duplicate is removed. This person keeps every detail they already have.
+        @if (preview.taken.length) { From the duplicate they take only what they
+        do not know yet: } @else { Nothing is taken from the duplicate: it knows
+        nothing this person does not. }
+      </p>
+      @if (preview.taken.length) {
+      <ul class="taken">
+        @for (field of preview.taken; track field) {
+        <li>{{ fieldLabels[field] }}: {{ preview.from[field] }}</li>
+        }
+      </ul>
+      } }
+      <footer class="review__actions">
+        <button
+          uiButton
+          variant="ghost"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="action.set(null)"
+        >
+          Cancel
+        </button>
+        <button
+          uiButton
+          type="button"
+          [loading]="busy() === person.id"
+          [disabled]="busy() !== null || preview.conflict"
+          (click)="merge(person)"
+        >
+          Merge
+        </button>
+      </footer>
+      }
+    </div>
     } @if (editing(); as values) {
     <form class="edit" (submit)="$event.preventDefault(); save(person)">
       @for (field of fields; track field) {
@@ -266,7 +373,7 @@
         </button>
       </footer>
     </form>
-    } @else {
+    } @else if (!action()) {
     <dl class="facts">
       @for (field of fields; track field) {
       <div>

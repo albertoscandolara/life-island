@@ -90,6 +90,10 @@ export class PeoplePage {
   protected readonly busy = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   private readonly drafts = signal<Record<string, Draft>>({});
+  /** Remove or merge, being confirmed on the selected person. */
+  protected readonly action = signal<'remove' | 'merge' | null>(null);
+  /** The duplicate picked for a merge. */
+  protected readonly mergeFrom = signal<string | null>(null);
   /** The values being edited on the selected person, or null when not editing. */
   protected readonly editing = signal<Record<PersonField, string> | null>(null);
 
@@ -233,6 +237,73 @@ export class PeoplePage {
   protected select(personId: string): void {
     this.selectedId.set(personId);
     this.editing.set(null);
+    this.action.set(null);
+  }
+
+  // ---- remove and merge ----------------------------------------------------
+
+  protected remove(person: PersonDto): void {
+    this.run(
+      person.id,
+      () => this.api.removePerson(person.id),
+      () => {
+        this.action.set(null);
+        this.selectedId.set(null);
+      },
+    );
+  }
+
+  protected others(person: PersonDto): PersonDto[] {
+    return this.people().filter((p) => p.id !== person.id);
+  }
+
+  /** A person told apart from namesakes: tax code or birth date, and their documents. */
+  protected describe(person: PersonDto): string {
+    const documents = person.series.map((s) => typeLabel(s.type)).join(', ');
+    return [
+      personName(person),
+      person.taxCode ?? person.birthDate,
+      documents || 'no documents',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  protected startMerge(person: PersonDto): void {
+    // Suggest someone with the same surname first: the likeliest duplicate.
+    const others = this.others(person);
+    const likely =
+      others.find((p) => p.lastName && p.lastName === person.lastName) ??
+      others[0];
+    this.mergeFrom.set(likely?.id ?? null);
+    this.action.set('merge');
+  }
+
+  /** What the merge would do, the same way svc-people does it. */
+  protected mergePreview(person: PersonDto) {
+    const from = this.others(person).find((p) => p.id === this.mergeFrom());
+    if (!from) return null;
+    return {
+      from,
+      conflict: !!(
+        person.taxCode &&
+        from.taxCode &&
+        person.taxCode !== from.taxCode
+      ),
+      taken: this.fields.filter(
+        (field) => person[field] === null && from[field] !== null,
+      ),
+    };
+  }
+
+  protected merge(person: PersonDto): void {
+    const from = this.mergeFrom();
+    if (!from) return;
+    this.run(
+      person.id,
+      () => this.api.mergePeople(person.id, { from }),
+      () => this.action.set(null),
+    );
   }
 
   protected edit(person: PersonDto): void {

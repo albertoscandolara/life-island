@@ -285,5 +285,67 @@ describe.skipIf(!configured)(
           .status,
       ).toBe(409);
     });
+
+    it('merges a duplicate into a person, moving its documents and filling only unknown details', async () => {
+      const passport = await upload(['PASSPORT'], {
+        last_name: lastName,
+        first_name: 'DUPLICATE',
+        birth_place: 'VERONA',
+      });
+      await send('POST', `/reviews/${passport}/approve`, { personId: null });
+      const duplicate = (await overview()).people.find(
+        (p) => p.firstName === 'DUPLICATE',
+      ) as PersonDto;
+      const before = await person(personId);
+
+      expect(
+        (
+          await send('POST', `/people/${personId}/merge`, {
+            from: duplicate.id,
+          })
+        ).status,
+      ).toBe(204);
+      const all = await overview();
+      expect(all.people.some((p) => p.id === duplicate.id)).toBe(false);
+      const merged = all.people.find((p) => p.id === personId) as PersonDto;
+      expect(merged.firstName).toBe(before.firstName);
+      expect(merged.birthPlace).toBe(before.birthPlace ?? 'VERONA');
+      expect(
+        merged.series.some((s) =>
+          s.versions.some((v) => v.uploadId === passport),
+        ),
+      ).toBe(true);
+    });
+
+    it('never merges two people with different tax codes', async () => {
+      const other = await upload(['IDENTITY_CARD'], {
+        last_name: lastName,
+        first_name: 'STRANGER',
+        tax_code: `ZZZZZZ00A00${run.slice(0, 4).padEnd(4, 'Y')}Z`.slice(0, 16),
+      });
+      await send('POST', `/reviews/${other}/approve`, { personId: null });
+      const stranger = (await overview()).people.find(
+        (p) => p.firstName === 'STRANGER',
+      ) as PersonDto;
+      expect(
+        (await send('POST', `/people/${personId}/merge`, { from: stranger.id }))
+          .status,
+      ).toBe(409);
+    });
+
+    it('removes a person and sends their documents back to review', async () => {
+      const stranger = (await overview()).people.find(
+        (p) => p.firstName === 'STRANGER',
+      ) as PersonDto;
+      const documents = stranger.series.flatMap((s) =>
+        s.versions.map((v) => v.uploadId),
+      );
+      expect((await send('DELETE', `/people/${stranger.id}`)).status).toBe(204);
+      const all = await overview();
+      expect(all.people.some((p) => p.id === stranger.id)).toBe(false);
+      for (const uploadId of documents)
+        expect(all.reviews.some((r) => r.uploadId === uploadId)).toBe(true);
+      expect((await send('DELETE', `/people/${stranger.id}`)).status).toBe(404);
+    });
   },
 );

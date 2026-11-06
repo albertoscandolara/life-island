@@ -13,13 +13,14 @@ import {
   type IdDocumentStatus,
   type IdDocumentType,
   type MarkDocumentRequest,
+  type MergePeopleRequest,
   type PeopleOverviewDto,
   type PendingReviewDto,
   type PersonDto,
   type PersonValues,
   type UpdatePersonRequest,
 } from '@life-island/contracts';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import {
   categoryTree,
@@ -36,6 +37,7 @@ import {
   idDocumentType,
   isOutdated,
   matchPerson,
+  mergedValues,
   proposeChanges,
   readIdDocument,
   todayIso,
@@ -321,6 +323,57 @@ export class PeopleService {
         throw new ConflictException('Someone else already has this tax code');
       throw error;
     }
+  }
+
+  /**
+   * Removes a person. Their approved ID documents are not deleted: they go
+   * back to review, where you can file them under someone else or reject them.
+   */
+  async removePerson(id: string): Promise<void> {
+    // reviews.person_id cascades: the person's decisions go with them.
+    const deleted = await this.svc.db
+      .delete(persons)
+      .where(eq(persons.id, id))
+      .returning({ id: persons.id });
+    if (!deleted.length) throw new NotFoundException('Person not found');
+  }
+
+  /**
+   * Merges a duplicate into this person: every document of the duplicate is
+   * filed here, this person keeps their details and takes only the unknown
+   * ones from the duplicate, which is then removed.
+   */
+  async mergePeople(id: string, request: MergePeopleRequest): Promise<void> {
+    if (request.from === id)
+      throw new UnprocessableEntityException(
+        'Pick another person to merge with',
+      );
+    await this.svc.db.transaction(async (tx) => {
+      const rows = await tx
+        .select()
+        .from(persons)
+        .where(inArray(persons.id, [id, request.from]))
+        .for('update');
+      const into = rows.find((r) => r.id === id);
+      const from = rows.find((r) => r.id === request.from);
+      if (!into || !from) throw new NotFoundException('Person not found');
+      const merged = mergedValues(valuesOf(into), valuesOf(from));
+      if ('conflict' in merged)
+        throw new ConflictException(
+          'These two people have different tax codes, so they are different people. Correct the wrong tax code with Edit first if one of them is a mistake.',
+        );
+      await tx
+        .update(reviews)
+        .set({ personId: id })
+        .where(eq(reviews.personId, from.id));
+      // The duplicate goes first: its tax code may move to the person kept.
+      await tx.delete(persons).where(eq(persons.id, from.id));
+      if (merged.taken.length)
+        await tx
+          .update(persons)
+          .set({ ...merged.values, updatedAt: new Date() })
+          .where(eq(persons.id, id));
+    });
   }
 
   private async parentOf(): Promise<ParentOf> {
