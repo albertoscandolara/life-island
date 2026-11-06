@@ -297,6 +297,11 @@ export interface ParseQueueDto {
   /** When you last asked to parse now; the worker starts a run as soon as it hears it. */
   runRequestedAt: string | null;
   lastRunSummary: Record<string, number> | null;
+  /**
+   * When the parse worker last said it is alive (every few seconds while it
+   * runs); old or null means it is not running, so nothing gets read.
+   */
+  workerSeenAt: string | null;
   /** How many documents wait for the AI. */
   pendingDocuments: number;
 }

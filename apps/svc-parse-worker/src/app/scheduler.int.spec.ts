@@ -86,6 +86,15 @@ describe.skipIf(!configured)('ParseScheduler: Parse now', () => {
     await vi.waitFor(() => expect(runs).toBe(1), { timeout: 5000 });
   });
 
+  it('says it is alive while it runs', async () => {
+    const { rows } = await other.pool.query<{ age: number }>(
+      `select extract(epoch from now() - worker_seen_at) as age
+         from ingestion.parse_queue where id = $1`,
+      [PARSE_QUEUE_ID],
+    );
+    expect(Number(rows[0].age)).toBeLessThan(5);
+  });
+
   it('still starts it when the notification never arrives', async () => {
     const before = runs;
     // The request alone, as if its NOTIFY were lost on the way.

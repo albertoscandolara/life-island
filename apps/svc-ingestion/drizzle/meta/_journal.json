@@ -78,6 +78,13 @@
       "when": 1794470400000,
       "tag": "0010_id_document_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794556800000,
+      "tag": "0011_parse_worker_heartbeat",
+      "breakpoints": true
     }
   ]
 }

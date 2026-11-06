@@ -145,6 +145,7 @@ export function toParseQueueDto(
     nextScheduledRunAt: row?.nextScheduledRunAt?.toISOString() ?? null,
     runRequestedAt: row?.runRequestedAt?.toISOString() ?? null,
     lastRunSummary: row?.lastRunSummary ?? null,
+    workerSeenAt: row?.workerSeenAt?.toISOString() ?? null,
     pendingDocuments,
   };
 }

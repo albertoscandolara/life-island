@@ -28,6 +28,26 @@ const formatTime = (iso: string) =>
     timeStyle: 'short',
   });
 
+/** How old the worker's heartbeat may be before it counts as not running. */
+export const WORKER_STALE_MS = 60_000;
+
+/**
+ * The parse worker is not running: it has not said it is alive within the
+ * last minute (it writes `workerSeenAt` every few seconds while it runs).
+ */
+export function workerOffline(
+  queue: Pick<ParseQueueDto, 'workerSeenAt'>,
+  now = Date.now(),
+): boolean {
+  return (
+    !queue.workerSeenAt ||
+    now - Date.parse(queue.workerSeenAt) > WORKER_STALE_MS
+  );
+}
+
+const WORKER_OFFLINE_HELP =
+  'Start it with npm run dev (or npx nx serve svc-parse-worker) and look at its output in that terminal: an error there says why it stopped. It reads the waiting documents as soon as it starts.';
+
 /**
  * What the banner says about the parse queue. A resume time is stated as a
  * fact only when it came from the provider; otherwise it is the worker's next
@@ -41,6 +61,15 @@ export function queueMessage(
   const provider = queue.providerError
     ? `Provider message: ${queue.providerError.message}`
     : null;
+  if (workerOffline(queue))
+    return {
+      tone: 'danger',
+      heading: 'Status: The parse worker is not running',
+      lines: [
+        `Nothing is read until it runs: Parse now and the daily run both need it. ${WORKER_OFFLINE_HELP}`,
+        ...(queue.pendingDocuments > 0 ? [waiting] : []),
+      ],
+    };
   switch (queue.status) {
     case 'PAUSED_QUOTA':
       return {
@@ -156,6 +185,11 @@ export function parseNowState(
   }
   if (queue.pendingDocuments === 0)
     return { enabled: false, hint: 'No document is waiting to be read.' };
+  if (workerOffline(queue))
+    return {
+      enabled: false,
+      hint: 'The parse worker is not running, so nothing would start. Start it first (see the status below).',
+    };
   const n = queue.pendingDocuments;
   return {
     enabled: true,
@@ -278,7 +312,7 @@ export class QueueBanner {
       else if (this.requestedUntil) {
         this.requestedUntil = 0;
         this.notice.set(
-          'The parse worker has not started the run. Is svc-parse-worker running? Look at its output in the terminal where you ran npm start, then press Refresh.',
+          'The run has not started yet. Press Refresh in a moment to check again.',
         );
       }
     });
