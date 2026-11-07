@@ -15,6 +15,13 @@
       "when": 1793993334492,
       "tag": "0001_houses_as_entities",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794030335845,
+      "tag": "0002_bills_as_entities",
+      "breakpoints": true
     }
   ]
 }

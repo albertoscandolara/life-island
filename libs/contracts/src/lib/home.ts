@@ -251,11 +251,18 @@ export interface HomePeopleDto {
 }
 
 /** Where a known company was seen. */
-export const COMPANY_SOURCES = ['BILL', 'HOUSE', 'WORK'] as const;
+export const COMPANY_SOURCES = [
+  'ORGANIZATION',
+  'BILL',
+  'HOUSE',
+  'WORK',
+] as const;
 export type CompanySource = (typeof COMPANY_SOURCES)[number];
 
 /** A company already known to the Houses area, to pick instead of typing it again. */
 export interface KnownCompanyDto {
+  /** The organization, when the company is one; null for a name seen only as text. */
+  id: string | null;
   name: string;
   sources: CompanySource[];
   /** How many bills, houses and works name it. */
@@ -383,6 +390,8 @@ export const BILL_ASSIGNMENTS = [
 export type BillAssignment = (typeof BILL_ASSIGNMENTS)[number];
 
 export interface BillDto {
+  /** The bill entity's id; `uploadId` is the document it was read from. */
+  id: string;
   uploadId: string;
   title: string;
   utility: UtilityKind;
@@ -402,6 +411,13 @@ export interface BillDto {
   /** Consumption in the utility's unit; null when the bill does not print it. */
   consumption: number | null;
   unit: string;
+  /** Invoice number as printed; with the supplier, the bill's natural key. */
+  invoiceNumber: string | null;
+  /** What was left to pay, when it differs from the total (credits, earlier bills). */
+  totalDue: number | null;
+  supplierId: string | null;
+  supplyPointId: string | null;
+  contractId: string | null;
 }
 
 export const listBillsQuerySchema = z.object({
@@ -554,3 +570,73 @@ export const listHomeDocumentsQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
+
+// ---------------------------------------------------------------------------
+// Bills as entities: organizations, supply points, supply contracts
+//
+// The model of life-island-docs/entities: a house has supply points (POD for
+// electricity, PDR for gas, the water code), each supplied under contracts
+// with a supplier, and every bill points to its supply point and contract.
+// A bill reaches its house through its supply point, never by a copy.
+
+export const ORGANIZATION_ROLES = [
+  'ENERGY_SUPPLIER',
+  'DISTRIBUTOR',
+  'CONTRACTOR',
+  'OTHER',
+] as const;
+export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
+
+/** A company or public office, whatever its role: one row, referenced by id. */
+export interface OrganizationDto {
+  id: string;
+  name: string;
+  /** Codice fiscale; the natural key when printed. */
+  taxCode: string | null;
+  vatNumber: string | null;
+  roles: OrganizationRole[];
+  billCount: number;
+}
+
+export const updateOrganizationRequestSchema = z.object({
+  name: z.string().trim().min(1).max(160).optional(),
+  taxCode: z.string().trim().max(32).nullable().optional(),
+  vatNumber: z.string().trim().max(32).nullable().optional(),
+});
+export type UpdateOrganizationRequest = z.input<
+  typeof updateOrganizationRequestSchema
+>;
+
+export interface SupplyContractDto {
+  id: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  customerCode: string | null;
+  offerName: string | null;
+  /** First and last bill period seen under it. */
+  firstDay: string | null;
+  lastDay: string | null;
+  billCount: number;
+}
+
+/** Where electricity, gas or water is delivered: it belongs to a house and outlives contracts. */
+export interface SupplyPointDto {
+  id: string;
+  utility: UtilityKind;
+  /** POD, PDR or water customer code, without spaces. */
+  code: string;
+  /** The house it delivers to; null until one is known. Its bills follow it. */
+  propertyId: string | null;
+  distributorId: string | null;
+  distributorName: string | null;
+  contracts: SupplyContractDto[];
+  billCount: number;
+}
+
+export const updateSupplyPointRequestSchema = z.object({
+  /** Moves the supply point, and every bill of it, to this house (null: none). */
+  propertyId: z.uuid().nullable(),
+});
+export type UpdateSupplyPointRequest = z.input<
+  typeof updateSupplyPointRequestSchema
+>;
