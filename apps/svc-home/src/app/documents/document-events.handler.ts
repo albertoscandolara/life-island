@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   CATEGORY_CHANGED_EVENT,
   categoryChangedV1,
@@ -9,9 +10,10 @@ import {
   uploadUpdatedV1,
   type EventEnvelope,
 } from '@life-island/contracts';
-import { isNull, lte, or } from 'drizzle-orm';
+import { isNull, lte, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
+import { syncBillsIn } from '../bills/bill-ledger.js';
 import { categoryTree, documents } from '../db/schema.js';
 
 export const DOCUMENT_EVENTS = [
@@ -28,6 +30,31 @@ export const DOCUMENT_EVENTS = [
  * newer one, and a deleted document stays deleted.
  */
 export async function applyDocumentEvent(
+  event: EventEnvelope,
+  client: pg.PoolClient,
+): Promise<void> {
+  await mirror(event, client);
+  await syncBills(client);
+}
+
+/**
+ * The bill entities follow the documents in the same transaction. A sync
+ * that fails does not hold the documents back: it is rolled back alone and
+ * the next event, or the next start, syncs again.
+ */
+async function syncBills(client: pg.PoolClient): Promise<void> {
+  const db = drizzle(client);
+  await db.execute(sql`savepoint bill_sync`);
+  try {
+    await syncBillsIn(db);
+    await db.execute(sql`release savepoint bill_sync`);
+  } catch (error) {
+    await db.execute(sql`rollback to savepoint bill_sync`);
+    new Logger('BillLedger').error(`Bill sync failed: ${String(error)}`);
+  }
+}
+
+async function mirror(
   event: EventEnvelope,
   client: pg.PoolClient,
 ): Promise<void> {

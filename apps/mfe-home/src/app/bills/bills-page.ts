@@ -599,7 +599,7 @@ export class BillsPage {
       case 'CATEGORY':
         return 'From its category';
       case 'SUPPLY_CODE':
-        return 'From its supply code';
+        return 'From its supply point (POD, PDR)';
       case 'ADDRESS':
         return 'From its address';
       default:

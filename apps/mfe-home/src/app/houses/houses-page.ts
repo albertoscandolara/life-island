@@ -6,13 +6,16 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   PROPERTY_TENURE_LABELS,
   PROPERTY_TYPE_LABELS,
   type BillDto,
   type HomePersonDto,
   type PropertyDto,
+  type SupplyPointDto,
   type WorkDto,
+  UTILITIES,
 } from '@life-island/contracts';
 import { Router } from '@angular/router';
 import {
@@ -23,7 +26,7 @@ import {
   UiIcon,
   UiPageHeader,
 } from '@life-island/design-system';
-import { HomeApi } from '../api/home-api';
+import { errorMessage, HomeApi } from '../api/home-api';
 import { addMonths, aggregate, totalIn } from '../bills/aggregate';
 import { Sparkline } from '../charts/sparkline';
 import { workCost } from '../home/home-page';
@@ -63,6 +66,7 @@ import { HousesView } from './houses-view';
     HouseDialog,
     HouseSuggestions,
     Sparkline,
+    NgTemplateOutlet,
   ],
   host: { 'data-character': 'bronto', class: 'home' },
   templateUrl: './houses-page.html',
@@ -83,6 +87,10 @@ export class HousesPage {
 
   protected readonly bills = signal<BillDto[]>([]);
   protected readonly works = signal<WorkDto[]>([]);
+  protected readonly points = signal<SupplyPointDto[]>([]);
+  /** The supply point being moved. */
+  protected readonly moving = signal<string | null>(null);
+  protected readonly pointError = signal<string | null>(null);
   protected readonly people = signal<HomePersonDto[]>([]);
   protected readonly editorOpen = signal(false);
   /** The house being edited; null while adding one. */
@@ -121,8 +129,13 @@ export class HousesPage {
     this.scope().map((house) => {
       const bills = this.bills().filter((b) => b.propertyId === house.id);
       const works = this.works().filter((w) => w.propertyId === house.id);
+      const points = this.points().filter((p) => p.propertyId === house.id);
+      const known = new Set(points.map((p) => normalize(p.code)));
       return {
         house,
+        points,
+        // Codes you typed that no bill has shown yet.
+        otherCodes: house.supplyCodes.filter((c) => !known.has(normalize(c))),
         address: fullAddress(house),
         residents: this.people().filter(
           (p) => p.residencePropertyId === house.id,
@@ -159,6 +172,11 @@ export class HousesPage {
           .join(', '),
       };
     }),
+  );
+
+  /** Supply points no house has yet: pick one for them. */
+  protected readonly loosePoints = computed(() =>
+    this.points().filter((p) => p.propertyId === null),
   );
 
   constructor() {
@@ -198,12 +216,44 @@ export class HousesPage {
       next: (bills) => this.bills.set(bills),
       error: () => this.bills.set([]),
     });
+    this.api.supplyPoints().subscribe({
+      next: (points) => this.points.set(points),
+      error: () => this.points.set([]),
+    });
     this.api.works().subscribe({
       next: (works) => this.works.set(works),
       error: () => this.works.set([]),
     });
   }
+
+  /** Puts a supply point on another house: its bills, past and future, follow it. */
+  protected movePoint(point: SupplyPointDto, target: string): void {
+    this.moving.set(point.id);
+    this.pointError.set(null);
+    this.api.moveSupplyPoint(point.id, target || null).subscribe({
+      next: () => {
+        this.moving.set(null);
+        this.store.reload();
+        this.loadNumbers();
+      },
+      error: (error) => {
+        this.moving.set(null);
+        this.pointError.set(errorMessage(error));
+      },
+    });
+  }
+
+  protected utilityLabel(point: SupplyPointDto): string {
+    return UTILITIES[point.utility].label;
+  }
+
+  /** The contract in force: the one with the latest bill. */
+  protected current(point: SupplyPointDto) {
+    return point.contracts[0] ?? null;
+  }
 }
+
+const normalize = (code: string) => code.replace(/[\s\-./]/g, '').toUpperCase();
 
 /** "Via dei Bandi 10, 37039 Tregnago (VR)", or null without an address. */
 export function fullAddress(house: PropertyDto): string | null {

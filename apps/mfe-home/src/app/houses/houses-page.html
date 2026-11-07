@@ -151,13 +151,24 @@
         <dt>{{ company[0] }}</dt>
         <dd>{{ company[1] }}</dd>
       </div>
-      } @if (c.house.supplyCodes.length) {
+      } @if (c.otherCodes.length) {
       <div class="wide">
-        <dt>Supply codes</dt>
-        <dd class="mono">{{ c.house.supplyCodes.join(', ') }}</dd>
+        <dt>Supply codes, no bill yet</dt>
+        <dd class="mono">{{ c.otherCodes.join(', ') }}</dd>
       </div>
       }
     </dl>
+
+    @if (c.points.length) {
+    <section class="points" aria-label="Supply points">
+      <h4 class="points__title">Supply points</h4>
+      <ul class="points__list">
+        @for (p of c.points; track p.id) {
+        <ng-container *ngTemplateOutlet="pointRow; context: { $implicit: p }" />
+        }
+      </ul>
+    </section>
+    }
 
     <footer class="house__numbers">
       <span>
@@ -179,4 +190,52 @@
   </article>
   }
 </section>
+
+@if (loosePoints().length) {
+<section class="points points--loose" aria-label="Supply points with no house">
+  <h2 class="points__heading">Supply points with no house</h2>
+  <p class="muted">
+    Your bills name these supply points, but no house is matched yet. Pick their
+    house: every bill of the supply point, past and future, goes there.
+  </p>
+  <ul class="points__list">
+    @for (p of loosePoints(); track p.id) {
+    <ng-container *ngTemplateOutlet="pointRow; context: { $implicit: p }" />
+    }
+  </ul>
+</section>
+} } @if (pointError(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
 }
+
+<ng-template #pointRow let-p>
+  <li class="point" [class.point--busy]="moving() === p.id">
+    <div class="point__what">
+      <strong>{{ utilityLabel(p) }}</strong>
+      <span class="mono">{{ p.code }}</span>
+    </div>
+    <div class="point__who muted">
+      @if (current(p); as k) { {{ k.supplierName ?? 'Unknown supplier' }} @if
+      (k.offerName) { · {{ k.offerName }} } @if (k.customerCode) { · customer {{
+      k.customerCode }} } } @else { No supplier read yet } @if
+      (p.distributorName) { · grid by {{ p.distributorName }} } · {{ p.billCount
+      }} {{ p.billCount === 1 ? 'bill' : 'bills' }} @if (p.contracts.length > 1)
+      { · {{ p.contracts.length }} contracts so far }
+    </div>
+    <label class="point__move">
+      <select
+        class="ui-input compact"
+        [attr.aria-label]="'House of ' + p.code"
+        [disabled]="moving() !== null"
+        (change)="movePoint(p, $any($event.target).value)"
+      >
+        <option value="" [selected]="p.propertyId === null">No house</option>
+        @for (h of store.properties() ?? []; track h.id) {
+        <option [value]="h.id" [selected]="p.propertyId === h.id">
+          {{ h.name }}
+        </option>
+        }
+      </select>
+    </label>
+  </li>
+</ng-template>
