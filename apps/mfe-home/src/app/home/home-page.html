@@ -1,7 +1,7 @@
 <ui-page-header
   emblem="🏡"
-  heading="Home"
-  subtitle="Your homes, and everything done to them: renovations, repairs and maintenance, with what they cost and their invoices."
+  heading="Houses"
+  subtitle="Everything done to your houses: renovations, repairs and maintenance, with what they cost and their invoices."
 >
   <button
     uiButton
@@ -15,11 +15,11 @@
 </ui-page-header>
 
 <home-area-nav
-  area="home"
-  [property]="selected()?.id ?? null"
+  area="renovations"
+  [selected]="ids()"
   (manage)="managing.set(true)"
 />
-<home-properties-dialog [(open)]="managing" />
+<home-house-dialog [(open)]="managing" />
 <home-work-dialog
   [(open)]="editorOpen"
   [work]="editing()"
@@ -43,15 +43,7 @@
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
 }
 
-<section class="stage">
-  @defer (on idle) {
-  <home-houses-view class="stage__houses" [selected]="selected()?.id ?? null" />
-  } @placeholder {
-  <div
-    class="stage__houses stage__houses--placeholder"
-    aria-hidden="true"
-  ></div>
-  }
+<section class="stage stage--single">
   <div class="stage__panel">
     @if (selected(); as p) {
     <span class="eyebrow"
@@ -59,14 +51,19 @@
       Looking at</span
     >
     <h2 class="stage__title">{{ p.name }}</h2>
-    <p class="muted">{{ addressOf(p) || 'Add its address from Homes' }}</p>
+    <p class="muted">{{ addressOf(p) || 'Add its address from Houses' }}</p>
     } @else {
-    <span class="eyebrow">All your homes</span>
+    <span class="eyebrow"
+      >{{ ids().length ? 'Looking at' : 'All your houses' }}</span
+    >
     <h2 class="stage__title">
-      {{ store.properties()?.length ?? 0 }} {{ store.properties()?.length === 1
-      ? 'home' : 'homes' }}
+      {{ scope().length }} {{ scope().length === 1 ? 'house' : 'houses' }}
     </h2>
-    <p class="muted">Pick one to see only its works and bills.</p>
+    <p class="muted">
+      @for (h of scope(); track h.id) {
+      <span class="dot" [style.background]="propertyColor(h.colorSlot)"></span>
+      {{ h.name }}{{ $last ? '' : ' · ' }} }
+    </p>
     }
     <dl class="stats">
       <div class="stat">
@@ -94,41 +91,6 @@
     </dl>
   </div>
 </section>
-
-@if (!selected() && cards().length) {
-<section class="cards" aria-label="Your homes">
-  @for (c of cards(); track c.property.id; let i = $index) {
-  <button
-    type="button"
-    class="home-card"
-    [style.--home-color]="propertyColor(c.property.colorSlot)"
-    [style.--i]="i"
-    (click)="choose(c.property.id)"
-  >
-    <span class="home-card__roof" aria-hidden="true"></span>
-    <span class="home-card__name">{{ c.property.name }}</span>
-    <span class="muted small"
-      >{{ addressOf(c.property) || 'No address yet' }}</span
-    >
-    <span class="home-card__row">
-      <span>
-        <span class="home-card__label">Bills, last 12 months</span>
-        <strong>{{ formatEuroRound(c.billsYear) }}</strong>
-      </span>
-      <home-sparkline
-        class="home-card__spark"
-        [values]="c.trend"
-        [color]="propertyColor(c.property.colorSlot)"
-      />
-    </span>
-    <span class="home-card__row home-card__row--meta">
-      <span>{{ c.open }} open · {{ c.done }} done</span>
-      <span>{{ formatEuroRound(c.spent) }} on works</span>
-    </span>
-  </button>
-  }
-</section>
-}
 
 <div class="layout">
   <section class="works" aria-label="Works">

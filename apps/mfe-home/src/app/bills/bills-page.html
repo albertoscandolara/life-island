@@ -1,17 +1,17 @@
 <ui-page-header
   emblem="⚡"
   heading="Bills"
-  subtitle="Electricity, gas and water of every home: what you pay, what you use and how it changes, read from the bills you confirmed."
+  subtitle="Electricity, gas and water of your houses: what you pay, what you use and how it changes, read from the bills you confirmed."
 >
 </ui-page-header>
 
 <home-area-nav
   area="bills"
-  [property]="selected()?.id ?? null"
+  [selected]="ids()"
   [split]="isSplit()"
   (manage)="managing.set(true)"
 />
-<home-properties-dialog [(open)]="managing" />
+<home-house-dialog [(open)]="managing" />
 
 @if (error(); as message) {
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
@@ -120,8 +120,7 @@
 <section class="hero" [class.hero--busy]="false">
   <div class="headline">
     <span class="headline__label">
-      Spent on {{ selected()?.name ?? (isSplit() ? 'every home' : 'all homes')
-      }} · {{ rangeLabel() }}
+      Spent on {{ scopeLabel() }} · {{ rangeLabel() }}
     </span>
     <span class="headline__value">{{ formatEuroRound(total()) }}</span>
     <span class="headline__meta">
@@ -165,11 +164,7 @@
       }
     </dl>
   </div>
-  <home-houses-view
-    class="houses"
-    [compact]="true"
-    [selected]="selected()?.id ?? null"
-  />
+  <home-houses-view class="houses" [compact]="true" [selected]="ids()" />
 </section>
 
 <section class="tiles" aria-label="By utility">

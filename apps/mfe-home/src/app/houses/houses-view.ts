@@ -10,13 +10,39 @@ import {
   Injector,
   input,
   signal,
+  untracked,
   viewChild,
   viewChildren,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import type { PropertyDto } from '@life-island/contracts';
+import type { Material, Mesh, Object3D } from 'three';
+import { HomeApi } from '../api/home-api';
 import { propertyColor } from '../shared/format';
 import { PropertyStore } from '../shared/property-store';
+import { selectionParams } from '../shared/selection';
 import { HousesScene, type HousesPalette } from './houses-scene';
+
+/** Loads a house's own model (glTF, GLB or OBJ); three.js loaders come only when needed. */
+async function loadModel(
+  url: string,
+  house: PropertyDto,
+  plain: () => Material,
+): Promise<Object3D> {
+  if (house.model?.format === 'OBJ') {
+    const { OBJLoader } =
+      await import('three/examples/jsm/loaders/OBJLoader.js');
+    const object = await new OBJLoader().loadAsync(url);
+    // An OBJ comes without its .mtl: paint it like the drawn houses.
+    object.traverse((child) => {
+      if ((child as Mesh).isMesh) (child as Mesh).material = plain();
+    });
+    return object;
+  }
+  const { GLTFLoader } =
+    await import('three/examples/jsm/loaders/GLTFLoader.js');
+  return (await new GLTFLoader().loadAsync(url)).scene;
+}
 
 /**
  * Your homes in 3D: one small house per property, its roof in the property's
@@ -49,13 +75,13 @@ import { HousesScene, type HousesPalette } from './houses-scene';
           <button
             type="button"
             class="label"
-            [class.label--on]="selected() === p.id"
-            [attr.aria-pressed]="selected() === p.id"
+            [class.label--on]="selected().includes(p.id)"
+            [attr.aria-pressed]="selected().includes(p.id)"
             (pointerenter)="hover(p.id)"
             (pointerleave)="hover(null)"
             (focus)="hover(p.id)"
             (blur)="hover(null)"
-            (click)="choose(p.id)"
+            (click)="choose(p.id, $event)"
           >
             <span class="dot" [style.background]="color(p.colorSlot)"></span>
             {{ p.name }}
@@ -65,9 +91,9 @@ import { HousesScene, type HousesPalette } from './houses-scene';
     </ul>
     <p class="hint">
       {{
-        selected()
-          ? 'Click the house again to see every home'
-          : 'Click a house to look at that home'
+        selected().length
+          ? 'Click the house again to see every house; Ctrl/⌘-click adds one'
+          : 'Click a house to look at it; Ctrl/⌘-click to pick several'
       }}
     </p>
   `,
@@ -198,13 +224,14 @@ import { HousesScene, type HousesPalette } from './houses-scene';
 })
 export class HousesView {
   private readonly store = inject(PropertyStore);
+  private readonly api = inject(HomeApi);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly labelEls = viewChildren<ElementRef<HTMLElement>>('label');
 
-  /** The property you are looking at; null for every home. */
-  readonly selected = input<string | null>(null);
+  /** The houses you are looking at; none for every house. */
+  readonly selected = input<string[]>([]);
   /** Smaller, for the Bills headline. */
   readonly compact = input(false);
 
@@ -241,7 +268,21 @@ export class HousesView {
             return;
           }
           const scene = this.scene;
-          scene.select(this.selected());
+          scene.select(untracked(() => this.selected()));
+          for (const house of homes) {
+            if (!house.model) continue;
+            const url = this.api.modelUrl(house.id, house.model.uploadedAt);
+            loadModel(url, house, () => scene.plainMaterial())
+              .then((model) => {
+                if (this.scene === scene) scene.setModel(house.id, model);
+              })
+              .catch((error: unknown) =>
+                console.warn(
+                  `The 3D model of ${house.name} did not load`,
+                  error,
+                ),
+              );
+          }
           scene.onFrame = (positions) => {
             const labels = this.labelEls();
             positions.forEach((position, i) => {
@@ -291,15 +332,22 @@ export class HousesView {
   protected click(event: MouseEvent): void {
     const { x, y } = this.local(event);
     const id = this.scene?.pick(x, y);
-    if (id) this.choose(id);
+    if (id) this.choose(id, event);
   }
 
-  protected choose(id: string): void {
+  /** A click looks at that house alone (again: all of them); Ctrl, ⌘ or Shift adds it. */
+  protected choose(id: string, event: MouseEvent): void {
+    const current = this.selected();
+    const many = event.ctrlKey || event.metaKey || event.shiftKey;
+    const next = many
+      ? current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id]
+      : current.length === 1 && current[0] === id
+        ? []
+        : [id];
     void this.router.navigate([], {
-      queryParams: {
-        property: this.selected() === id ? null : id,
-        split: null,
-      },
+      queryParams: { ...selectionParams(next), split: null },
       queryParamsHandling: 'merge',
     });
   }

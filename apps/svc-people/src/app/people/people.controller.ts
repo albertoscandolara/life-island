@@ -17,6 +17,7 @@ import {
   mergePeopleRequestSchema,
   updatePersonRequestSchema,
   type PeopleOverviewDto,
+  type PersonSummaryDto,
   type ResidenceHousesDto,
 } from '@life-island/contracts';
 import { HomeHouses } from './home-houses.js';
@@ -39,6 +40,12 @@ export class PeopleController {
   @Get('overview')
   overview(): Promise<PeopleOverviewDto> {
     return this.people.overview();
+  }
+
+  /** Everyone in short, for the Houses area to offer as owners. */
+  @Get('people')
+  list(): Promise<PersonSummaryDto[]> {
+    return this.people.summaries();
   }
 
   @Patch('people/:id')

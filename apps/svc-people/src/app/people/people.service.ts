@@ -17,6 +17,7 @@ import {
   type PeopleOverviewDto,
   type PendingReviewDto,
   type PersonDto,
+  type PersonSummaryDto,
   type PersonValues,
   type UpdatePersonRequest,
 } from '@life-island/contracts';
@@ -184,6 +185,23 @@ export class PeopleService {
           : [];
       }),
     };
+  }
+
+  async summaries(): Promise<PersonSummaryDto[]> {
+    const rows = await this.svc.db.select().from(persons);
+    return rows
+      .map((p) => ({
+        id: p.id,
+        lastName: p.lastName,
+        firstName: p.firstName,
+        taxCode: p.taxCode,
+        residencePropertyId: p.residencePropertyId,
+      }))
+      .sort((a, b) =>
+        `${a.lastName ?? ''} ${a.firstName ?? ''}`.localeCompare(
+          `${b.lastName ?? ''} ${b.firstName ?? ''}`,
+        ),
+      );
   }
 
   /**

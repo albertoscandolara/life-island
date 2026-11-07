@@ -1,7 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type {
+  ApproveHouseSuggestionRequest,
   BillDto,
+  HomePeopleDto,
+  HouseSuggestionDto,
+  KnownCompanyDto,
   CreatePropertyRequest,
   CreateWorkRequest,
   HomeDocumentDto,
@@ -41,6 +45,64 @@ export class HomeApi {
 
   deleteProperty(id: string): Observable<void> {
     return this.http.delete<void>(`${HOME_API}/properties/${id}`);
+  }
+
+  houseSuggestions(): Observable<HouseSuggestionDto[]> {
+    return this.http.get<HouseSuggestionDto[]>(
+      `${HOME_API}/houses/suggestions`,
+    );
+  }
+
+  approveHouseSuggestion(
+    request: ApproveHouseSuggestionRequest,
+  ): Observable<PropertyDto> {
+    return this.http.post<PropertyDto>(
+      `${HOME_API}/houses/suggestions/approve`,
+      request,
+    );
+  }
+
+  dismissHouseSuggestion(uploadIds: string[]): Observable<void> {
+    return this.http.post<void>(`${HOME_API}/houses/suggestions/dismiss`, {
+      uploadIds,
+    });
+  }
+
+  reopenHouseSuggestions(): Observable<{ reopened: number }> {
+    return this.http.post<{ reopened: number }>(
+      `${HOME_API}/houses/suggestions/reopen`,
+      {},
+    );
+  }
+
+  /** The people of the People area, to pick as owners. */
+  people(): Observable<HomePeopleDto> {
+    return this.http.get<HomePeopleDto>(`${HOME_API}/people`);
+  }
+
+  /** Companies already seen on bills, houses and works. */
+  companies(): Observable<KnownCompanyDto[]> {
+    return this.http.get<KnownCompanyDto[]>(`${HOME_API}/companies`);
+  }
+
+  uploadModel(id: string, file: File): Observable<PropertyDto> {
+    return this.http.put<PropertyDto>(
+      `${HOME_API}/properties/${id}/model`,
+      file,
+      {
+        params: { filename: file.name },
+        headers: { 'content-type': 'application/octet-stream' },
+      },
+    );
+  }
+
+  deleteModel(id: string): Observable<PropertyDto> {
+    return this.http.delete<PropertyDto>(`${HOME_API}/properties/${id}/model`);
+  }
+
+  /** The house's 3D model file; `version` busts the cache when it is replaced. */
+  modelUrl(id: string, version: string): string {
+    return `${HOME_API}/properties/${id}/model?v=${encodeURIComponent(version)}`;
   }
 
   bills(query: ListBillsQuery = {}): Observable<BillDto[]> {

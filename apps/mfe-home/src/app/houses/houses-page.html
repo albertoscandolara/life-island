@@ -1,0 +1,182 @@
+<ui-page-header
+  emblem="🏡"
+  heading="Houses"
+  subtitle="Every house you have: its data, owners and companies, its renovations and its bills. Your documents suggest new houses and new data; nothing changes until you approve it."
+>
+  <button uiButton uiPageActions type="button" (click)="add()">
+    <ui-icon name="plus" [size]="18" /> Add a house
+  </button>
+</ui-page-header>
+
+<home-area-nav area="overview" [selected]="selected()" (manage)="add()" />
+<home-house-dialog
+  [(open)]="editorOpen"
+  [house]="editing()"
+  (saved)="onSaved($event)"
+/>
+
+@if (store.error(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
+}
+
+<home-house-suggestions class="suggestions" (changed)="loadNumbers()" />
+
+@if (store.properties()?.length === 0) {
+<ui-empty-state icon="home" heading="No houses yet">
+  Add the houses you own or live in, or load a bill, a cadastral survey or a
+  deed in the documents app: the houses it speaks of are suggested here.
+  <button uiButton type="button" (click)="add()">
+    <ui-icon name="plus" [size]="16" /> Add a house
+  </button>
+</ui-empty-state>
+} @else {
+<section class="stage">
+  @defer (on idle) {
+  <home-houses-view class="stage__houses" [selected]="selected()" />
+  } @placeholder {
+  <div
+    class="stage__houses stage__houses--placeholder"
+    aria-hidden="true"
+  ></div>
+  }
+  <div class="stage__panel">
+    <span class="eyebrow"
+      >{{ selected().length ? 'Looking at' : 'All your houses' }}</span
+    >
+    <h2 class="stage__title">
+      @if (scope().length === 1) { {{ scope()[0].name }} } @else { {{
+      scope().length }} houses }
+    </h2>
+    <p class="muted">
+      @if (residence(); as r) { You live in <strong>{{ r.name }}</strong>. }
+      @else { Mark the house you live in as your residence. } Click a house, or
+      Ctrl/⌘-click several, to look only at them in every tab.
+    </p>
+  </div>
+</section>
+
+<section class="houses" aria-label="Your houses">
+  @for (c of cards(); track c.house.id; let i = $index) {
+  <article
+    class="house"
+    [style.--home-color]="propertyColor(c.house.colorSlot)"
+    [style.--i]="i"
+  >
+    <header class="house__head">
+      <span class="house__roof" aria-hidden="true"></span>
+      <div class="house__title">
+        <h3>{{ c.house.name }}</h3>
+        <p class="muted">{{ c.address ?? 'No address yet' }}</p>
+      </div>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="edit(c.house)"
+      >
+        <ui-icon name="edit" [size]="16" /> Edit
+      </button>
+    </header>
+    <div class="badges">
+      @if (c.house.isResidence) {
+      <ui-badge tone="success"
+        ><ui-icon name="home" [size]="12" /> Residence</ui-badge
+      >
+      }
+      <ui-badge tone="info">{{ typeLabels[c.house.type] }}</ui-badge>
+      <ui-badge>{{ tenureLabels[c.house.tenure] }}</ui-badge>
+      @if (c.house.model) {
+      <ui-badge tone="progress">3D model</ui-badge>
+      }
+    </div>
+
+    <dl class="facts">
+      @if (c.house.areaSqm !== null) {
+      <div>
+        <dt>Floor area</dt>
+        <dd>{{ formatNumber(c.house.areaSqm) }} m²</dd>
+      </div>
+      } @if (c.house.rooms !== null) {
+      <div>
+        <dt>Rooms</dt>
+        <dd>{{ formatNumber(c.house.rooms) }}</dd>
+      </div>
+      } @if (c.house.yearBuilt !== null) {
+      <div>
+        <dt>Built</dt>
+        <dd>{{ c.house.yearBuilt }}</dd>
+      </div>
+      } @if (c.cadastre) {
+      <div class="wide">
+        <dt>Land registry</dt>
+        <dd>
+          {{ c.cadastre }} @if (c.house.cadastralIncome !== null) { · rendita {{
+          formatEuro(c.house.cadastralIncome) }} }
+        </dd>
+      </div>
+      } @if (c.house.purchaseDate || c.house.purchasePrice !== null) {
+      <div class="wide">
+        <dt>Bought</dt>
+        <dd>
+          @if (c.house.purchaseDate) { {{ formatDate(c.house.purchaseDate) }} }
+          @if (c.house.purchasePrice !== null) { for {{
+          formatEuroRound(c.house.purchasePrice) }} }
+        </dd>
+      </div>
+      }
+      <div class="wide">
+        <dt>Owners</dt>
+        <dd>
+          @for (o of c.house.owners; track $index) { @if (o.personId) {
+          <a class="person" [href]="peopleUrl">{{ o.name }}</a>
+          } @else { {{ o.name }} } @if (o.share !== null) {
+          <span class="muted">({{ o.share }}%)</span> }{{ $last ? '' : ', ' }} }
+          @empty {
+          <span class="muted">None yet</span>
+          }
+        </dd>
+      </div>
+      @if (c.residents.length) {
+      <div class="wide">
+        <dt>Lives here (People)</dt>
+        <dd>
+          @for (p of c.residents; track p.id) {
+          <a class="person" [href]="peopleUrl">{{ p.name }}</a>{{ $last ? '' :
+          ', ' }} }
+        </dd>
+      </div>
+      } @for (company of c.companies; track company[0]) {
+      <div>
+        <dt>{{ company[0] }}</dt>
+        <dd>{{ company[1] }}</dd>
+      </div>
+      } @if (c.house.supplyCodes.length) {
+      <div class="wide">
+        <dt>Supply codes</dt>
+        <dd class="mono">{{ c.house.supplyCodes.join(', ') }}</dd>
+      </div>
+      }
+    </dl>
+
+    <footer class="house__numbers">
+      <span>
+        <span class="label">Bills, last 12 months</span>
+        <strong>{{ formatEuroRound(c.billsYear) }}</strong>
+      </span>
+      <home-sparkline
+        class="spark"
+        [values]="c.trend"
+        [color]="propertyColor(c.house.colorSlot)"
+      />
+      <span>
+        <span class="label">Renovations</span>
+        <strong
+          >{{ c.open }} open · {{ formatEuroRound(c.spent) }} spent</strong
+        >
+      </span>
+    </footer>
+  </article>
+  }
+</section>
+}

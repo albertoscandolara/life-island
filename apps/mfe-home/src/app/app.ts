@@ -8,7 +8,7 @@ import { UiThemeToggle } from '@life-island/design-system';
   selector: 'home-root',
   template: `
     <header class="standalone-bar">
-      <span>Life Island · Home & bills (standalone)</span>
+      <span>Life Island · Houses (standalone)</span>
       <ui-theme-toggle />
     </header>
     <main class="standalone-page"><router-outlet /></main>

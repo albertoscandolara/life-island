@@ -10,14 +10,12 @@ import {
   WORK_KINDS,
   WORK_KIND_LABELS,
   WORK_STATUS_LABELS,
-  type BillDto,
   type HomeDocumentDto,
   type PropertyDto,
   type WorkDto,
   type WorkKind,
   type WorkStatus,
 } from '@life-island/contracts';
-import { Router } from '@angular/router';
 import {
   UiAlert,
   UiBadge,
@@ -30,10 +28,7 @@ import {
 } from '@life-island/design-system';
 import type { UiTone } from '@life-island/design-system';
 import { errorMessage, HomeApi } from '../api/home-api';
-import { addMonths, aggregate, totalIn } from '../bills/aggregate';
 import { ColumnChart, type ChartSeries } from '../charts/column-chart';
-import { Sparkline } from '../charts/sparkline';
-import { HousesView } from '../houses/houses-view';
 import { AreaNav } from '../shared/area-nav';
 import {
   addressOf,
@@ -43,8 +38,9 @@ import {
   formatTick,
   propertyColor,
 } from '../shared/format';
-import { PropertiesDialog } from '../shared/properties-dialog';
+import { HouseDialog } from '../shared/house-dialog';
 import { PropertyStore } from '../shared/property-store';
+import { scopeHouses, selectedIds } from '../shared/selection';
 import { DocumentPicker } from './document-picker';
 import { WorkDialog } from './work-dialog';
 
@@ -72,8 +68,8 @@ export const workYear = (work: WorkDto): number | null => {
 };
 
 /**
- * Bronto's Home: your properties side by side in 3D, and the renovations,
- * repairs and maintenance of each one, with what they cost and their invoices.
+ * Renovations, in Bronto's Houses: the renovations, repairs and maintenance
+ * of the houses you look at, with what they cost and their invoices.
  */
 @Component({
   selector: 'home-home-page',
@@ -88,10 +84,8 @@ export const workYear = (work: WorkDto): number | null => {
     UiEmptyState,
     UiConfirmDialog,
     AreaNav,
-    HousesView,
     ColumnChart,
-    Sparkline,
-    PropertiesDialog,
+    HouseDialog,
     WorkDialog,
     DocumentPicker,
   ],
@@ -103,10 +97,11 @@ export class HomePage {
   private readonly api = inject(HomeApi);
   protected readonly store = inject(PropertyStore);
 
+  /** `?houses=<id>,<id>`; the older `?property=<id>` works too. */
+  readonly houses = input<string>();
   readonly property = input<string>();
 
   protected readonly works = signal<WorkDto[] | null>(null);
-  protected readonly bills = signal<BillDto[]>([]);
   protected readonly error = signal<string | null>(null);
   protected readonly managing = signal(false);
   protected readonly editing = signal<WorkDto | null>(null);
@@ -115,8 +110,6 @@ export class HomePage {
   protected readonly pickerOpen = signal(false);
   protected readonly removing = signal<WorkDto | null>(null);
   protected readonly status = signal<WorkStatus | 'ALL'>('ALL');
-
-  private readonly router = inject(Router);
 
   protected readonly kinds = WORK_KINDS;
   protected readonly kindLabels = WORK_KIND_LABELS;
@@ -131,52 +124,27 @@ export class HomePage {
   protected readonly previewUrl = (id: string) => this.api.previewUrl(id);
   protected readonly label = (key: string) => key;
 
-  protected readonly selected = computed(() => {
-    const id = this.property();
-    return this.store.properties()?.find((p) => p.id === id) ?? null;
-  });
-
-  private readonly last12 = computed(() => {
-    const to = new Date().toISOString().slice(0, 7);
-    return { from: addMonths(to, -11), to };
-  });
-
-  /** One card per home: its bills over the last year and its works. */
-  protected readonly cards = computed(() =>
-    (this.store.properties() ?? []).map((property) => {
-      const bills = this.bills().filter((b) => b.propertyId === property.id);
-      const works = (this.works() ?? []).filter(
-        (w) => w.propertyId === property.id,
-      );
-      const trend = aggregate(bills, {
-        range: this.last12(),
-        grain: 'month',
-        basis: 'period',
-        metric: 'amount',
-        keys: ['all'],
-        keyOf: () => 'all',
-      }).series[0].values;
-      return {
-        property,
-        billsYear: totalIn(bills, this.last12(), 'period'),
-        trend,
-        open: works.filter((w) => w.status !== 'DONE').length,
-        done: works.filter((w) => w.status === 'DONE').length,
-        spent: works
-          .filter((w) => w.status === 'DONE')
-          .reduce((sum, w) => sum + workCost(w), 0),
-      };
-    }),
+  /** The selected house ids; none for all of them. */
+  protected readonly ids = computed(() =>
+    selectedIds(this.houses(), this.property()),
   );
+  /** The houses in view: the selected ones, else all. */
+  protected readonly scope = computed(() =>
+    scopeHouses(this.store.properties() ?? [], this.ids()),
+  );
+  /** The one house in view, when only one is. */
+  protected readonly selected = computed(() =>
+    this.ids().length && this.scope().length === 1 ? this.scope()[0] : null,
+  );
+  protected readonly inScope = (propertyId: string): boolean =>
+    !this.ids().length || this.scope().some((p) => p.id === propertyId);
 
   /** Works of the chosen home (or all) with the chosen status. */
   protected readonly visible = computed(() => {
-    const property = this.selected();
     const status = this.status();
     return (this.works() ?? []).filter(
       (w) =>
-        (!property || w.propertyId === property.id) &&
-        (status === 'ALL' || w.status === status),
+        this.inScope(w.propertyId) && (status === 'ALL' || w.status === status),
     );
   });
 
@@ -204,8 +172,8 @@ export class HomePage {
   });
 
   protected readonly summary = computed(() => {
-    const scoped = (this.works() ?? []).filter(
-      (w) => !this.selected() || w.propertyId === this.selected()!.id,
+    const scoped = (this.works() ?? []).filter((w) =>
+      this.inScope(w.propertyId),
     );
     const thisYear = new Date().getUTCFullYear();
     return {
@@ -227,9 +195,7 @@ export class HomePage {
 
   /** What finished works cost, by year: one series per home (or one for the chosen home). */
   protected readonly spending = computed(() => {
-    const homes = this.selected()
-      ? [this.selected()!]
-      : (this.store.properties() ?? []);
+    const homes = this.scope();
     const works = (this.works() ?? []).filter(
       (w) =>
         w.status === 'DONE' &&
@@ -266,27 +232,13 @@ export class HomePage {
 
   constructor() {
     this.load();
-    this.api.bills().subscribe({
-      next: (bills) => this.bills.set(bills),
-      error: () => this.bills.set([]),
-    });
   }
 
   /** Spent (done) or planned on each kind of work, for the chosen home. */
   protected kindTotal(kind: WorkKind): number {
-    const property = this.selected();
     return (this.works() ?? [])
-      .filter(
-        (w) => w.kind === kind && (!property || w.propertyId === property.id),
-      )
+      .filter((w) => w.kind === kind && this.inScope(w.propertyId))
       .reduce((sum, w) => sum + workCost(w), 0);
-  }
-
-  protected choose(id: string): void {
-    void this.router.navigate([], {
-      queryParams: { property: id },
-      queryParamsHandling: 'merge',
-    });
   }
 
   protected home(id: string): PropertyDto | undefined {

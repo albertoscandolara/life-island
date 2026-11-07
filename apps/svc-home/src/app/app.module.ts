@@ -15,6 +15,10 @@ import {
 import { DocumentsController } from './documents/documents.controller.js';
 import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
+import { HouseSuggestionsService } from './houses/house-suggestions.service.js';
+import { HousesController } from './houses/houses.controller.js';
+import { HomePeople } from './properties/home-people.js';
+import { HouseModels } from './properties/house-models.js';
 import { PropertiesController } from './properties/properties.controller.js';
 import { PropertiesService } from './properties/properties.service.js';
 import { PropertyCategories } from './properties/property-categories.js';
@@ -41,6 +45,7 @@ export class AppModule {
         BillsController,
         WorksController,
         DocumentsController,
+        HousesController,
       ],
       providers: [
         { provide: CONFIG, useValue: config },
@@ -50,6 +55,9 @@ export class AppModule {
         BillsService,
         WorksService,
         IngestionFiles,
+        HouseModels,
+        HomePeople,
+        HouseSuggestionsService,
         ...(options.events === false
           ? []
           : [
