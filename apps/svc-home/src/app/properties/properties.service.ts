@@ -9,6 +9,7 @@ import { and, asc, eq, ne } from 'drizzle-orm';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import { properties, type PropertyRow } from '../db/schema.js';
+import { BillLedger } from '../bills/bill-ledger.js';
 import { normalizeText } from '../bills/bill-reader.js';
 import { PropertyCategories } from './property-categories.js';
 
@@ -92,6 +93,7 @@ export class PropertiesService {
   constructor(
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
     @Inject(PropertyCategories) private readonly links: PropertyCategories,
+    @Inject(BillLedger) private readonly ledger: BillLedger,
   ) {}
 
   async list(): Promise<PropertyDto[]> {
@@ -136,7 +138,10 @@ export class PropertiesService {
       return created;
     });
     // A new home shows up in the review inbox as a property at once.
-    return toPropertyDto(await this.links.ensure(row));
+    const dto = toPropertyDto(await this.links.ensure(row));
+    // Its bills (and supply points with no house yet) find it.
+    await this.ledger.sync();
+    return dto;
   }
 
   async update(id: string, request: UpdateProperty): Promise<PropertyDto> {
@@ -157,10 +162,13 @@ export class PropertiesService {
       return updated;
     });
     if (!row) throw new NotFoundException(`Property ${id} not found`);
+    // New match terms or supply codes can bring bills to it.
+    if (changes.matchTerms || changes.supplyCodes || changes.address)
+      await this.ledger.sync();
     return toPropertyDto(row);
   }
 
-  /** Deletes a property with its works; its bills go back to unassigned. */
+  /** Deletes a property with its works; its supply points and bills go back to unassigned. */
   async remove(id: string): Promise<void> {
     const deleted = await this.svc.db
       .delete(properties)
@@ -168,6 +176,7 @@ export class PropertiesService {
       .returning({ id: properties.id });
     if (!deleted.length)
       throw new NotFoundException(`Property ${id} not found`);
+    await this.ledger.sync();
   }
 
   async exists(id: string): Promise<boolean> {

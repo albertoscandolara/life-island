@@ -12,8 +12,8 @@ import {
   type PropertyDto,
 } from '@life-island/contracts';
 import { isNotNull } from 'drizzle-orm';
-import { BillsService } from '../bills/bills.service.js';
-import { normalizeText } from '../bills/bill-reader.js';
+import { organizationKey } from '../bills/bill-reader.js';
+import { listOrganizations } from '../bills/supply-points.controller.js';
 import { SERVICE_DB } from '../config.js';
 import { properties, works } from '../db/schema.js';
 import { HomePeople } from '../properties/home-people.js';
@@ -24,15 +24,27 @@ import { HouseSuggestionsService } from './house-suggestions.service.js';
  * accents ignored), most used first: what the company pickers offer.
  */
 export function knownCompanies(
-  seen: { name: string | null; source: CompanySource }[],
+  seen: {
+    id?: string;
+    name: string | null;
+    source: CompanySource;
+    uses?: number;
+  }[],
 ): KnownCompanyDto[] {
   const byName = new Map<string, KnownCompanyDto>();
-  for (const { name, source } of seen) {
+  for (const { id, name, source, uses = 1 } of seen) {
     const trimmed = name?.trim();
     if (!trimmed) continue;
-    const key = normalizeText(trimmed);
-    const known = byName.get(key) ?? { name: trimmed, sources: [], uses: 0 };
-    known.uses++;
+    const key = organizationKey(trimmed);
+    const known = byName.get(key) ?? {
+      id: null,
+      name: trimmed,
+      sources: [],
+      uses: 0,
+    };
+    // An organization's own name and id win over a name typed somewhere.
+    if (id && !known.id) Object.assign(known, { id, name: trimmed });
+    known.uses += uses;
     if (!known.sources.includes(source)) known.sources.push(source);
     byName.set(key, known);
   }
@@ -49,7 +61,6 @@ export class HousesController {
     @Inject(HouseSuggestionsService)
     private readonly suggestions: HouseSuggestionsService,
     @Inject(HomePeople) private readonly people: HomePeople,
-    @Inject(BillsService) private readonly bills: BillsService,
   ) {}
 
   /** Houses and house data your documents speak of, waiting for you. */
@@ -88,8 +99,8 @@ export class HousesController {
   /** Companies already known, to pick as a supplier, manager, insurer or contractor. */
   @Get('companies')
   async companies(): Promise<KnownCompanyDto[]> {
-    const [bills, houses, contractors] = await Promise.all([
-      this.bills.list({ utility: undefined }),
+    const [orgs, houses, contractors] = await Promise.all([
+      listOrganizations(this.svc.db),
       this.svc.db.select().from(properties),
       this.svc.db
         .select({ name: works.contractor })
@@ -97,7 +108,19 @@ export class HousesController {
         .where(isNotNull(works.contractor)),
     ]);
     return knownCompanies([
-      ...bills.map((b) => ({ name: b.provider, source: 'BILL' as const })),
+      ...orgs.map((o) => ({
+        id: o.id,
+        name: o.name,
+        source: 'ORGANIZATION' as const,
+        uses: 0,
+      })),
+      ...orgs
+        .filter((o) => o.billCount)
+        .map((o) => ({
+          name: o.name,
+          source: 'BILL' as const,
+          uses: o.billCount,
+        })),
       ...houses.flatMap((h) =>
         PROPERTY_COMPANY_FIELDS.map((field) => ({
           name: h[field],

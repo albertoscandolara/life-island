@@ -13,6 +13,7 @@ import {
 } from './aggregate';
 
 const bill = (overrides: Partial<BillDto>): BillDto => ({
+  id: Math.random().toString(36),
   uploadId: Math.random().toString(36),
   title: 'Bill',
   utility: 'GAS',
@@ -29,6 +30,11 @@ const bill = (overrides: Partial<BillDto>): BillDto => ({
   currency: 'EUR',
   consumption: null,
   unit: 'Smc',
+  invoiceNumber: null,
+  totalDue: null,
+  supplierId: null,
+  supplyPointId: null,
+  contractId: null,
   ...overrides,
 });
 

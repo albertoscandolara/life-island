@@ -10,6 +10,9 @@ import type {
   CreateWorkRequest,
   HomeDocumentDto,
   ListBillsQuery,
+  OrganizationDto,
+  SupplyPointDto,
+  UpdateOrganizationRequest,
   PropertyDto,
   UpdateBillRequest,
   UpdatePropertyRequest,
@@ -123,6 +126,30 @@ export class HomeApi {
   ): Observable<{ bill: BillDto | null }> {
     return this.http.patch<{ bill: BillDto | null }>(
       `${HOME_API}/bills/${uploadId}`,
+      request,
+    );
+  }
+
+  /** The supply points (POD, PDR, water codes) your bills hang on, with their contracts. */
+  supplyPoints(): Observable<SupplyPointDto[]> {
+    return this.http.get<SupplyPointDto[]>(`${HOME_API}/supply-points`);
+  }
+
+  /** Moves a supply point, and every bill of it, to a house (null: none). */
+  moveSupplyPoint(id: string, propertyId: string | null): Observable<unknown> {
+    return this.http.patch(`${HOME_API}/supply-points/${id}`, { propertyId });
+  }
+
+  organizations(): Observable<OrganizationDto[]> {
+    return this.http.get<OrganizationDto[]>(`${HOME_API}/organizations`);
+  }
+
+  updateOrganization(
+    id: string,
+    request: UpdateOrganizationRequest,
+  ): Observable<OrganizationDto> {
+    return this.http.patch<OrganizationDto>(
+      `${HOME_API}/organizations/${id}`,
       request,
     );
   }

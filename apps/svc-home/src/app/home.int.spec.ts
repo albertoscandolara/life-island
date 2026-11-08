@@ -9,7 +9,10 @@ import type {
   BillDto,
   EventEnvelope,
   HouseSuggestionDto,
+  KnownCompanyDto,
+  OrganizationDto,
   PropertyDto,
+  SupplyPointDto,
   WorkDto,
 } from '@life-island/contracts';
 import { randomUUID } from 'node:crypto';
@@ -63,6 +66,18 @@ describe.skipIf(!configured)(
         await svc?.pool.query(
           'delete from home.documents where upload_id = any($1)',
           [uploads],
+        );
+        await svc?.pool.query(
+          'delete from home.bills where upload_id = any($1)',
+          [uploads],
+        );
+        await svc?.pool.query(
+          "delete from home.supply_points where code ilike '%' || $1 || '%'",
+          [run],
+        );
+        await svc?.pool.query(
+          "delete from home.organizations where name ilike '%' || $1 || '%'",
+          [run],
         );
       }
       await svc?.close();
@@ -239,6 +254,122 @@ describe.skipIf(!configured)(
         propertyId: home.id,
         assignment: 'SUPPLY_CODE',
       });
+    });
+
+    it('keeps bills as entities: supplier, supply point and contract', async () => {
+      const pod = `IT001E${run.toUpperCase()}99`;
+      const first = await createProperty(`Casa E${run}`, {
+        supplyCodes: [pod],
+      });
+      const second = await createProperty(`Casa F${run}`);
+      const taxCode = String(Math.floor(Math.random() * 1e11)).padStart(
+        11,
+        '0',
+      );
+      const supplier = `Lene ${run}`;
+      const january = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier} S.p.A.`,
+        supplier_tax_code: `IT ${taxCode}`,
+        supply_point_code: pod,
+        customer_code: '1000007483',
+        invoice_number: `F-${run}-1`,
+        offer_name: 'Old offer',
+        billing_period: '2026-01-01/2026-01-31',
+        total_amount: 70,
+      });
+      // Printed without the tax code and with another legal form: the same company.
+      const february = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier.toUpperCase()} spa`,
+        supply_point_code: pod.toLowerCase(),
+        customer_code: '1000007483',
+        invoice_number: `F-${run}-2`,
+        offer_name: 'New offer',
+        billing_period: '2026-02-01/2026-02-28',
+        total_amount: 60,
+      });
+      // The January invoice uploaded again: counted once.
+      const copy = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier} S.p.A.`,
+        supplier_tax_code: taxCode,
+        supply_point_code: pod,
+        invoice_number: `f-${run}-1`,
+        billing_period: '2026-01-01/2026-01-31',
+        total_amount: 70,
+      });
+
+      const bills = await json<BillDto[]>(await send('GET', '/bills'));
+      const ours = bills.filter((b) =>
+        ([january, february, copy] as string[]).includes(b.uploadId),
+      );
+      expect(ours.map((b) => b.uploadId).sort()).toEqual(
+        [january, february].sort(),
+      );
+      const [a, b] = ours;
+      expect(a.supplierId).toBeTruthy();
+      expect(b.supplierId).toBe(a.supplierId);
+      expect(b.supplyPointId).toBe(a.supplyPointId);
+      expect(b.contractId).toBe(a.contractId);
+      expect(ours.every((bill) => bill.propertyId === first.id)).toBe(true);
+      expect(
+        ours.find((bill) => bill.uploadId === january)?.invoiceNumber,
+      ).toBe(`F-${run}-1`);
+
+      const points = await json<SupplyPointDto[]>(
+        await send('GET', '/supply-points'),
+      );
+      const point = points.find((p) => p.id === a.supplyPointId);
+      if (!point) throw new Error('No supply point');
+      expect(point).toMatchObject({
+        utility: 'ELECTRICITY',
+        code: pod,
+        propertyId: first.id,
+        billCount: 2,
+      });
+      expect(point.contracts).toEqual([
+        expect.objectContaining({
+          supplierName: `${supplier} S.p.A.`,
+          customerCode: '1000007483',
+          offerName: 'New offer',
+          firstDay: '2026-01-01',
+          lastDay: '2026-02-28',
+          billCount: 2,
+        }),
+      ]);
+
+      const orgs = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(orgs.find((o) => o.id === a.supplierId)).toMatchObject({
+        taxCode,
+        roles: ['ENERGY_SUPPLIER'],
+        billCount: 2,
+      });
+      const companies = await json<KnownCompanyDto[]>(
+        await send('GET', '/companies'),
+      );
+      expect(companies.find((c) => c.id === a.supplierId)?.sources).toEqual(
+        expect.arrayContaining(['ORGANIZATION', 'BILL']),
+      );
+
+      // Moving the supply point moves every bill of it, and its code.
+      await json(
+        await send('PATCH', `/supply-points/${point.id}`, {
+          propertyId: second.id,
+        }),
+      );
+      const moved = await json<BillDto[]>(
+        await send('GET', `/bills?property=${second.id}`),
+      );
+      expect(moved.map((bill) => bill.uploadId).sort()).toEqual(
+        [january, february].sort(),
+      );
+      const houses = await json<PropertyDto[]>(
+        await send('GET', '/properties'),
+      );
+      expect(houses.find((h) => h.id === second.id)?.supplyCodes).toEqual([
+        pod,
+      ]);
+      expect(houses.find((h) => h.id === first.id)?.supplyCodes).toEqual([]);
     });
 
     it('tracks a work with its invoice', async () => {

@@ -1,6 +1,9 @@
 import type {
+  BillAssignment,
   HouseField,
   ModelFormat,
+  OrganizationRole,
+  UtilityKind,
   PropertyOwnerDto,
   PropertyTenure,
   PropertyType,
@@ -231,3 +234,145 @@ export const houseReviews = home.table(
 );
 
 export type HouseReviewRow = typeof houseReviews.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Bills as entities (the model of life-island-docs/entities): a house has
+// supply points, each supplied under contracts with a supplier, and every
+// bill points to its supply point and contract. They are kept in step with
+// your bill documents by BillLedger; your corrections stay in bill_overrides.
+
+/** A company or public office (supplier, distributor...), one row whatever its role. */
+export const organizations = home.table(
+  'organizations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    /** Name without case, accents or legal form: how a name printed differently still matches. */
+    nameKey: text('name_key').notNull(),
+    taxCode: text('tax_code'),
+    vatNumber: text('vat_number'),
+    roles: text('roles')
+      .array()
+      .$type<OrganizationRole[]>()
+      .notNull()
+      .default([]),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('organizations_tax_code_idx')
+      .on(table.taxCode)
+      .where(sql`${table.taxCode} is not null`),
+    index('organizations_name_key_idx').on(table.nameKey),
+  ],
+);
+
+export type OrganizationRow = typeof organizations.$inferSelect;
+
+/** Where a utility is delivered (POD, PDR, water code): belongs to a house, outlives contracts. */
+export const supplyPoints = home.table(
+  'supply_points',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    utility: text('utility').$type<UtilityKind>().notNull(),
+    /** The code without spaces, upper case: the natural key. */
+    code: text('code').notNull().unique(),
+    propertyId: uuid('property_id').references(() => properties.id, {
+      onDelete: 'set null',
+    }),
+    distributorId: uuid('distributor_id').references(() => organizations.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('supply_points_property_idx').on(table.propertyId)],
+);
+
+export type SupplyPointRow = typeof supplyPoints.$inferSelect;
+
+/** A supplier × customer code × supply point. */
+export const supplyContracts = home.table(
+  'supply_contracts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplyPointId: uuid('supply_point_id').references(() => supplyPoints.id, {
+      onDelete: 'cascade',
+    }),
+    supplierId: uuid('supplier_id').references(() => organizations.id, {
+      onDelete: 'set null',
+    }),
+    customerCode: text('customer_code'),
+    offerName: text('offer_name'),
+    /** Natural key: supplier, customer code and supply point, normalised. */
+    naturalKey: text('natural_key').notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('supply_contracts_point_idx').on(table.supplyPointId)],
+);
+
+export type SupplyContractRow = typeof supplyContracts.$inferSelect;
+
+/** One bill, read from one document; its house comes from its supply point unless you moved it. */
+export const bills = home.table(
+  'bills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** The document it was read from (by id: the file lives in ingestion). */
+    uploadId: uuid('upload_id').notNull().unique(),
+    title: text('title').notNull(),
+    utility: text('utility').$type<UtilityKind>().notNull(),
+    utilityOverridden: boolean('utility_overridden').notNull().default(false),
+    supplierId: uuid('supplier_id').references(() => organizations.id, {
+      onDelete: 'set null',
+    }),
+    supplyPointId: uuid('supply_point_id').references(() => supplyPoints.id, {
+      onDelete: 'set null',
+    }),
+    contractId: uuid('contract_id').references(() => supplyContracts.id, {
+      onDelete: 'set null',
+    }),
+    /**
+     * The bill's own house: only when it has no supply point, or when you
+     * picked one by hand. Otherwise its house is its supply point's, read
+     * through it, so moving a supply point moves its bills.
+     */
+    propertyId: uuid('property_id').references(() => properties.id, {
+      onDelete: 'set null',
+    }),
+    /** You picked the house (null house: on none). */
+    manualProperty: boolean('manual_property').notNull().default(false),
+    assignment: text('assignment').$type<BillAssignment>(),
+    invoiceNumber: text('invoice_number'),
+    /** Another document of the same invoice (same supplier and number): this one is not counted. */
+    duplicateOf: uuid('duplicate_of'),
+    issueDate: date('issue_date', { mode: 'string' }),
+    dueDate: date('due_date', { mode: 'string' }),
+    periodStart: date('period_start', { mode: 'string' }),
+    periodEnd: date('period_end', { mode: 'string' }),
+    amount: decimal('amount').notNull(),
+    totalDue: decimal('total_due'),
+    currency: text('currency').notNull().default('EUR'),
+    consumption: numeric('consumption', {
+      precision: 14,
+      scale: 3,
+      mode: 'number',
+    }),
+    unit: text('unit').notNull(),
+    provider: text('provider'),
+    customerId: text('customer_id'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('bills_property_idx').on(table.propertyId),
+    index('bills_supply_point_idx').on(table.supplyPointId),
+  ],
+);
+
+export type BillRow = typeof bills.$inferSelect;

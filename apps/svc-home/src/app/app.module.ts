@@ -5,8 +5,10 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
+import { BillLedger } from './bills/bill-ledger.js';
 import { BillsController } from './bills/bills.controller.js';
 import { BillsService } from './bills/bills.service.js';
+import { SupplyPointsController } from './bills/supply-points.controller.js';
 import { CONFIG, SERVICE_DB, type HomeConfig } from './config.js';
 import {
   applyDocumentEvent,
@@ -46,12 +48,14 @@ export class AppModule {
         WorksController,
         DocumentsController,
         HousesController,
+        SupplyPointsController,
       ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         PropertiesService,
         PropertyCategories,
+        BillLedger,
         BillsService,
         WorksService,
         IngestionFiles,
