@@ -2,7 +2,7 @@
 export interface IslandModule {
   id: string;
   /** The character theme (`[data-character]`); null for an area not built yet. */
-  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | null;
+  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | 'velo' | null;
   emblem: string;
   name: string;
   mission: string;
@@ -19,7 +19,8 @@ export interface IslandModule {
     | 'lighthouse'
     | 'library'
     | 'house'
-    | 'gate';
+    | 'gate'
+    | 'garage';
 }
 
 /**
@@ -101,5 +102,16 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     path: '/people',
     angle: 135,
     landmark: 'gate',
+  },
+  {
+    id: 'cars',
+    character: 'velo',
+    emblem: '🚗',
+    name: 'Cars',
+    mission:
+      'Every car you have, read from its registration certificate with every code explained: insurance, road tax and revisione with a warning before they expire, and what each car costs, from fuel to the mechanic.',
+    path: '/cars',
+    angle: 215,
+    landmark: 'garage',
   },
 ];

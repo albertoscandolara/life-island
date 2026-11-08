@@ -371,7 +371,7 @@ export function orderFieldKeys(keys: readonly string[]): string[] {
  * undo it for a while). Documents that a module loads (Groceries, 730) always
  * wait: what a module stored cannot be taken back from here. ID documents
  * always wait too: new or different data about a person is never taken
- * without you.
+ * without you, and neither is the data of a car on its registration certificate.
  */
 export const REVIEW_REASONS = [
   'LOW_CONFIDENCE', // the AI is not sure what the document is
@@ -381,6 +381,7 @@ export const REVIEW_REASONS = [
   'MODULE', // a module loads it
   'NO_PROPERTY', // a utility bill without a home
   'PERSON_DATA', // an ID document: its holder data is checked against the person
+  'VEHICLE_DATA', // a registration certificate: its car data is checked against the car
   'OFFLINE_PARSER', // read by the offline parser: sample data
 ] as const;
 export type ReviewReason = (typeof REVIEW_REASONS)[number];
@@ -393,6 +394,7 @@ export const REVIEW_REASON_LABELS: Record<ReviewReason, string> = {
   MODULE: 'It goes to a module',
   NO_PROPERTY: 'A bill without a home',
   PERSON_DATA: 'An ID document: check the person data',
+  VEHICLE_DATA: 'A registration certificate: check the car data',
   OFFLINE_PARSER: 'Read by the offline parser',
 };
 

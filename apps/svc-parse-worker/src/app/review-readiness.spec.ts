@@ -24,6 +24,9 @@ const categories = [
   category('PASSPORT', 'DOCUMENT_TYPE', 'ID_DOCUMENT'),
   // The subtypes stay top-level when you already had an "ID document".
   category('DRIVING_LICENCE', 'DOCUMENT_TYPE'),
+  category('CAR_DOCUMENT', 'DOCUMENT_TYPE'),
+  category('VEHICLE_REGISTRATION', 'DOCUMENT_TYPE', 'CAR_DOCUMENT'),
+  category('VEHICLE_EXPENSE', 'DOCUMENT_TYPE', 'CAR_DOCUMENT'),
 ];
 const found = (value: number | string): ExtractedField => ({
   label: '',
@@ -125,5 +128,23 @@ describe('reviewReasons', () => {
         categories,
       ),
     ).toEqual(['PERSON_DATA']);
+  });
+
+  it('holds a registration certificate back for its car data, not a fuel receipt', () => {
+    const libretto: ParsedDocument = {
+      ...bill,
+      categories: ['VEHICLE_REGISTRATION'],
+      extractedFields: {
+        fields: { registration_number: found('AB123CD') },
+        warnings: [],
+      },
+    };
+    expect(reviewReasons(libretto, categories)).toEqual(['VEHICLE_DATA']);
+    expect(
+      reviewReasons(
+        { ...libretto, categories: ['VEHICLE_EXPENSE'] },
+        categories,
+      ),
+    ).toEqual([]);
   });
 });

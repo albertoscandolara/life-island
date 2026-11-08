@@ -1,0 +1,489 @@
+/* Cars: warnings first, then what waits for review, then each car. */
+:host {
+  display: block;
+}
+
+.block {
+  display: block;
+  margin-bottom: var(--space-6);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+.intro {
+  margin: 0 0 var(--space-4);
+}
+
+.alerts {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.alerts ui-alert strong {
+  margin-right: var(--space-2);
+}
+
+.alerts ui-alert button {
+  margin-left: var(--space-2);
+}
+
+/* ---- review ------------------------------------------------------------ */
+.review {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+  animation: rise var(--duration-slow) var(--ease-out) both;
+}
+
+.review > * {
+  min-width: 0;
+}
+
+.review select {
+  max-width: 100%;
+}
+
+.review--busy {
+  opacity: 0.6;
+}
+
+.review__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.review__head p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.review__title {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.review__whose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ---- cars --------------------------------------------------------------- */
+.cars-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.car-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.car-chip:hover {
+  border-color: var(--accent);
+}
+
+.car-chip--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chip-alert {
+  display: grid;
+  place-items: center;
+  min-width: var(--space-5);
+  height: var(--space-5);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--tone-warning);
+  color: var(--accent-contrast);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.chip-alert--danger {
+  background: var(--tone-danger);
+}
+
+.car {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.edit__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.edit__field input {
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.edit .review__actions {
+  grid-column: 1 / -1;
+}
+
+.edit__hint {
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.car__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.confirm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.series {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.versions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+
+.version--old {
+  opacity: 0.72;
+}
+
+.version__number {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--accent);
+}
+
+.version__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.version__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rejected {
+  margin-bottom: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.rejected summary {
+  cursor: pointer;
+}
+
+.rejected ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+}
+
+/* ---- shared bits (as in the other modules' kit) ------------------------ */
+.sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ui-input.compact {
+  width: auto;
+  min-height: var(--control-height-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.table thead th {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.table tbody th {
+  font-weight: 500;
+}
+
+/* ---- car bits ---------------------------------------------------------- */
+.car-chip {
+  padding: var(--space-1) var(--space-3);
+}
+
+.car-chip--off {
+  opacity: 0.6;
+}
+
+.plate {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-left: var(--space-2) solid var(--tone-info);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.code {
+  display: inline-block;
+  min-width: 2.5em;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.car__side,
+.car__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.renewals {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.renewal {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+
+.renewal__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.codes td,
+.codes th {
+  vertical-align: top;
+}
+
+.codes__group td,
+.codes__group th {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.printed {
+  font-weight: 400;
+}
+
+.small-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.value {
+  overflow-wrap: break-word;
+}
+
+.codes__value {
+  width: 30%;
+  min-width: 9rem;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right !important;
+}
+
+.costs {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.costs li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.span {
+  grid-column: 1 / -1;
+}
+
+.new-name {
+  max-width: 20rem;
+}
+
+.version__body {
+  min-width: 0;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+}
+
+@media (max-width: 52rem) {
+  .codes__value {
+    min-width: 6rem;
+  }
+
+  .car {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .version {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .version__actions {
+    grid-column: 2;
+  }
+}

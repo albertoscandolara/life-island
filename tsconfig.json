@@ -35,6 +35,9 @@
     },
     {
       "path": "./apps/svc-people"
+    },
+    {
+      "path": "./apps/svc-cars"
     }
   ],
   "compilerOptions": {}

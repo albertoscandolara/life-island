@@ -19,12 +19,12 @@ Full documentation lives in [`docs/`](docs/README.md):
 
 ## Architecture
 
-Life Island is an Nx monorepo of small apps that each own one job. The **shell** (`apps/shell`) is the 3D island you open in the browser. Each zone of the island is a separate Angular remote (`apps/mfe-*`) that the shell loads at runtime with Native Federation, so every area builds and deploys on its own. Behind each remote sits a NestJS service (`apps/svc-*`) with its own Postgres schema and its own database role, so no service can read another's tables. Services never call each other's databases. They talk through events on NATS, written first to an outbox table in the same transaction as the data. Documents go in through the **documents app** (`apps/documents`). `svc-ingestion` stores the file in S3 storage (SeaweedFS), `svc-parse-worker` reads it with Claude (or a fake parser offline), you confirm the result in `svc-review`, and only then does the area that needs it (taxes, home and bills, people and IDs) receive it. Caddy is the single gateway that routes `/api/<service>` to each service. The principles behind all this are in [docs/architecture.md](docs/architecture.md).
+Life Island is an Nx monorepo of small apps that each own one job. The **shell** (`apps/shell`) is the 3D island you open in the browser. Each zone of the island is a separate Angular remote (`apps/mfe-*`) that the shell loads at runtime with Native Federation, so every area builds and deploys on its own. Behind each remote sits a NestJS service (`apps/svc-*`) with its own Postgres schema and its own database role, so no service can read another's tables. Services never call each other's databases. They talk through events on NATS, written first to an outbox table in the same transaction as the data. Documents go in through the **documents app** (`apps/documents`). `svc-ingestion` stores the file in S3 storage (SeaweedFS), `svc-parse-worker` reads it with Claude (or a fake parser offline), you confirm the result in `svc-review`, and only then does the area that needs it (taxes, home and bills, people and IDs, cars) receive it. Caddy is the single gateway that routes `/api/<service>` to each service. The principles behind all this are in [docs/architecture.md](docs/architecture.md).
 
 ```
 apps/shell             The island: hub and routes that load each area's remote
 apps/documents         Load documents, review what the AI read, confirm it
-apps/mfe-*             One Angular remote per area: tax730, home (home and bills), people (people and IDs)
+apps/mfe-*             One Angular remote per area: tax730, home (home and bills), people (people and IDs), cars
 apps/svc-*             One Nest service per area, plus ingestion, review and the parse worker
 libs/contracts         Zod contracts: event names and payloads, DTOs shared by remotes and services
 libs/be-common         Service DB factory, transactional outbox, outbox relay, idempotent NATS consumer
@@ -61,6 +61,7 @@ When the infrastructure is already up, `npm run dev` alone restarts the apps and
 | http://localhost:4200/taxes/730 | 730 & taxes                                           | `mfe-tax730` (4203) + `svc-tax730` (3004)                                     |
 | http://localhost:4200/home      | Home, and Bills at `/home/bills`                      | `mfe-home` (4204) + `svc-home` (3005)                                         |
 | http://localhost:4200/people    | People & IDs: ID documents, versions, reviews, expiry | `mfe-people` (4205) + `svc-people` (3006)                                     |
+| http://localhost:4200/cars      | Cars: registration codes, renewals, costs             | `mfe-cars` (4206) + `svc-cars` (3007)                                         |
 | http://localhost:4201           | Documents: upload, review inbox, Parse now            | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |
 | —                               | Groceries service (no page yet)                       | `svc-groceries` (3003)                                                        |
 

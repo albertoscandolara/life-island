@@ -7,6 +7,7 @@ The Life Island app is where you use your data. It is a Native Federation **host
 | 730 & taxes           | `mfe-tax730` | `svc-tax730`    | Live                           |
 | Home, Bills           | `mfe-home`   | `svc-home`      | Live                           |
 | People & IDs          | `mfe-people` | `svc-people`    | Live                           |
+| Cars                  | `mfe-cars`   | `svc-cars`      | Live                           |
 | Groceries             | planned      | `svc-groceries` | Service live, screen coming    |
 | Health, Work, Studies | planned      | planned         | On the island as "coming soon" |
 
@@ -23,10 +24,12 @@ npx nx serve svc-home         # properties, bills and works (port 3005)
 npx nx serve mfe-home         # the Home and Bills remote (port 4204), also usable on its own
 npx nx serve svc-people       # people, ID documents and their reviews (port 3006)
 npx nx serve mfe-people       # the People & IDs remote (port 4205), also usable on its own
+npx nx serve svc-cars         # cars, car documents, renewals and costs (port 3007)
+npx nx serve mfe-cars         # the Cars remote (port 4206), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005 and `/api/people` to port 3006 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204 and http://localhost:4205.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006 and `/api/cars` to port 3007 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205 and http://localhost:4206.
 
 ## Native Federation
 
@@ -150,3 +153,44 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                             |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/002-people-schema.sql`).
+
+## Cars
+
+Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as its registration certificate (carta di circolazione, the "libretto") describes it, with the documents that keep it on the road: insurance (RCA), road tax (bollo), revisione, and running costs from fuel to the mechanic. The model and every printed code (A, B, C.1, D.1, E, F.1, J, K, P.1, V.7… from EU Directive 1999/37/EC) are documented in the life-island-docs `cars/` folder; the same codes, with their meaning, are in `REGISTRATION_CODES` in `libs/contracts`.
+
+**Car documents are read, not stored.** A car document is a document whose categories are, or sit under, `CAR_DOCUMENT`: `VEHICLE_REGISTRATION`, `CAR_INSURANCE`, `ROAD_TAX`, `VEHICLE_INSPECTION` or `VEHICLE_EXPENSE` (svc-ingestion's migration `0013`). Every template carries the car reference (`registration_number`, `vin`); the registration certificate also carries the car data, under keys that map to the model's English names (`engine_capacity_cc` is `engine.capacityCc`, code P.1). Numbers printed the Italian way (`1.242`, `119,5`) are read as numbers.
+
+**Nothing changes a car on its own.** A new car document waits under **To review**:
+
+- It is matched to a car by VIN, else by plate. A different VIN is always another car. No match: **A new car** is suggested, with everything its registration certificate prints.
+- Against a matched car a registration certificate lists only what is new or different, each with its code and meaning, and a suggestion: take a new value; **check** a different make, VIN or first registration (those never change); take a different value from a newer certificate, keep yours from an older one. The other documents only file under the car.
+- A receipt without a plate can only be filed under a car you pick. A plate you do not have may be a misread: you can still file it under one of your cars.
+- **Approve** files the document (and creates the car if it is new); **Not a document of any car** sets it aside (you can review it again). Every decision is kept in `cars.reviews` with what each field was before.
+
+**Versions.** The approved documents of each type form one series per car, numbered from the oldest: the newest is **Current** (or **Expired** once past its date), the older ones **Replaced by a newer one**. You can mark a version **Cancelled** (a policy you withdrew, for example). Expenses are not versioned: they are costs.
+
+**Renewals** are worked out from the latest version of each series:
+
+| Item         | Due                                                                                                   | Warns   |
+| ------------ | ----------------------------------------------------------------------------------------------------- | ------- |
+| Insurance    | The policy end (or the paid instalment's end); covered for 15 more days (art. 170-bis Cod. Ass.)      | 30 days |
+| Road tax     | The end of the month after its expiry month; an exempt car never warns                                | 30 days |
+| Revisione    | Within the month 4 years after first registration (B), then every 2 years from the last one (art. 80) | 60 days |
+| Service      | The next service date or odometer reading on the last service receipt                                 | 30 days |
+| Registration | A temporary registration's end (H)                                                                    | 30 days |
+
+Levels are **ok**, **expiring**, **grace** (insurance past its end, still covered), **expired** and **missing** (no insurance or road tax on file, or a revisione that should have happened). Warnings of active cars sit at the top of the page and on the car.
+
+**Costs.** Insurance, road tax, revisione and every expense (fuel, service, repair, tyres, parking, tolls, washing, fines…) are listed per car, newest first, with totals per year and kind; fuel shows its litres, and the last odometer reading is the car's.
+
+| Endpoint (`/api/cars/...`)                                         | Purpose                                                                                         |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                    | Cars with their series, renewals, costs and warnings, documents to review, rejected ones        |
+| `POST /vehicles`                                                   | Add a car by hand: `{registrationNumber, label?}` (409 on a plate you have)                     |
+| `PATCH /vehicles/:id`, `DELETE /vehicles/:id`                      | Correct a car (`label`, `status`, `values`); remove it (its documents go back to review)        |
+| `POST /reviews/:uploadId/approve`                                  | `{vehicleId, accept: [fields], label?}`; `vehicleId: null` adds a new car (422 without a plate) |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not a document of any car, and back to review                                                   |
+| `PATCH /documents/:uploadId`                                       | `{status: 'cancelled' \| null}`                                                                 |
+| `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                          |
+
+A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/003-cars-schema.sql`).
