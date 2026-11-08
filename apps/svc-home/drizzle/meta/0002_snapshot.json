@@ -55,12 +55,8 @@
           "tableFrom": "bill_overrides",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -266,12 +262,8 @@
           "tableFrom": "house_reviews",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -574,12 +566,8 @@
           "tableFrom": "work_documents",
           "tableTo": "works",
           "schemaTo": "home",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["work_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -587,10 +575,7 @@
       "compositePrimaryKeys": {
         "work_documents_work_id_upload_id_pk": {
           "name": "work_documents_work_id_upload_id_pk",
-          "columns": [
-            "work_id",
-            "upload_id"
-          ]
+          "columns": ["work_id", "upload_id"]
         }
       },
       "uniqueConstraints": {},
@@ -713,12 +698,8 @@
           "tableFrom": "works",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
