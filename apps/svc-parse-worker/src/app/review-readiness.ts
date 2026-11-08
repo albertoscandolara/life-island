@@ -17,6 +17,8 @@ const ID_DOCUMENT_TYPES = [
   'HEALTH_CARD',
   'DRIVING_LICENCE',
 ];
+/** Registration certificates: the car data they print is for you to accept. */
+const VEHICLE_REGISTRATION = 'VEHICLE_REGISTRATION';
 const DOUBTFUL = ['ambiguous', 'conflicting', 'invalid', 'illegible'];
 
 export interface ParsedDocument {
@@ -33,7 +35,7 @@ export interface ParsedDocument {
  * Why a parsed document needs a person to look at it. None means there is
  * nothing to check: the AI knows what it is, read every field without doubt,
  * proposes no new category, only the archive (and Bills) read it, and it is
- * not an ID document.
+ * not an ID document or a registration certificate.
  */
 export function reviewReasons(
   document: ParsedDocument,
@@ -85,5 +87,10 @@ export function reviewReasons(
     )
   )
     reasons.push('PERSON_DATA');
+  // So is a car's data: a new car, or a plate, VIN or engine that differs.
+  if (
+    document.categories.some((id) => lineage(id).includes(VEHICLE_REGISTRATION))
+  )
+    reasons.push('VEHICLE_DATA');
   return reasons;
 }

@@ -1,0 +1,771 @@
+<ui-page-header
+  emblem="🚗"
+  heading="Cars"
+  subtitle="Every car you have, with every field of its carta di circolazione, its insurance, road tax, revisione and expenses, and a warning before anything has to be renewed."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+} @if (alerts().length) {
+<section class="alerts" aria-label="Renewal warnings">
+  @for (alert of alerts(); track alert.vehicleId + alert.kind) {
+  <ui-alert
+    [tone]="alert.level === 'expired' ? 'danger' : alert.level === 'missing' ? 'info' : 'warning'"
+  >
+    <strong>{{ alertText(alert) }}</strong>
+    <span class="muted">
+      @if (alert.dueDate) { {{ alert.level === 'expired' || alert.level ===
+      'grace' ? 'Was due on' : 'Due by' }} {{ alert.dueDate | date: 'd MMM y'
+      }}. } @if (alert.level === 'missing') { Add it to your documents to see
+      when it is due. } @else if (alert.level === 'grace') { The RCA still
+      covers you until {{ alert.graceUntil | date: 'd MMM y' }}: renew it now. }
+      @else if (alert.level === 'expired') { Renew it, then add the new one to
+      your documents. }
+    </span>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="select(alert.vehicleId)"
+    >
+      Show
+    </button>
+  </ui-alert>
+  }
+</section>
+} @if (reviews().length) {
+<ui-card heading="To review" class="block">
+  <ui-badge uiCardActions tone="warning"
+    >{{ reviews().length }} waiting</ui-badge
+  >
+  <p class="muted intro">
+    New car documents never change a car on their own. Pick which car each one
+    is about and which printed values to take. A plate you do not have yet is
+    suggested as a new car.
+  </p>
+  @for (review of reviews(); track review.uploadId) {
+  <article class="review" [class.review--busy]="busy() === review.uploadId">
+    <header class="review__head">
+      <div>
+        <h3 class="review__title">
+          {{ typeLabel(review.type) }} @if (review.registrationNumber) {
+          <span class="mono">· {{ review.registrationNumber }}</span>
+          }
+        </h3>
+        <p class="muted">
+          {{ review.title }} @if (review.make || review.commercialName) { · {{
+          review.make }} {{ review.commercialName }} }
+        </p>
+      </div>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="previewUrl(review.uploadId)"
+        target="_blank"
+        rel="noopener"
+      >
+        <ui-icon name="eye" [size]="16" /> Open
+      </a>
+    </header>
+
+    @if (review.facts.length) {
+    <dl class="facts">
+      @for (fact of review.facts; track fact.label) {
+      <div>
+        <dt>{{ fact.label }}</dt>
+        <dd>{{ fact.value }}</dd>
+      </div>
+      }
+    </dl>
+    } @if (!readable(review)) {
+    <ui-alert tone="info">
+      It prints no plate or VIN (most fuel receipts do not), so it cannot make a
+      new car. File it under one of your cars.
+    </ui-alert>
+    } @else if (!review.vehicleId) {
+    <ui-alert tone="warning">
+      <strong>A new car?</strong> None of your cars has the plate
+      <span class="mono">{{ review.registrationNumber ?? review.vin }}</span>.
+      Add it as a new car, or pick the right car if the plate was misread.
+    </ui-alert>
+    } @if (review.outdated) {
+    <ui-alert tone="info">
+      This certificate is older than one you already have, so it suggests
+      keeping your current data.
+    </ui-alert>
+    }
+
+    <label class="review__whose">
+      <span>Which car?</span>
+      <select
+        class="ui-input compact"
+        (change)="chooseVehicle(review, $any($event.target).value)"
+      >
+        @if (readable(review)) {
+        <option value="new" [selected]="isNewVehicle(review)">A new car</option>
+        } @for (vehicle of vehicles(); track vehicle.id) {
+        <option
+          [value]="vehicle.id"
+          [selected]="draft(review).vehicleId === vehicle.id"
+        >
+          {{ vehicleName(vehicle) }} @if (vehicle.id === review.vehicleId) {
+          (matched by {{ review.match === 'vin' ? 'VIN' : 'plate' }}) }
+        </option>
+        }
+      </select>
+    </label>
+
+    @if (isNewVehicle(review)) {
+    <label class="edit__field new-name">
+      <span>Name it (optional)</span>
+      <input
+        class="ui-input compact"
+        type="text"
+        placeholder="e.g. Panda"
+        [value]="draft(review).label"
+        (input)="setDraftLabel(review, $any($event.target).value)"
+      />
+    </label>
+    <p class="sub">A new car with what it prints</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Meaning</th>
+            <th scope="col">Printed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of review.printed; track row.field) {
+          <tr>
+            <td><span class="code">{{ row.code ?? '·' }}</span></td>
+            <th scope="row">{{ label(row.field) }}</th>
+            <td>
+              <strong>{{ valueText(row.field, row.value) }}</strong>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else if (draft(review).vehicleId !== review.vehicleId) {
+    <ui-alert tone="info">
+      Filed under this car, it keeps the car's data as it is. Use Edit on the
+      car afterwards if something printed is right.
+    </ui-alert>
+    } @else if (changesFor(review).length) {
+    <p class="sub">New or different from what you have</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Take</th>
+            <th scope="col">Code</th>
+            <th scope="col">Field</th>
+            <th scope="col">You have</th>
+            <th scope="col">Printed</th>
+            <th scope="col">Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of changesFor(review); track change.field) {
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                [attr.aria-label]="'Take ' + label(change.field)"
+                [checked]="draft(review).accept.has(change.field)"
+                (change)="toggle(review, change.field)"
+              />
+            </td>
+            <td>
+              <span
+                class="code"
+                [attr.title]="change.code ? codeMeanings[change.code] : null"
+                >{{ change.code ?? '·' }}</span
+              >
+            </td>
+            <th scope="row">{{ label(change.field) }}</th>
+            <td class="muted">
+              {{ valueText(change.field, change.current) || '—' }}
+            </td>
+            <td>
+              <strong>{{ valueText(change.field, change.proposed) }}</strong>
+            </td>
+            <td>
+              <ui-badge [tone]="suggestionTones[change.suggestion]"
+                >{{ suggestionLabels[change.suggestion] }}</ui-badge
+              >
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <p class="muted">
+      <ui-icon name="check" [size]="16" /> Nothing new about the car: it only
+      adds the document.
+    </p>
+    }
+
+    <footer class="review__actions">
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reject(review)"
+      >
+        Not about any of my cars
+      </button>
+      <button
+        uiButton
+        type="button"
+        [loading]="busy() === review.uploadId"
+        [disabled]="busy() !== null || (isNewVehicle(review) && !readable(review))"
+        (click)="approve(review)"
+      >
+        <ui-icon name="check" [size]="18" />
+        {{ isNewVehicle(review) ? 'Add the car' : 'Approve' }}
+      </button>
+    </footer>
+  </article>
+  }
+</ui-card>
+} @if (overview() && !vehicles().length && !reviews().length && !adding()) {
+<ui-card class="block">
+  <ui-empty-state heading="No cars yet" icon="folder">
+    <p>
+      Load a carta di circolazione, an insurance policy, a bollo receipt or a
+      revisione in the documents app: once it is read, it shows up here for
+      review. Or add a car by its plate.
+    </p>
+    <button uiButton type="button" (click)="startAdding()">
+      <ui-icon name="plus" [size]="18" /> Add a car
+    </button>
+  </ui-empty-state>
+</ui-card>
+} @if (vehicles().length || adding()) { @if (vehicles().length) { @defer (on
+idle) {
+<cars-garage-view
+  class="garage"
+  [vehicles]="vehicles()"
+  [selectedId]="selected()?.id ?? null"
+  (chosen)="select($event)"
+/>
+} @placeholder {
+<div class="garage garage--placeholder" aria-hidden="true"></div>
+} }
+<nav class="cars-nav" aria-label="Cars">
+  @for (vehicle of vehicles(); track vehicle.id) {
+  <button
+    type="button"
+    class="car-chip"
+    [class.car-chip--on]="selected()?.id === vehicle.id"
+    [class.car-chip--off]="vehicle.status !== 'active'"
+    [attr.aria-pressed]="selected()?.id === vehicle.id"
+    (click)="select(vehicle.id)"
+  >
+    <span class="plate">{{ vehicle.values.registrationNumber ?? '?' }}</span>
+    {{ vehicle.label || vehicle.values.commercialName || 'Car' }} @if
+    (vehicle.alerts.length) {
+    <span
+      class="chip-alert"
+      [class.chip-alert--danger]="vehicle.alerts[0].level === 'expired'"
+      [attr.aria-label]="vehicle.alerts.length + ' warnings'"
+      >{{ vehicle.alerts.length }}</span
+    >
+    }
+  </button>
+  } @if (!adding()) {
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="startAdding()"
+  >
+    <ui-icon name="plus" [size]="16" /> Add a car
+  </button>
+  }
+</nav>
+} @if (adding(); as draft) {
+<ui-card heading="Add a car" class="block">
+  <form class="edit" (submit)="$event.preventDefault(); add()">
+    <label class="edit__field">
+      <span>Plate (A)</span>
+      <input
+        class="ui-input compact"
+        type="text"
+        required
+        placeholder="AB123CD"
+        [value]="draft.plate"
+        (input)="setAdding({ plate: $any($event.target).value })"
+      />
+    </label>
+    <label class="edit__field">
+      <span>Name (optional)</span>
+      <input
+        class="ui-input compact"
+        type="text"
+        placeholder="e.g. Panda"
+        [value]="draft.label"
+        (input)="setAdding({ label: $any($event.target).value })"
+      />
+    </label>
+    <p class="muted small span">
+      The rest of its data comes from its carta di circolazione, through the
+      review, or from Edit.
+    </p>
+    <footer class="review__actions">
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="adding.set(null)"
+      >
+        Cancel
+      </button>
+      <button
+        uiButton
+        type="submit"
+        [loading]="busy() === 'add'"
+        [disabled]="busy() !== null || !draft.plate.trim()"
+      >
+        <ui-icon name="check" [size]="18" /> Add
+      </button>
+    </footer>
+  </form>
+</ui-card>
+} @if (selected(); as vehicle) {
+<div class="car">
+  <div class="car__side">
+    <ui-card [heading]="vehicleName(vehicle)">
+      @if (!editing() && !removing()) {
+      <div uiCardActions class="car__actions">
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="edit(vehicle)"
+        >
+          Edit
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="removing.set(true)"
+        >
+          Remove
+        </button>
+      </div>
+      } @if (removing()) {
+      <div class="confirm" role="group" aria-label="Remove this car">
+        <p>
+          Remove <strong>{{ vehicleName(vehicle) }}</strong>? Its data is
+          deleted. Its documents are not: they go back to <em>To review</em>,
+          where you can file them under another car or reject them. If you sold
+          it, set it to <em>Sold</em> instead to keep its history.
+        </p>
+        <footer class="review__actions">
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="removing.set(false)"
+          >
+            Cancel
+          </button>
+          <button
+            uiButton
+            variant="danger"
+            type="button"
+            [loading]="busy() === vehicle.id"
+            [disabled]="busy() !== null"
+            (click)="remove(vehicle)"
+          >
+            Remove the car
+          </button>
+        </footer>
+      </div>
+      } @else {
+      <dl class="facts">
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <select
+              class="ui-input compact"
+              aria-label="Status of the car"
+              [disabled]="busy() !== null"
+              (change)="setStatus(vehicle, $any($event.target).value)"
+            >
+              @for (status of vehicleStatuses; track status) {
+              <option [value]="status" [selected]="vehicle.status === status">
+                {{ vehicleStatusLabels[status] }}
+              </option>
+              }
+            </select>
+          </dd>
+        </div>
+        @if (vehicle.odometerKm !== null) {
+        <div>
+          <dt>Odometer</dt>
+          <dd>{{ num(vehicle.odometerKm, 0, 0) }} km</dd>
+        </div>
+        } @if (vehicle.values.firstRegistrationDate) {
+        <div>
+          <dt>On the road since</dt>
+          <dd>{{ vehicle.values.firstRegistrationDate | date: 'MMM y' }}</dd>
+        </div>
+        }
+      </dl>
+      @if (vehicle.status !== 'active') {
+      <p class="muted small">
+        Not in use: its renewals are shown but never warn.
+      </p>
+      } }
+    </ui-card>
+
+    <ui-card heading="3D model">
+      @if (vehicle.model; as m) {
+      <p class="model">
+        <ui-icon name="file" [size]="16" />
+        <strong>{{ m.filename }}</strong>
+        <span class="muted">{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="removeModel(vehicle)"
+        >
+          <ui-icon name="trash" [size]="14" /> Remove
+        </button>
+      </p>
+      } @else {
+      <p class="muted small">
+        It shows as a little drawn car, in its colour, until you load a model.
+      </p>
+      }
+      <input
+        #modelFile
+        type="file"
+        class="file"
+        accept=".glb,.gltf,.obj"
+        (change)="uploadModel(vehicle, $event)"
+      />
+      <div class="model__actions">
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [loading]="busy() === 'model:' + vehicle.id"
+          [disabled]="busy() !== null"
+          (click)="modelFile.click()"
+        >
+          <ui-icon name="upload" [size]="14" />
+          {{ vehicle.model ? 'Replace the model' : 'Load a model' }}
+        </button>
+        <small class="muted"
+          >A single .glb, .gltf with embedded buffers, or .obj, up to {{ maxMb
+          }} MB.</small
+        >
+      </div>
+    </ui-card>
+
+    <ui-card heading="Renewals">
+      <ul class="renewals">
+        @for (renewal of vehicle.renewals; track renewal.kind) {
+        <li class="renewal">
+          <div class="renewal__line">
+            <strong>{{ renewableLabels[renewal.kind] }}</strong>
+            <ui-badge [tone]="levelTones[renewal.level]"
+              >{{ levelLabels[renewal.level] }}</ui-badge
+            >
+          </div>
+          <p class="muted small">
+            @if (renewal.dueDate) { Due by {{ renewal.dueDate | date: 'd MMM y'
+            }} · {{ renewalText(renewal) }} } @else { {{ renewal.basis }} } @if
+            (renewal.dueOdometerKm) { · or at {{ num(renewal.dueOdometerKm, 0,
+            0)}} km }
+          </p>
+          @if (renewal.dueDate) {
+          <p class="muted small">{{ renewal.basis }}</p>
+          }
+        </li>
+        } @empty {
+        <li class="muted">Nothing to renew is known yet.</li>
+        }
+      </ul>
+    </ui-card>
+
+    <ui-card heading="Costs">
+      @if (vehicle.costs.length) { @if (costTable(vehicle); as table) {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Year</th>
+              @for (kind of table.kinds; track kind) {
+              <th scope="col" class="num">{{ costKindLabels[kind] }}</th>
+              }
+              <th scope="col" class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of table.years; track row.year) {
+            <tr>
+              <th scope="row">{{ row.year }}</th>
+              @for (total of row.totals; track $index) {
+              <td class="num">{{ total === null ? '—' : num(total, 2, 2) }}</td>
+              }
+              <td class="num">
+                <strong>{{ num(row.total, 2, 2) }}</strong>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      }
+      <details class="costs">
+        <summary>{{ vehicle.costs.length }} documents with a cost</summary>
+        <ul>
+          @for (cost of vehicle.costs; track cost.uploadId) {
+          <li>
+            <span>{{ cost.date | date: 'd MMM y' }}</span>
+            <span>{{ costKindLabels[cost.kind] }}</span>
+            <span class="muted">{{ cost.supplier ?? cost.title }}</span>
+            @if (cost.litres) {
+            <span class="muted">{{ num(cost.litres, 0, 2) }} l</span>
+            }
+            <strong class="num">€ {{ num(cost.amount, 2, 2) }}</strong>
+          </li>
+          }
+        </ul>
+      </details>
+      } @else {
+      <p class="muted">
+        No costs yet: insurance, road tax, revisione and expenses (fuel,
+        service, repairs, tolls...) add up here once approved.
+      </p>
+      }
+    </ui-card>
+  </div>
+
+  <div class="car__main">
+    <ui-card heading="Carta di circolazione">
+      <label uiCardActions class="toggle">
+        <input
+          type="checkbox"
+          [checked]="allCodes()"
+          (change)="allCodes.set(!allCodes())"
+        />
+        Every code
+      </label>
+      @if (editing()) {
+      <form class="edit" (submit)="$event.preventDefault(); save(vehicle)">
+        <label class="edit__field span">
+          <span>Your name for it</span>
+          <input
+            class="ui-input compact"
+            type="text"
+            [value]="editValue('label')"
+            (input)="setValue('label', $any($event.target).value)"
+          />
+        </label>
+        @for (d of definitions; track d.field) {
+        <label class="edit__field" [for]="'car-' + d.key">
+          <span><span class="code">{{ d.code }}</span> {{ d.label }}</span>
+          @if (d.type === 'enum') {
+          <select
+            class="ui-input compact"
+            [id]="'car-' + d.key"
+            (change)="setValue(d.field, $any($event.target).value)"
+          >
+            <option value="" [selected]="!editValue(d.field)">Unknown</option>
+            @for (option of d.options; track option) {
+            <option [value]="option" [selected]="editValue(d.field) === option">
+              {{ optionLabels[option] ?? option }}
+            </option>
+            }
+          </select>
+          } @else {
+          <input
+            class="ui-input compact"
+            [id]="'car-' + d.key"
+            [type]="inputType(d)"
+            [value]="editValue(d.field)"
+            (input)="setValue(d.field, $any($event.target).value)"
+          />
+          }
+        </label>
+        }
+        <footer class="review__actions">
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="editing.set(null)"
+          >
+            Cancel
+          </button>
+          <button
+            uiButton
+            type="submit"
+            [loading]="busy() === vehicle.id"
+            [disabled]="busy() !== null"
+          >
+            <ui-icon name="check" [size]="18" /> Save
+          </button>
+        </footer>
+      </form>
+      } @else {
+      <div class="table-wrap">
+        <table class="table codes">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Meaning</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of codeRows(); track row.code) {
+            <tr [class.codes__group]="row.group && !row.fields.length">
+              <td><span class="code">{{ row.code }}</span></td>
+              <th scope="row">
+                {{ row.meaning }}
+                <span class="muted printed">{{ row.printed }}</span>
+              </th>
+              <td class="codes__value">
+                @for (d of row.fields; track d.field) {
+                <div>
+                  @if (row.fields.length > 1) {
+                  <span class="muted small-label">{{ d.label }}:</span>
+                  } @if (value(vehicle, d.field) !== null) {
+                  <span class="value"
+                    >{{ valueText(d.field, value(vehicle, d.field)) }}</span
+                  >
+                  } @else {
+                  <span class="muted">—</span>
+                  }
+                </div>
+                } @empty { @if (!row.group) {
+                <span class="muted">Not read by Life Island</span>
+                } }
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">
+        Codes of the EU registration certificate (Directive 1999/37/EC), as
+        printed on the Italian carta di circolazione and documento unico. Last
+        changed {{ vehicle.updatedAt | date: 'd MMM y, HH:mm' }}, through the
+        reviews or by you.
+      </p>
+      }
+    </ui-card>
+
+    @for (series of vehicle.series; track series.type) {
+    <ui-card [heading]="typeLabel(series.type)">
+      <ui-badge uiCardActions tone="neutral"
+        >{{ series.versions.length }} {{ series.versions.length === 1 ?
+        'version' : 'versions' }}</ui-badge
+      >
+      <ol class="versions">
+        @for (version of series.versions; track version.uploadId) {
+        <li
+          class="version"
+          [class.version--old]="version.status === 'superseded'"
+        >
+          <span class="version__number">v{{ version.version }}</span>
+          <div class="version__body">
+            <div class="version__line">
+              <ui-badge [tone]="statusTones[version.status]"
+                >{{ statusLabels[version.status] }}</ui-badge
+              >
+              @if (alertOf(vehicle, version.uploadId); as alert) {
+              <ui-badge
+                [tone]="alert.level === 'expired' ? 'danger' : 'warning'"
+                >{{ renewalText(alert) }}</ui-badge
+              >
+              } @if (version.number) {
+              <span class="mono">{{ version.number }}</span>
+              }
+            </div>
+            <p class="muted small">
+              @if (version.validFrom) { From {{ version.validFrom | date: 'd MMM
+              y' }} } @if (version.validUntil) { · until {{ version.validUntil |
+              date: 'd MMM y' }} } @if (version.issuer) { · {{ version.issuer }}
+              } @if (version.amount !== null) { · € {{ num(version.amount, 2,
+              2)}} }
+            </p>
+          </div>
+          <div class="version__actions">
+            <a
+              uiButton
+              variant="ghost"
+              size="sm"
+              [iconOnly]="true"
+              [href]="previewUrl(version.uploadId)"
+              target="_blank"
+              rel="noopener"
+              [attr.aria-label]="'Open version ' + version.version"
+            >
+              <ui-icon name="eye" [size]="16" />
+            </a>
+            <select
+              class="ui-input compact"
+              [attr.aria-label]="'Mark version ' + version.version"
+              [value]="version.status === 'cancelled' ? 'cancelled' : ''"
+              [disabled]="busy() !== null"
+              (change)="mark(version.uploadId, $any($event.target).value)"
+            >
+              <option value="">By its dates</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </li>
+        }
+      </ol>
+    </ui-card>
+    }
+  </div>
+</div>
+} @if (rejected().length) {
+<details class="rejected">
+  <summary>Rejected: {{ rejected().length }} not about any car</summary>
+  <ul>
+    @for (doc of rejected(); track doc.uploadId) {
+    <li>
+      {{ typeLabel(doc.type) }} · {{ doc.title }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reopen(doc.uploadId)"
+      >
+        Review again
+      </button>
+    </li>
+    }
+  </ul>
+</details>
+}

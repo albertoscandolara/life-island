@@ -101,6 +101,32 @@ describe('FakeParser', () => {
     );
   });
 
+  it.each([
+    ['Libretto di circolazione Panda.pdf', 'VEHICLE_REGISTRATION'],
+    ['Polizza RCA 2026.pdf', 'CAR_INSURANCE'],
+    ['Bollo auto 2026.pdf', 'ROAD_TAX'],
+    ['Revisione auto marzo.pdf', 'VEHICLE_INSPECTION'],
+    ['Tagliando officina.pdf', 'VEHICLE_EXPENSE'],
+  ])('recognises %s as a car document (%s)', async (filename, type) => {
+    const ids = [
+      'CAR_DOCUMENT',
+      'VEHICLE_REGISTRATION',
+      'CAR_INSURANCE',
+      'ROAD_TAX',
+      'VEHICLE_INSPECTION',
+      'VEHICLE_EXPENSE',
+    ].map((id) => ({ ...categories[0], id, title: id }));
+    const { result } = await parser.classify(inputOf(filename), [
+      ...categories,
+      ...ids,
+    ]);
+    expect(
+      [...result.categoryIds]
+        .filter((id) => ids.some((c) => c.id === id))
+        .sort(),
+    ).toEqual(['CAR_DOCUMENT', type].sort());
+  });
+
   it('keeps a bill that mentions "spesa" out of groceries and reads its total to pay', async () => {
     const text =
       'LENA ENERGIA Bolletta luce. Spesa per la materia energia: totale 7,20 €. Totale da pagare € 50,12';

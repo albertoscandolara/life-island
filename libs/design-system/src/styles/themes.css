@@ -47,6 +47,14 @@
   --accent-2: var(--violet-500);
 }
 
+[data-character='velo'] {
+  /* cars: registration, insurance, road tax, revisione and running costs */
+  --accent: var(--ink-700);
+  --accent-hover: var(--ink-900);
+  --accent-soft: var(--ink-50);
+  --accent-2: var(--lava-500);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -82,6 +90,12 @@
   --accent: var(--lagoon-300);
   --accent-hover: var(--lagoon-400);
   --accent-2: var(--violet-400);
+}
+
+:root[data-theme='dark'] [data-character='velo'] {
+  --accent: var(--ink-300);
+  --accent-hover: var(--ink-200);
+  --accent-2: var(--coral-400);
 }
 
 :root[data-theme='dark'] [data-character] {

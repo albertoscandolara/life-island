@@ -19,5 +19,12 @@
       "^/api/people": ""
     },
     "changeOrigin": true
+  },
+  "/api/cars": {
+    "target": "http://localhost:3007",
+    "pathRewrite": {
+      "^/api/cars": ""
+    },
+    "changeOrigin": true
   }
 }

@@ -50,11 +50,31 @@ const ID_WORDS = {
   DRIVING_LICENCE: /(patente|driving licen[cs]e|driver'?s licen[cs]e)/i,
 };
 
+/** Car documents, by the names people give them (Italian and English). */
+const CAR_WORDS = {
+  VEHICLE_REGISTRATION:
+    /(carta di circolazione|libretto (di circolazione|auto)|documento unico di circolazione|registration certificate)/i,
+  CAR_INSURANCE:
+    /(polizza (rca|auto)|rc ?auto|r\.c\. ?auto|responsabilit[aà] civile auto|car insurance|assicurazione auto)/i,
+  ROAD_TAX: /(tassa automobilistica|bollo auto|road tax)/i,
+  VEHICLE_INSPECTION:
+    /(revisione (auto|veicolo|periodica)|centro revisioni|\bMOT\b)/i,
+  VEHICLE_EXPENSE:
+    /(carburante|rifornimento|gasolio|benzina|tagliando|officina|gommista|pedaggio|telepass)/i,
+};
+
 /** Keyword rules for the categories the fake parser can recognize. */
 const CATEGORY_WORDS: Record<string, RegExp> = {
   ...ID_WORDS,
   ID_DOCUMENT: new RegExp(
     Object.values(ID_WORDS)
+      .map((words) => words.source)
+      .join('|'),
+    'i',
+  ),
+  ...CAR_WORDS,
+  CAR_DOCUMENT: new RegExp(
+    Object.values(CAR_WORDS)
       .map((words) => words.source)
       .join('|'),
     'i',

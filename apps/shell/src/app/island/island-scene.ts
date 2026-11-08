@@ -442,6 +442,25 @@ export class IslandScene {
         card.rotation.y = 0.35;
         break;
       }
+      case 'garage': {
+        // A small car: body, cabin and four wheels.
+        add(this.mesh(new BoxGeometry(0.9, 0.24, 0.5), tint), 0, 0.42, 0);
+        add(
+          this.mesh(new BoxGeometry(0.5, 0.22, 0.46), 'foam'),
+          -0.05,
+          0.65,
+          0,
+        );
+        for (const x of [-0.28, 0.28])
+          for (const z of [-0.26, 0.26])
+            add(
+              this.mesh(new CylinderGeometry(0.12, 0.12, 0.08, 12), 'rock'),
+              x,
+              0.28,
+              z,
+            ).rotation.x = Math.PI / 2;
+        break;
+      }
     }
 
     const rad = (module.angle * Math.PI) / 180;

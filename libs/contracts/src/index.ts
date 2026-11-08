@@ -9,3 +9,4 @@ export * from './lib/domain-dtos.js';
 export * from './lib/reclassification.js';
 export * from './lib/home.js';
 export * from './lib/people.js';
+export * from './lib/cars.js';
