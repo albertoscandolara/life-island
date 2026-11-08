@@ -17,10 +17,19 @@ export interface CarsConfig {
   storage: StorageOptions | null;
 }
 
+/**
+ * Local defaults, so a `.env` made before Cars existed still runs it: the
+ * port and the role of the compose stack (`infra/postgres/init`). Containers
+ * set PORT and CARS_DATABASE_URL themselves.
+ */
+export const LOCAL_CARS_PORT = 3007;
+export const LOCAL_CARS_DATABASE_URL =
+  'postgres://cars_svc:dev_cars@localhost:5432/life_island';
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
   return {
-    port: numberEnv('CARS_PORT', numberEnv('PORT', 3000, env), env),
-    databaseUrl: requiredEnv('CARS_DATABASE_URL', env),
+    port: numberEnv('CARS_PORT', numberEnv('PORT', LOCAL_CARS_PORT, env), env),
+    databaseUrl: env['CARS_DATABASE_URL'] || LOCAL_CARS_DATABASE_URL,
     natsUrl: requiredEnv('NATS_URL', env),
     ingestionUrl: (
       env['INGESTION_URL'] ??
