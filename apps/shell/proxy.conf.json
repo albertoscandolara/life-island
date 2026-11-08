@@ -26,5 +26,12 @@
       "^/api/cars": ""
     },
     "changeOrigin": true
+  },
+  "/api/work": {
+    "target": "http://localhost:3008",
+    "pathRewrite": {
+      "^/api/work": ""
+    },
+    "changeOrigin": true
   }
 }

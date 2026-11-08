@@ -99,6 +99,13 @@
       "when": 1794643200000,
       "tag": "0013_car_document_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794729600000,
+      "tag": "0014_work_document_categories",
+      "breakpoints": true
     }
   ]
 }

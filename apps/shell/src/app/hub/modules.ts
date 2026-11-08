@@ -2,7 +2,8 @@
 export interface IslandModule {
   id: string;
   /** The character theme (`[data-character]`); null for an area not built yet. */
-  character: 'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | 'velo' | null;
+  character:
+    'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | 'velo' | 'pachy' | null;
   emblem: string;
   name: string;
   mission: string;
@@ -62,12 +63,12 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
   },
   {
     id: 'work',
-    character: null,
+    character: 'pachy',
     emblem: '💼',
     name: 'Work',
     mission:
-      'Payslips, contracts and the Certificazione Unica, year after year.',
-    path: null,
+      'Every workplace you have had, read from payslips, evaluations and contracts: a timeline of promotions and rises, your pay year by year, an AI feedback on your career, and the hiring platforms you signed up to.',
+    path: '/work',
     angle: 315,
     landmark: 'office',
   },

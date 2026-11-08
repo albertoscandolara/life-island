@@ -64,6 +64,9 @@
   --viz-electricity: var(--viz-yellow-500);
   --viz-gas: var(--viz-magenta-400);
   --viz-water: var(--viz-blue-450);
+  /* Pay (Work): gross and what reaches you. */
+  --viz-gross: var(--viz-violet-600);
+  --viz-net: var(--viz-aqua-500);
   --viz-property-1: var(--viz-aqua-500);
   --viz-property-2: var(--viz-orange-500);
   --viz-property-3: var(--viz-violet-600);
@@ -128,6 +131,8 @@
   --viz-electricity: var(--viz-yellow-600);
   --viz-gas: var(--viz-magenta-500);
   --viz-water: var(--viz-blue-400);
+  --viz-gross: var(--viz-violet-400);
+  --viz-net: var(--viz-aqua-600);
   --viz-property-1: var(--viz-aqua-600);
   --viz-property-2: var(--viz-orange-600);
   --viz-property-3: var(--viz-violet-400);

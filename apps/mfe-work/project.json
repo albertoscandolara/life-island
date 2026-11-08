@@ -1,0 +1,123 @@
+{
+  "name": "mfe-work",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "work",
+  "sourceRoot": "apps/mfe-work/src",
+  "tags": ["type:app", "scope:work"],
+  "targets": {
+    "build": {
+      "executor": "@angular-architects/native-federation:build",
+      "defaultConfiguration": "production",
+      "options": {
+        "cacheExternalArtifacts": true,
+        "tsConfig": "apps/mfe-work/tsconfig.federation.json"
+      },
+      "configurations": {
+        "production": {
+          "target": "mfe-work:esbuild:production"
+        },
+        "development": {
+          "target": "mfe-work:esbuild:development",
+          "dev": true
+        }
+      }
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation:build",
+      "options": {
+        "target": "mfe-work:serve-original:development",
+        "tsConfig": "apps/mfe-work/tsconfig.federation.json",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      },
+      "continuous": true
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"],
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "mfe-work:build",
+        "port": 4207,
+        "staticFilePath": "dist/apps/mfe-work/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/mfe-work",
+        "browser": "apps/mfe-work/src/main.ts",
+        "tsConfig": "apps/mfe-work/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/mfe-work/public"
+          }
+        ],
+        "styles": [
+          "libs/design-system/src/styles/index.css",
+          "apps/mfe-work/src/styles.css"
+        ],
+        "polyfills": ["es-module-shims"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "12kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve-original": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4207,
+        "proxyConfig": "apps/mfe-work/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "mfe-work:esbuild:production"
+        },
+        "development": {
+          "buildTarget": "mfe-work:esbuild:development"
+        }
+      }
+    }
+  }
+}

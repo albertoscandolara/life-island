@@ -551,9 +551,15 @@ describe.skipIf(!configured)(
         value: '2026-03-01/2026-03-31',
         categories: ['PAYSLIP'],
       });
+      // The totals row of a payslip is read offline too.
       expect(saved.extractedFields?.fields['net_pay']).toMatchObject({
-        status: 'missing',
+        status: 'found',
+        value: 1500,
         required: true,
+      });
+      expect(saved.extractedFields?.fields['gross_pay']).toMatchObject({
+        status: 'found',
+        value: 2000,
       });
       expect(
         (await suggestionsFor(id)).map(({ categoryId, dimension }) => ({

@@ -38,6 +38,9 @@
     },
     {
       "path": "./apps/svc-cars"
+    },
+    {
+      "path": "./apps/svc-work"
     }
   ],
   "compilerOptions": {}

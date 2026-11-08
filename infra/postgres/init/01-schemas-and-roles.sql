@@ -13,8 +13,9 @@ create role tax730_svc login password 'dev_tax730';
 create role home_svc login password 'dev_home';
 create role people_svc login password 'dev_people';
 create role cars_svc login password 'dev_cars';
+create role work_svc login password 'dev_work';
 
-grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc;
+grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc, work_svc;
 
 create schema ingestion authorization ingestion_svc;
 create schema review authorization review_svc;
@@ -23,6 +24,7 @@ create schema tax730 authorization tax730_svc;
 create schema home authorization home_svc;
 create schema people authorization people_svc;
 create schema cars authorization cars_svc;
+create schema work authorization work_svc;
 
 alter role ingestion_svc set search_path = ingestion;
 alter role review_svc set search_path = review;
@@ -31,3 +33,4 @@ alter role tax730_svc set search_path = tax730;
 alter role home_svc set search_path = home;
 alter role people_svc set search_path = people;
 alter role cars_svc set search_path = cars;
+alter role work_svc set search_path = work;

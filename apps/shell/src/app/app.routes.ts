@@ -47,5 +47,9 @@ export const appRoutes: Route[] = [
     path: 'cars',
     loadChildren: remote('mfe-cars', './routes', 'CARS_ROUTES'),
   },
+  {
+    path: 'work',
+    loadChildren: remote('mfe-work', './routes', 'WORK_ROUTES'),
+  },
   { path: '**', redirectTo: '' },
 ];

@@ -2,5 +2,6 @@
   "mfe-tax730": "http://localhost:4203/remoteEntry.json",
   "mfe-home": "http://localhost:4204/remoteEntry.json",
   "mfe-people": "http://localhost:4205/remoteEntry.json",
-  "mfe-cars": "http://localhost:4206/remoteEntry.json"
+  "mfe-cars": "http://localhost:4206/remoteEntry.json",
+  "mfe-work": "http://localhost:4207/remoteEntry.json"
 }
