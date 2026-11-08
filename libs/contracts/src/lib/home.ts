@@ -168,7 +168,10 @@ export interface PropertyDto {
    * of them belongs here (case and accents ignored), e.g. "ponzilovo".
    */
   matchTerms: string[];
-  /** Supply point codes (POD, PDR, water customer code) printed on its bills. */
+  /**
+   * Its supply point codes: POD (electricity), PDR (gas), the water supply
+   * code. Never a customer code: that belongs to a supply contract.
+   */
   supplyCodes: string[];
   /** Document categories (usually of the PROPERTY dimension) that mean "this home". */
   categoryIds: string[];
@@ -318,7 +321,7 @@ export const HOUSE_FIELD_LABELS: Record<HouseField, string> = {
   waterSupplier: 'Water supplier',
   condoManager: 'Condominium manager',
   insurer: 'Insurer',
-  supplyCodes: 'Supply code',
+  supplyCodes: 'Supply point (POD/PDR)',
   owners: 'Owner',
 };
 
@@ -607,6 +610,19 @@ export type UpdateOrganizationRequest = z.input<
   typeof updateOrganizationRequestSchema
 >;
 
+/**
+ * A supply contract: one supplier, one customer code (codice cliente), one
+ * supply point. How Italian customer codes behave:
+ * - the supplier gives the code to one contract, not to you or the house:
+ *   electricity and gas are separate contracts with separate codes, even
+ *   with the same supplier;
+ * - an offer change with the same supplier (fixed to variable price) keeps
+ *   the contract and its code: only the offer changes;
+ * - a new supplier, a subentro after the meter was closed, or a voltura to
+ *   another holder start a new contract with a new code;
+ * - the POD or PDR names the meter and stays through all of this, so it
+ *   belongs to the house, and the customer code never does.
+ */
 export interface SupplyContractDto {
   id: string;
   supplierId: string | null;
@@ -616,6 +632,11 @@ export interface SupplyContractDto {
   /** First and last bill period seen under it. */
   firstDay: string | null;
   lastDay: string | null;
+  /**
+   * ACTIVE: the contract billed last on its supply point. ENDED: a later
+   * contract took the supply point over (new supplier, subentro, voltura).
+   */
+  status: 'ACTIVE' | 'ENDED';
   billCount: number;
 }
 

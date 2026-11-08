@@ -10,6 +10,7 @@ import {
   matchProperty,
   normalizeCode,
   normalizeText,
+  readBillFacts,
   toNumber,
   utilityOf,
   type DocumentLike,
@@ -237,8 +238,10 @@ export function readHouse(
       'merchant_name',
     ]);
     if (supplier) values[SUPPLIER_OF[utility]] = supplier;
-    const code = firstText(fields, ['pod', 'pdr', 'customer_id']);
-    if (code) supplyCodes.push(code.replace(/\s+/g, '').toUpperCase());
+    // Only the supply point (POD, PDR) is the house's. The customer code is
+    // the supply contract's: a new supplier, subentro or voltura changes it.
+    const point = readBillFacts(fields, utility).supplyPointCode;
+    if (point) supplyCodes.push(point);
   }
   const owners = Object.entries(fields)
     .filter(([key]) => OWNER_KEY.test(key))

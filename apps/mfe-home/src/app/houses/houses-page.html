@@ -219,9 +219,18 @@
       (k.offerName) { · {{ k.offerName }} } @if (k.customerCode) { · customer {{
       k.customerCode }} } } @else { No supplier read yet } @if
       (p.distributorName) { · grid by {{ p.distributorName }} } · {{ p.billCount
-      }} {{ p.billCount === 1 ? 'bill' : 'bills' }} @if (p.contracts.length > 1)
-      { · {{ p.contracts.length }} contracts so far }
+      }} {{ p.billCount === 1 ? 'bill' : 'bills' }}
     </div>
+    @if (ended(p).length) {
+    <ul class="point__history muted">
+      @for (k of ended(p); track k.id) {
+      <li>
+        Ended: {{ k.supplierName ?? 'Unknown supplier' }} @if (k.customerCode) {
+        · customer {{ k.customerCode }} } · {{ span(k.firstDay, k.lastDay) }}
+      </li>
+      }
+    </ul>
+    }
     <label class="point__move">
       <select
         class="ui-input compact"

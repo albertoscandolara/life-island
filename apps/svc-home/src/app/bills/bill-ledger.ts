@@ -335,6 +335,26 @@ export async function syncBillsIn(db: Db): Promise<void> {
         .where(eq(bills.id, id));
   }
 
+  // A customer code names a supply contract, never a house: one that reached
+  // a house's supply codes (from an older review or a bill put there by hand)
+  // leaves it. A POD, PDR or water code stays.
+  const contractCodes = new Set(
+    [...contractByKey.values()]
+      .map((c) => (c.customerCode ? normalizeCode(c.customerCode) : null))
+      .filter((code): code is string => !!code && !pointByCode.has(code)),
+  );
+  if (contractCodes.size)
+    for (const house of props) {
+      const kept = house.supplyCodes.filter(
+        (code) => !contractCodes.has(normalizeCode(code)),
+      );
+      if (kept.length !== house.supplyCodes.length)
+        await db
+          .update(properties)
+          .set({ supplyCodes: kept })
+          .where(eq(properties.id, house.id));
+    }
+
   // A document no longer a bill (deleted, excluded, recategorised) leaves.
   const gone = existing.filter((b) => !seen.has(b.uploadId)).map((b) => b.id);
   if (gone.length) await db.delete(bills).where(inArray(bills.id, gone));

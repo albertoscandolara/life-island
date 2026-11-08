@@ -137,8 +137,9 @@ export class BillsService {
       // A bill put on a house takes its supply point there: the next bills follow.
       await this.moveSupplyPoint(bill.supplyPointId, request.propertyId);
       bill = await this.get(uploadId);
-    } else if (request.propertyId && bill?.customerId)
-      await this.learnSupplyCode(request.propertyId, bill.customerId);
+    }
+    // A bill with no supply point teaches the house nothing: its customer
+    // code names the supply contract, never the house.
     return bill;
   }
 

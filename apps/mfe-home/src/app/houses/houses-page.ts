@@ -249,7 +249,17 @@ export class HousesPage {
 
   /** The contract in force: the one with the latest bill. */
   protected current(point: SupplyPointDto) {
-    return point.contracts[0] ?? null;
+    return point.contracts.find((c) => c.status === 'ACTIVE') ?? null;
+  }
+
+  /** The contracts that ran the supply point before, newest first. */
+  protected ended(point: SupplyPointDto) {
+    return point.contracts.filter((c) => c.status === 'ENDED');
+  }
+
+  /** "Jan 2025 – Apr 2026": the days a contract was billed for. */
+  protected span(from: string | null, to: string | null): string {
+    return [from, to].map((d) => (d ? formatDate(d) : '?')).join(' – ');
   }
 }
 

@@ -128,7 +128,12 @@ export class SupplyPointsController {
                 billCount: used.reduce((sum, u) => sum + u.count, 0),
               };
             })
-            .sort((a, b) => (b.lastDay ?? '').localeCompare(a.lastDay ?? '')),
+            .sort((a, b) => (b.lastDay ?? '').localeCompare(a.lastDay ?? ''))
+            // The contract billed last runs the supply point; the others ended.
+            .map((c, i) => ({
+              ...c,
+              status: i === 0 ? ('ACTIVE' as const) : ('ENDED' as const),
+            })),
         };
       })
       .sort(

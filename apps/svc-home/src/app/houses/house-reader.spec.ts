@@ -126,6 +126,35 @@ describe('readHouse', () => {
     });
   });
 
+  it("never takes a customer code as house data: it is the contract's", () => {
+    const gas = house({ supplyCodes: ['01680102015791'] });
+    const printed: Record<string, string>[] = [
+      { customer_id: '1000007483' },
+      { customer_code: '1000007483', supply_point_code: 'IT001E36435004' },
+    ];
+    for (const fields of printed) {
+      const reading = readHouse(
+        doc(
+          {
+            provider: 'Lene S.r.l.',
+            supply_address: 'Via dei Bandi 10, 37039 Tregnago (VR)',
+            total_amount: 80,
+            ...fields,
+          },
+          ['ELECTRICITY_BILL'],
+        ),
+        [bandi],
+        parentOf,
+        null,
+      );
+      expect(reading?.supplyCodes).not.toContain('1000007483');
+      const changes = proposeHouseChanges(mergeReadings([reading!]), gas);
+      expect(changes.map((c) => c.proposed).join(' ')).not.toContain(
+        '1000007483',
+      );
+    }
+  });
+
   it('reads cadastral data and owners of a survey, with no house matched', () => {
     const reading = readHouse(
       doc({
