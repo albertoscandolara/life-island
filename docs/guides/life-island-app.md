@@ -181,6 +181,8 @@ Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as it
 
 Levels are **ok**, **expiring**, **grace** (insurance past its end, still covered), **expired** and **missing** (no insurance or road tax on file, or a revisione that should have happened). Warnings of active cars sit at the top of the page and on the car.
 
+**3D models.** As in Houses, the top of the page shows your cars in 3D, side by side: each is a little drawn car in its colour (read from the certificate's colour, Italian or English), until you load your own model on the car's **3D model** card. A single `.glb`, a `.gltf` with embedded buffers or an `.obj`, up to 50 MB, kept in svc-cars' own bucket (`CARS_S3_BUCKET`, default `cars-models`; uploads need the `S3_*` settings). Click a car, in 3D or on its label, to look at it.
+
 **Costs.** Insurance, road tax, revisione and every expense (fuel, service, repair, tyres, parking, tolls, washing, fines…) are listed per car, newest first, with totals per year and kind; fuel shows its litres, and the last odometer reading is the car's.
 
 | Endpoint (`/api/cars/...`)                                         | Purpose                                                                                         |
@@ -191,6 +193,7 @@ Levels are **ok**, **expiring**, **grace** (insurance past its end, still covere
 | `POST /reviews/:uploadId/approve`                                  | `{vehicleId, accept: [fields], label?}`; `vehicleId: null` adds a new car (422 without a plate) |
 | `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not a document of any car, and back to review                                                   |
 | `PATCH /documents/:uploadId`                                       | `{status: 'cancelled' \| null}`                                                                 |
+| `PUT /vehicles/:id/model?filename=`, `GET`, `DELETE`               | The car's 3D model: the file is the request body; it replaces the one the car had               |
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                          |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/003-cars-schema.sql`).

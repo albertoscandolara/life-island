@@ -10,6 +10,8 @@ import {
   CAR_DOCUMENT_STATUS_LABELS,
   COST_KIND_LABELS,
   identifiesVehicle,
+  MODEL_MAX_BYTES,
+  modelFormatOf,
   REGISTRATION_CODES,
   REGISTRATION_CODE_MEANINGS,
   RENEWABLE_LABELS,
@@ -41,6 +43,7 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
+import { GarageView } from './garage-view';
 import {
   alertText,
   italianNumber,
@@ -125,6 +128,7 @@ const DEFINITION = new Map<string, Definition>(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    GarageView,
     UiAlert,
     UiBadge,
     UiButton,
@@ -174,10 +178,10 @@ export class CarsPage {
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
-  protected readonly selected = computed(
+  protected readonly selected = computed<VehicleDto | null>(
     () =>
       this.vehicles().find((v) => v.id === this.selectedId()) ??
-      this.vehicles()[0] ??
+      this.vehicles().at(0) ??
       null,
   );
 
@@ -216,6 +220,7 @@ export class CarsPage {
   protected readonly vehicleName = vehicleName;
   protected readonly alertText = alertText;
   protected readonly num = italianNumber;
+  protected readonly maxMb = MODEL_MAX_BYTES / 1024 / 1024;
   protected readonly renewalText = renewalText;
   protected readonly valueText = valueText;
 
@@ -344,6 +349,35 @@ export class CarsPage {
   }
 
   // ---- cars ----------------------------------------------------------------
+
+  protected megabytes(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${italianNumber(Math.max(1, Math.round(bytes / 1024)), 0, 0)} KB`
+      : `${italianNumber(bytes / 1024 / 1024, 1, 1)} MB`;
+  }
+
+  /** Uploads the car's 3D model, which then takes the drawn car's place. */
+  protected uploadModel(vehicle: VehicleDto, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!modelFormatOf(file.name)) {
+      this.error.set('Pick a .glb, .gltf or .obj file');
+      return;
+    }
+    if (file.size > MODEL_MAX_BYTES) {
+      this.error.set(`A model can be at most ${this.maxMb} MB`);
+      return;
+    }
+    this.run(`model:${vehicle.id}`, () =>
+      this.api.uploadModel(vehicle.id, file),
+    );
+  }
+
+  protected removeModel(vehicle: VehicleDto): void {
+    this.run(`model:${vehicle.id}`, () => this.api.deleteModel(vehicle.id));
+  }
 
   protected startAdding(): void {
     this.adding.set({ plate: '', label: '' });

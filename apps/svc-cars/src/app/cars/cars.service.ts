@@ -160,6 +160,7 @@ export class CarsService {
           costs,
           costTotals: costTotals(costs),
           odometerKm: readings.length ? Math.max(...readings) : null,
+          model: modelOf(row),
         };
       })
       .sort(
@@ -405,13 +406,15 @@ export class CarsService {
   }
 
   /** Removes a car; its documents are not deleted, they go back to review. */
-  async removeVehicle(id: string): Promise<void> {
+  /** Removes the car; returns the key of its 3D model, for the caller to delete. */
+  async removeVehicle(id: string): Promise<string | null> {
     // reviews.vehicle_id cascades: the car's decisions go with it.
     const deleted = await this.svc.db
       .delete(vehicles)
       .where(eq(vehicles.id, id))
-      .returning({ id: vehicles.id });
+      .returning({ id: vehicles.id, modelKey: vehicles.modelKey });
     if (!deleted.length) throw new NotFoundException('Car not found');
+    return deleted[0].modelKey;
   }
 
   /** One VIN, one car. */
@@ -470,4 +473,16 @@ function alertRank(alert: RenewalAlertDto): number {
     alert.level
   ];
   return base * 100_000 + (alert.daysLeft ?? 0);
+}
+
+/** The car's 3D model as the screen sees it, or null when it has none. */
+export function modelOf(row: VehicleRow): VehicleDto['model'] {
+  return row.modelKey && row.modelFilename && row.modelFormat
+    ? {
+        filename: row.modelFilename,
+        format: row.modelFormat,
+        sizeBytes: row.modelSize ?? 0,
+        uploadedAt: (row.modelUploadedAt ?? row.createdAt).toISOString(),
+      }
+    : null;
 }

@@ -8,3 +8,4 @@ export * from './lib/outbox-relay.js';
 export * from './lib/schema-name.js';
 export * from './lib/storage.js';
 export * from './lib/record-loader.js';
+export * from './lib/model-files.js';

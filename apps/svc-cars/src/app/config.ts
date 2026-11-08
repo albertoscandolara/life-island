@@ -1,4 +1,8 @@
-import { numberEnv, requiredEnv } from '@life-island/be-common';
+import {
+  numberEnv,
+  requiredEnv,
+  type StorageOptions,
+} from '@life-island/be-common';
 
 export interface CarsConfig {
   port: number;
@@ -6,6 +10,11 @@ export interface CarsConfig {
   natsUrl: string;
   /** svc-ingestion, which serves the original files of car documents. */
   ingestionUrl: string;
+  /**
+   * Object storage for the cars' 3D models, in this service's own bucket;
+   * null when S3 is not configured (models cannot be uploaded then).
+   */
+  storage: StorageOptions | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
@@ -17,6 +26,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
       env['INGESTION_URL'] ??
       `http://localhost:${numberEnv('INGESTION_PORT', 3001, env)}`
     ).replace(/\/+$/, ''),
+    storage:
+      env['S3_ENDPOINT'] && env['S3_ACCESS_KEY'] && env['S3_SECRET_KEY']
+        ? {
+            endpoint: env['S3_ENDPOINT'],
+            publicEndpoint: env['S3_PUBLIC_ENDPOINT'] || undefined,
+            region: env['S3_REGION'] || 'us-east-1',
+            accessKeyId: env['S3_ACCESS_KEY'],
+            secretAccessKey: env['S3_SECRET_KEY'],
+            bucket: env['CARS_S3_BUCKET'] || 'cars-models',
+          }
+        : null,
   };
 }
 

@@ -55,6 +55,23 @@ export class CarsApi {
     return this.http.delete<void>(`${CARS_API}/vehicles/${id}`);
   }
 
+  /** Uploads the car's 3D model (.glb, .gltf with embedded buffers, or .obj). */
+  uploadModel(id: string, file: File): Observable<void> {
+    return this.http.put<void>(`${CARS_API}/vehicles/${id}/model`, file, {
+      params: { filename: file.name },
+      headers: { 'content-type': 'application/octet-stream' },
+    });
+  }
+
+  deleteModel(id: string): Observable<void> {
+    return this.http.delete<void>(`${CARS_API}/vehicles/${id}/model`);
+  }
+
+  /** The car's 3D model file; `version` busts the cache when it is replaced. */
+  modelUrl(id: string, version: string): string {
+    return `${CARS_API}/vehicles/${id}/model?v=${encodeURIComponent(version)}`;
+  }
+
   previewUrl(uploadId: string): string {
     return `${CARS_API}/documents/${uploadId}/preview`;
   }

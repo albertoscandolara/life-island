@@ -92,3 +92,26 @@ export function italianNumber(
     })
     .replace(/[.,]/g, (mark) => (mark === ',' ? '.' : ','));
 }
+
+/** Paint names as a registration certificate or you write them, Italian or English. */
+const PAINTS: [RegExp, string][] = [
+  [/bianc|white/, '#eef0f2'],
+  [/ner|black/, '#24272c'],
+  [/argent|silver/, '#b8bec6'],
+  [/grigi|grey|gray|antracit/, '#7d848d'],
+  [/ross|red|bordeaux/, '#c0392b'],
+  [/blu|azzurr|blue/, '#2c5aa0'],
+  [/verd|green/, '#3f7d4e'],
+  [/giall|yellow/, '#e6b422'],
+  [/arancio|orange/, '#e07b2a'],
+  [/marron|brown|bronz/, '#7a5236'],
+  [/beige|sabbia|champagne/, '#d6c3a0'],
+  [/viola|purple/, '#6b4a8b'],
+];
+
+/** The car's colour as paint for its drawn 3D car, or null when unknown. */
+export function paintColour(value: VehicleValue | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const name = value.toLowerCase();
+  return PAINTS.find(([words]) => words.test(name))?.[1] ?? null;
+}

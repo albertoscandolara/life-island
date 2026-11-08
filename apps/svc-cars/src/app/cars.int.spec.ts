@@ -315,6 +315,36 @@ describe.skipIf(!configured)(
       ).toBe(409);
     });
 
+    it.skipIf(!process.env['S3_ENDPOINT'])(
+      'keeps a 3D model per car in its own bucket',
+      async () => {
+        const glb = Buffer.concat([
+          Buffer.from('glTF', 'latin1'),
+          Buffer.alloc(16, 1),
+        ]);
+        const put = (filename: string, body: Buffer | string) =>
+          fetch(`${base}/vehicles/${vehicleId}/model?filename=${filename}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/octet-stream' },
+            body,
+          });
+        expect((await put('panda.glb', glb)).status).toBe(204);
+        expect((await car(vehicleId)).model).toMatchObject({
+          filename: 'panda.glb',
+          format: 'GLB',
+          sizeBytes: glb.length,
+        });
+        const file = await fetch(`${base}/vehicles/${vehicleId}/model`);
+        expect(file.headers.get('content-type')).toBe('model/gltf-binary');
+        expect(Buffer.from(await file.arrayBuffer()).equals(glb)).toBe(true);
+        expect((await put('panda.obj', 'not a model')).status).toBe(400);
+        expect(
+          (await send('DELETE', `/vehicles/${vehicleId}/model`)).status,
+        ).toBe(204);
+        expect((await car(vehicleId)).model).toBeNull();
+      },
+    );
+
     it('sends the documents of a removed car back to review', async () => {
       expect((await send('DELETE', `/vehicles/${vehicleId}`)).status).toBe(204);
       const all = await overview();

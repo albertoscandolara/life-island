@@ -249,7 +249,17 @@
     </button>
   </ui-empty-state>
 </ui-card>
-} @if (vehicles().length || adding()) {
+} @if (vehicles().length || adding()) { @if (vehicles().length) { @defer (on
+idle) {
+<cars-garage-view
+  class="garage"
+  [vehicles]="vehicles()"
+  [selectedId]="selected()?.id ?? null"
+  (chosen)="select($event)"
+/>
+} @placeholder {
+<div class="garage garage--placeholder" aria-hidden="true"></div>
+} }
 <nav class="cars-nav" aria-label="Cars">
   @for (vehicle of vehicles(); track vehicle.id) {
   <button
@@ -425,6 +435,55 @@
       } }
     </ui-card>
 
+    <ui-card heading="3D model">
+      @if (vehicle.model; as m) {
+      <p class="model">
+        <ui-icon name="file" [size]="16" />
+        <strong>{{ m.filename }}</strong>
+        <span class="muted">{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="removeModel(vehicle)"
+        >
+          <ui-icon name="trash" [size]="14" /> Remove
+        </button>
+      </p>
+      } @else {
+      <p class="muted small">
+        It shows as a little drawn car, in its colour, until you load a model.
+      </p>
+      }
+      <input
+        #modelFile
+        type="file"
+        class="file"
+        accept=".glb,.gltf,.obj"
+        (change)="uploadModel(vehicle, $event)"
+      />
+      <div class="model__actions">
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [loading]="busy() === 'model:' + vehicle.id"
+          [disabled]="busy() !== null"
+          (click)="modelFile.click()"
+        >
+          <ui-icon name="upload" [size]="14" />
+          {{ vehicle.model ? 'Replace the model' : 'Load a model' }}
+        </button>
+        <small class="muted"
+          >A single .glb, .gltf with embedded buffers, or .obj, up to {{ maxMb
+          }} MB.</small
+        >
+      </div>
+    </ui-card>
+
     <ui-card heading="Renewals">
       <ul class="renewals">
         @for (renewal of vehicle.renewals; track renewal.kind) {
@@ -528,9 +587,7 @@
         </label>
         @for (d of definitions; track d.field) {
         <label class="edit__field" [for]="'car-' + d.key">
-          <span
-            ><span class="code">{{ d.code ?? '·' }}</span> {{ d.label }}</span
-          >
+          <span><span class="code">{{ d.code }}</span> {{ d.label }}</span>
           @if (d.type === 'enum') {
           <select
             class="ui-input compact"

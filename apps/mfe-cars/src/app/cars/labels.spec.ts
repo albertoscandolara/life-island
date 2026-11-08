@@ -1,5 +1,11 @@
 import type { RenewalAlertDto } from '@life-island/contracts';
-import { alertText, typeLabel, valueText, vehicleName } from './labels';
+import {
+  alertText,
+  paintColour,
+  typeLabel,
+  valueText,
+  vehicleName,
+} from './labels';
 
 const alert = (
   kind: RenewalAlertDto['kind'],
@@ -59,5 +65,13 @@ describe('labels', () => {
     expect(alertText(alert('road_tax', 'missing', null))).toBe(
       'Panda · AB123CD: no road tax (bollo) on file.',
     );
+  });
+
+  it('paints the drawn car in the colour the certificate prints', () => {
+    expect(paintColour('ROSSO')).toBe('#c0392b');
+    expect(paintColour('Grigio antracite')).toBe('#7d848d');
+    expect(paintColour('white')).toBe('#eef0f2');
+    expect(paintColour('MAGENTA')).toBeNull();
+    expect(paintColour(null)).toBeNull();
   });
 });

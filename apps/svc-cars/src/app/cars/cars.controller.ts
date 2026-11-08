@@ -9,7 +9,13 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
+  Query,
+  Req,
+  StreamableFile,
+  BadRequestException,
 } from '@nestjs/common';
+import type { Readable } from 'node:stream';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveCarReviewRequestSchema,
@@ -18,11 +24,15 @@ import {
   updateVehicleRequestSchema,
   type CarsOverviewDto,
 } from '@life-island/contracts';
+import { CarModels } from './car-models.js';
 import { CarsService } from './cars.service.js';
 
 @Controller()
 export class CarsController {
-  constructor(@Inject(CarsService) private readonly cars: CarsService) {}
+  constructor(
+    @Inject(CarsService) private readonly cars: CarsService,
+    @Inject(CarModels) private readonly models: CarModels,
+  ) {}
 
   /** Every car with its documents, renewals and costs, what waits for review, and warnings. */
   @Get('overview')
@@ -53,8 +63,41 @@ export class CarsController {
   /** Removes the car; its documents go back to review. */
   @Delete('vehicles/:id')
   @HttpCode(204)
-  removeVehicle(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.cars.removeVehicle(id);
+  async removeVehicle(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const modelKey = await this.cars.removeVehicle(id);
+    if (modelKey) await this.models.forget(modelKey);
+  }
+
+  /**
+   * Uploads the car's 3D model: the file itself is the request body
+   * (application/octet-stream), its name in `?filename=`. It replaces the
+   * model the car had.
+   */
+  @Put('vehicles/:id/model')
+  @HttpCode(204)
+  async uploadModel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('filename') filename: unknown,
+    @Req() request: Readable,
+  ): Promise<void> {
+    if (typeof filename !== 'string' || !filename.trim())
+      throw new BadRequestException('Name the file with ?filename=');
+    await this.models.upload(id, filename.trim().slice(0, 200), request);
+  }
+
+  @Get('vehicles/:id/model')
+  async model(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
+    const file = await this.models.open(id);
+    return new StreamableFile(file.body, {
+      type: file.contentType,
+      length: file.size,
+    });
+  }
+
+  @Delete('vehicles/:id/model')
+  @HttpCode(204)
+  async removeModel(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.models.remove(id);
   }
 
   @Post('reviews/:uploadId/approve')

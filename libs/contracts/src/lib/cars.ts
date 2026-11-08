@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PropertyModelDto } from './home.js';
 
 /*
  * The Cars area (svc-cars, mfe-cars): every car of the household with the
@@ -1033,6 +1034,8 @@ export interface VehicleDto {
   costTotals: CarCostTotalDto[];
   /** The highest odometer reading any of its documents printed. */
   odometerKm: number | null;
+  /** Your 3D model of the car (as for houses), shown instead of the drawn car. */
+  model: PropertyModelDto | null;
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';

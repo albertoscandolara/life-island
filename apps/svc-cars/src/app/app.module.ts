@@ -5,6 +5,7 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
+import { CarModels } from './cars/car-models.js';
 import { CarsController } from './cars/cars.controller.js';
 import { CarsService } from './cars/cars.service.js';
 import { CONFIG, SERVICE_DB, type CarsConfig } from './config.js';
@@ -35,6 +36,7 @@ export class AppModule {
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         CarsService,
+        CarModels,
         IngestionFiles,
         ...(options.events === false
           ? []

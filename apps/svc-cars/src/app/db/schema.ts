@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   index,
   jsonb,
@@ -8,6 +9,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type {
+  ModelFormat,
   VehicleField,
   VehicleStatus,
   VehicleValue,
@@ -31,6 +33,12 @@ export const vehicles = cars.table('vehicles', {
     .$type<Partial<Record<VehicleField, VehicleValue>>>()
     .notNull()
     .default({}),
+  /** Its 3D model, in this service's own bucket (the file never goes in the database). */
+  modelKey: text('model_key'),
+  modelFilename: text('model_filename'),
+  modelFormat: text('model_format').$type<ModelFormat>(),
+  modelSize: bigint('model_size', { mode: 'number' }),
+  modelUploadedAt: timestamp('model_uploaded_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
