@@ -9,16 +9,17 @@ Life Island is a personal life-management platform: two Angular apps. The docume
 
 You drop any document (receipt photo, PDF, spreadsheet, email) onto the island. A background AI service reads it, decides what it is and where its data belongs, and puts it in an inbox. You review and approve it, and only then does it reach the module that uses it.
 
-| Character              | Module            | Mission                                                                                                                                          | Status        |
-| ---------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| Ptera (pterodactyl)    | Review inbox      | Lists AI-extracted records; you edit, approve or reject them                                                                                     | First release |
-| Trice (triceratops)    | Groceries         | Receipts, items, merchants, spending by category, price history                                                                                  | First release |
-| Ankylo (ankylosaurus)  | 730 tax return    | Deductible expenses per tax year, totals, export for the CAF                                                                                     | First release |
-| Bronto (brontosaurus)  | Houses            | Your houses as entities (data, owners, companies, 3D model, suggestions read from documents), with their renovations and bills                   | Live          |
-| Stego (stegosaurus)    | Bills (in Houses) | Electricity, gas and water of each house, read from your bills, a tab of Houses                                                                  | Live          |
-| Para (parasaurolophus) | People & IDs      | ID documents of everyone at home, versions, person review, expiry warnings                                                                       | Live          |
-| Velo (velociraptor)    | Cars              | Cars read from the registration certificate with every code explained, insurance, road tax, revisione, fuel and mechanic costs, renewal warnings | Live          |
-| More to come           | Sport, travel     | Each a new module following the same checklist                                                                                                   | Later         |
+| Character                  | Module            | Mission                                                                                                                                                            | Status        |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| Ptera (pterodactyl)        | Review inbox      | Lists AI-extracted records; you edit, approve or reject them                                                                                                       | First release |
+| Trice (triceratops)        | Groceries         | Receipts, items, merchants, spending by category, price history                                                                                                    | First release |
+| Ankylo (ankylosaurus)      | 730 tax return    | Deductible expenses per tax year, totals, export for the CAF                                                                                                       | First release |
+| Bronto (brontosaurus)      | Houses            | Your houses as entities (data, owners, companies, 3D model, suggestions read from documents), with their renovations and bills                                     | Live          |
+| Stego (stegosaurus)        | Bills (in Houses) | Electricity, gas and water of each house, read from your bills, a tab of Houses                                                                                    | Live          |
+| Para (parasaurolophus)     | People & IDs      | ID documents of everyone at home, versions, person review, expiry warnings                                                                                         | Live          |
+| Velo (velociraptor)        | Cars              | Cars read from the registration certificate with every code explained, insurance, road tax, revisione, fuel and mechanic costs, renewal warnings                   | Live          |
+| Pachy (pachycephalosaurus) | Work              | Workplaces as entities read from payslips, evaluations and contracts, a career timeline with promotions and rises, pay stats, AI career feedback, hiring platforms | Live          |
+| More to come               | Sport, travel     | Each a new module following the same checklist                                                                                                                     | Later         |
 
 Goals: a project you use every day, practice with modern Angular, micro-frontends, microservices, AI agent workflows, and a portfolio piece with a real wow moment.
 
@@ -97,6 +98,7 @@ life-island/
 │   ├── mfe-home/              # Angular remote of the shell — Bronto (Houses: overview, renovations) and Stego (Bills)
 │   ├── mfe-people/            # Angular remote of the shell — Para (People & IDs)
 │   ├── mfe-cars/              # Angular remote of the shell — Velo (Cars)
+│   ├── mfe-work/              # Angular remote of the shell — Pachy (Work)
 │   ├── svc-ingestion/         # Nest: upload API
 │   ├── svc-parse-worker/      # Nest standalone app (no HTTP): background AI processor
 │   ├── svc-review/            # Nest: target catalog, staging, approvals
@@ -104,7 +106,8 @@ life-island/
 │   ├── svc-tax730/            # Nest: 730 domain
 │   ├── svc-home/              # Nest: properties, bills read from documents, works
 │   ├── svc-people/            # Nest: people, ID documents read from documents, reviews of person data
-│   └── svc-cars/              # Nest: cars, car documents read from documents, renewals and costs
+│   ├── svc-cars/              # Nest: cars, car documents read from documents, renewals and costs
+│   └── svc-work/              # Nest: workplaces, work documents read from documents, career events, AI feedback, hiring platforms
 ├── libs/
 │   ├── design-system/         # tokens (CSS vars) + Angular components + Storybook
 │   ├── contracts/             # Zod: events, target schemas, DTOs
@@ -514,7 +517,7 @@ Ten weeks to the first full loop; the 3D island comes last, once the data flow w
 6. **Week 7 — Review and loading:** staging, approval API, domain consumers. Done when 20 bulk-approved records reach LOADED across two services with no duplicates on replay.
 7. **Weeks 8–9 — Module UIs:** review, groceries, 730.
 8. **Week 10 — 3D island.**
-9. **Since then — Areas:** Houses and Bills, People & IDs, and Cars, each a remote and a service built through the checklist below.
+9. **Since then — Areas:** Houses and Bills, People & IDs, Cars and Work, each a remote and a service built through the checklist below.
 10. **Ongoing — Hardening:** OIDC (Keycloak or Zitadel) at the gateway; never log payloads; encrypted backups; HTTPS; optional codice fiscale redaction before AI calls; OpenTelemetry trace per upload; status dashboard; VPS deploy.
 
 First demo: photograph a pharmacy receipt, see two records in Ptera's inbox (groceries and 730), approve both with one key, then see them in Trice's spending and Ankylo's deductible total.

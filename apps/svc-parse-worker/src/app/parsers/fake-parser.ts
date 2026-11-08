@@ -24,6 +24,7 @@ import {
   type ProposedCategory,
   type StepOutput,
 } from './document-parser.js';
+import { readPayslipText } from './payslip-reader.js';
 
 const GROCERY_WORDS =
   /(receipt|scontrino|spesa|esselunga|coop|conad|lidl|carrefour|market|grocery)/i;
@@ -39,6 +40,15 @@ const BILL_WORDS =
 
 const PAYSLIP_WORDS =
   /\b(busta paga|cedolino|payslip|pay slip|netto in busta|mese di retribuzione|LUL)\b/i;
+
+/** Work documents besides payslips, by the names people give them (Italian and English). */
+const WORK_WORDS = {
+  PERFORMANCE_REVIEW:
+    /(scheda di valutazione|valutazione (annuale|delle prestazioni|della performance)|colloquio di valutazione|performance review|appraisal)/i,
+  EMPLOYMENT_CONTRACT:
+    // Not a bare "contratto di lavoro": every payslip prints it as a header.
+    /(contratto individuale di lavoro|lettera di assunzione|proposta di assunzione|employment contract|offer letter|trasformazione del rapporto)/i,
+};
 
 /** ID documents, by the names people give them (Italian and English). */
 const ID_WORDS = {
@@ -92,12 +102,17 @@ const CATEGORY_WORDS: Record<string, RegExp> = {
   EXPENSE:
     /(total|totale|importo|€|eur\b|receipt|scontrino|fattura|bolletta|invoice)/i,
   PAYSLIP: PAYSLIP_WORDS,
+  ...WORK_WORDS,
   INCOME: new RegExp(
     `${PAYSLIP_WORDS.source}|\\b(stipendio|salary|pensione|pension|rimborso|refund)\\b`,
     'i',
   ),
   WORK: new RegExp(
-    `${PAYSLIP_WORDS.source}|\\b(contratto di lavoro|employment contract|datore di lavoro|employer)\\b`,
+    [
+      PAYSLIP_WORDS.source,
+      ...Object.values(WORK_WORDS).map((words) => words.source),
+      '\\b(contratto di lavoro|datore di lavoro|employer)\\b',
+    ].join('|'),
     'i',
   ),
 };
@@ -377,7 +392,20 @@ export class FakeParser implements DocumentAnalyzer {
     const date = firstDate(text);
     const currency = /€|\beur\b/i.test(text) ? 'EUR' : null;
     const period = monthPeriod(text);
+    // A payslip's boxes, found under their printed headers (payslip-reader).
+    const payslip = plan.fields.some((field) => field.key === 'net_pay')
+      ? readPayslipText(text)
+      : null;
     const found: Record<string, string | null> = {
+      ...(payslip ? { employer: companyNameIn(text) } : {}),
+      ...(payslip
+        ? Object.fromEntries(
+            Object.entries(payslip).map(([key, value]) => [
+              key,
+              value === null ? null : String(value),
+            ]),
+          )
+        : {}),
       pay_period: period,
       billing_period: period,
       total_amount: total,
@@ -395,7 +423,7 @@ export class FakeParser implements DocumentAnalyzer {
         candidates: [],
         note: value
           ? null
-          : 'The offline parser only reads totals, dates, periods and currency',
+          : 'The offline parser only reads totals, dates, periods, currency and the main boxes of a payslip',
       };
     });
     return {

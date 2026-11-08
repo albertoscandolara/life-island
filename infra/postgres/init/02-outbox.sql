@@ -30,4 +30,5 @@ call pg_temp.create_outbox_tables('tax730', 'tax730_svc');
 call pg_temp.create_outbox_tables('home', 'home_svc');
 call pg_temp.create_outbox_tables('people', 'people_svc');
 call pg_temp.create_outbox_tables('cars', 'cars_svc');
+call pg_temp.create_outbox_tables('work', 'work_svc');
 commit;

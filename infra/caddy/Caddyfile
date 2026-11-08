@@ -44,6 +44,10 @@
 		import protected
 		reverse_proxy svc-cars:3000
 	}
+	handle_path /api/work/* {
+		import protected
+		reverse_proxy svc-work:3000
+	}
 
 	handle {
 		import protected

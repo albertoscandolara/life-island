@@ -2,14 +2,15 @@
 
 The Life Island app is where you use your data. It is a Native Federation **host** (`apps/shell`) that shows the island and loads each area of life from its own **remote** (`apps/mfe-<area>`) at runtime. Every area is backed by its own service (`apps/svc-<area>`), which owns its schema and builds what it knows from the documents you upload and confirm.
 
-| Area                  | Remote       | Service         | Status                         |
-| --------------------- | ------------ | --------------- | ------------------------------ |
-| 730 & taxes           | `mfe-tax730` | `svc-tax730`    | Live                           |
-| Home, Bills           | `mfe-home`   | `svc-home`      | Live                           |
-| People & IDs          | `mfe-people` | `svc-people`    | Live                           |
-| Cars                  | `mfe-cars`   | `svc-cars`      | Live                           |
-| Groceries             | planned      | `svc-groceries` | Service live, screen coming    |
-| Health, Work, Studies | planned      | planned         | On the island as "coming soon" |
+| Area            | Remote       | Service         | Status                         |
+| --------------- | ------------ | --------------- | ------------------------------ |
+| 730 & taxes     | `mfe-tax730` | `svc-tax730`    | Live                           |
+| Home, Bills     | `mfe-home`   | `svc-home`      | Live                           |
+| People & IDs    | `mfe-people` | `svc-people`    | Live                           |
+| Cars            | `mfe-cars`   | `svc-cars`      | Live                           |
+| Work            | `mfe-work`   | `svc-work`      | Live                           |
+| Groceries       | planned      | `svc-groceries` | Service live, screen coming    |
+| Health, Studies | planned      | planned         | On the island as "coming soon" |
 
 The list of areas, their order on the island and their routes live in `apps/shell/src/app/hub/modules.ts`.
 
@@ -26,10 +27,12 @@ npx nx serve svc-people       # people, ID documents and their reviews (port 300
 npx nx serve mfe-people       # the People & IDs remote (port 4205), also usable on its own
 npx nx serve svc-cars         # cars, car documents, renewals and costs (port 3007)
 npx nx serve mfe-cars         # the Cars remote (port 4206), also usable on its own
+npx nx serve svc-work         # workplaces, career, feedback and platforms (port 3008)
+npx nx serve mfe-work         # the Work remote (port 4207), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006 and `/api/cars` to port 3007 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205 and http://localhost:4206.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006, `/api/cars` to port 3007 and `/api/work` to port 3008 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205, http://localhost:4206 and http://localhost:4207.
 
 ## Native Federation
 
@@ -197,3 +200,30 @@ Levels are **ok**, **expiring**, **grace** (insurance past its end, still covere
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                          |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/003-cars-schema.sql`).
+
+## Work
+
+Pachy's zone (`/work`, `mfe-work` and `svc-work`) keeps every **workplace** you have had as an entity, built from the work documents you upload: payslips (cedolini), evaluations and employment contracts. The model follows the life-island-docs `entities/` (workplace, employment, organization) and `payslips/` folders; the fields are `WORKPLACE_FIELD_DEFINITIONS` in `libs/contracts`.
+
+**Documents.** The ingestion migration `0014` adds the payslip fields to the `PAYSLIP` template (employer tax code, employee code, hire date, level, monthly salary, base minimum, superminimum, seniority increments, gross, deductions, net…) and two new categories, `PERFORMANCE_REVIEW` (Evaluation) and `EMPLOYMENT_CONTRACT`. The fake parser reads the header of a LUL payslip (the Italian Libro Unico layout) offline, so the flow works without an API key.
+
+**Review.** As in People and Cars, a document confirmed in Documents reaches svc-work and waits in the **Review** tab. svc-work finds its workplace by the employer's tax code, then by its name, and proposes changes field by field: accept the suggestion, keep the current value, or check it. A payslip older than the workplace's latest one does not overwrite newer data (it is marked outdated). **Approve** files it (and creates the workplace when it is new); **Not about my work** sets it aside. Every decision is kept in `work.reviews`.
+
+**Career.** A timeline, newest first, of what your documents show: hired and left, promotions and level changes, salary rises and cuts, role and contract changes, seniority increments, extra months (tredicesima, quattordicesima), evaluations, signed contracts, plus events you add by hand (awards, courses, certifications, projects). Next to it: years worked, current pay, gross and net per month on a chart, and totals per year.
+
+**Feedback.** **Give me a feedback** (or **Ask**, with a question of yours) sends a summary of your career (workplaces, events, pay; never tax codes, employee codes or addresses) to Claude (`ANTHROPIC_API_KEY`, model `WORK_FEEDBACK_MODEL`) and keeps the answer: a summary, strengths, watch-outs and suggestions. Without a key, an offline set of rules answers instead, and says so.
+
+**Hiring platforms.** The platforms you signed up to (LinkedIn, Indeed, InfoJobs… or any other), with your profile link, the account you use, notes, a status and when you last updated your profile; one older than 180 days is flagged. Only `http(s)` links open.
+
+| Endpoint (`/api/work/...`)                                            | Purpose                                                                                     |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                       | Workplaces, timeline, stats, documents to review, rejected ones, platforms, latest feedback |
+| `POST /workplaces`, `PATCH /workplaces/:id`, `DELETE /workplaces/:id` | Add a workplace by hand, correct it, remove it (its documents go back to review)            |
+| `POST /reviews/:uploadId/approve`                                     | `{workplaceId, accept: [fields], label?}`; `workplaceId: null` adds a new workplace         |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`    | Not about my work, and back to review                                                       |
+| `POST /events`, `DELETE /events/:id`                                  | A career event you add by hand                                                              |
+| `POST /platforms`, `PUT /platforms/:id`, `DELETE /platforms/:id`      | Hiring platforms                                                                            |
+| `POST /feedback`, `DELETE /feedback/:id`                              | Ask for career feedback (optional `question`), forget one                                   |
+| `GET /documents/:uploadId/preview`                                    | The original file (from svc-ingestion)                                                      |
+
+A database created before this area existed gets its schema and role from svc-work itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/004-work-schema.sql`).

@@ -96,6 +96,7 @@ services:
       HOME_DATABASE_URL: postgres://home_svc:dev_home@postgres:5432/life_island
       PEOPLE_DATABASE_URL: postgres://people_svc:dev_people@postgres:5432/life_island
       CARS_DATABASE_URL: postgres://cars_svc:dev_cars@postgres:5432/life_island
+      WORK_DATABASE_URL: postgres://work_svc:dev_work@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -199,6 +200,19 @@ services:
       <<: *service-env
       # Previews of car documents are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
+    depends_on: *service-deps
+
+  svc-work:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-work }
+    environment:
+      <<: *service-env
+      # Previews of work documents are streamed from svc-ingestion's API.
+      INGESTION_URL: http://svc-ingestion:3000
+      # The career feedback uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
 volumes:

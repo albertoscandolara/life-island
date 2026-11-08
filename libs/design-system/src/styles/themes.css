@@ -55,6 +55,14 @@
   --accent-2: var(--lava-500);
 }
 
+[data-character='pachy'] {
+  /* work: workplaces, payslips, career timeline and hiring platforms */
+  --accent: var(--amber-700);
+  --accent-hover: color-mix(in srgb, var(--amber-700) 82%, var(--ink-900));
+  --accent-soft: var(--sun-50);
+  --accent-2: var(--lagoon-600);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -96,6 +104,12 @@
   --accent: var(--ink-300);
   --accent-hover: var(--ink-200);
   --accent-2: var(--coral-400);
+}
+
+:root[data-theme='dark'] [data-character='pachy'] {
+  --accent: var(--sun-300);
+  --accent-hover: var(--sun-400);
+  --accent-2: var(--lagoon-300);
 }
 
 :root[data-theme='dark'] [data-character] {
