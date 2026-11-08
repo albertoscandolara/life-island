@@ -456,7 +456,8 @@
           >
           <span class="muted small">
             {{ period(bill) }} @if (bill.consumption !== null) { · {{
-            formatNumber(bill.consumption) }} {{ bill.unit }} }
+            formatNumber(bill.consumption) }} {{ bill.unit }} } @if
+            (bill.customerCode) { · customer code {{ bill.customerCode }} }
           </span>
         </div>
         <strong class="bill__amount">{{ formatEuro(bill.amount) }}</strong>

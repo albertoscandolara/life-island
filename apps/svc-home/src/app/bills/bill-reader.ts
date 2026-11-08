@@ -5,6 +5,7 @@ import {
   type BillDto,
   type UtilityKind,
 } from '@life-island/contracts';
+import { readBillCodes } from './supply-contracts.js';
 
 export type Fields = Record<string, string | number | boolean | null>;
 
@@ -204,7 +205,7 @@ function addressText(document: DocumentLike, supplyOnly: boolean): string {
 
 /**
  * The property a bill belongs to, and why. Your manual choice wins; then the
- * strongest automatic evidence: a supply code (POD, PDR), then the supply
+ * strongest automatic evidence: a supply point code (POD, PDR), then the supply
  * address, then a category of the property, then any other address or the
  * title. The mailing address of the account holder is never evidence: bills
  * of one home are often sent to another. Two properties with evidence of the
@@ -275,6 +276,7 @@ export function readBill(
     ['issue_date', 'document_date', 'invoice_date', 'date'],
     asDate,
   );
+  const codes = readBillCodes(fields);
   const { propertyId, assignment } = matchProperty(
     document,
     properties,
@@ -293,7 +295,9 @@ export function readBill(
       ['provider', 'issuer', 'supplier', 'merchant_name'],
       asText,
     ),
-    customerId: firstOf(fields, ['customer_id', 'pod', 'pdr'], asText),
+    customerCode: codes.customerCode,
+    supplyPointCode: codes.supplyPoint,
+    offer: codes.offer,
     periodStart: period?.start ?? null,
     periodEnd: period?.end ?? null,
     issueDate,

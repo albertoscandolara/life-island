@@ -463,8 +463,8 @@ function draftOf(p: PropertyDto | null): Draft {
               />
             </ui-form-field>
             <ui-form-field
-              label="Supply codes"
-              hint="POD (electricity), PDR (gas) or the water customer code, comma separated"
+              label="Supply points"
+              hint="POD (electricity) and PDR (gas) of its meters, comma separated. Not the customer code: that belongs to a supply contract and is read from the bills"
             >
               <input
                 uiInput

@@ -168,7 +168,12 @@ export interface PropertyDto {
    * of them belongs here (case and accents ignored), e.g. "ponzilovo".
    */
   matchTerms: string[];
-  /** Supply point codes (POD, PDR, water customer code) printed on its bills. */
+  /**
+   * Its supply points: the POD (electricity) and PDR (gas) of its meters. They
+   * belong to the house and never change with the supplier or the contract.
+   * The customer code (codice cliente) is not here: it belongs to one supply
+   * contract, see `SupplyContractDto`.
+   */
   supplyCodes: string[];
   /** Document categories (usually of the PROPERTY dimension) that mean "this home". */
   categoryIds: string[];
@@ -311,7 +316,7 @@ export const HOUSE_FIELD_LABELS: Record<HouseField, string> = {
   waterSupplier: 'Water supplier',
   condoManager: 'Condominium manager',
   insurer: 'Insurer',
-  supplyCodes: 'Supply code',
+  supplyCodes: 'Supply point (POD/PDR)',
   owners: 'Owner',
 };
 
@@ -377,7 +382,8 @@ export type DismissHouseSuggestionRequest = z.input<
 export const BILL_ASSIGNMENTS = [
   'MANUAL', // you picked it
   'CATEGORY', // the document has one of the property's categories
-  'SUPPLY_CODE', // its POD/PDR/customer code is one of the property's
+  'SUPPLY_CODE', // its POD or PDR is one of the property's supply points
+  'SUPPLY_CONTRACT', // another bill of its supply contract (same supplier and customer code) is on the property
   'ADDRESS', // an address on it contains one of the property's match terms
 ] as const;
 export type BillAssignment = (typeof BILL_ASSIGNMENTS)[number];
@@ -391,7 +397,12 @@ export interface BillDto {
   propertyId: string | null;
   assignment: BillAssignment | null;
   provider: string | null;
-  customerId: string | null;
+  /** Codice cliente: the supplier's code of the supply contract it bills. */
+  customerCode: string | null;
+  /** POD (electricity) or PDR (gas) of the supply point, when printed. */
+  supplyPointCode: string | null;
+  /** The offer (piano tariffario) billed, when printed. */
+  offer: string | null;
   /** First and last day billed (both null when the bill prints no period). */
   periodStart: string | null;
   periodEnd: string | null;
@@ -402,6 +413,45 @@ export interface BillDto {
   /** Consumption in the utility's unit; null when the bill does not print it. */
   consumption: number | null;
   unit: string;
+}
+
+/**
+ * A supply contract, read from its bills: one supplier, one customer code
+ * (codice cliente), one supply. How Italian customer codes behave:
+ * - The supplier gives the code to one contract, not to you or to the house:
+ *   electricity and gas are separate contracts, so they have different codes
+ *   even with the same supplier.
+ * - Changing offer with the same supplier (fixed to variable price) keeps the
+ *   contract, so the code stays and only the offer changes.
+ * - Changing supplier, closing the meter and reactivating it (subentro), or
+ *   changing the holder (voltura) starts a new contract with a new code.
+ * - The POD or PDR stays the same through all of this: it is the meter's,
+ *   so it belongs to the house.
+ * So a contract is told apart by utility, supplier and customer code, and is
+ * valid from its first billed day to its last.
+ */
+export interface SupplyContractDto {
+  /** `<utility>:<supplier>:<customer code>`, stable while its bills say the same. */
+  key: string;
+  utility: UtilityKind;
+  supplier: string | null;
+  customerCode: string;
+  /** The POD or PDR its bills print, if any. */
+  supplyPointCode: string | null;
+  /** The house its bills are on; null when they are on none. */
+  propertyId: string | null;
+  /** First and last day billed. */
+  from: string | null;
+  to: string | null;
+  /**
+   * ACTIVE: the latest contract of its utility on its house. REPLACED: a later
+   * contract of the same utility on the same house took over (new supplier,
+   * a subentro or a voltura).
+   */
+  status: 'ACTIVE' | 'REPLACED';
+  /** The offers billed under it, oldest first: an offer change keeps the code. */
+  offers: { name: string; from: string | null; to: string | null }[];
+  billCount: number;
 }
 
 export const listBillsQuerySchema = z.object({

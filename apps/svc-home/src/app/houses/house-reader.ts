@@ -17,8 +17,9 @@ import {
   type ParentOf,
   type PropertyLike,
 } from '../bills/bill-reader.js';
+import { contractKey, readBillCodes } from '../bills/supply-contracts.js';
 
-/** The house data that is one value (the others, supply codes and owners, add to a list). */
+/** The house data that is one value (the others, supply points and owners, add to a list). */
 export type HouseScalarField = Exclude<HouseField, 'supplyCodes' | 'owners'>;
 
 const NUMBER_FIELDS: ReadonlySet<HouseField> = new Set([
@@ -54,8 +55,17 @@ export interface HouseReading {
   utility: UtilityKind | null;
   address: ParsedAddress | null;
   values: Partial<Record<HouseScalarField, string>>;
+  /** POD or PDR: the meter, which belongs to the house. */
   supplyCodes: string[];
   owners: string[];
+  /**
+   * For a bill, its supply contract (utility, supplier, customer code): the
+   * customer code belongs to the contract, never to the house, so it is not
+   * house data; it only tells which house a bill is on, through its siblings.
+   */
+  contractKey: string | null;
+  /** You chose its house (or no house) yourself in Bills. */
+  manualHouse: boolean;
 }
 
 type Fields = NonNullable<DocumentLike['fields']>;
@@ -229,6 +239,7 @@ export function readHouse(
       }
     }
   const supplyCodes: string[] = [];
+  let contract: string | null = null;
   if (utility) {
     const supplier = firstText(fields, [
       'provider',
@@ -237,8 +248,10 @@ export function readHouse(
       'merchant_name',
     ]);
     if (supplier) values[SUPPLIER_OF[utility]] = supplier;
-    const code = firstText(fields, ['pod', 'pdr', 'customer_id']);
-    if (code) supplyCodes.push(code.replace(/\s+/g, '').toUpperCase());
+    // Only the POD or PDR is the house's: the customer code is the contract's.
+    const codes = readBillCodes(fields);
+    if (codes.supplyPoint) supplyCodes.push(codes.supplyPoint);
+    contract = contractKey(utility, supplier, codes.customerCode);
   }
   const owners = Object.entries(fields)
     .filter(([key]) => OWNER_KEY.test(key))
@@ -270,7 +283,28 @@ export function readHouse(
     values,
     supplyCodes,
     owners,
+    contractKey: contract,
+    manualHouse: !!override?.manualProperty,
   };
+}
+
+/**
+ * A bill on no house follows the other bills of its supply contract, as in
+ * Bills: same supplier and customer code, same supply, same house.
+ */
+export function followSupplyContracts(readings: HouseReading[]): void {
+  const housesOf = new Map<string, Set<string>>();
+  for (const r of readings) {
+    if (!r.contractKey || !r.propertyId) continue;
+    const houses = housesOf.get(r.contractKey) ?? new Set<string>();
+    houses.add(r.propertyId);
+    housesOf.set(r.contractKey, houses);
+  }
+  for (const r of readings) {
+    if (r.propertyId || r.manualHouse || !r.contractKey) continue;
+    const houses = housesOf.get(r.contractKey);
+    if (houses?.size === 1) r.propertyId = [...houses][0];
+  }
 }
 
 /**

@@ -153,8 +153,31 @@
       </div>
       } @if (c.house.supplyCodes.length) {
       <div class="wide">
-        <dt>Supply codes</dt>
+        <dt>Supply points (POD/PDR)</dt>
         <dd class="mono">{{ c.house.supplyCodes.join(', ') }}</dd>
+      </div>
+      } @if (c.contracts.length) {
+      <div class="wide">
+        <dt>Supply contracts</dt>
+        <dd>
+          <ul class="contracts">
+            @for (k of c.contracts; track k.key) {
+            <li [class.muted]="k.status === 'REPLACED'">
+              <strong>{{ utilities[k.utility].label }}</strong>
+              · {{ k.supplier ?? 'Unknown supplier' }} · customer code
+              <span class="mono">{{ k.customerCode }}</span>
+              · {{ contractSpan(k) }} @if (k.status === 'REPLACED') {
+              <ui-badge>Replaced</ui-badge>
+              } @if (k.offers.length) {
+              <span class="small">
+                · offer @for (o of k.offers; track $index) { {{ o.name }}{{
+                $last ? '' : ' → ' }} }
+              </span>
+              }
+            </li>
+            }
+          </ul>
+        </dd>
       </div>
       }
     </dl>

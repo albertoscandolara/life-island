@@ -12,7 +12,9 @@ import {
   type BillDto,
   type HomePersonDto,
   type PropertyDto,
+  type SupplyContractDto,
   type WorkDto,
+  UTILITIES,
 } from '@life-island/contracts';
 import { Router } from '@angular/router';
 import {
@@ -83,6 +85,8 @@ export class HousesPage {
 
   protected readonly bills = signal<BillDto[]>([]);
   protected readonly works = signal<WorkDto[]>([]);
+  protected readonly contracts = signal<SupplyContractDto[]>([]);
+  protected readonly utilities = UTILITIES;
   protected readonly people = signal<HomePersonDto[]>([]);
   protected readonly editorOpen = signal(false);
   /** The house being edited; null while adding one. */
@@ -96,6 +100,7 @@ export class HousesPage {
   protected readonly formatDate = formatDate;
   protected readonly propertyColor = propertyColor;
   protected readonly addressOf = addressOf;
+  protected readonly contractSpan = contractSpan;
 
   protected readonly selected = computed(() =>
     selectedIds(this.houses(), this.property()),
@@ -136,6 +141,7 @@ export class HousesPage {
           keys: ['all'],
           keyOf: () => 'all',
         }).series[0].values,
+        contracts: this.contracts().filter((c) => c.propertyId === house.id),
         open: works.filter((w) => w.status !== 'DONE').length,
         spent: works
           .filter((w) => w.status === 'DONE')
@@ -202,7 +208,23 @@ export class HousesPage {
       next: (works) => this.works.set(works),
       error: () => this.works.set([]),
     });
+    this.api.supplyContracts().subscribe({
+      next: (contracts) => this.contracts.set(contracts),
+      error: () => this.contracts.set([]),
+    });
   }
+}
+
+/** "1 May 2026 – today" for a contract's billed days. */
+export function contractSpan(contract: SupplyContractDto): string {
+  const from = contract.from ? formatDate(contract.from) : '?';
+  const to =
+    contract.status === 'ACTIVE'
+      ? 'now'
+      : contract.to
+        ? formatDate(contract.to)
+        : '?';
+  return `${from} – ${to}`;
 }
 
 /** "Via dei Bandi 10, 37039 Tregnago (VR)", or null without an address. */

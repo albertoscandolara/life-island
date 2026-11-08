@@ -11,6 +11,7 @@ import type {
   HomeDocumentDto,
   ListBillsQuery,
   PropertyDto,
+  SupplyContractDto,
   UpdateBillRequest,
   UpdatePropertyRequest,
   UpdateWorkRequest,
@@ -124,6 +125,13 @@ export class HomeApi {
     return this.http.patch<{ bill: BillDto | null }>(
       `${HOME_API}/bills/${uploadId}`,
       request,
+    );
+  }
+
+  /** Supply contracts read from the bills: supplier, customer code, days billed. */
+  supplyContracts(): Observable<SupplyContractDto[]> {
+    return this.http.get<SupplyContractDto[]>(
+      `${HOME_API}/bills/supply-contracts`,
     );
   }
 

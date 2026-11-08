@@ -11,6 +11,7 @@ import {
   UTILITIES,
   UTILITY_KINDS,
   type BillDto,
+  type SupplyContractDto,
 } from '@life-island/contracts';
 import { and, arrayOverlaps, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -20,7 +21,6 @@ import {
   categoryTree,
   documents,
   properties,
-  type DocumentRow,
 } from '../db/schema.js';
 import {
   billSpan,
@@ -29,6 +29,11 @@ import {
   withAncestors,
   type ParentOf,
 } from './bill-reader.js';
+import {
+  assignBySupplyContract,
+  isSupplyPointCode,
+  supplyContracts,
+} from './supply-contracts.js';
 
 type ListBills = z.output<typeof listBillsQuerySchema>;
 type UpdateBill = z.output<typeof updateBillRequestSchema>;
@@ -48,6 +53,28 @@ export class BillsService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
   async list(query: ListBills): Promise<BillDto[]> {
+    return (await this.readAll())
+      .filter((bill) => matches(bill, query))
+      .sort(
+        (a, b) =>
+          (billSpan(b)?.end ?? '').localeCompare(billSpan(a)?.end ?? '') ||
+          a.uploadId.localeCompare(b.uploadId),
+      );
+  }
+
+  /**
+   * The supply contracts your bills show (supplier and customer code), each
+   * on the house its bills are on, with the days it was billed for.
+   */
+  async supplyContracts(): Promise<SupplyContractDto[]> {
+    return supplyContracts(await this.readAll());
+  }
+
+  /**
+   * Every bill as it reads now. A bill no evidence puts on a house follows
+   * the other bills of its supply contract (same supplier, same customer code).
+   */
+  private async readAll(): Promise<BillDto[]> {
     const { parentOf, billCategories } = await this.categories();
     const [props, overrides] = await Promise.all([
       this.svc.db.select().from(properties),
@@ -72,17 +99,18 @@ export class BillsService {
         ),
       );
 
-    return rows
-      .map((row) =>
-        readBill(row, props, parentOf, overrideOf.get(row.uploadId) ?? null),
-      )
-      .filter((bill): bill is BillDto => bill !== null)
-      .filter((bill) => matches(bill, query))
-      .sort(
-        (a, b) =>
-          (billSpan(b)?.end ?? '').localeCompare(billSpan(a)?.end ?? '') ||
-          a.uploadId.localeCompare(b.uploadId),
-      );
+    const bills = rows
+      .map((row) => {
+        const override = overrideOf.get(row.uploadId) ?? null;
+        const bill = readBill(row, props, parentOf, override);
+        return bill && { ...bill, manual: !!override?.manualProperty };
+      })
+      .filter((bill) => bill !== null);
+    return assignBySupplyContract(bills).map((bill) => {
+      const { manual, ...dto } = bill;
+      void manual;
+      return dto;
+    });
   }
 
   async update(uploadId: string, request: UpdateBill): Promise<BillDto | null> {
@@ -119,23 +147,25 @@ export class BillsService {
       .insert(billOverrides)
       .values({ uploadId, ...changes })
       .onConflictDoUpdate({ target: billOverrides.uploadId, set: changes });
-    const bill = await this.read(document);
-    if (request.propertyId && bill?.customerId)
-      await this.learnSupplyCode(request.propertyId, bill.customerId);
-    return bill;
+    const bill = (await this.readAll()).find((b) => b.uploadId === uploadId);
+    if (request.propertyId && bill?.supplyPointCode)
+      await this.learnSupplyCode(request.propertyId, bill.supplyPointCode);
+    return bill ?? null;
   }
 
   /**
-   * You put a bill on a home: its supply code (POD, PDR) now belongs to that
-   * home, so the next bills of that supply find it on their own. A code moves
-   * with your choice: it leaves the home that had it before.
+   * You put a bill on a home: its supply point (POD, PDR) now belongs to that
+   * home, so the next bills of that meter find it on their own. A code moves
+   * with your choice: it leaves the home that had it before. The customer
+   * code is never learned here: it names the contract, not the house, and
+   * the other bills of that contract follow this one anyway.
    */
   private async learnSupplyCode(
     propertyId: string,
     code: string,
   ): Promise<void> {
     const wanted = normalizeCode(code);
-    if (wanted.length < 6) return; // too short to tell supplies apart
+    if (!isSupplyPointCode(wanted)) return;
     const rows = await this.svc.db.select().from(properties);
     for (const row of rows) {
       const has = row.supplyCodes.some((c) => normalizeCode(c) === wanted);
@@ -153,18 +183,6 @@ export class BillsService {
           .set({ supplyCodes })
           .where(eq(properties.id, row.id));
     }
-  }
-
-  private async read(document: DocumentRow): Promise<BillDto | null> {
-    const { parentOf } = await this.categories();
-    const [props, [override]] = await Promise.all([
-      this.svc.db.select().from(properties),
-      this.svc.db
-        .select()
-        .from(billOverrides)
-        .where(eq(billOverrides.uploadId, document.uploadId)),
-    ]);
-    return readBill(document, props, parentOf, override ?? null);
   }
 
   /** The hierarchy, and every category that is a bill or sits under one. */
