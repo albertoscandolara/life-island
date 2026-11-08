@@ -1,5 +1,5 @@
 {
-  "id": "b5ae31f8-b914-4671-8cdb-f50d9984d8e9",
+  "id": "102a5dc5-b3a7-4ca9-ac1a-1b87254dbb29",
   "prevId": "33964e94-2425-45b3-981e-0ecfe65ce1dc",
   "version": "7",
   "dialect": "postgresql",
@@ -112,10 +112,10 @@
             }
           ],
           "isUnique": true,
-          "where": "\"ingestion\".\"category_suggestions\".\"status\" = 'PENDING'",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"ingestion\".\"category_suggestions\".\"status\" = 'PENDING'",
+          "concurrently": false
         },
         "category_suggestions_upload_ids_idx": {
           "name": "category_suggestions_upload_ids_idx",
@@ -128,9 +128,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "gin",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -216,24 +216,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "document_categories_title_idx": {
           "name": "document_categories_title_idx",
           "columns": [
             {
               "expression": "lower(\"title\")",
-              "asc": true,
               "isExpression": true,
+              "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "document_categories_parent_idx": {
           "name": "document_categories_parent_idx",
@@ -246,21 +246,21 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "document_categories_parent_id_document_categories_id_fk": {
           "name": "document_categories_parent_id_document_categories_id_fk",
           "tableFrom": "document_categories",
+          "columnsFrom": ["parent_id"],
           "tableTo": "document_categories",
           "schemaTo": "ingestion",
-          "columnsFrom": ["parent_id"],
           "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {},
@@ -464,12 +464,12 @@
         "parse_runs_upload_id_uploads_id_fk": {
           "name": "parse_runs_upload_id_uploads_id_fk",
           "tableFrom": "parse_runs",
+          "columnsFrom": ["upload_id"],
           "tableTo": "uploads",
           "schemaTo": "ingestion",
-          "columnsFrom": ["upload_id"],
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -560,16 +560,16 @@
           "columns": [
             {
               "expression": "(true)",
-              "asc": true,
               "isExpression": true,
+              "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "where": "\"ingestion\".\"reclassification_runs\".\"status\" = 'RUNNING'",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"ingestion\".\"reclassification_runs\".\"status\" = 'RUNNING'",
+          "concurrently": false
         },
         "reclassification_runs_requested_at_idx": {
           "name": "reclassification_runs_requested_at_idx",
@@ -582,9 +582,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -892,9 +892,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "uploads_historical_status_idx": {
           "name": "uploads_historical_status_idx",
@@ -907,10 +907,10 @@
             }
           ],
           "isUnique": false,
-          "where": "\"ingestion\".\"uploads\".\"historical_status\" is not null",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"ingestion\".\"uploads\".\"historical_status\" is not null",
+          "concurrently": false
         },
         "uploads_created_at_idx": {
           "name": "uploads_created_at_idx",
@@ -923,9 +923,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "uploads_categories_idx": {
           "name": "uploads_categories_idx",
@@ -938,9 +938,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "gin",
-          "with": {}
+          "concurrently": false
         },
         "uploads_sha256_idx": {
           "name": "uploads_sha256_idx",
@@ -953,9 +953,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -1027,10 +1027,10 @@
   "schemas": {
     "ingestion": "ingestion"
   },
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

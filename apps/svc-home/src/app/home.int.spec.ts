@@ -9,9 +9,11 @@ import type {
   BillDto,
   EventEnvelope,
   HouseSuggestionDto,
+  KnownCompanyDto,
+  OrganizationDto,
   PropertyDto,
+  SupplyPointDto,
   WorkDto,
-  SupplyContractDto,
 } from '@life-island/contracts';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './bootstrap.js';
@@ -29,8 +31,8 @@ describe.skipIf(!configured)(
     let svc: ServiceDb;
     // Words of this run only, so bills never match another run's homes.
     const run = Math.random().toString(36).slice(2, 8);
-    /** 8 digits of this run, to make PDRs (14 digits) of its own. */
-    const digits = String(Date.now()).slice(-8);
+    /** 8 digits of this run, for PDRs (14 digits) of its own. */
+    const runDigits = String(Date.now()).slice(-8);
     const createdProperties: string[] = [];
     const uploads: string[] = [];
 
@@ -66,6 +68,18 @@ describe.skipIf(!configured)(
         await svc?.pool.query(
           'delete from home.documents where upload_id = any($1)',
           [uploads],
+        );
+        await svc?.pool.query(
+          'delete from home.bills where upload_id = any($1)',
+          [uploads],
+        );
+        await svc?.pool.query(
+          "delete from home.supply_points where code ilike '%' || $1 || '%'",
+          [run],
+        );
+        await svc?.pool.query(
+          "delete from home.organizations where name ilike '%' || $1 || '%'",
+          [run],
         );
       }
       await svc?.close();
@@ -222,7 +236,7 @@ describe.skipIf(!configured)(
 
     it('learns the supply code of a bill you put on a home', async () => {
       const home = await createProperty(`Casa L${run}`);
-      const pdr = `0099${digits}77`;
+      const pdr = `0099${runDigits}77`;
       const first = await upload(['GAS_BILL'], {
         customer_id: pdr,
         issue_date: '2026-06-02',
@@ -244,45 +258,187 @@ describe.skipIf(!configured)(
       });
     });
 
-    it('keeps a customer code on its supply contract, never on the home', async () => {
-      const home = await createProperty(`Casa K${run}`);
-      const code = `77${digits}`;
-      const provider = `Fornitore ${run}`;
-      const first = await upload(['ELECTRICITY_BILL'], {
-        provider,
-        customer_id: code,
-        billing_period: '2026-05-01/2026-05-31',
+    it('keeps bills as entities: supplier, supply point and contract', async () => {
+      const pod = `IT001E${run.toUpperCase()}99`;
+      const first = await createProperty(`Casa E${run}`, {
+        supplyCodes: [pod],
+      });
+      const second = await createProperty(`Casa F${run}`);
+      const taxCode = String(Math.floor(Math.random() * 1e11)).padStart(
+        11,
+        '0',
+      );
+      const supplier = `Lene ${run}`;
+      const january = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier} S.p.A.`,
+        supplier_tax_code: `IT ${taxCode}`,
+        supply_point_code: pod,
+        customer_code: '1000007483',
+        invoice_number: `F-${run}-1`,
+        offer_name: 'Old offer',
+        billing_period: '2026-01-01/2026-01-31',
         total_amount: 70,
       });
-      await send('PATCH', `/bills/${first}`, { propertyId: home.id });
-      const list = await json<PropertyDto[]>(await send('GET', '/properties'));
-      expect(list.find((p) => p.id === home.id)?.supplyCodes).toEqual([]);
-      // The next bill of that contract follows the first one.
-      const next = await upload(['ELECTRICITY_BILL'], {
-        provider: `${provider} S.r.l.`,
-        customer_code: code,
-        offer_name: 'Luce Flex',
-        billing_period: '2026-06-01/2026-06-30',
-        total_amount: 65,
+      // Printed without the tax code and with another legal form: the same company.
+      const february = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier.toUpperCase()} spa`,
+        supply_point_code: pod.toLowerCase(),
+        customer_code: '1000007483',
+        invoice_number: `F-${run}-2`,
+        offer_name: 'New offer',
+        billing_period: '2026-02-01/2026-02-28',
+        total_amount: 60,
       });
+      // The January invoice uploaded again: counted once.
+      const copy = await upload(['ELECTRICITY_BILL'], {
+        provider: `${supplier} S.p.A.`,
+        supplier_tax_code: taxCode,
+        supply_point_code: pod,
+        invoice_number: `f-${run}-1`,
+        billing_period: '2026-01-01/2026-01-31',
+        total_amount: 70,
+      });
+
       const bills = await json<BillDto[]>(await send('GET', '/bills'));
-      expect(bills.find((bill) => bill.uploadId === next)).toMatchObject({
-        propertyId: home.id,
-        assignment: 'SUPPLY_CONTRACT',
-        customerCode: code,
-      });
-      const contracts = await json<SupplyContractDto[]>(
-        await send('GET', '/bills/supply-contracts'),
+      const ours = bills.filter((b) =>
+        ([january, february, copy] as string[]).includes(b.uploadId),
       );
-      expect(contracts.find((c) => c.customerCode === code)).toMatchObject({
+      expect(ours.map((b) => b.uploadId).sort()).toEqual(
+        [january, february].sort(),
+      );
+      const [a, b] = ours;
+      expect(a.supplierId).toBeTruthy();
+      expect(b.supplierId).toBe(a.supplierId);
+      expect(b.supplyPointId).toBe(a.supplyPointId);
+      expect(b.contractId).toBe(a.contractId);
+      expect(ours.every((bill) => bill.propertyId === first.id)).toBe(true);
+      expect(
+        ours.find((bill) => bill.uploadId === january)?.invoiceNumber,
+      ).toBe(`F-${run}-1`);
+
+      const points = await json<SupplyPointDto[]>(
+        await send('GET', '/supply-points'),
+      );
+      const point = points.find((p) => p.id === a.supplyPointId);
+      if (!point) throw new Error('No supply point');
+      expect(point).toMatchObject({
         utility: 'ELECTRICITY',
-        propertyId: home.id,
-        from: '2026-05-01',
-        to: '2026-06-30',
-        status: 'ACTIVE',
+        code: pod,
+        propertyId: first.id,
         billCount: 2,
-        offers: [{ name: 'Luce Flex' }],
       });
+      expect(point.contracts).toEqual([
+        expect.objectContaining({
+          supplierName: `${supplier} S.p.A.`,
+          customerCode: '1000007483',
+          offerName: 'New offer',
+          firstDay: '2026-01-01',
+          lastDay: '2026-02-28',
+          billCount: 2,
+        }),
+      ]);
+
+      const orgs = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(orgs.find((o) => o.id === a.supplierId)).toMatchObject({
+        taxCode,
+        roles: ['ENERGY_SUPPLIER'],
+        billCount: 2,
+      });
+      const companies = await json<KnownCompanyDto[]>(
+        await send('GET', '/companies'),
+      );
+      expect(companies.find((c) => c.id === a.supplierId)?.sources).toEqual(
+        expect.arrayContaining(['ORGANIZATION', 'BILL']),
+      );
+
+      // Moving the supply point moves every bill of it, and its code.
+      await json(
+        await send('PATCH', `/supply-points/${point.id}`, {
+          propertyId: second.id,
+        }),
+      );
+      const moved = await json<BillDto[]>(
+        await send('GET', `/bills?property=${second.id}`),
+      );
+      expect(moved.map((bill) => bill.uploadId).sort()).toEqual(
+        [january, february].sort(),
+      );
+      const houses = await json<PropertyDto[]>(
+        await send('GET', '/properties'),
+      );
+      expect(houses.find((h) => h.id === second.id)?.supplyCodes).toEqual([
+        pod,
+      ]);
+      expect(houses.find((h) => h.id === first.id)?.supplyCodes).toEqual([]);
+    });
+
+    it('keeps customer codes on their supply contracts, never on the house', async () => {
+      const pdr = `0177${runDigits}55`;
+      const oldCode = `11${runDigits}`;
+      const newCode = `22${runDigits}`;
+      // An older review left the gas customer code on the house.
+      const home = await createProperty(`Casa G${run}`, {
+        supplyCodes: [oldCode],
+      });
+      const before = await upload(['GAS_BILL'], {
+        provider: `Gas Uno ${run}`,
+        supply_point_code: pdr,
+        customer_code: oldCode,
+        offer_name: 'Gas Fix',
+        billing_period: '2026-01-01/2026-02-28',
+        total_amount: 90,
+      });
+      await send('PATCH', `/bills/${before}`, { propertyId: home.id });
+      // A new supplier on the same meter: a new contract with a new code.
+      const after = await upload(['GAS_BILL'], {
+        provider: `Gas Due ${run}`,
+        supply_point_code: pdr,
+        customer_code: newCode,
+        billing_period: '2026-03-01/2026-04-30',
+        total_amount: 80,
+      });
+
+      const houses = await json<PropertyDto[]>(
+        await send('GET', '/properties'),
+      );
+      expect(houses.find((h) => h.id === home.id)?.supplyCodes).toEqual([pdr]);
+
+      const bills = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(bills.find((b) => b.uploadId === after)?.propertyId).toBe(home.id);
+      const points = await json<SupplyPointDto[]>(
+        await send('GET', '/supply-points'),
+      );
+      const point = points.find((p) => p.code === pdr);
+      expect(point?.contracts).toEqual([
+        expect.objectContaining({
+          customerCode: newCode,
+          status: 'ACTIVE',
+          firstDay: '2026-03-01',
+          lastDay: '2026-04-30',
+        }),
+        expect.objectContaining({
+          customerCode: oldCode,
+          status: 'ENDED',
+          offerName: 'Gas Fix',
+          lastDay: '2026-02-28',
+        }),
+      ]);
+
+      // The house review never offers a customer code.
+      const suggestions = await json<HouseSuggestionDto[]>(
+        await send('GET', '/houses/suggestions'),
+      );
+      const proposed = suggestions
+        .filter((s) =>
+          s.documents.some(
+            (d) => d.uploadId === before || d.uploadId === after,
+          ),
+        )
+        .flatMap((s) => s.changes.map((c) => c.proposed));
+      expect(proposed.join(' ')).not.toContain(oldCode);
+      expect(proposed.join(' ')).not.toContain(newCode);
     });
 
     it('tracks a work with its invoice', async () => {
@@ -378,7 +534,7 @@ describe.skipIf(!configured)(
       const street = `Via Zeta${run}`;
       const first = await upload(['GAS_BILL'], {
         provider: 'Magis Energia',
-        customer_id: `0168${digits}01`,
+        customer_id: `0168${runDigits}01`,
         supply_address: `${street} 7, 37039 Tregnago (VR)`,
         billing_period: '2026-01-01/2026-02-28',
         total_amount: 120,
@@ -422,13 +578,13 @@ describe.skipIf(!configured)(
         city: 'Tregnago',
         postalCode: null,
         gasSupplier: 'Magis Energia',
-        supplyCodes: [`0168${digits}01`],
+        supplyCodes: [`0168${runDigits}01`],
       });
 
       // A newer bill of the same house, from a new supplier.
       const second = await upload(['GAS_BILL'], {
         provider: 'Hera Comm',
-        customer_id: `0168${digits}01`,
+        customer_id: `0168${runDigits}01`,
         billing_period: '2026-03-01/2026-04-30',
         total_amount: 90,
       });

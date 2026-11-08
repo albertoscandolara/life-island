@@ -13,7 +13,6 @@ import {
   listBillsQuerySchema,
   updateBillRequestSchema,
   type BillDto,
-  type SupplyContractDto,
 } from '@life-island/contracts';
 import { BillsService } from './bills.service.js';
 
@@ -24,12 +23,6 @@ export class BillsController {
   @Get()
   list(@Query() query: unknown): Promise<BillDto[]> {
     return this.bills.list(parseOrThrow(listBillsQuerySchema, query));
-  }
-
-  /** The supply contracts your bills show: supplier, customer code, the days billed. */
-  @Get('supply-contracts')
-  supplyContracts(): Promise<SupplyContractDto[]> {
-    return this.bills.supplyContracts();
   }
 
   /** Your corrections; answers the bill as it now reads, or null once excluded. */

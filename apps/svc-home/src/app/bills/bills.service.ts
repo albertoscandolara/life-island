@@ -8,52 +8,87 @@ import type { ServiceDb } from '@life-island/be-common';
 import {
   listBillsQuerySchema,
   updateBillRequestSchema,
-  UTILITIES,
-  UTILITY_KINDS,
   type BillDto,
-  type SupplyContractDto,
 } from '@life-island/contracts';
-import { and, arrayOverlaps, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import {
   billOverrides,
-  categoryTree,
+  bills,
   documents,
   properties,
+  supplyPoints,
+  type BillRow,
 } from '../db/schema.js';
-import {
-  billSpan,
-  normalizeCode,
-  readBill,
-  withAncestors,
-  type ParentOf,
-} from './bill-reader.js';
-import {
-  assignBySupplyContract,
-  isSupplyPointCode,
-  supplyContracts,
-} from './supply-contracts.js';
+import { BillLedger } from './bill-ledger.js';
+import { billSpan, normalizeCode } from './bill-reader.js';
 
 type ListBills = z.output<typeof listBillsQuerySchema>;
 type UpdateBill = z.output<typeof updateBillRequestSchema>;
 
-const BILL_ROOTS = [
-  'BILL',
-  ...UTILITY_KINDS.map((k) => UTILITIES[k].categoryId),
-];
+/** A stored bill as Bills shows it: its house through its supply point unless you picked one. */
+export function toBillDto(
+  row: BillRow,
+  pointHouse: string | null | undefined,
+): BillDto {
+  const viaPoint = !row.manualProperty && row.supplyPointId !== null;
+  const propertyId = viaPoint ? (pointHouse ?? null) : row.propertyId;
+  return {
+    id: row.id,
+    uploadId: row.uploadId,
+    title: row.title,
+    utility: row.utility,
+    utilityOverridden: row.utilityOverridden,
+    propertyId,
+    assignment: viaPoint
+      ? propertyId
+        ? 'SUPPLY_CODE'
+        : null
+      : row.manualProperty
+        ? row.propertyId
+          ? 'MANUAL'
+          : null
+        : row.assignment,
+    provider: row.provider,
+    customerId: row.customerId,
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd,
+    issueDate: row.issueDate,
+    dueDate: row.dueDate,
+    amount: row.amount,
+    currency: row.currency,
+    consumption: row.consumption,
+    unit: row.unit,
+    invoiceNumber: row.invoiceNumber,
+    totalDue: row.totalDue,
+    supplierId: row.supplierId,
+    supplyPointId: row.supplyPointId,
+    contractId: row.contractId,
+  };
+}
 
 /**
- * Bills are not stored: they are read, on every request, from the documents
- * you confirmed with a bill category, plus your corrections. A fix to a
- * document in the documents app shows up here at once.
+ * Bills are entities: one row per bill document, kept in step with your
+ * documents by BillLedger, tied to a supplier, a supply point and a
+ * contract. Your corrections stay in bill_overrides and are applied on sync.
  */
 @Injectable()
 export class BillsService {
-  constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
+  constructor(
+    @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+    @Inject(BillLedger) private readonly ledger: BillLedger,
+  ) {}
 
+  /** Every bill counted (a second copy of an invoice is not), newest first. */
   async list(query: ListBills): Promise<BillDto[]> {
-    return (await this.readAll())
+    const rows = await this.svc.db
+      .select({ bill: bills, pointHouse: supplyPoints.propertyId })
+      .from(bills)
+      .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
+      .where(isNull(bills.duplicateOf));
+    return rows
+      .map((r) => toBillDto(r.bill, r.pointHouse))
       .filter((bill) => matches(bill, query))
       .sort(
         (a, b) =>
@@ -62,60 +97,9 @@ export class BillsService {
       );
   }
 
-  /**
-   * The supply contracts your bills show (supplier and customer code), each
-   * on the house its bills are on, with the days it was billed for.
-   */
-  async supplyContracts(): Promise<SupplyContractDto[]> {
-    return supplyContracts(await this.readAll());
-  }
-
-  /**
-   * Every bill as it reads now. A bill no evidence puts on a house follows
-   * the other bills of its supply contract (same supplier, same customer code).
-   */
-  private async readAll(): Promise<BillDto[]> {
-    const { parentOf, billCategories } = await this.categories();
-    const [props, overrides] = await Promise.all([
-      this.svc.db.select().from(properties),
-      this.svc.db.select().from(billOverrides),
-    ]);
-    const overrideOf = new Map(overrides.map((o) => [o.uploadId, o]));
-    const withUtility = overrides
-      .filter((o) => o.utility !== null)
-      .map((o) => o.uploadId);
-    const rows = await this.svc.db
-      .select()
-      .from(documents)
-      .where(
-        and(
-          isNull(documents.deletedAt),
-          or(
-            arrayOverlaps(documents.categories, billCategories),
-            withUtility.length
-              ? inArray(documents.uploadId, withUtility)
-              : undefined,
-          ),
-        ),
-      );
-
-    const bills = rows
-      .map((row) => {
-        const override = overrideOf.get(row.uploadId) ?? null;
-        const bill = readBill(row, props, parentOf, override);
-        return bill && { ...bill, manual: !!override?.manualProperty };
-      })
-      .filter((bill) => bill !== null);
-    return assignBySupplyContract(bills).map((bill) => {
-      const { manual, ...dto } = bill;
-      void manual;
-      return dto;
-    });
-  }
-
   async update(uploadId: string, request: UpdateBill): Promise<BillDto | null> {
     const [document] = await this.svc.db
-      .select()
+      .select({ uploadId: documents.uploadId })
       .from(documents)
       .where(
         and(eq(documents.uploadId, uploadId), isNull(documents.deletedAt)),
@@ -147,25 +131,49 @@ export class BillsService {
       .insert(billOverrides)
       .values({ uploadId, ...changes })
       .onConflictDoUpdate({ target: billOverrides.uploadId, set: changes });
-    const bill = (await this.readAll()).find((b) => b.uploadId === uploadId);
-    if (request.propertyId && bill?.supplyPointCode)
-      await this.learnSupplyCode(request.propertyId, bill.supplyPointCode);
-    return bill ?? null;
+    await this.ledger.sync();
+    let bill = await this.get(uploadId);
+    if (request.propertyId && bill?.supplyPointId) {
+      // A bill put on a house takes its supply point there: the next bills follow.
+      await this.moveSupplyPoint(bill.supplyPointId, request.propertyId);
+      bill = await this.get(uploadId);
+    }
+    // A bill with no supply point teaches the house nothing: its customer
+    // code names the supply contract, never the house.
+    return bill;
+  }
+
+  /** Moves a supply point, and so every bill of it, to a house (null: none). */
+  async moveSupplyPoint(id: string, propertyId: string | null): Promise<void> {
+    const [point] = await this.svc.db
+      .update(supplyPoints)
+      .set({ propertyId })
+      .where(eq(supplyPoints.id, id))
+      .returning();
+    if (!point) throw new NotFoundException(`Supply point ${id} not found`);
+    await this.learnSupplyCode(propertyId, point.code);
+  }
+
+  private async get(uploadId: string): Promise<BillDto | null> {
+    const [row] = await this.svc.db
+      .select({ bill: bills, pointHouse: supplyPoints.propertyId })
+      .from(bills)
+      .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
+      .where(eq(bills.uploadId, uploadId));
+    return row ? toBillDto(row.bill, row.pointHouse) : null;
   }
 
   /**
-   * You put a bill on a home: its supply point (POD, PDR) now belongs to that
-   * home, so the next bills of that meter find it on their own. A code moves
-   * with your choice: it leaves the home that had it before. The customer
-   * code is never learned here: it names the contract, not the house, and
-   * the other bills of that contract follow this one anyway.
+   * A supply code (POD, PDR) now belongs to that home, so the documents of
+   * that supply find it on their own (house suggestions read it too). A code
+   * moves with your choice: it leaves the home that had it before.
    */
   private async learnSupplyCode(
-    propertyId: string,
+    propertyId: string | null,
     code: string,
   ): Promise<void> {
     const wanted = normalizeCode(code);
-    if (!isSupplyPointCode(wanted)) return;
+    if (wanted.length < 6) return; // too short to tell supplies apart
     const rows = await this.svc.db.select().from(properties);
     for (const row of rows) {
       const has = row.supplyCodes.some((c) => normalizeCode(c) === wanted);
@@ -183,23 +191,6 @@ export class BillsService {
           .set({ supplyCodes })
           .where(eq(properties.id, row.id));
     }
-  }
-
-  /** The hierarchy, and every category that is a bill or sits under one. */
-  private async categories(): Promise<{
-    parentOf: ParentOf;
-    billCategories: string[];
-  }> {
-    // Deleted categories stay as tombstones and still link old documents up.
-    const rows = await this.svc.db
-      .select({ id: categoryTree.id, parentId: categoryTree.parentId })
-      .from(categoryTree);
-    const parentOf = new Map(rows.map((row) => [row.id, row.parentId]));
-    const billCategories = new Set(BILL_ROOTS);
-    for (const row of rows)
-      if (withAncestors(row.id, parentOf).some((id) => BILL_ROOTS.includes(id)))
-        billCategories.add(row.id);
-    return { parentOf, billCategories: [...billCategories] };
   }
 }
 

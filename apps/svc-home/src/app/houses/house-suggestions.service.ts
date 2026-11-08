@@ -28,7 +28,6 @@ import {
   toPropertyDto,
 } from '../properties/properties.service.js';
 import {
-  followSupplyContracts,
   mergeReadings,
   proposeHouseChanges,
   readHouse,
@@ -228,7 +227,6 @@ export class HouseSuggestionsService {
         readHouse(row, props, parentOf, overrideOf.get(row.uploadId) ?? null),
       )
       .filter((r): r is HouseReading => r !== null);
-    followSupplyContracts(readings);
 
     // A supplier comes only from the newest bill of each utility of a house,
     // so an old bill never brings back the supplier you left.

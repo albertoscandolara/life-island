@@ -169,10 +169,8 @@ export interface PropertyDto {
    */
   matchTerms: string[];
   /**
-   * Its supply points: the POD (electricity) and PDR (gas) of its meters. They
-   * belong to the house and never change with the supplier or the contract.
-   * The customer code (codice cliente) is not here: it belongs to one supply
-   * contract, see `SupplyContractDto`.
+   * Its supply point codes: POD (electricity), PDR (gas), the water supply
+   * code. Never a customer code: that belongs to a supply contract.
    */
   supplyCodes: string[];
   /** Document categories (usually of the PROPERTY dimension) that mean "this home". */
@@ -256,11 +254,18 @@ export interface HomePeopleDto {
 }
 
 /** Where a known company was seen. */
-export const COMPANY_SOURCES = ['BILL', 'HOUSE', 'WORK'] as const;
+export const COMPANY_SOURCES = [
+  'ORGANIZATION',
+  'BILL',
+  'HOUSE',
+  'WORK',
+] as const;
 export type CompanySource = (typeof COMPANY_SOURCES)[number];
 
 /** A company already known to the Houses area, to pick instead of typing it again. */
 export interface KnownCompanyDto {
+  /** The organization, when the company is one; null for a name seen only as text. */
+  id: string | null;
   name: string;
   sources: CompanySource[];
   /** How many bills, houses and works name it. */
@@ -382,13 +387,14 @@ export type DismissHouseSuggestionRequest = z.input<
 export const BILL_ASSIGNMENTS = [
   'MANUAL', // you picked it
   'CATEGORY', // the document has one of the property's categories
-  'SUPPLY_CODE', // its POD or PDR is one of the property's supply points
-  'SUPPLY_CONTRACT', // another bill of its supply contract (same supplier and customer code) is on the property
+  'SUPPLY_CODE', // its POD/PDR/customer code is one of the property's
   'ADDRESS', // an address on it contains one of the property's match terms
 ] as const;
 export type BillAssignment = (typeof BILL_ASSIGNMENTS)[number];
 
 export interface BillDto {
+  /** The bill entity's id; `uploadId` is the document it was read from. */
+  id: string;
   uploadId: string;
   title: string;
   utility: UtilityKind;
@@ -397,12 +403,7 @@ export interface BillDto {
   propertyId: string | null;
   assignment: BillAssignment | null;
   provider: string | null;
-  /** Codice cliente: the supplier's code of the supply contract it bills. */
-  customerCode: string | null;
-  /** POD (electricity) or PDR (gas) of the supply point, when printed. */
-  supplyPointCode: string | null;
-  /** The offer (piano tariffario) billed, when printed. */
-  offer: string | null;
+  customerId: string | null;
   /** First and last day billed (both null when the bill prints no period). */
   periodStart: string | null;
   periodEnd: string | null;
@@ -413,45 +414,13 @@ export interface BillDto {
   /** Consumption in the utility's unit; null when the bill does not print it. */
   consumption: number | null;
   unit: string;
-}
-
-/**
- * A supply contract, read from its bills: one supplier, one customer code
- * (codice cliente), one supply. How Italian customer codes behave:
- * - The supplier gives the code to one contract, not to you or to the house:
- *   electricity and gas are separate contracts, so they have different codes
- *   even with the same supplier.
- * - Changing offer with the same supplier (fixed to variable price) keeps the
- *   contract, so the code stays and only the offer changes.
- * - Changing supplier, closing the meter and reactivating it (subentro), or
- *   changing the holder (voltura) starts a new contract with a new code.
- * - The POD or PDR stays the same through all of this: it is the meter's,
- *   so it belongs to the house.
- * So a contract is told apart by utility, supplier and customer code, and is
- * valid from its first billed day to its last.
- */
-export interface SupplyContractDto {
-  /** `<utility>:<supplier>:<customer code>`, stable while its bills say the same. */
-  key: string;
-  utility: UtilityKind;
-  supplier: string | null;
-  customerCode: string;
-  /** The POD or PDR its bills print, if any. */
-  supplyPointCode: string | null;
-  /** The house its bills are on; null when they are on none. */
-  propertyId: string | null;
-  /** First and last day billed. */
-  from: string | null;
-  to: string | null;
-  /**
-   * ACTIVE: the latest contract of its utility on its house. REPLACED: a later
-   * contract of the same utility on the same house took over (new supplier,
-   * a subentro or a voltura).
-   */
-  status: 'ACTIVE' | 'REPLACED';
-  /** The offers billed under it, oldest first: an offer change keeps the code. */
-  offers: { name: string; from: string | null; to: string | null }[];
-  billCount: number;
+  /** Invoice number as printed; with the supplier, the bill's natural key. */
+  invoiceNumber: string | null;
+  /** What was left to pay, when it differs from the total (credits, earlier bills). */
+  totalDue: number | null;
+  supplierId: string | null;
+  supplyPointId: string | null;
+  contractId: string | null;
 }
 
 export const listBillsQuerySchema = z.object({
@@ -604,3 +573,91 @@ export const listHomeDocumentsQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
+
+// ---------------------------------------------------------------------------
+// Bills as entities: organizations, supply points, supply contracts
+//
+// The model of life-island-docs/entities: a house has supply points (POD for
+// electricity, PDR for gas, the water code), each supplied under contracts
+// with a supplier, and every bill points to its supply point and contract.
+// A bill reaches its house through its supply point, never by a copy.
+
+export const ORGANIZATION_ROLES = [
+  'ENERGY_SUPPLIER',
+  'DISTRIBUTOR',
+  'CONTRACTOR',
+  'OTHER',
+] as const;
+export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
+
+/** A company or public office, whatever its role: one row, referenced by id. */
+export interface OrganizationDto {
+  id: string;
+  name: string;
+  /** Codice fiscale; the natural key when printed. */
+  taxCode: string | null;
+  vatNumber: string | null;
+  roles: OrganizationRole[];
+  billCount: number;
+}
+
+export const updateOrganizationRequestSchema = z.object({
+  name: z.string().trim().min(1).max(160).optional(),
+  taxCode: z.string().trim().max(32).nullable().optional(),
+  vatNumber: z.string().trim().max(32).nullable().optional(),
+});
+export type UpdateOrganizationRequest = z.input<
+  typeof updateOrganizationRequestSchema
+>;
+
+/**
+ * A supply contract: one supplier, one customer code (codice cliente), one
+ * supply point. How Italian customer codes behave:
+ * - the supplier gives the code to one contract, not to you or the house:
+ *   electricity and gas are separate contracts with separate codes, even
+ *   with the same supplier;
+ * - an offer change with the same supplier (fixed to variable price) keeps
+ *   the contract and its code: only the offer changes;
+ * - a new supplier, a subentro after the meter was closed, or a voltura to
+ *   another holder start a new contract with a new code;
+ * - the POD or PDR names the meter and stays through all of this, so it
+ *   belongs to the house, and the customer code never does.
+ */
+export interface SupplyContractDto {
+  id: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  customerCode: string | null;
+  offerName: string | null;
+  /** First and last bill period seen under it. */
+  firstDay: string | null;
+  lastDay: string | null;
+  /**
+   * ACTIVE: the contract billed last on its supply point. ENDED: a later
+   * contract took the supply point over (new supplier, subentro, voltura).
+   */
+  status: 'ACTIVE' | 'ENDED';
+  billCount: number;
+}
+
+/** Where electricity, gas or water is delivered: it belongs to a house and outlives contracts. */
+export interface SupplyPointDto {
+  id: string;
+  utility: UtilityKind;
+  /** POD, PDR or water customer code, without spaces. */
+  code: string;
+  /** The house it delivers to; null until one is known. Its bills follow it. */
+  propertyId: string | null;
+  distributorId: string | null;
+  distributorName: string | null;
+  contracts: SupplyContractDto[];
+  billCount: number;
+}
+
+export const updateSupplyPointRequestSchema = z.object({
+  /** Moves the supply point, and every bill of it, to this house (null: none). */
+  propertyId: z.uuid().nullable(),
+});
+export type UpdateSupplyPointRequest = z.input<
+  typeof updateSupplyPointRequestSchema
+>;

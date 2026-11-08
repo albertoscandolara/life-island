@@ -1,7 +1,6 @@
 import type { PropertyDto } from '@life-island/contracts';
 import { defaultMatchTerms } from '../properties/properties.service.js';
 import {
-  followSupplyContracts,
   mergeReadings,
   parseAddress,
   proposeHouseChanges,
@@ -127,67 +126,33 @@ describe('readHouse', () => {
     });
   });
 
-  it('never takes a customer code as house data: it belongs to the supply contract', () => {
+  it("never takes a customer code as house data: it is the contract's", () => {
     const gas = house({ supplyCodes: ['01680102015791'] });
-    const reading = readHouse(
-      doc(
-        {
-          provider: 'Lene S.r.l.',
-          customer_id: '1000007483',
-          supply_address: 'Via dei Bandi 10, 37039 Tregnago (VR)',
-          total_amount: 80,
-        },
-        ['ELECTRICITY_BILL'],
-      ),
-      [{ ...bandi, supplyCodes: gas.supplyCodes }],
-      parentOf,
-      null,
-    )!;
-    expect(reading.supplyCodes).toEqual([]);
-    expect(reading.contractKey).toBe('ELECTRICITY:lene:1000007483');
-    const changes = proposeHouseChanges(mergeReadings([reading]), gas);
-    expect(changes.map((c) => c.field)).not.toContain('supplyCodes');
-  });
-
-  it('reads the POD and the customer code apart when both are printed', () => {
-    const reading = readHouse(
-      doc(
-        {
-          provider: 'Lene S.r.l.',
-          customer_code: '1000007483',
-          pod: 'IT001E 36435004',
-          total_amount: 80,
-        },
-        ['ELECTRICITY_BILL'],
-      ),
-      [bandi],
-      parentOf,
-      null,
-    )!;
-    expect(reading.supplyCodes).toEqual(['IT001E36435004']);
-    expect(reading.propertyId).toBe('p2');
-  });
-
-  it('puts a bill on the house of the other bills of its contract', () => {
-    const bill = (fields: Record<string, string | number>) =>
-      readHouse(
-        doc({ provider: 'Magis Energia S.p.A.', total_amount: 50, ...fields }, [
-          'GAS_BILL',
-        ]),
+    const printed: Record<string, string>[] = [
+      { customer_id: '1000007483' },
+      { customer_code: '1000007483', supply_point_code: 'IT001E36435004' },
+    ];
+    for (const fields of printed) {
+      const reading = readHouse(
+        doc(
+          {
+            provider: 'Lene S.r.l.',
+            supply_address: 'Via dei Bandi 10, 37039 Tregnago (VR)',
+            total_amount: 80,
+            ...fields,
+          },
+          ['ELECTRICITY_BILL'],
+        ),
         [bandi],
         parentOf,
         null,
-      )!;
-    const anchored = bill({
-      customer_code: '1161254900',
-      pdr: 'IT001E36435004',
-    });
-    const alone = bill({ customer_id: '1161254900' });
-    const other = bill({ customer_id: '9999999999' });
-    followSupplyContracts([anchored, alone, other]);
-    expect(anchored.propertyId).toBe('p2');
-    expect(alone.propertyId).toBe('p2');
-    expect(other.propertyId).toBeNull();
+      );
+      expect(reading?.supplyCodes).not.toContain('1000007483');
+      const changes = proposeHouseChanges(mergeReadings([reading!]), gas);
+      expect(changes.map((c) => c.proposed).join(' ')).not.toContain(
+        '1000007483',
+      );
+    }
   });
 
   it('reads cadastral data and owners of a survey, with no house matched', () => {

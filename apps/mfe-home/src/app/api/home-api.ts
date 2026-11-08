@@ -10,8 +10,10 @@ import type {
   CreateWorkRequest,
   HomeDocumentDto,
   ListBillsQuery,
+  OrganizationDto,
+  SupplyPointDto,
+  UpdateOrganizationRequest,
   PropertyDto,
-  SupplyContractDto,
   UpdateBillRequest,
   UpdatePropertyRequest,
   UpdateWorkRequest,
@@ -128,10 +130,27 @@ export class HomeApi {
     );
   }
 
-  /** Supply contracts read from the bills: supplier, customer code, days billed. */
-  supplyContracts(): Observable<SupplyContractDto[]> {
-    return this.http.get<SupplyContractDto[]>(
-      `${HOME_API}/bills/supply-contracts`,
+  /** The supply points (POD, PDR, water codes) your bills hang on, with their contracts. */
+  supplyPoints(): Observable<SupplyPointDto[]> {
+    return this.http.get<SupplyPointDto[]>(`${HOME_API}/supply-points`);
+  }
+
+  /** Moves a supply point, and every bill of it, to a house (null: none). */
+  moveSupplyPoint(id: string, propertyId: string | null): Observable<unknown> {
+    return this.http.patch(`${HOME_API}/supply-points/${id}`, { propertyId });
+  }
+
+  organizations(): Observable<OrganizationDto[]> {
+    return this.http.get<OrganizationDto[]>(`${HOME_API}/organizations`);
+  }
+
+  updateOrganization(
+    id: string,
+    request: UpdateOrganizationRequest,
+  ): Observable<OrganizationDto> {
+    return this.http.patch<OrganizationDto>(
+      `${HOME_API}/organizations/${id}`,
+      request,
     );
   }
 

@@ -5,7 +5,6 @@ import {
   type BillDto,
   type UtilityKind,
 } from '@life-island/contracts';
-import { readBillCodes } from './supply-contracts.js';
 
 export type Fields = Record<string, string | number | boolean | null>;
 
@@ -25,6 +24,17 @@ export interface PropertyLike {
   supplyCodes: string[];
   categoryIds: string[];
 }
+
+/** A bill as its document reads, before it is tied to its supplier, supply point and contract. */
+export type ReadBill = Omit<
+  BillDto,
+  | 'id'
+  | 'invoiceNumber'
+  | 'totalDue'
+  | 'supplierId'
+  | 'supplyPointId'
+  | 'contractId'
+>;
 
 export interface OverrideLike {
   manualProperty: boolean;
@@ -205,7 +215,7 @@ function addressText(document: DocumentLike, supplyOnly: boolean): string {
 
 /**
  * The property a bill belongs to, and why. Your manual choice wins; then the
- * strongest automatic evidence: a supply point code (POD, PDR), then the supply
+ * strongest automatic evidence: a supply code (POD, PDR), then the supply
  * address, then a category of the property, then any other address or the
  * title. The mailing address of the account holder is never evidence: bills
  * of one home are often sent to another. Two properties with evidence of the
@@ -260,7 +270,7 @@ export function readBill(
   properties: readonly PropertyLike[],
   parentOf: ParentOf,
   override: OverrideLike | null,
-): BillDto | null {
+): ReadBill | null {
   if (override?.excluded) return null;
   const fields = document.fields ?? {};
   const detected = utilityOf(document.categories, fields, parentOf);
@@ -276,7 +286,6 @@ export function readBill(
     ['issue_date', 'document_date', 'invoice_date', 'date'],
     asDate,
   );
-  const codes = readBillCodes(fields);
   const { propertyId, assignment } = matchProperty(
     document,
     properties,
@@ -295,9 +304,7 @@ export function readBill(
       ['provider', 'issuer', 'supplier', 'merchant_name'],
       asText,
     ),
-    customerCode: codes.customerCode,
-    supplyPointCode: codes.supplyPoint,
-    offer: codes.offer,
+    customerId: firstOf(fields, ['customer_id', 'pod', 'pdr'], asText),
     periodStart: period?.start ?? null,
     periodEnd: period?.end ?? null,
     issueDate,
@@ -310,9 +317,104 @@ export function readBill(
 }
 
 /** The days a bill covers, for range filters: its period, else its issue or due date. */
-export function billSpan(bill: BillDto): { start: string; end: string } | null {
+export function billSpan(bill: {
+  periodStart: string | null;
+  periodEnd: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+}): { start: string; end: string } | null {
   if (bill.periodStart && bill.periodEnd)
     return { start: bill.periodStart, end: bill.periodEnd };
   const day = bill.issueDate ?? bill.dueDate;
   return day ? { start: day, end: day } : null;
+}
+
+/** What a bill says about the entities around it: supplier, supply point, contract. */
+export interface BillFacts {
+  invoiceNumber: string | null;
+  totalDue: number | null;
+  supplierName: string | null;
+  /** Codice fiscale or VAT number of the supplier, normalised (no `IT`, no spaces). */
+  supplierTaxCode: string | null;
+  /** POD, PDR or water supply code, normalised. */
+  supplyPointCode: string | null;
+  customerCode: string | null;
+  distributorName: string | null;
+  offerName: string | null;
+}
+
+const POD = /^IT\d{3}E[0-9A-Z]{5,}$/;
+const PDR = /^\d{14}$/;
+
+/** `IT 01234567890` → `01234567890`: a company's VAT number and tax code are the same digits. */
+export const normalizeTaxCode = (code: string): string => {
+  const plain = normalizeCode(code);
+  return /^IT\d{11}$/.test(plain) ? plain.slice(2) : plain;
+};
+
+const LEGAL_FORMS =
+  /\b(s ?p ?a|s ?r ?l|s ?r ?l ?s|s ?n ?c|s ?a ?s|soc(ieta)? coop(erativa)?|spa|srl|ltd|inc|gmbh|ag|sa)\b/g;
+
+/** A company name without case, accents or legal form: "ACME S.p.A." = "Acme spa" = "acme". */
+export const organizationKey = (name: string): string =>
+  normalizeText(name).replace(LEGAL_FORMS, ' ').replace(/\s+/g, ' ').trim() ||
+  normalizeText(name);
+
+/**
+ * The entity facts of a bill. The supply point code is the POD (electricity)
+ * or PDR (gas) when printed; older templates kept it in `customer_id`, which
+ * counts when it has a POD or PDR shape, and always for water, whose bills
+ * have one code for the supply.
+ */
+export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
+  const legacy = asText(fields['customer_id']);
+  const legacyCode = legacy ? normalizeCode(legacy) : null;
+  const legacyIsPoint =
+    legacyCode !== null &&
+    (utility === 'WATER' ||
+      (utility === 'ELECTRICITY' ? POD : PDR).test(legacyCode));
+  const printed = firstOf(
+    fields,
+    ['supply_point_code', 'pod', 'pdr', 'pod_code', 'pdr_code'],
+    asText,
+  );
+  const taxCode = firstOf(
+    fields,
+    [
+      'supplier_tax_code',
+      'supplier_vat_number',
+      'provider_tax_code',
+      'provider_vat_number',
+    ],
+    asText,
+  );
+  const total = toNumber(fields['total_due'] ?? fields['amount_due']);
+  return {
+    invoiceNumber: firstOf(
+      fields,
+      ['invoice_number', 'bill_number', 'document_number', 'numero_fattura'],
+      asText,
+    ),
+    totalDue: total === null ? null : Math.round(total * 100) / 100,
+    supplierName: firstOf(
+      fields,
+      ['provider', 'issuer', 'supplier', 'merchant_name'],
+      asText,
+    ),
+    supplierTaxCode: taxCode ? normalizeTaxCode(taxCode) : null,
+    supplyPointCode: printed
+      ? normalizeCode(printed)
+      : legacyIsPoint
+        ? legacyCode
+        : null,
+    customerCode:
+      firstOf(fields, ['customer_code', 'codice_cliente'], asText) ??
+      (legacyIsPoint ? null : legacy),
+    distributorName: firstOf(
+      fields,
+      ['distributor', 'distributor_name'],
+      asText,
+    ),
+    offerName: firstOf(fields, ['offer_name', 'offer'], asText),
+  };
 }
