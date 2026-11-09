@@ -11,7 +11,13 @@ const year = (taxYear: number, byType: TaxYearDto['byType']): TaxYearDto => ({
   untraceableCount: 0,
   missingInvoiceCount: 0,
   missingPaymentCount: 0,
-  deductions: { lines: [], carried: [], thisYear: 0, futureYears: 0 },
+  deductions: {
+    lines: [],
+    carried: [],
+    thisYear: 0,
+    futureYears: 0,
+    income: null,
+  },
   byMonth: Array(12).fill(0),
 });
 

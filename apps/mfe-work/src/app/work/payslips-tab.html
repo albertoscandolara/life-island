@@ -79,6 +79,7 @@
           <th scope="col">Year</th>
           <th scope="col" class="num">Payslips</th>
           <th scope="col" class="num">Gross</th>
+          <th scope="col" class="num">Of which extra pay</th>
           <th scope="col" class="num">Net</th>
           <th scope="col" class="num">Income tax</th>
           <th scope="col" class="num">Contributions</th>
@@ -93,6 +94,7 @@
           <th scope="row">{{ y.year }}</th>
           <td class="num">{{ y.payslips }}</td>
           <td class="num">{{ euro(y.gross) }}</td>
+          <td class="num">{{ y.extraPay ? euro(y.extraPay) : '–' }}</td>
           <td class="num">{{ euro(y.net) }}</td>
           <td class="num">{{ euro(y.incomeTax) }}</td>
           <td class="num">{{ euro(y.contributions) }}</td>
@@ -106,3 +108,63 @@
   </div>
 </ui-card>
 } }
+
+<!-- Certificazione Unica: what each employer declared, next to your payslips -->
+@if (certificates().length) {
+<ui-card heading="Certificazione Unica" class="block">
+  <p class="muted">
+    What each employer declared to the tax office for the year, next to the
+    payslips you have. A difference means a payslip is missing or differs from
+    the one the employer counted.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col">Employer</th>
+          <th scope="col" class="num">Income (CU)</th>
+          <th scope="col" class="num">Your payslips</th>
+          <th scope="col" class="num">Difference</th>
+          <th scope="col" class="num">IRPEF withheld (CU)</th>
+          <th scope="col" class="num">Your payslips</th>
+          <th scope="col" class="num">Difference</th>
+          <th scope="col" class="num">Net tax</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of certificates(); track c.uploadId) {
+        <tr>
+          <th scope="row">{{ c.year }}</th>
+          <td>{{ c.workplaceName }}</td>
+          <td class="num">{{ euro(c.income) }}</td>
+          <td class="num">
+            {{ euro(c.payslipIncome) }} @if (c.payslipIncomeKind === 'gross') {
+            <span class="muted">(gross)</span> }
+          </td>
+          <td class="num" [class.up]="matches(c.incomeGap)">
+            {{ gap(c.incomeGap) }}
+          </td>
+          <td class="num">{{ euro(c.irpefWithheld) }}</td>
+          <td class="num">{{ euro(c.payslipIncomeTax) }}</td>
+          <td class="num" [class.up]="matches(c.taxGap)">
+            {{ gap(c.taxGap) }}
+          </td>
+          <td class="num">{{ euro(c.netTax) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @for (c of certificates(); track c.uploadId) { @if (!c.payslips) {
+  <p class="muted">
+    {{ c.year }} · {{ c.workplaceName }}: no payslips of that year on record.
+  </p>
+  } @else if (c.missingMonths.length) {
+  <p class="muted">
+    {{ c.year }} · {{ c.workplaceName }}: no payslip for {{
+    c.missingMonths.map(periodText).join(', ') }}.
+  </p>
+  } }
+</ui-card>
+}

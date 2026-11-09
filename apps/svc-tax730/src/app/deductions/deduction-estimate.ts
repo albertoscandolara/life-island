@@ -1,10 +1,12 @@
 import {
   tax730DeductionRules,
+  type Tax730CertificateDto,
   type Tax730CarriedInstalmentDto,
   type Tax730DeductionLineDto,
   type Tax730DeductionRule,
   type Tax730DeductionsDto,
 } from '@life-island/contracts';
+import { incomeOf } from './income.js';
 
 /** What the estimate needs of an expense. */
 export interface EstimatedExpense {
@@ -103,11 +105,13 @@ export function deductionLines(
 /**
  * What the expenses of `taxYear` are worth in its 730, plus the instalments
  * that home bonuses of the nine years before still bring. `expenses` may hold
- * every year: the earlier ones are only read for those instalments.
+ * every year: the earlier ones are only read for those instalments. With the
+ * year's Certificazioni Uniche, the tax back is capped at the tax you owe.
  */
 export function estimateDeductions(
   taxYear: number,
   expenses: EstimatedExpense[],
+  certificates: Tax730CertificateDto[] = [],
 ): Tax730DeductionsDto {
   const lines = deductionLines(taxYear, expenses);
   const carried: Tax730CarriedInstalmentDto[] = [];
@@ -127,13 +131,15 @@ export function estimateDeductions(
     }
   }
   carried.sort((a, b) => b.fromYear - a.fromYear || b.amount - a.amount);
+  const thisYear = round(
+    lines.reduce((sum, l) => sum + l.deduction, 0) +
+      carried.reduce((sum, c) => sum + c.amount, 0),
+  );
   return {
     lines,
     carried,
-    thisYear: round(
-      lines.reduce((sum, l) => sum + l.deduction, 0) +
-        carried.reduce((sum, c) => sum + c.amount, 0),
-    ),
+    thisYear,
+    income: incomeOf(taxYear, thisYear, lines, certificates),
     futureYears: round(
       lines.reduce((sum, l) => sum + l.totalDeduction - l.deduction, 0),
     ),

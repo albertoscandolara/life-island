@@ -7,6 +7,7 @@ import {
 import type { ServiceDb } from '@life-island/be-common';
 import {
   TAX730_ATTACHMENT_ROLES,
+  TAX_CERTIFICATE_KEYS,
   type AddAttachmentRequest,
   type DossierExpenseDto,
   type ExpenseDto,
@@ -18,7 +19,16 @@ import {
   type TaxYearDto,
   type UpdateExpenseRequest,
 } from '@life-island/contracts';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import {
+  and,
+  arrayContains,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  sql,
+} from 'drizzle-orm';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import {
@@ -34,6 +44,11 @@ import {
   estimateDeductions,
   type EstimatedExpense,
 } from '../deductions/deduction-estimate.js';
+import {
+  CERTIFICATE_CATEGORY,
+  certificatesOf,
+  type CertificateSource,
+} from '../deductions/income.js';
 import { toDocumentDto } from '../documents/document-view.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
@@ -74,28 +89,45 @@ export class DossierService {
     const yearFilter = years.length
       ? inArray(expenses.taxYear, years)
       : undefined;
-    const [expenseRows, attachmentRows, estimated] = await Promise.all([
-      db
-        .select()
-        .from(expenses)
-        .where(yearFilter)
-        .orderBy(asc(expenses.date), asc(expenses.createdAt)),
-      db
-        .select()
-        .from(attachments)
-        .where(years.length ? inArray(attachments.taxYear, years) : undefined)
-        .orderBy(asc(attachments.createdAt)),
-      // Every year: home bonuses of earlier years still bring instalments.
-      db
-        .select({
-          taxYear: expenses.taxYear,
-          expenseType: expenses.expenseType,
-          amount: expenses.amount,
-          traceablePayment: expenses.traceablePayment,
-          beneficiaryFiscalCode: expenses.beneficiaryFiscalCode,
-        })
-        .from(expenses),
-    ]);
+    const [expenseRows, attachmentRows, estimated, certificateRows] =
+      await Promise.all([
+        db
+          .select()
+          .from(expenses)
+          .where(yearFilter)
+          .orderBy(asc(expenses.date), asc(expenses.createdAt)),
+        db
+          .select()
+          .from(attachments)
+          .where(years.length ? inArray(attachments.taxYear, years) : undefined)
+          .orderBy(asc(attachments.createdAt)),
+        // Every year: home bonuses of earlier years still bring instalments.
+        db
+          .select({
+            taxYear: expenses.taxYear,
+            expenseType: expenses.expenseType,
+            amount: expenses.amount,
+            traceablePayment: expenses.traceablePayment,
+            beneficiaryFiscalCode: expenses.beneficiaryFiscalCode,
+          })
+          .from(expenses),
+        // Your Certificazioni Uniche: the income and tax of each year.
+        db
+          .select({
+            uploadId: documents.uploadId,
+            title: documents.title,
+            categories: documents.categories,
+            fields: documents.fields,
+            uploadedAt: documents.uploadedAt,
+          })
+          .from(documents)
+          .where(
+            and(
+              isNull(documents.deletedAt),
+              arrayContains(documents.categories, [CERTIFICATE_CATEGORY]),
+            ),
+          ),
+      ]);
     const documentsById = await this.documentsById(
       attachmentRows.map((row) => row.uploadId),
     );
@@ -143,10 +175,17 @@ export class DossierService {
       expensesByYear.set(row.taxYear, list);
     }
 
-    // A year shows once it has an expense or a document of its own.
+    // A year shows once it has an expense, a document of its own or a CU.
+    const certificateYears = certificateRows
+      .map((row) => Number(row.fields?.[TAX_CERTIFICATE_KEYS.incomeYear]))
+      .filter(
+        (year) =>
+          Number.isInteger(year) && (!years.length || years.includes(year)),
+      );
     const allYears = new Set<number>([
       ...expensesByYear.keys(),
       ...byYear.keys(),
+      ...certificateYears,
     ]);
     return [...allYears]
       .sort((a, b) => b - a)
@@ -156,6 +195,7 @@ export class DossierService {
           expensesByYear.get(year) ?? [],
           (byYear.get(year) ?? []).sort(byRole),
           estimated,
+          certificateRows,
         ),
       );
   }
@@ -165,6 +205,7 @@ export class DossierService {
     yearExpenses: DossierExpenseDto[],
     yearDocuments: Tax730AttachmentDto[],
     estimated: EstimatedExpense[],
+    certificateRows: CertificateSource[] = [],
   ): TaxYearDossierDto {
     const byMonth = Array.from({ length: 12 }, () => 0);
     for (const expense of yearExpenses) {
@@ -192,7 +233,11 @@ export class DossierService {
       missingInvoiceCount: yearExpenses.filter((e) => !e.hasInvoice).length,
       missingPaymentCount: yearExpenses.filter((e) => !e.hasPaymentProof)
         .length,
-      deductions: estimateDeductions(taxYear, estimated),
+      deductions: estimateDeductions(
+        taxYear,
+        estimated,
+        certificatesOf(taxYear, certificateRows),
+      ),
       byMonth,
       expenses: yearExpenses,
       yearDocuments,

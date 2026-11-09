@@ -58,7 +58,10 @@
   </div>
   <div class="tile">
     <span class="tile__label">Estimated tax back</span>
-    <span class="tile__value">{{ formatEuro(d.deductions.thisYear) }}</span>
+    <span class="tile__value"
+      >{{ formatEuro(d.deductions.income?.refund ?? d.deductions.thisYear)
+      }}</span
+    >
   </div>
   <div class="tile">
     <span class="tile__label">Expenses</span>

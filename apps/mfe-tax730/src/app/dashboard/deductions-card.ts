@@ -25,8 +25,33 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
           <span class="head__label"
             >Estimated tax back in the 730/{{ dossier().filingYear }}</span
           >
-          <span class="head__value">{{ formatEuro(d.thisYear) }}</span>
+          <span class="head__value">{{
+            formatEuro(d.income ? d.income.refund : d.thisYear)
+          }}</span>
+          @if (d.income && d.income.lost > 0) {
+            <span class="head__sub"
+              >of {{ formatEuro(d.thisYear) }} in deductions, capped at the tax
+              you owe</span
+            >
+          }
         </div>
+        @if (d.income; as income) {
+          <div>
+            <span class="head__label">Tax you owe (net IRPEF)</span>
+            <span class="head__value head__value--soft">{{
+              formatEuro(income.netTax)
+            }}</span>
+            <span class="head__sub"
+              >On {{ formatEuro(income.income) }} of income,
+              {{ income.certificates.length }}
+              {{
+                income.certificates.length === 1
+                  ? 'Certificazione Unica'
+                  : 'Certificazioni Uniche'
+              }}</span
+            >
+          </div>
+        }
         @if (d.futureYears > 0) {
           <div>
             <span class="head__label">Still to come in later 730s</span>
@@ -36,6 +61,19 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
           </div>
         }
       </div>
+
+      @if (d.income?.notes?.length) {
+        <ul class="income-notes" role="list">
+          @for (n of d.income?.notes ?? []; track n) {
+            <li>{{ n }}</li>
+          }
+        </ul>
+      } @else if (!d.income) {
+        <p class="muted income-hint">
+          Upload your Certificazione Unica of {{ dossier().taxYear }}: the
+          estimate then checks the tax back against the tax you owe.
+        </p>
+      }
 
       <ul class="lines" role="list">
         @for (l of d.lines; track l.group) {
@@ -131,8 +169,9 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
         </ul>
       }
       <p class="foot">
-        An estimate for planning: home bonuses at the main-home rate, before the
-        income limits (above €75,000 or €120,000). The commercialista decides.
+        An estimate for planning: home bonuses at the main-home rate, never more
+        than the tax your Certificazioni Uniche show you owe, before the income
+        limits (above €75,000 or €120,000). The commercialista decides.
       </p>
     </ui-card>
   `,
@@ -145,6 +184,24 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
     }
     .head > div {
       display: grid;
+    }
+    .head__sub {
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+    }
+    .income-notes {
+      display: grid;
+      gap: var(--space-2);
+      margin: 0 0 var(--space-5);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--tone-warning-soft);
+      font-size: var(--text-sm);
+      list-style: none;
+    }
+    .income-hint {
+      margin: 0 0 var(--space-5);
+      font-size: var(--text-sm);
     }
     .head__label {
       color: var(--text-muted);

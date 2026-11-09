@@ -85,7 +85,9 @@ The Excel follows the commercialista's summary: Data, Fattura, Fornitore, Descri
 - per-person caps (school €800, children's sport €210) count each beneficiary's codice fiscale separately;
 - home bonuses (renovation, energy efficiency, furniture) are spread over 10 years, and each year's 730 also gets the instalments of the nine years before.
 
-It is a planning estimate: home bonuses at the main-home rate, and the income limits (above €75,000 and €120,000) are explained on the page, not applied. The page also explains the 730 itself (who files it, the yearly calendar, what goes in it, what you get back, the documents to keep) with its sources.
+**Income and capienza.** The year's Certificazioni Uniche (category `CERTIFICAZIONE_UNICA`, ingestion migration `0019`, read from `tax730.documents` by their `income_year` field) give the income, the IRPEF withheld and the net tax (punto 375) of the year (`deductions/income.ts`). Deductions can only reduce the tax you owe, so the tax back is capped at the net tax of every CU together, and what does not fit is shown as lost (it is never carried over). One CU per employer counts: a later one replaces the earlier (a corrected CU, or a copy). With more than one CU the page warns that the 730 adds the incomes up. Without a CU, the estimate is not capped and the page asks for one.
+
+It is a planning estimate: home bonuses at the main-home rate, and the income limits (above €75,000, with the yearly ceiling on expenses other than health, and above €120,000) are explained, with your income from the CU, not applied. The page also explains the 730 itself (who files it, the yearly calendar, what goes in it, what you get back, the documents to keep) with its sources.
 
 The zip is named `YYYY-MM-DD - Documentazione 730 <filing year> per commercialista.zip` and holds one folder, `730 <filing year> - redditi <year>/`, with:
 
@@ -222,9 +224,13 @@ Pachy's zone (`/work`, `mfe-work` and `svc-work`) keeps every **workplace** you 
 
 **Review.** As in People and Cars, a document confirmed in Documents reaches svc-work and waits in the **Review** tab. svc-work finds its workplace by the employer's tax code, then by its name, and proposes changes field by field: accept the suggestion, keep the current value, or check it. A payslip older than the workplace's latest one does not overwrite newer data (it is marked outdated). **Approve** files it (and creates the workplace when it is new); **Not about my work** sets it aside. Every decision is kept in `work.reviews`.
 
+**Copies.** Uploading the very same file again is stopped in Documents (same SHA-256, whatever its name). A copy with different bytes (downloaded again, re-exported, renamed) is parsed, then recognized in Work by what it is: a payslip by its workplace, month and kind, a CU by its workplace and year. **Review** flags it ("you already have the payslip for Dec 2024") so you can set it aside, and even if you approve it the statistics count it once (the first approved).
+
+**Payslip kind.** Migration `0019` adds `payslip_kind` to `PAYSLIP`: `regular`, or a payslip that pays only an extra month, `thirteenth` (tredicesima), `fourteenth` (quattordicesima) or `other` (a bonus, arrears, a settlement). An extra payslip has the same month as the regular one but is not a copy of it: it is an "extra pay" event on the timeline, counts in the year's gross and net (and in the "Of which extra pay" column), and stays out of the month-by-month chart and the salary changes. Payslips parsed before get the kind with **Parse again**.
+
 **Overview.** What needs both payslips and evaluations: current pay and growth, the latest evaluation and the share of the year's gross its bonus made, a year-by-year table of pay next to scores and bonus, and a timeline, newest first, of what your documents show: hired and left, promotions and level changes, salary rises and cuts, role and contract changes, seniority increments, extra months (tredicesima, quattordicesima), evaluations, signed contracts, plus events you add by hand (awards, courses, certifications, projects).
 
-**Payslips.** Current pay, growth, time since the last rise, take-home share and time off left; gross and net per month on a chart, and totals per year.
+**Payslips.** Current pay, growth, time since the last rise, take-home share and time off left; gross and net per month on a chart, and totals per year with the extra pay. Each **Certificazione Unica** (`CERTIFICAZIONE_UNICA`, from `0019`, filed under its workplace like a payslip) stands next to the payslips of its workplace and year: income against their taxable income, IRPEF withheld against their income tax, with the difference and the months without a payslip, so a missing or different payslip shows.
 
 **Performance reviews.** Migration `0018` adds the score fields to `PERFORMANCE_REVIEW` (cycle, role, team, total and highest score, section and criteria scores as `Name: score` lines, bonus conversion and target, comments; evaluations parsed earlier get them with **Parse again**). The tab shows the latest score and its change, the score of each period stacked by section, the bonus target against what was paid per year, each criterion across periods (strongest, weakest, improving, dropping), a year table and every evaluation with its comments. A later form about the same period replaces the earlier one.
 
@@ -234,15 +240,15 @@ Pachy's zone (`/work`, `mfe-work` and `svc-work`) keeps every **workplace** you 
 
 **Hiring platforms.** The platforms you signed up to (LinkedIn, Indeed, InfoJobs… or any other), with your profile link, the account you use, notes, a status and when you last updated your profile; one older than 180 days is flagged. Only `http(s)` links open.
 
-| Endpoint (`/api/work/...`)                                            | Purpose                                                                                     |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GET /overview`                                                       | Workplaces, timeline, stats, documents to review, rejected ones, platforms, latest feedback |
-| `POST /workplaces`, `PATCH /workplaces/:id`, `DELETE /workplaces/:id` | Add a workplace by hand, correct it, remove it (its documents go back to review)            |
-| `POST /reviews/:uploadId/approve`                                     | `{workplaceId, accept: [fields], label?}`; `workplaceId: null` adds a new workplace         |
-| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`    | Not about my work, and back to review                                                       |
-| `POST /events`, `DELETE /events/:id`                                  | A career event you add by hand                                                              |
-| `POST /platforms`, `PUT /platforms/:id`, `DELETE /platforms/:id`      | Hiring platforms                                                                            |
-| `POST /feedback`, `DELETE /feedback/:id`                              | Ask for career feedback (optional `question`), forget one                                   |
-| `GET /documents/:uploadId/preview`                                    | The original file (from svc-ingestion)                                                      |
+| Endpoint (`/api/work/...`)                                            | Purpose                                                                                   |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /overview`                                                       | Workplaces, timeline, stats, CUs, documents to review, rejected ones, platforms, feedback |
+| `POST /workplaces`, `PATCH /workplaces/:id`, `DELETE /workplaces/:id` | Add a workplace by hand, correct it, remove it (its documents go back to review)          |
+| `POST /reviews/:uploadId/approve`                                     | `{workplaceId, accept: [fields], label?}`; `workplaceId: null` adds a new workplace       |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`    | Not about my work, and back to review                                                     |
+| `POST /events`, `DELETE /events/:id`                                  | A career event you add by hand                                                            |
+| `POST /platforms`, `PUT /platforms/:id`, `DELETE /platforms/:id`      | Hiring platforms                                                                          |
+| `POST /feedback`, `DELETE /feedback/:id`                              | Ask for career feedback (optional `question`), forget one                                 |
+| `GET /documents/:uploadId/preview`                                    | The original file (from svc-ingestion)                                                    |
 
 A database created before this area existed gets its schema and role from svc-work itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/004-work-schema.sql`).

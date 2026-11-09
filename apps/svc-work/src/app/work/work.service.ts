@@ -43,11 +43,13 @@ import { CareerAdvisor } from './career-advisor.js';
 import {
   buildStats,
   buildTimeline,
+  documentIdentity,
   monthsBetween,
   type ApprovedWorkDocument,
   type CareerWorkplace,
 } from './career.js';
 import type { CareerDossierInput } from './career-feedback.js';
+import { buildCertificates } from './certificates.js';
 import { buildEvaluationStats } from './evaluations.js';
 import {
   cleanValue,
@@ -176,8 +178,35 @@ export class WorkService {
       );
 
     const known = rows.map((r) => ({ id: r.id, values: r.values }));
-    const pending: PendingWorkReviewDto[] = docs
+    // What you have, to tell a copy: approved documents, then the ones
+    // waiting, oldest first (the later copy is the one flagged).
+    const have = new Map<string, { uploadId: string; title: string }>();
+    for (const d of career.approved) {
+      const identity = documentIdentity(d.workplaceId, d.reading);
+      if (identity && !have.has(identity.key))
+        have.set(identity.key, { uploadId: d.uploadId, title: d.title });
+    }
+    const waiting = docs
       .filter((doc) => !reviewOf.has(doc.row.uploadId))
+      .sort((a, b) => a.row.uploadedAt.getTime() - b.row.uploadedAt.getTime());
+    const copyOf = new Map<string, PendingWorkReviewDto['alreadyHave']>();
+    for (const doc of waiting) {
+      const { workplace } = matchWorkplace(doc.reading, known);
+      const workplaceKey =
+        workplace?.id ??
+        `new:${normalizeTaxCode(doc.reading.employerTaxCode) ?? normalizeName(doc.reading.employerName) ?? ''}`;
+      const identity = documentIdentity(workplaceKey, doc.reading);
+      if (!identity) continue;
+      const earlier = have.get(identity.key);
+      if (earlier)
+        copyOf.set(doc.row.uploadId, { ...earlier, what: identity.what });
+      else
+        have.set(identity.key, {
+          uploadId: doc.row.uploadId,
+          title: doc.row.title,
+        });
+    }
+    const pending: PendingWorkReviewDto[] = waiting
       .map((doc) => {
         const { workplace, match } = matchWorkplace(doc.reading, known);
         const outdated = isOutdated(
@@ -206,6 +235,7 @@ export class WorkService {
             outdated,
           ),
           outdated,
+          alreadyHave: copyOf.get(doc.row.uploadId) ?? null,
         };
       })
       .sort(
@@ -238,6 +268,7 @@ export class WorkService {
         career.workplaces,
         career.stats.years,
       ),
+      certificates: buildCertificates(career.workplaces, career.approved),
       platforms: career.platforms,
       feedback: feedbackRows.map(feedbackDto),
       aiFeedback: this.advisor.usesAi,
@@ -561,19 +592,22 @@ export class WorkService {
     today: string,
   ) {
     const docOf = new Map(docs.map((d) => [d.row.uploadId, d]));
-    const approved: ApprovedWorkDocument[] = decided.flatMap((r) => {
-      const doc = docOf.get(r.uploadId);
-      return r.status === 'approved' && r.workplaceId && doc
-        ? [
-            {
-              uploadId: r.uploadId,
-              title: doc.row.title,
-              workplaceId: r.workplaceId,
-              reading: doc.reading,
-            },
-          ]
-        : [];
-    });
+    // In the order you approved them: of two copies, the first counts.
+    const approved: ApprovedWorkDocument[] = [...decided]
+      .sort((a, b) => a.decidedAt.getTime() - b.decidedAt.getTime())
+      .flatMap((r) => {
+        const doc = docOf.get(r.uploadId);
+        return r.status === 'approved' && r.workplaceId && doc
+          ? [
+              {
+                uploadId: r.uploadId,
+                title: doc.row.title,
+                workplaceId: r.workplaceId,
+                reading: doc.reading,
+              },
+            ]
+          : [];
+      });
     const careerWorkplaces: CareerWorkplace[] = rows.map((r) => ({
       id: r.id,
       name: workplaceName(r),
