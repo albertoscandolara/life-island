@@ -311,22 +311,41 @@ describe.skipIf(!configured)(
           .where(inArray(documentCategories.id, ['ENEL'])),
       ).toEqual([]);
       // The inbox hears about the categories after CLASSIFY and the suggestions after DISCOVER.
-      expect(await events(id)).toEqual([
+      // Then, once parsed, the other modules get the fields with a last
+      // snapshot (written with document.parsed, in the same transaction).
+      const sent = await events(id);
+      expect(sent.slice(0, 3)).toEqual([
         'upload.parsing_started@1',
         'upload.updated@1',
         'upload.updated@1',
+      ]);
+      expect(sent.slice(3).sort()).toEqual([
         'document.parsed@1',
+        'upload.updated@1',
       ]);
       const { rows } = await svc.pool.query<{
-        payload: { categories: string[]; suggestedCategories: string[] };
+        payload: {
+          categories: string[];
+          suggestedCategories: string[];
+          fields?: Record<string, unknown>;
+        };
       }>(
         `select payload from ingestion.outbox
           where event_type = 'upload.updated@1' and payload->>'uploadId' = $1
-          order by created_at desc limit 1`,
+          order by created_at`,
         [id],
       );
-      expect(rows[0].payload.categories).toEqual(saved.categories);
-      expect(rows[0].payload.suggestedCategories).toEqual(['ENEL']);
+      const last = rows[rows.length - 1].payload;
+      expect(last.categories).toEqual(saved.categories);
+      expect(last.suggestedCategories).toEqual(['ENEL']);
+      expect(last.fields).toEqual(
+        Object.fromEntries(
+          Object.entries(saved.extractedFields?.fields ?? {}).map(
+            ([key, field]) => [key, field.value],
+          ),
+        ),
+      );
+      expect(Object.keys(last.fields ?? {}).length).toBeGreaterThan(0);
     });
 
     it('pauses on an exhausted quota, keeps the finished steps, and makes no more AI calls', async () => {

@@ -671,6 +671,9 @@ export class ParseService {
         type: DOCUMENT_PARSED_EVENT,
         payload: event,
       });
+      // The modules that mirror documents (Work, Houses, People, Cars, 730)
+      // learn the extracted fields from this snapshot, not from the parse event.
+      await enqueueUploadUpdated(client, this.svc.schema, [saved.id]);
     });
   }
 
