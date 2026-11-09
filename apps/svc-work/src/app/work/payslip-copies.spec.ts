@@ -127,16 +127,9 @@ describe('copies of a payslip', () => {
     });
   });
 
-  it('puts the tredicesima on the timeline, not a salary change', () => {
+  it('keeps the tredicesima off the timeline, and is no salary change', () => {
     const timeline = buildTimeline([workplace], [...year, tredicesima], []);
-    const extra = timeline.filter((e) => e.kind === 'extra_pay');
-    expect(extra).toHaveLength(1);
-    expect(extra[0]).toMatchObject({
-      date: '2024-12-01',
-      title: 'Tredicesima (13th month): €1,700.00 gross',
-      amount: 1700,
-    });
-    expect(timeline.some((e) => e.kind === 'salary_cut')).toBe(false);
+    expect(timeline.map((e) => e.kind)).toEqual(['hired']);
   });
 });
 

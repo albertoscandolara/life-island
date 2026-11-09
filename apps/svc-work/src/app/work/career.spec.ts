@@ -108,14 +108,12 @@ describe('buildTimeline', () => {
   ]);
   const kinds = timeline.map((e) => `${e.date} ${e.kind}`);
 
-  it('reads the promotion, the rise, the increment, extra pay and welfare, newest first', () => {
+  it('reads the promotion, the rise and the increment, newest first (no extra pay, role or CCNL events)', () => {
     expect(kinds).toEqual([
       '2026-06-01 salary_rise',
-      '2026-06-01 extra_pay',
       '2026-06-01 seniority_increment',
       '2026-04-15 certification',
       '2026-02-01 promotion',
-      '2026-01-01 extra_pay',
       '2020-03-01 hired',
     ]);
   });
