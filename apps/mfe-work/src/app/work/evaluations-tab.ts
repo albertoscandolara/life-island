@@ -4,11 +4,18 @@ import {
   computed,
   inject,
   input,
+  output,
+  signal,
 } from '@angular/core';
-import type {
-  EvaluationDto,
-  EvaluationRulesDto,
-  EvaluationStatsDto,
+import {
+  GOAL_STATUS_LABELS,
+  GOAL_STATUSES,
+  type EvaluationDto,
+  type EvaluationRulesDto,
+  type EvaluationStatsDto,
+  type GoalDto,
+  type GoalStatus,
+  type ReviewPayDto,
 } from '@life-island/contracts';
 import {
   UiBadge,
@@ -16,10 +23,19 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  type UiTone,
 } from '@life-island/design-system';
 import { WorkApi } from '../api/work-api';
 import { ColumnChart, type ChartSeries } from '../charts/column-chart';
 import { euro, euroShort, periodText, scoreText, signed } from './labels';
+
+const GOAL_TONES: Record<GoalStatus, UiTone> = {
+  open: 'info',
+  met: 'success',
+  partly: 'progress',
+  missed: 'danger',
+  dropped: 'neutral',
+};
 
 const PART_COLORS = [
   'var(--viz-part-1)',
@@ -61,6 +77,50 @@ export class EvaluationsTab {
   private readonly api = inject(WorkApi);
 
   readonly data = input.required<EvaluationStatsDto>();
+  readonly goals = input<GoalDto[]>([]);
+  readonly reviewsVsPay = input<ReviewPayDto[]>([]);
+  /** A goal's status was saved: the page reloads the overview. */
+  readonly changed = output<void>();
+
+  protected readonly goalStatuses = GOAL_STATUSES;
+  protected readonly goalLabels = GOAL_STATUS_LABELS;
+  protected readonly goalTones = GOAL_TONES;
+  protected readonly savingGoal = signal<string | null>(null);
+
+  /** Evaluations with a salary to compare, newest first. */
+  protected readonly linkedReviews = computed(() =>
+    [...this.reviewsVsPay()].filter((r) => r.salaryAt !== null).reverse(),
+  );
+  protected readonly goalCounts = computed(() =>
+    GOAL_STATUSES.map((status) => ({
+      status,
+      count: this.goals().filter((g) => g.status === status).length,
+    })).filter((c) => c.count),
+  );
+
+  protected riseText(value: number | null): string {
+    if (value === null) return 'Not yet';
+    return `${value > 0 ? '+' : ''}${value.toLocaleString('it-IT')}%`;
+  }
+
+  protected setGoal(goal: GoalDto, status: GoalStatus, note: string | null) {
+    const id = goal.uploadId + goal.key;
+    this.savingGoal.set(id);
+    this.api
+      .setGoalStatus({
+        uploadId: goal.uploadId,
+        key: goal.key,
+        status,
+        note: note?.trim() || null,
+      })
+      .subscribe({
+        next: () => {
+          this.savingGoal.set(null);
+          this.changed.emit();
+        },
+        error: () => this.savingGoal.set(null),
+      });
+  }
 
   protected readonly euro = euro;
   protected readonly euroShort = euroShort;

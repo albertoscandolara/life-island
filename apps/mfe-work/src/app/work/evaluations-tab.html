@@ -406,7 +406,7 @@
         <dd>{{ e.improvements }}</dd>
         } @if (e.goals) {
         <dt>Goals</dt>
-        <dd>{{ e.goals }}</dd>
+        <dd class="lines">{{ e.goals }}</dd>
         }
       </dl>
     </li>
@@ -414,3 +414,106 @@
   </ol>
 </ui-card>
 } }
+
+<!-- Reviews against the pay that followed them -->
+@if (linkedReviews().length) {
+<ui-card heading="Did your reviews turn into pay?" class="block">
+  <p class="muted intro">
+    Each evaluation, the monthly salary when it happened and a year later: a
+    high score with a flat salary is an argument for your next review.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Evaluation</th>
+          <th scope="col" class="num">Score</th>
+          <th scope="col" class="num">Bonus</th>
+          <th scope="col" class="num">Salary then</th>
+          <th scope="col" class="num">A year later</th>
+          <th scope="col" class="num">Rise</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of linkedReviews(); track r.uploadId) {
+        <tr>
+          <th scope="row">{{ r.cycle ?? periodText(r.date) }}</th>
+          <td class="num">{{ scoreText(r.score, r.maxScore) }}</td>
+          <td class="num">
+            {{ r.bonus !== null ? euro(r.bonus) : '–' }} @if (r.payoutPct !==
+            null) {
+            <span class="muted">({{ percent(r.payoutPct) }})</span>
+            }
+          </td>
+          <td class="num">{{ euro(r.salaryAt) }}</td>
+          <td class="num">
+            {{ euro(r.salaryAfter) }} @if (r.afterPeriod) {
+            <span class="muted">{{ periodText(r.afterPeriod) }}</span>
+            }
+          </td>
+          <td
+            class="num"
+            [class.up]="(r.riseAfterPct ?? 0) >= 1"
+            [class.flat]="r.riseAfterPct !== null && r.riseAfterPct < 1"
+          >
+            {{ riseText(r.riseAfterPct) }}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+}
+
+<!-- Goals tracker -->
+@if (goals().length) {
+<ui-card heading="Your goals" class="block">
+  <div uiCardActions class="goal-counts">
+    @for (c of goalCounts(); track c.status) {
+    <ui-badge [tone]="goalTones[c.status]"
+      >{{ c.count }} {{ goalLabels[c.status].toLowerCase() }}</ui-badge
+    >
+    }
+  </div>
+  <p class="muted intro">
+    The goals your evaluations set. Mark where each one stands: the goals you
+    met go into your negotiation brief.
+  </p>
+  <ul class="goals">
+    @for (g of goals(); track g.uploadId + g.key) {
+    <li class="goal">
+      <div class="goal__text">
+        <strong>{{ g.text }}</strong>
+        <span class="muted small"
+          >{{ g.cycle ?? periodText(g.date) }}@if (g.workplaceName) { · {{
+          g.workplaceName }} }</span
+        >
+      </div>
+      <div class="goal__controls">
+        <select
+          class="ui-input"
+          [attr.aria-label]="'Status of ' + g.text"
+          [disabled]="savingGoal() === g.uploadId + g.key"
+          (change)="setGoal(g, $any($event.target).value, g.note)"
+        >
+          @for (s of goalStatuses; track s) {
+          <option [value]="s" [selected]="g.status === s">
+            {{ goalLabels[s] }}
+          </option>
+          }
+        </select>
+        <input
+          class="ui-input"
+          [value]="g.note ?? ''"
+          maxlength="1000"
+          placeholder="A note: how, when"
+          [attr.aria-label]="'Note on ' + g.text"
+          (change)="setGoal(g, g.status, $any($event.target).value)"
+        />
+      </div>
+    </li>
+    }
+  </ul>
+</ui-card>
+}

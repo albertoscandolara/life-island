@@ -17,9 +17,12 @@ import {
   careerEventRequestSchema,
   careerFeedbackRequestSchema,
   createWorkplaceRequestSchema,
+  goalStatusRequestSchema,
+  marketCheckRequestSchema,
   hiringPlatformRequestSchema,
   updateWorkplaceRequestSchema,
   type CareerFeedbackDto,
+  type MarketCheckDto,
   type WorkOverviewDto,
 } from '@life-island/contracts';
 import { WorkService } from './work.service.js';
@@ -127,6 +130,27 @@ export class WorkController {
   askFeedback(@Body() body: unknown): Promise<CareerFeedbackDto> {
     const request = parseOrThrow(careerFeedbackRequestSchema, body ?? {});
     return this.work.askFeedback(request.question ?? null);
+  }
+
+  /** Where a goal of an evaluation stands: met, partly met, missed, dropped or open. */
+  @Put('goals')
+  @HttpCode(204)
+  setGoalStatus(@Body() body: unknown): Promise<void> {
+    return this.work.setGoalStatus(parseOrThrow(goalStatusRequestSchema, body));
+  }
+
+  /** Public salary ranges for your role, found on the web by Claude (needs ANTHROPIC_API_KEY). */
+  @Post('market-checks')
+  runMarketCheck(@Body() body: unknown): Promise<MarketCheckDto> {
+    return this.work.runMarketCheck(
+      parseOrThrow(marketCheckRequestSchema, body ?? {}),
+    );
+  }
+
+  @Delete('market-checks/:id')
+  @HttpCode(204)
+  removeMarketCheck(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.work.removeMarketCheck(id);
   }
 
   @Delete('feedback/:id')

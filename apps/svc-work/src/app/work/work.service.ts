@@ -12,6 +12,9 @@ import {
   type CareerEventRequest,
   type CareerFeedbackDto,
   type CreateWorkplaceRequest,
+  type GoalStatusRequest,
+  type MarketCheckDto,
+  type MarketCheckRequest,
   type HiringPlatformDto,
   type HiringPlatformRequest,
   type PendingWorkReviewDto,
@@ -30,13 +33,16 @@ import {
   careerFeedback,
   categoryTree,
   documents,
+  goalStatuses,
   hiringPlatforms,
+  marketChecks,
   reviews,
   workplaces,
   type CareerFeedbackRow,
   type DecidedWorkplaceChange,
   type DocumentRow,
   type HiringPlatformRow,
+  type MarketCheckRow,
   type WorkplaceRow,
 } from '../db/schema.js';
 import { CareerAdvisor } from './career-advisor.js';
@@ -51,6 +57,12 @@ import {
 import type { CareerDossierInput } from './career-feedback.js';
 import { buildCertificates } from './certificates.js';
 import { buildEvaluationStats } from './evaluations.js';
+import {
+  buildBrief,
+  buildGoals,
+  buildInsights,
+  type InsightsInput,
+} from './insights.js';
 import {
   cleanValue,
   completeValues,
@@ -100,19 +112,33 @@ export class WorkService {
   ) {}
 
   async overview(today = todayIso()): Promise<WorkOverviewDto> {
-    const [docs, rows, decided, manual, platformRows, feedbackRows] =
-      await Promise.all([
-        this.workDocuments(),
-        this.svc.db.select().from(workplaces),
-        this.svc.db.select().from(reviews),
-        this.svc.db.select().from(careerEvents),
-        this.svc.db.select().from(hiringPlatforms),
-        this.svc.db
-          .select()
-          .from(careerFeedback)
-          .orderBy(desc(careerFeedback.createdAt))
-          .limit(20),
-      ]);
+    const [
+      docs,
+      rows,
+      decided,
+      manual,
+      platformRows,
+      feedbackRows,
+      goalRows,
+      marketRows,
+    ] = await Promise.all([
+      this.workDocuments(),
+      this.svc.db.select().from(workplaces),
+      this.svc.db.select().from(reviews),
+      this.svc.db.select().from(careerEvents),
+      this.svc.db.select().from(hiringPlatforms),
+      this.svc.db
+        .select()
+        .from(careerFeedback)
+        .orderBy(desc(careerFeedback.createdAt))
+        .limit(20),
+      this.svc.db.select().from(goalStatuses),
+      this.svc.db
+        .select()
+        .from(marketChecks)
+        .orderBy(desc(marketChecks.createdAt))
+        .limit(5),
+    ]);
     const career = this.career(
       docs,
       rows,
@@ -245,6 +271,11 @@ export class WorkService {
           ) || a.uploadedAt.localeCompare(b.uploadedAt),
       );
 
+    const input = this.insightsInput(career, today);
+    const insights = buildInsights(input);
+    const goals = buildGoals(input.evaluations, goalRows);
+    const market = marketRows.map(marketCheckDto);
+
     return {
       workplaces: workplaceDtos,
       reviews: pending,
@@ -263,15 +294,15 @@ export class WorkService {
       }),
       timeline: career.timeline,
       stats: career.stats,
-      evaluations: buildEvaluationStats(
-        career.approved,
-        career.workplaces,
-        career.stats.years,
-      ),
-      certificates: buildCertificates(career.workplaces, career.approved),
+      evaluations: input.evaluations,
+      certificates: [...input.certificates],
       platforms: career.platforms,
       feedback: feedbackRows.map(feedbackDto),
       aiFeedback: this.advisor.usesAi,
+      insights,
+      goals,
+      marketChecks: market,
+      brief: buildBrief(input, insights, goals, market[0] ?? null),
     };
   }
 
@@ -531,13 +562,20 @@ export class WorkService {
     question: string | null,
     today = todayIso(),
   ): Promise<CareerFeedbackDto> {
-    const [docs, rows, decided, manual, platformRows] = await Promise.all([
-      this.workDocuments(),
-      this.svc.db.select().from(workplaces),
-      this.svc.db.select().from(reviews),
-      this.svc.db.select().from(careerEvents),
-      this.svc.db.select().from(hiringPlatforms),
-    ]);
+    const [docs, rows, decided, manual, platformRows, goalRows, marketRows] =
+      await Promise.all([
+        this.workDocuments(),
+        this.svc.db.select().from(workplaces),
+        this.svc.db.select().from(reviews),
+        this.svc.db.select().from(careerEvents),
+        this.svc.db.select().from(hiringPlatforms),
+        this.svc.db.select().from(goalStatuses),
+        this.svc.db
+          .select()
+          .from(marketChecks)
+          .orderBy(desc(marketChecks.createdAt))
+          .limit(1),
+      ]);
     const career = this.career(
       docs,
       rows,
@@ -546,17 +584,21 @@ export class WorkService {
       platformRows,
       today,
     );
+    const facts = this.insightsInput(career, today);
+    const insights = buildInsights(facts);
     const input: CareerDossierInput = {
       workplaces: career.workplaces,
       documents: career.approved,
       timeline: career.timeline,
       stats: career.stats,
-      evaluations: buildEvaluationStats(
-        career.approved,
-        career.workplaces,
-        career.stats.years,
-      ),
+      evaluations: facts.evaluations,
       platforms: career.platforms,
+      brief: buildBrief(
+        facts,
+        insights,
+        buildGoals(facts.evaluations, goalRows),
+        marketRows[0] ? marketCheckDto(marketRows[0]) : null,
+      ),
       today,
     };
     const written = await this.advisor.write(input, question || null);
@@ -573,6 +615,102 @@ export class WorkService {
     return feedbackDto(row);
   }
 
+  /** Marks where a goal of an evaluation stands; `open` with no note forgets it. */
+  async setGoalStatus(request: GoalStatusRequest): Promise<void> {
+    const note = request.note || null;
+    if (request.status === 'open' && !note) {
+      await this.svc.db
+        .delete(goalStatuses)
+        .where(
+          and(
+            eq(goalStatuses.uploadId, request.uploadId),
+            eq(goalStatuses.goalKey, request.key),
+          ),
+        );
+      return;
+    }
+    await this.svc.db
+      .insert(goalStatuses)
+      .values({
+        uploadId: request.uploadId,
+        goalKey: request.key,
+        status: request.status,
+        note,
+      })
+      .onConflictDoUpdate({
+        target: [goalStatuses.uploadId, goalStatuses.goalKey],
+        set: { status: request.status, note, updatedAt: new Date() },
+      });
+  }
+
+  /**
+   * Public salary ranges for your role and area, found on the web by Claude
+   * and set against your RAL. The role and area default to your current
+   * workplace's job title and work site.
+   */
+  async runMarketCheck(
+    request: MarketCheckRequest,
+    today = todayIso(),
+  ): Promise<MarketCheckDto> {
+    const [docs, rows, decided, manual, platformRows] = await Promise.all([
+      this.workDocuments(),
+      this.svc.db.select().from(workplaces),
+      this.svc.db.select().from(reviews),
+      this.svc.db.select().from(careerEvents),
+      this.svc.db.select().from(hiringPlatforms),
+    ]);
+    const career = this.career(
+      docs,
+      rows,
+      decided,
+      manual,
+      platformRows,
+      today,
+    );
+    const input = this.insightsInput(career, today);
+    const insights = buildInsights(input);
+    const current = rows.find((r) => r.status === 'current') ?? null;
+    const text = (field: WorkplaceField) => {
+      const value = current?.values[field];
+      return typeof value === 'string' && value.trim() ? value.trim() : null;
+    };
+    const role =
+      request.role || text('jobTitle') || text('qualification') || null;
+    if (!role)
+      throw new UnprocessableEntityException(
+        'Say which role to check: your current workplace has no job title',
+      );
+    const written = await this.advisor.marketCheck({
+      role,
+      region: request.region || cityOf(text('workplaceAddress')) || 'Italy',
+      level: career.stats.currentLevel,
+      contract: text('collectiveAgreement'),
+      sector: null,
+      yearsOfExperience:
+        career.stats.careerMonths !== null
+          ? Math.floor(career.stats.careerMonths / 12)
+          : null,
+      ral: insights.offer.ral,
+    });
+    const [row] = await this.svc.db
+      .insert(marketChecks)
+      .values({
+        model: written.model,
+        ral: insights.offer.ral,
+        output: written.output,
+      })
+      .returning();
+    return marketCheckDto(row);
+  }
+
+  async removeMarketCheck(id: string): Promise<void> {
+    const deleted = await this.svc.db
+      .delete(marketChecks)
+      .where(eq(marketChecks.id, id))
+      .returning({ id: marketChecks.id });
+    if (!deleted.length) throw new NotFoundException('Market check not found');
+  }
+
   async removeFeedback(id: string): Promise<void> {
     const deleted = await this.svc.db
       .delete(careerFeedback)
@@ -582,6 +720,24 @@ export class WorkService {
   }
 
   // ---- reading -------------------------------------------------------------
+
+  private insightsInput(
+    career: ReturnType<WorkService['career']>,
+    today: string,
+  ): InsightsInput {
+    return {
+      workplaces: career.workplaces,
+      documents: career.approved,
+      stats: career.stats,
+      evaluations: buildEvaluationStats(
+        career.approved,
+        career.workplaces,
+        career.stats.years,
+      ),
+      certificates: buildCertificates(career.workplaces, career.approved),
+      today,
+    };
+  }
 
   private career(
     docs: WorkDocument[],
@@ -745,4 +901,21 @@ function feedbackDto(row: CareerFeedbackRow): CareerFeedbackDto {
     createdAt: row.createdAt.toISOString(),
     ...row.output,
   };
+}
+
+function marketCheckDto(row: MarketCheckRow): MarketCheckDto {
+  return {
+    ...row.output,
+    id: row.id,
+    ral: row.ral,
+    model: row.model,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** The town of an Italian address: the word or words after the postal code (CAP). */
+export function cityOf(address: string | null): string | null {
+  if (!address) return null;
+  const match = /\b\d{5}\s+([^,(]+?)(?:\s*\(|,|$)/.exec(address);
+  return match ? match[1].trim() : null;
 }

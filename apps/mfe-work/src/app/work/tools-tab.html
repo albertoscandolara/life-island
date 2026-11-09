@@ -1,0 +1,466 @@
+@if (error()) {
+<p class="error" role="alert">{{ error() }}</p>
+}
+
+<!-- ============================================================ offer -->
+<ui-card heading="Compare a job offer" class="block no-print">
+  <p class="muted intro">
+    Type the offer as the recruiter says it (RAL, months, welfare, bonus): both
+    packages are turned into yearly net euros with the {{ year }} IRPEF rules,
+    your contribution rate ({{ baseline().contributionRatePct }}%) and your
+    surtaxes ({{ baseline().surtaxRatePct }}%, {{ baseline().surtaxSource ===
+    'certificate' ? 'from your latest CU' : 'a typical figure' }}).
+  </p>
+  <form class="form" (submit)="$event.preventDefault()">
+    <label>
+      <span>Company</span>
+      <input
+        class="ui-input"
+        [value]="draft().employer"
+        placeholder="Who makes the offer"
+        (input)="setDraft({ employer: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>RAL (yearly gross)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().ral"
+        placeholder="38.000 or 38k"
+        (input)="setDraft({ ral: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Paid over</span>
+      <select
+        class="ui-input"
+        (change)="setDraft({ monthsPaid: $any($event.target).value })"
+      >
+        <option value="13" [selected]="draft().monthsPaid === '13'">
+          13 months
+        </option>
+        <option value="14" [selected]="draft().monthsPaid === '14'">
+          14 months
+        </option>
+      </select>
+    </label>
+    <label>
+      <span>Welfare a year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().welfare"
+        placeholder="0"
+        (input)="setDraft({ welfare: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Bonus a year (gross)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().bonus"
+        placeholder="0"
+        (input)="setDraft({ bonus: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Other benefits a year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().benefits"
+        placeholder="Meal vouchers, car…"
+        (input)="setDraft({ benefits: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Extra costs a year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().costs"
+        placeholder="Commute, moving…"
+        (input)="setDraft({ costs: $any($event.target).value })"
+      />
+    </label>
+  </form>
+
+  @if (comparison(); as c) { @if (c.current || c.offer) {
+  <div class="table-wrap">
+    <table class="table compare">
+      <thead>
+        <tr>
+          <th scope="col"></th>
+          @if (c.current) {
+          <th scope="col" class="num">{{ c.current.label }}</th>
+          } @if (c.offer) {
+          <th scope="col" class="num">{{ c.offer.label }}</th>
+          } @if (c.current && c.offer) {
+          <th scope="col" class="num">Difference</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">RAL</th>
+          @if (c.current) {
+          <td class="num">{{ euro(c.current.ral) }}</td>
+          } @if (c.offer) {
+          <td class="num">{{ euro(c.offer.ral) }}</td>
+          } @if (c.current && c.offer) {
+          <td class="num">{{ signedEuro(difference(pick.ral)) }}</td>
+          }
+        </tr>
+        <tr>
+          <th scope="row">Net a year (estimated)</th>
+          @if (c.current) {
+          <td class="num">{{ euro(c.current.net) }}</td>
+          } @if (c.offer) {
+          <td class="num">{{ euro(c.offer.net) }}</td>
+          } @if (c.current && c.offer) {
+          <td class="num">{{ signedEuro(difference(pick.net)) }}</td>
+          }
+        </tr>
+        <tr>
+          <th scope="row">Net a month</th>
+          @if (c.current) {
+          <td class="num">
+            {{ euro(c.current.netMonthly) }}
+            <span class="muted">× {{ c.current.monthsPaid }}</span>
+          </td>
+          } @if (c.offer) {
+          <td class="num">
+            {{ euro(c.offer.netMonthly) }}
+            <span class="muted">× {{ c.offer.monthsPaid }}</span>
+          </td>
+          } @if (c.current && c.offer) {
+          <td class="num">{{ signedEuro(difference(pick.netMonthly)) }}</td>
+          }
+        </tr>
+        <tr>
+          <th scope="row">Welfare</th>
+          @if (c.current) {
+          <td class="num">{{ euro(c.current.welfare) }}</td>
+          } @if (c.offer) {
+          <td class="num">{{ euro(c.offer.welfare) }}</td>
+          } @if (c.current && c.offer) {
+          <td class="num">{{ signedEuro(difference(pick.welfare)) }}</td>
+          }
+        </tr>
+        <tr>
+          <th scope="row">Bonus, after tax</th>
+          @if (c.current) {
+          <td class="num">{{ euro(c.current.bonus) }}</td>
+          } @if (c.offer) {
+          <td class="num">{{ euro(c.offer.bonus) }}</td>
+          } @if (c.current && c.offer) {
+          <td class="num">{{ signedEuro(difference(pick.bonus)) }}</td>
+          }
+        </tr>
+        @if (c.offer && (c.offer.benefits || c.offer.costs)) {
+        <tr>
+          <th scope="row">Benefits less extra costs</th>
+          @if (c.current) {
+          <td class="num">–</td>
+          }
+          <td class="num">
+            {{ signedEuro(c.offer.benefits - c.offer.costs) }}
+          </td>
+          @if (c.current) {
+          <td class="num">
+            {{ signedEuro(c.offer.benefits - c.offer.costs) }}
+          </td>
+          }
+        </tr>
+        }
+        <tr class="total">
+          <th scope="row">Worth a year</th>
+          @if (c.current) {
+          <td class="num">{{ euro(c.current.total) }}</td>
+          } @if (c.offer) {
+          <td class="num">{{ euro(c.offer.total) }}</td>
+          } @if (c.current && c.offer) {
+          <td
+            class="num"
+            [class.up]="(difference(pick.total) ?? 0) > 0"
+            [class.down]="(difference(pick.total) ?? 0) < 0"
+          >
+            {{ signedEuro(difference(pick.total)) }}
+          </td>
+          }
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    @if (c.current && breakEven(); as even) { With the welfare, benefits and
+    costs you typed, an offer needs a RAL of about {{ euro(even) }} to leave you
+    as well off as now. } @if (baseline().net12 !== null) { Your payslips paid
+    {{ euro(baseline().net12) }} net in the last 12 months, extra months
+    included. } An estimate with the national rules and no family deductions:
+    payslips differ by a few euros a month.
+  </p>
+  } @else {
+  <p class="muted">
+    Type the offer's RAL. Your current package shows once your payslips give a
+    monthly salary.
+  </p>
+  } }
+</ui-card>
+
+<!-- =========================================================== market -->
+<ui-card heading="Check your pay against the market" class="block no-print">
+  <p class="muted intro">
+    @if (aiFeedback()) { Claude searches the web for recent public salary ranges
+    (surveys, job boards, recruiter reports) for your role and area and sets
+    your RAL against them. Only the role, area, level, CCNL, years of experience
+    and RAL are sent. } @else { The market check searches the web with the
+    Claude API: set ANTHROPIC_API_KEY in .env and restart svc-work to use it. }
+  </p>
+  <form class="form" (submit)="$event.preventDefault(); checkMarket()">
+    <label>
+      <span>Role</span>
+      <input
+        class="ui-input"
+        [value]="role()"
+        maxlength="200"
+        placeholder="Your job title, by default"
+        (input)="role.set($any($event.target).value)"
+      />
+    </label>
+    <label>
+      <span>Area</span>
+      <input
+        class="ui-input"
+        [value]="region()"
+        maxlength="200"
+        placeholder="Your work site, by default"
+        (input)="region.set($any($event.target).value)"
+      />
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        type="submit"
+        [loading]="checking()"
+        [disabled]="!aiFeedback()"
+      >
+        <ui-icon name="search" [size]="16" /> Check the market
+      </button>
+      @if (checking()) {
+      <span class="muted small">Searching the web: this takes a minute.</span>
+      }
+    </div>
+  </form>
+
+  @if (shownCheck(); as m) {
+  <div class="market">
+    <div class="row">
+      <h3 class="market__title">{{ m.role }} · {{ m.region }}</h3>
+      <div class="actions">
+        <ui-badge [tone]="positionTones[m.position]"
+          >{{ positionLabels[m.position] }}</ui-badge
+        >
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Delete this check"
+          (click)="removeCheck(m)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </div>
+    <p>{{ m.summary }}</p>
+    @if (m.ranges.length) {
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Source</th>
+            <th scope="col" class="num">Low</th>
+            <th scope="col" class="num">Median</th>
+            <th scope="col" class="num">High</th>
+            <th scope="col">Your RAL ({{ euro(m.ral) }})</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of m.ranges; track $index) {
+          <tr>
+            <th scope="row">
+              <a [href]="r.url" target="_blank" rel="noopener"
+                >{{ r.source }}</a
+              >
+              <span class="block-line muted small">{{ r.description }}</span>
+            </th>
+            <td class="num">{{ euro(r.low) }}</td>
+            <td class="num">{{ euro(r.median) }}</td>
+            <td class="num">{{ euro(r.high) }}</td>
+            <td>
+              @if (markerAt(r.low, r.high, m.ral) !== null) {
+              <span class="range" aria-hidden="true">
+                <span
+                  class="range__marker"
+                  [style.left.%]="markerAt(r.low, r.high, m.ral)"
+                ></span>
+              </span>
+              } @else { – }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @if (m.advice.length) {
+    <h3 class="values__group">What to do</h3>
+    <ul class="bullets">
+      @for (a of m.advice; track $index) {
+      <li>{{ a }}</li>
+      }
+    </ul>
+    }
+    <p class="note muted">
+      Checked {{ periodText(m.createdAt.slice(0, 10)) }}@if (m.model) { by {{
+      m.model }} }. Public ranges are rough: open each source to see what it
+      covers.
+    </p>
+  </div>
+  } @if (marketChecks().length > 1) {
+  <h3 class="values__group">Earlier checks</h3>
+  <ul class="plain">
+    @for (m of marketChecks(); track m.id) {
+    <li>
+      <button
+        type="button"
+        class="link"
+        [class.link--on]="shownCheck()?.id === m.id"
+        (click)="shownCheckId.set(m.id)"
+      >
+        {{ periodText(m.createdAt.slice(0, 10)) }} · {{ m.role }}, {{ m.region
+        }}
+      </button>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+
+<!-- ============================================================ brief -->
+<ui-card heading="Your negotiation brief" class="block brief">
+  <div uiCardActions class="actions no-print">
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="copyBrief()"
+    >
+      {{ copied() ? 'Copied' : 'Copy as text' }}
+    </button>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="printBrief()"
+    >
+      Print
+    </button>
+  </div>
+  <p class="muted intro">
+    One page to bring to your next review, from your payslips, evaluations,
+    goals and market check. @if (brief().employer) { {{ brief().employer }}@if
+    (brief().role) {, {{ brief().role }}}@if (brief().level) {, level {{
+    brief().level }}}. }
+  </p>
+  @if (brief().facts.length) {
+  <h3 class="values__group">The facts</h3>
+  <dl class="brief__facts">
+    @for (f of brief().facts; track f.label) {
+    <div>
+      <dt>{{ f.label }}</dt>
+      <dd>
+        <strong>{{ f.value }}</strong>
+        @if (f.detail) {
+        <span class="muted small block-line">{{ f.detail }}</span>
+        }
+      </dd>
+    </div>
+    }
+  </dl>
+  } @if (brief().arguments.length) {
+  <h3 class="values__group">What the data argues</h3>
+  <ul class="bullets bullets--good">
+    @for (a of brief().arguments; track $index) {
+    <li>{{ a }}</li>
+    }
+  </ul>
+  }
+  <h3 class="values__group">What to ask for</h3>
+  <ol class="suggestions">
+    @for (a of brief().asks; track $index) {
+    <li>{{ a }}</li>
+    }
+  </ol>
+
+  @if (talkingPoints(); as t) {
+  <h3 class="values__group">Talking points</h3>
+  <p>{{ t.summary }}</p>
+  <div class="feedback__cols">
+    @if (t.strengths.length) {
+    <section>
+      <h4 class="muted small">Your arguments</h4>
+      <ul class="bullets bullets--good">
+        @for (s of t.strengths; track $index) {
+        <li>{{ s }}</li>
+        }
+      </ul>
+    </section>
+    } @if (t.watchouts.length) {
+    <section>
+      <h4 class="muted small">What they may say, and your answer</h4>
+      <ul class="bullets bullets--warn">
+        @for (w of t.watchouts; track $index) {
+        <li>{{ w }}</li>
+        }
+      </ul>
+    </section>
+    }
+  </div>
+  @if (t.suggestions.length) {
+  <ol class="suggestions">
+    @for (s of t.suggestions; track $index) {
+    <li>
+      <strong>{{ s.title }}</strong>
+      <p class="muted">{{ s.detail }}</p>
+    </li>
+    }
+  </ol>
+  }
+  <p class="note muted">
+    Written {{ periodText(t.createdAt.slice(0, 10)) }} {{ t.source === 'claude'
+    ? 'by Claude' : "by Life Island's own rules" }}.
+  </p>
+  }
+  <div class="form__buttons no-print">
+    <button
+      uiButton
+      variant="secondary"
+      type="button"
+      [loading]="writing()"
+      (click)="writeTalkingPoints()"
+    >
+      {{ talkingPoints() ? 'Write the talking points again' : 'Write talking
+      points' }}
+    </button>
+    <span class="muted small">
+      @if (aiFeedback()) { Claude reads this brief with the rest of your career
+      and prepares what to say. } @else { Without a Claude API key the points
+      come from Life Island's own rules. }
+    </span>
+  </div>
+</ui-card>

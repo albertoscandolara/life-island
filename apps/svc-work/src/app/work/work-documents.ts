@@ -235,6 +235,12 @@ export interface WorkDocumentReading {
   severance: number | null;
   vacationLeft: number | null;
   leaveLeft: number | null;
+  /** A payslip's hours, overtime and travel (see PAYSLIP_KEYS). */
+  hoursWorked: number | null;
+  overtimeHours: number | null;
+  overtimePay: number | null;
+  travelDays: number | null;
+  travelAllowance: number | null;
   /** An evaluation's overall rating, with its scale. */
   rating: string | null;
   ratingScale: string | null;
@@ -473,6 +479,11 @@ export function readWorkDocument(
     severance: null,
     vacationLeft: null,
     leaveLeft: null,
+    hoursWorked: null,
+    overtimeHours: null,
+    overtimePay: null,
+    travelDays: null,
+    travelAllowance: null,
     rating: null,
     ratingScale: null,
     reviewer: null,
@@ -510,6 +521,11 @@ export function readWorkDocument(
       reading.severance = num(PAYSLIP_KEYS.severance);
       reading.vacationLeft = num(PAYSLIP_KEYS.vacationLeft);
       reading.leaveLeft = num(PAYSLIP_KEYS.leaveLeft);
+      reading.hoursWorked = num(PAYSLIP_KEYS.hoursWorked);
+      reading.overtimeHours = num(PAYSLIP_KEYS.overtimeHours);
+      reading.overtimePay = num(PAYSLIP_KEYS.overtimePay);
+      reading.travelDays = num(PAYSLIP_KEYS.travelDays);
+      reading.travelAllowance = num(PAYSLIP_KEYS.travelAllowance);
       reading.payslipKind = payslipKindOf(f[PAYSLIP_KEYS.kind]);
       fact('Month paid', reading.period);
       if (reading.payslipKind !== 'regular')
@@ -529,6 +545,11 @@ export function readWorkDocument(
         'Leave (ROL) left',
         reading.leaveLeft === null ? null : `${reading.leaveLeft} h`,
       );
+      fact(
+        'Overtime',
+        reading.overtimeHours === null ? null : `${reading.overtimeHours} h`,
+      );
+      amountFact('Travel allowances', reading.travelAllowance);
       break;
     }
     case 'PERFORMANCE_REVIEW': {
@@ -540,7 +561,11 @@ export function readWorkDocument(
       reading.reviewer = str('reviewer');
       reading.strengths = str('strengths');
       reading.improvements = str('improvements');
-      reading.goals = str('goals');
+      // One goal per line, kept apart for the goals tracker.
+      reading.goals =
+        readLines(f['goals'])
+          .map((line) => line.replace(/\s+/g, ' '))
+          .join('\n') || null;
       reading.bonus = num('bonus_amount');
       const [start, end] = String(f['review_period'] ?? '').split('/');
       reading.periodStart = dateOf(start);

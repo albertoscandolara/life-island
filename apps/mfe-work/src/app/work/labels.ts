@@ -200,3 +200,24 @@ export function signed(value: number | null): string {
   if (value === 0) return '0';
   return `${value > 0 ? '+' : '−'}${Math.abs(value).toLocaleString('it-IT')}`;
 }
+
+/** "2.518,53" (Italian) or "2518.53" as 2518.53. */
+export function parseNumber(raw: string): number {
+  const text = raw.trim();
+  return Number(
+    text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text,
+  );
+}
+
+/** An amount you typed, or null when blank or not a number. "35k" is 35,000. */
+export function parseAmount(raw: string): number | null {
+  const text = raw.trim().replace(/€|\s/g, '');
+  if (!text) return null;
+  const thousands = /k$/i.test(text);
+  const digits = thousands ? text.slice(0, -1) : text;
+  // "38.000" is thirty-eight thousand, not 38: dots before groups of three.
+  const n = parseNumber(
+    /^\d{1,3}(\.\d{3})+$/.test(digits) ? digits.replace(/\./g, '') : digits,
+  );
+  return Number.isFinite(n) ? (thousands ? n * 1000 : n) : null;
+}

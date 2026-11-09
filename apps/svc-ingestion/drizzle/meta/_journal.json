@@ -148,6 +148,13 @@
       "when": 1795248000000,
       "tag": "0020_payslip_amounts_and_descriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795334400000,
+      "tag": "0021_payslip_workload_fields",
+      "breakpoints": true
     }
   ]
 }

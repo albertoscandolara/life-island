@@ -6,6 +6,7 @@ import {
   type CareerStatsDto,
   type EvaluationStatsDto,
   type HiringPlatformDto,
+  type NegotiationBriefDto,
 } from '@life-island/contracts';
 import type { ApprovedWorkDocument, CareerWorkplace } from './career.js';
 
@@ -24,6 +25,8 @@ export interface CareerDossierInput {
   /** Evaluations read against their employer's rules (see evaluations.ts). */
   evaluations: EvaluationStatsDto;
   platforms: readonly HiringPlatformDto[];
+  /** Pay against inflation, the CCNL, the market and your goals (see insights.ts). */
+  brief?: NegotiationBriefDto;
   today: string;
 }
 
@@ -90,6 +93,15 @@ export function careerDossier(input: CareerDossierInput): string {
       `- ${e.date} ${CAREER_EVENT_LABELS[e.kind]}: ${e.title}${e.detail ? ` (${e.detail})` : ''}${e.workplaceName ? ` at ${e.workplaceName}` : ''}`,
     );
   lines.push(...evaluationLines(input.evaluations));
+  if (
+    input.brief &&
+    (input.brief.facts.length || input.brief.arguments.length)
+  ) {
+    lines.push('', '## Pay analysis (inflation, CCNL minimums, market, goals)');
+    for (const f of input.brief.facts)
+      lines.push(`- ${f.label}: ${f.value}${f.detail ? ` (${f.detail})` : ''}`);
+    for (const a of input.brief.arguments) lines.push(`- ${a}`);
+  }
   lines.push('', '## Hiring platforms');
   if (!input.platforms.length) lines.push('- none');
   for (const p of input.platforms)

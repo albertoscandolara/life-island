@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import type {
+  CareerInsightsDto,
+  GoalDto,
+  MarketCheckDto,
+  NegotiationBriefDto,
+} from './work-insights.js';
 
 /*
  * The Work area (svc-work, mfe-work): every workplace you have had (the
@@ -294,6 +300,10 @@ export const PAYSLIP_KEYS = {
   severance: 'severance_accrued',
   welfare: 'welfare_credits',
   kind: 'payslip_kind',
+  overtimeHours: 'overtime_hours',
+  overtimePay: 'overtime_pay',
+  travelDays: 'travel_days',
+  travelAllowance: 'travel_allowance',
 } as const;
 
 /**
@@ -895,6 +905,13 @@ export interface WorkOverviewDto {
   feedback: CareerFeedbackDto[];
   /** Whether the feedback is written by the Claude API (ANTHROPIC_API_KEY is set). */
   aiFeedback: boolean;
+  /** Your pay against inflation, the CCNL, taxes; time off, workload, reviews against pay. */
+  insights: CareerInsightsDto;
+  /** The goals your evaluations set, newest evaluation first. */
+  goals: GoalDto[];
+  /** Newest first. */
+  marketChecks: MarketCheckDto[];
+  brief: NegotiationBriefDto;
 }
 
 /** Whether a document names an employer, so it can make a new workplace. */
