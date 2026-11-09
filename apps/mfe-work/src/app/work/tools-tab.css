@@ -35,17 +35,17 @@
   display: block;
   width: 8rem;
   height: 0.5rem;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-full);
   background: var(--surface-sunken);
 }
 
 .range__marker {
   position: absolute;
-  top: -0.25rem;
-  width: 0.25rem;
-  height: 1rem;
-  margin-left: -0.125rem;
-  border-radius: 2px;
+  top: calc(var(--space-1) * -1);
+  width: var(--space-1);
+  height: var(--space-4);
+  transform: translateX(-50%);
+  border-radius: var(--radius-sm);
   background: var(--accent);
 }
 
