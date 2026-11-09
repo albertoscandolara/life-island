@@ -611,8 +611,27 @@ export interface CareerStatsDto {
   leaveLeft: number | null;
   /** The months with no payslip, between the first and the latest at the current workplace. */
   missingMonths: string[];
+  /** Payslips whose figures are incomplete or clash with another of the same month. */
+  checks: PayslipCheckDto[];
   years: YearStatsDto[];
   monthly: MonthPointDto[];
+}
+
+/**
+ * Why a payslip you approved is not fully in the figures: its month, or
+ * values the statistics need (gross, net, monthly salary), were not read; or
+ * another payslip of the same month and kind with different amounts makes
+ * one of them count only once.
+ */
+export interface PayslipCheckDto {
+  uploadId: string;
+  title: string;
+  /** The month paid (YYYY-MM), when read. */
+  period: string | null;
+  kind: 'no_month' | 'missing_values' | 'same_month';
+  /** Labels of the values not read, for missing_values. */
+  missing: string[];
+  message: string;
 }
 
 export const PLATFORM_STATUSES = ['active', 'paused', 'closed'] as const;

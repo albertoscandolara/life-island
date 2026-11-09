@@ -254,6 +254,10 @@ export function offlineFeedback(
     watchouts.push(
       `No payslip on record for ${stats.missingMonths.join(', ')}.`,
     );
+  if (stats.checks.length)
+    watchouts.push(
+      `${stats.checks.length} payslip${stats.checks.length === 1 ? ' is' : 's are'} not fully in the figures (values not read): check them before reading too much into the totals.`,
+    );
 
   const evaluations = input.documents.filter(
     (d) => d.reading.type === 'PERFORMANCE_REVIEW',

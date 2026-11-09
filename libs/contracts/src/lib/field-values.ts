@@ -36,6 +36,17 @@ export function parseNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Whether a number has at most two decimals. Checked on the cents with a
+ * tolerance, never as `value * 100 === Math.round(value * 100)`: in binary
+ * floating point 2378.2 * 100 is 237819.99999999997, so most amounts with
+ * cents (2378.20, 2158.26, 162.36) would fail an exact comparison.
+ */
+export function hasAtMostTwoDecimals(value: number): boolean {
+  const cents = value * 100;
+  return Math.abs(cents - Math.round(cents)) < 1e-6;
+}
+
 export type NormalizedFieldValue =
   | { ok: true; value: string | number | boolean }
   | { ok: false; reason: string };
@@ -68,7 +79,7 @@ export function normalizeFieldValue(
       if (value === null) return { ok: false, reason: 'not a number' };
       if (field.type === 'integer' && !Number.isInteger(value))
         return { ok: false, reason: 'not a whole number' };
-      if (field.type === 'amount' && Math.round(value * 100) !== value * 100)
+      if (field.type === 'amount' && !hasAtMostTwoDecimals(value))
         return { ok: false, reason: 'more than two decimals for an amount' };
       result = { ok: true, value };
       break;

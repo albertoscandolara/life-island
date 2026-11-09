@@ -141,6 +141,13 @@
       "when": 1795161600000,
       "tag": "0019_payslip_kind_tax_certificate",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795248000000,
+      "tag": "0020_payslip_amounts_and_descriptions",
+      "breakpoints": true
     }
   ]
 }

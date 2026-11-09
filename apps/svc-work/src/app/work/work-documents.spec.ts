@@ -1,5 +1,6 @@
 import {
   isOutdated,
+  levelCode,
   matchWorkplace,
   monthOf,
   normalizeName,
@@ -223,5 +224,26 @@ describe('proposeWorkplaceChanges', () => {
     const changes = proposeWorkplaceChanges(printed, null, false);
     expect(changes.every((c) => c.suggestion === 'accept')).toBe(true);
     expect(changes.length).toBe(Object.keys(printed).length);
+  });
+});
+
+describe('levelCode', () => {
+  it.each([
+    ['IMP.LIV.C3 L. 56/87', 'C3'],
+    ['IMP.LIV.C3', 'C3'],
+    ['c3', 'C3'],
+    ['Livello 5S', '5S'],
+    ['LIV. 2', '2'],
+    ['Quadro', 'QUADRO'],
+    ['Impiegato direttivo', 'Impiegato direttivo'],
+  ])('reads %s as %s', (printed, code) => {
+    expect(levelCode(printed)).toBe(code);
+  });
+
+  it('is what a payslip suggests for the workplace', () => {
+    expect(
+      readWorkDocument('PAYSLIP', { job_level: 'IMP.LIV.B1 L. 56/87' }).values
+        .level,
+    ).toBe('B1');
   });
 });

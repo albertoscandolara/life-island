@@ -155,6 +155,26 @@ export function normalizeValue(
   return String(value).toUpperCase().trim().replace(/\s+/g, ' ');
 }
 
+const LEVEL_CODE = String.raw`(?:[A-Z]{1,2}\d{1,2}|\d{1,2}[A-Z]{0,2}|Q(?:UADRO)?)`;
+
+/**
+ * A level as its code on the CCNL scale: payslips print it with a prefix or a
+ * note ("IMP.LIV.C3 L. 56/87", "LIVELLO 5S"), and a model copies it one way
+ * on a payslip and another on the next, so "IMP.LIV.C3" and "C3" read as a
+ * level change. Anything else (Quadro, a grade name) is kept as printed.
+ */
+export function levelCode(value: string | null): string | null {
+  if (!value) return null;
+  const upper = value.toUpperCase().trim();
+  const labelled = new RegExp(`\\bLIV(?:ELLO|\\.)?\\s*(${LEVEL_CODE})\\b`).exec(
+    upper,
+  );
+  if (labelled) return labelled[1];
+  if (new RegExp(`^${LEVEL_CODE}$`).test(upper.replace(/\s+/g, '')))
+    return upper.replace(/\s+/g, '');
+  return value;
+}
+
 function workplaceValueOf(
   field: WorkplaceField,
   raw: string | number | boolean | null | undefined,
@@ -184,6 +204,7 @@ function workplaceValueOf(
     }
     default: {
       const value = text(raw);
+      if (field === 'level') return levelCode(value);
       return field === 'employerTaxCode' ? normalizeTaxCode(value) : value;
     }
   }

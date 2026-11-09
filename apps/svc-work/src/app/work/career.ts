@@ -7,6 +7,7 @@ import {
   type CareerEventKind,
   type CareerStatsDto,
   type MonthPointDto,
+  type PayslipCheckDto,
   type PayslipKind,
   type WorkplaceStatus,
   type YearStatsDto,
@@ -210,8 +211,11 @@ export function buildTimeline(
         changePct: null,
       });
 
-    // From one payslip to the next: what changed.
-    let previous: PayslipPoint | null = null;
+    // From one payslip to the next: what changed. Each is compared with the
+    // latest payslip that printed the value, so a month whose salary or level
+    // could not be read neither hides a rise nor makes one up.
+    let lastSalary: { value: number; values: StoredValues } | null = null;
+    let lastLevel: string | null = null;
     let lastIncrements: number | null = null;
     for (const point of payslips) {
       const now = point.doc.reading;
@@ -222,53 +226,52 @@ export function buildTimeline(
         uploadId: point.doc.uploadId,
       };
       const increments = numeric(now.values.seniorityIncrements);
-      if (previous) {
-        const before = previous.doc.reading;
-        const salaryBefore = numeric(before.values.monthlySalary);
-        const salaryNow = numeric(now.values.monthlySalary);
-        const change =
-          salaryBefore && salaryNow
-            ? (salaryNow - salaryBefore) / salaryBefore
-            : null;
-        const levelBefore = text(before.values.level);
-        const levelNow = text(now.values.level);
-        const levelChanged =
-          levelBefore && levelNow && levelBefore !== levelNow;
-        const up =
-          levelChanged &&
-          levelRank(levelNow) !== null &&
-          levelRank(levelBefore) !== null &&
-          levelRank(levelNow)! > levelRank(levelBefore)!;
-        // A new level is a promotion when it ranks higher or pays more; any
-        // other level change is not an event (a salary change still is).
-        if (
-          levelChanged &&
-          (up || (change !== null && change > RISE_THRESHOLD))
-        ) {
-          push({
-            ...base,
-            id: `level:${point.doc.uploadId}`,
-            kind: 'promotion',
-            title: `Level ${levelBefore} → ${levelNow}`,
-            detail:
-              change !== null && Math.abs(change) > RISE_THRESHOLD
-                ? `Monthly salary ${money(salaryBefore!)} → ${money(salaryNow!)} (${pct(change * 100)})`
-                : null,
-            amount: salaryNow,
-            changePct: change === null ? null : round1(change * 100),
-          });
-        } else if (change !== null && Math.abs(change) > RISE_THRESHOLD) {
-          push({
-            ...base,
-            id: `salary:${point.doc.uploadId}`,
-            kind: change > 0 ? 'salary_rise' : 'salary_cut',
-            title: `Monthly salary ${money(salaryNow!)} (${pct(change * 100)})`,
-            detail: salaryDetail(before.values, now.values, salaryBefore!),
-            amount: salaryNow,
-            changePct: round1(change * 100),
-          });
-        }
+      const salaryBefore = lastSalary?.value ?? null;
+      const salaryNow = numeric(now.values.monthlySalary);
+      const change =
+        salaryBefore && salaryNow
+          ? (salaryNow - salaryBefore) / salaryBefore
+          : null;
+      const levelBefore: string | null = lastLevel;
+      const levelNow = text(now.values.level);
+      const levelChanged = levelBefore && levelNow && levelBefore !== levelNow;
+      const up =
+        levelChanged &&
+        levelRank(levelNow) !== null &&
+        levelRank(levelBefore) !== null &&
+        levelRank(levelNow)! > levelRank(levelBefore)!;
+      // A new level is a promotion when it ranks higher or pays more; any
+      // other level change is not an event (a salary change still is).
+      if (
+        levelChanged &&
+        (up || (change !== null && change > RISE_THRESHOLD))
+      ) {
+        push({
+          ...base,
+          id: `level:${point.doc.uploadId}`,
+          kind: 'promotion',
+          title: `Level ${levelBefore} → ${levelNow}`,
+          detail:
+            change !== null && Math.abs(change) > RISE_THRESHOLD
+              ? `Monthly salary ${money(salaryBefore!)} → ${money(salaryNow!)} (${pct(change * 100)})`
+              : null,
+          amount: salaryNow,
+          changePct: change === null ? null : round1(change * 100),
+        });
+      } else if (change !== null && Math.abs(change) > RISE_THRESHOLD) {
+        push({
+          ...base,
+          id: `salary:${point.doc.uploadId}`,
+          kind: change > 0 ? 'salary_rise' : 'salary_cut',
+          title: `Monthly salary ${money(salaryNow!)} (${pct(change * 100)})`,
+          detail: salaryDetail(lastSalary!.values, now.values, salaryBefore!),
+          amount: salaryNow,
+          changePct: round1(change * 100),
+        });
       }
+      if (salaryNow !== null)
+        lastSalary = { value: salaryNow, values: now.values };
+      if (levelNow !== null) lastLevel = levelNow;
       if (
         increments !== null &&
         lastIncrements !== null &&
@@ -284,8 +287,6 @@ export function buildTimeline(
           changePct: null,
         });
       if (increments !== null) lastIncrements = increments;
-
-      previous = point;
     }
 
     if (payslips.length && hireDate === null) {
@@ -409,6 +410,84 @@ function salaryDetail(
         : `a superminimum of ${money(superNow)}`,
     );
   return parts.join(', ');
+}
+
+const monthLabel = (period: string) =>
+  `${MONTHS[+period.slice(5, 7) - 1]} ${period.slice(0, 4)}`;
+
+/**
+ * The payslips you approved that the figures cannot fully use, oldest first:
+ * - no month read: left out of every figure;
+ * - gross, net or (on a monthly payslip) the monthly salary not read: the
+ *   month counts as 0 in the year totals, or the timeline skips it;
+ * - another payslip of the same month and kind with different amounts: only
+ *   one counts (see `countedPayslips`), though they are not copies, which
+ *   usually means one is an extra payslip (a tredicesima) read as monthly.
+ */
+export function payslipChecks(
+  docs: readonly ApprovedWorkDocument[],
+): PayslipCheckDto[] {
+  const checks: PayslipCheckDto[] = [];
+  const payslips = docs.filter((d) => d.reading.type === 'PAYSLIP');
+  const counted = new Set(countedPayslips(payslips));
+  const keptBy = new Map<string, ApprovedWorkDocument>();
+  for (const d of counted) keptBy.set(payslipKey(d.workplaceId, d.reading)!, d);
+  for (const d of payslips) {
+    const r = d.reading;
+    const base = { uploadId: d.uploadId, title: d.title, period: r.period };
+    if (!r.period) {
+      checks.push({
+        ...base,
+        kind: 'no_month',
+        missing: [],
+        message:
+          'The month paid was not read, so this payslip is left out of every figure. Parse it again, or fill in its pay period.',
+      });
+      continue;
+    }
+    if (!counted.has(d)) {
+      const kept = keptBy.get(payslipKey(d.workplaceId, r)!);
+      const differs = (a: number | null, b: number | null) =>
+        a !== null && b !== null && Math.abs(a - b) >= 0.01;
+      if (
+        kept &&
+        (differs(r.gross, kept.reading.gross) ||
+          differs(r.net, kept.reading.net))
+      ) {
+        const what = differs(r.net, kept.reading.net) ? 'net' : 'gross';
+        const [mine, theirs] =
+          what === 'net'
+            ? [r.net!, kept.reading.net!]
+            : [r.gross!, kept.reading.gross!];
+        checks.push({
+          ...base,
+          kind: 'same_month',
+          missing: [],
+          message: `Another ${PAYSLIP_KIND_LABELS[kindOf(r)].toLowerCase()} of ${monthLabel(r.period)} ("${kept.title}") has a different ${what} (${money(theirs)}, this one ${money(mine)}), so they are not copies, yet only that one is counted. If one of them is a tredicesima or another extra payslip, Parse it again or set its kind.`,
+        });
+      }
+      continue;
+    }
+    const missing = [
+      r.gross === null ? 'gross pay' : null,
+      r.net === null ? 'net pay' : null,
+      kindOf(r) === 'regular' && numeric(r.values.monthlySalary) === null
+        ? 'monthly salary'
+        : null,
+    ].filter((m): m is string => m !== null);
+    if (missing.length)
+      checks.push({
+        ...base,
+        kind: 'missing_values',
+        missing,
+        message: `${missing.join(', ').replace(/^./, (c) => c.toUpperCase())} not read: ${
+          r.gross === null || r.net === null
+            ? 'the month counts as 0 in the year totals'
+            : 'the timeline cannot compare this month'
+        }. Parse it again, or fill ${missing.length > 1 ? 'them' : 'it'} in.`,
+      });
+  }
+  return checks.sort((a, b) => (a.period ?? '').localeCompare(b.period ?? ''));
 }
 
 /** Statistics of your pay and career, from the payslips you approved. */
@@ -564,6 +643,7 @@ export function buildStats(
     vacationLeft: latestOf((r) => r.vacationLeft) as number | null,
     leaveLeft: latestOf((r) => r.leaveLeft) as number | null,
     missingMonths,
+    checks: payslipChecks(docs),
     years,
     monthly,
   };

@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
 } from '@angular/core';
 import type { CareerStatsDto, TaxCertificateDto } from '@life-island/contracts';
 import { UiAlert, UiCard, UiEmptyState } from '@life-island/design-system';
+import { WorkApi } from '../api/work-api';
 import { ColumnChart, type ChartSeries } from '../charts/column-chart';
 import {
   duration,
@@ -32,6 +34,8 @@ export class PayslipsTab {
   readonly stats = input.required<CareerStatsDto>();
   readonly certificates = input<TaxCertificateDto[]>([]);
 
+  private readonly api = inject(WorkApi);
+
   protected readonly euro = euro;
   protected readonly euroShort = euroShort;
   protected readonly duration = duration;
@@ -39,6 +43,10 @@ export class PayslipsTab {
   protected readonly shortPeriod = shortPeriod;
   protected readonly pct = pct;
   protected readonly hours = hours;
+
+  protected previewUrl(uploadId: string): string {
+    return this.api.previewUrl(uploadId);
+  }
 
   /** Within a euro of the CU: the payslips add up. */
   protected matches(gap: number | null): boolean {

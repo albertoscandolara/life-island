@@ -137,6 +137,12 @@ describe('normalizeFieldValue', () => {
   it.each([
     [{ type: 'amount' }, '1.234,56', 1234.56],
     [{ type: 'amount' }, '€ 7.47', 7.47],
+    // Cents that binary floating point cannot hold exactly (2378.2 * 100 is
+    // 237819.99999999997): a payslip's gross, net and salary were rejected.
+    [{ type: 'amount' }, '2378.20', 2378.2],
+    [{ type: 'amount' }, '2158.26', 2158.26],
+    [{ type: 'amount' }, '162.36', 162.36],
+    [{ type: 'amount' }, '-471.64', -471.64],
     [{ type: 'number' }, '12,5', 12.5],
     [{ type: 'integer' }, '3', 3],
     [{ type: 'currency' }, 'eur', 'EUR'],
@@ -159,6 +165,7 @@ describe('normalizeFieldValue', () => {
     [{ type: 'date' }, '30/01/2026'],
     [{ type: 'amount' }, 'about ten'],
     [{ type: 'amount' }, '1.234'],
+    [{ type: 'amount' }, '2378.205'],
     [{ type: 'integer' }, '2.5'],
     [{ type: 'currency' }, 'euros'],
     [{ type: 'period' }, '2026-08-31/2026-07-01'],
