@@ -232,16 +232,23 @@ export function buildTimeline(
             : null;
         const levelBefore = text(before.values.level);
         const levelNow = text(now.values.level);
-        if (levelBefore && levelNow && levelBefore !== levelNow) {
-          const up =
-            (levelRank(levelNow) ?? -1) > (levelRank(levelBefore) ?? -1) &&
-            levelRank(levelNow) !== null &&
-            levelRank(levelBefore) !== null;
-          const promotion = up || (change !== null && change > RISE_THRESHOLD);
+        const levelChanged =
+          levelBefore && levelNow && levelBefore !== levelNow;
+        const up =
+          levelChanged &&
+          levelRank(levelNow) !== null &&
+          levelRank(levelBefore) !== null &&
+          levelRank(levelNow)! > levelRank(levelBefore)!;
+        // A new level is a promotion when it ranks higher or pays more; any
+        // other level change is not an event (a salary change still is).
+        if (
+          levelChanged &&
+          (up || (change !== null && change > RISE_THRESHOLD))
+        ) {
           push({
             ...base,
             id: `level:${point.doc.uploadId}`,
-            kind: promotion ? 'promotion' : 'level_change',
+            kind: 'promotion',
             title: `Level ${levelBefore} → ${levelNow}`,
             detail:
               change !== null && Math.abs(change) > RISE_THRESHOLD

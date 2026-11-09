@@ -177,3 +177,26 @@ describe('Certificazione Unica', () => {
     expect(certificates[0].missingMonths).toEqual(['2024-07']);
   });
 });
+
+describe('level changes on the timeline', () => {
+  it('shows a promotion, not a level change that is neither higher nor better paid', () => {
+    const down = buildTimeline(
+      [workplace],
+      [
+        payslip('a', '03', { job_level: 'B1' }),
+        payslip('b', '04', { job_level: 'C3' }),
+      ],
+      [],
+    );
+    expect(down.map((e) => e.kind)).toEqual(['hired']);
+    const up = buildTimeline(
+      [workplace],
+      [
+        payslip('a', '03', { job_level: 'C3' }),
+        payslip('b', '04', { job_level: 'B1' }),
+      ],
+      [],
+    );
+    expect(up.map((e) => e.kind)).toEqual(['promotion', 'hired']);
+  });
+});
