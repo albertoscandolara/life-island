@@ -134,6 +134,13 @@
       "when": 1795075200000,
       "tag": "0018_evaluation_scores",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795161600000,
+      "tag": "0019_payslip_kind_tax_certificate",
+      "breakpoints": true
     }
   ]
 }

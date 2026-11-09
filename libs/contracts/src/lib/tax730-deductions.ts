@@ -340,6 +340,44 @@ export interface Tax730CarriedInstalmentDto {
   amount: number;
 }
 
+/** Above this income, the expenses marked `incomeCapped` count only up to a ceiling (from 2025). */
+export const TAX730_INCOME_LIMIT = 75000;
+/** Above this income, most 19% deductions shrink, down to nothing at €240,000. */
+export const TAX730_HIGH_INCOME_LIMIT = 120000;
+
+/** A Certificazione Unica of the year, as the 730 reads it. */
+export interface Tax730CertificateDto {
+  uploadId: string;
+  title: string;
+  employer: string | null;
+  /** Employment income (punti 1 + 2). */
+  income: number | null;
+  /** Ritenute IRPEF (punto 21). */
+  irpefWithheld: number | null;
+  /** Imposta netta (punto 375): the IRPEF left after the employment tax credits. */
+  netTax: number | null;
+}
+
+/**
+ * Your income and tax of the year, from the Certificazioni Uniche: what the
+ * deductions can give back is at most the tax you owe (the "capienza").
+ */
+export interface Tax730IncomeDto {
+  /** One per employer; a later CU of the same employer replaces the earlier (a corrected CU). */
+  certificates: Tax730CertificateDto[];
+  income: number;
+  irpefWithheld: number;
+  /** Net tax of every CU: the most this 730 can give back. */
+  netTax: number;
+  /** Above €75,000 or €120,000, deductions are limited (see the notes). */
+  band: 'normal' | 'over_75k' | 'over_120k';
+  /** The estimated tax back, capped at the net tax. */
+  refund: number;
+  /** Deductions that do not fit in the tax you owe: lost, never carried over. */
+  lost: number;
+  notes: string[];
+}
+
 /** What a year's expenses are worth in its 730: an estimate, never a promise. */
 export interface Tax730DeductionsDto {
   lines: Tax730DeductionLineDto[];
@@ -348,4 +386,6 @@ export interface Tax730DeductionsDto {
   thisYear: number;
   /** Instalments still to come in later 730s from this year's spending. */
   futureYears: number;
+  /** From your Certificazioni Uniche of the year; null when you have none. */
+  income: Tax730IncomeDto | null;
 }

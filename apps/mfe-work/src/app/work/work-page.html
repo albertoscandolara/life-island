@@ -366,7 +366,7 @@
 
 <!-- ============================================================== payslips -->
 @case ('payslips') { @if (stats(); as s) {
-<work-payslips [stats]="s" />
+<work-payslips [stats]="s" [certificates]="overview()?.certificates ?? []" />
 } }
 
 <!-- =========================================================== evaluations -->
@@ -436,7 +436,13 @@
       review.employerName ?? review.employerTaxCode }}. Add it, or pick the
       right one if the employer was misread.
     </ui-alert>
-    } @if (review.outdated) {
+    } @if (review.alreadyHave; as copy) {
+    <ui-alert tone="warning">
+      <strong>Likely a copy.</strong> You already have {{ copy.what }} ("{{
+      copy.title }}"). Set it aside with "Not about my work" unless it is a
+      different document: approved anyway, it is not counted twice.
+    </ui-alert>
+    } @else if (review.outdated) {
     <ui-alert tone="info">
       Older than a document you already approved for this workplace: it suggests
       keeping your current values, and still counts in your timeline and

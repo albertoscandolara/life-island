@@ -1,11 +1,13 @@
 import {
   CAREER_EVENT_LABELS,
   NOTABLE_CAREER_EVENTS,
+  PAYSLIP_KIND_LABELS,
   WORK_DOCUMENT_TYPE_LABELS,
   type CareerEventDto,
   type CareerEventKind,
   type CareerStatsDto,
   type MonthPointDto,
+  type PayslipKind,
   type WorkplaceStatus,
   type YearStatsDto,
 } from '@life-island/contracts';
@@ -89,17 +91,51 @@ interface PayslipPoint {
   period: string;
 }
 
+export function kindOf(reading: WorkDocumentReading): PayslipKind {
+  return reading.payslipKind ?? 'regular';
+}
+
+/**
+ * What makes two payslips the same one: the workplace, the month and the
+ * kind (a tredicesima paid on its own payslip is not a second December);
+ * two extra payslips of one month are the same only with the same gross.
+ */
+export function payslipKey(
+  workplaceId: string,
+  reading: WorkDocumentReading,
+): string | null {
+  if (reading.type !== 'PAYSLIP' || !reading.period) return null;
+  const kind = kindOf(reading);
+  return [
+    workplaceId,
+    reading.period,
+    kind,
+    kind === 'other' ? (reading.gross ?? '') : '',
+  ].join('|');
+}
+
+/**
+ * Your payslips with a month, each counted once: a copy of one you have
+ * (the same file renamed or downloaded again) is left out, the first kept.
+ */
+export function countedPayslips(
+  docs: readonly ApprovedWorkDocument[],
+): ApprovedWorkDocument[] {
+  const seen = new Set<string>();
+  return docs.filter((d) => {
+    const key = payslipKey(d.workplaceId, d.reading);
+    if (key === null || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function payslipsOf(
   workplaceId: string,
-  docs: readonly ApprovedWorkDocument[],
+  payslips: readonly ApprovedWorkDocument[],
 ): PayslipPoint[] {
-  return docs
-    .filter(
-      (d) =>
-        d.workplaceId === workplaceId &&
-        d.reading.type === 'PAYSLIP' &&
-        d.reading.period,
-    )
+  return payslips
+    .filter((d) => d.workplaceId === workplaceId)
     .map((doc) => ({ doc, period: doc.reading.period! }))
     .sort((a, b) => a.period.localeCompare(b.period));
 }
@@ -130,8 +166,35 @@ export function buildTimeline(
       notable: NOTABLE_CAREER_EVENTS.includes(event.kind),
     });
 
+  const counted = countedPayslips(docs);
   for (const workplace of workplaces) {
-    const payslips = payslipsOf(workplace.id, docs);
+    const all = payslipsOf(workplace.id, counted);
+    // Month to month on the monthly payslips; an extra one is its own event.
+    const payslips = all.filter((p) => kindOf(p.doc.reading) === 'regular');
+    const extraMonths = new Set<string>();
+    for (const { doc, period } of all) {
+      const kind = kindOf(doc.reading);
+      if (kind === 'regular') continue;
+      extraMonths.add(period);
+      push({
+        id: `extra:${doc.uploadId}`,
+        date: `${period}-01`,
+        kind: 'extra_pay',
+        title:
+          doc.reading.gross !== null
+            ? `${PAYSLIP_KIND_LABELS[kind]}: ${money(doc.reading.gross)} gross`
+            : PAYSLIP_KIND_LABELS[kind],
+        detail:
+          doc.reading.net !== null
+            ? `${money(doc.reading.net)} net, on its own payslip`
+            : 'On its own payslip',
+        workplaceId: workplace.id,
+        source: 'document',
+        uploadId: doc.uploadId,
+        amount: doc.reading.gross,
+        changePct: null,
+      });
+    }
     const hireDate = (workplace.values.hireDate as string | undefined) ?? null;
     const firstSalary =
       payslips
@@ -289,7 +352,9 @@ export function buildTimeline(
           id: `extra:${point.doc.uploadId}`,
           kind: 'extra_pay',
           title: `${money(round2(now.gross - salary))} over the monthly salary`,
-          detail: extraPayDetail(point.period),
+          detail: extraMonths.has(point.period)
+            ? 'A bonus, arrears, paid-out leave or allowances (the extra month has its own payslip)'
+            : extraPayDetail(point.period),
           amount: round2(now.gross - salary),
           changePct: null,
         });
@@ -445,9 +510,13 @@ export function buildStats(
   events: readonly CareerEventDto[],
   today: string,
 ): CareerStatsDto {
-  const payslips = docs
-    .filter((d) => d.reading.type === 'PAYSLIP' && d.reading.period)
-    .sort((a, b) => a.reading.period!.localeCompare(b.reading.period!));
+  // Every payslip once; the month by month figures only of the monthly ones.
+  const payslips = countedPayslips(docs).sort((a, b) =>
+    a.reading.period!.localeCompare(b.reading.period!),
+  );
+  const monthlyPayslips = payslips.filter(
+    (p) => kindOf(p.reading) === 'regular',
+  );
   const current =
     workplaces.find(
       (w) =>
@@ -455,16 +524,16 @@ export function buildStats(
     ) ??
     workplaces.find((w) => w.status === 'current') ??
     null;
-  const latest = [...payslips].reverse();
+  const latest = [...monthlyPayslips].reverse();
   const latestOf = (pick: (r: WorkDocumentReading) => unknown) =>
     latest
       .map((p) => pick(p.reading))
       .find((v) => v !== null && v !== undefined) ?? null;
   const currentPayslips = current
-    ? payslips.filter((p) => p.workplaceId === current.id)
+    ? monthlyPayslips.filter((p) => p.workplaceId === current.id)
     : [];
 
-  const monthly: MonthPointDto[] = payslips.map((p) => ({
+  const monthly: MonthPointDto[] = monthlyPayslips.map((p) => ({
     period: p.reading.period!,
     gross: p.reading.gross,
     net: p.reading.net,
@@ -485,8 +554,10 @@ export function buildStats(
       welfare: 0,
       severance: 0,
       averageNet: 0,
+      extraPay: 0,
     };
     y.payslips++;
+    if (kindOf(p.reading) !== 'regular') y.extraPay += p.reading.gross ?? 0;
     y.gross += p.reading.gross ?? 0;
     y.net += p.reading.net ?? 0;
     y.incomeTax += p.reading.incomeTax ?? 0;
@@ -504,6 +575,7 @@ export function buildStats(
       contributions: round2(y.contributions),
       welfare: round2(y.welfare),
       severance: round2(y.severance),
+      extraPay: round2(y.extraPay),
       averageNet: round2(y.net / y.payslips),
     }))
     .sort((a, b) => b.year - a.year);
@@ -587,4 +659,47 @@ export function buildStats(
     years,
     monthly,
   };
+}
+
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/**
+ * What a document is the one of, to tell a copy: a payslip by its workplace,
+ * month and kind (see `payslipKey`), a CU by its workplace and year. Null for
+ * the other documents, which are never copies of each other.
+ */
+export function documentIdentity(
+  workplaceKey: string,
+  reading: WorkDocumentReading,
+): { key: string; what: string } | null {
+  if (reading.type === 'PAYSLIP' && reading.period) {
+    const kind = kindOf(reading);
+    const month = `${MONTHS[+reading.period.slice(5, 7) - 1]} ${reading.period.slice(0, 4)}`;
+    return {
+      key: payslipKey(workplaceKey, reading)!,
+      what:
+        kind === 'regular'
+          ? `the payslip for ${month}`
+          : `the ${PAYSLIP_KIND_LABELS[kind].toLowerCase()} for ${month}`,
+    };
+  }
+  if (reading.type === 'CERTIFICAZIONE_UNICA' && reading.certificate?.year)
+    return {
+      key: `${workplaceKey}|CU|${reading.certificate.year}`,
+      what: `the Certificazione Unica for ${reading.certificate.year}`,
+    };
+  return null;
 }

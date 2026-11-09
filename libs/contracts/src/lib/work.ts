@@ -14,14 +14,16 @@ import { z } from 'zod';
 
 /**
  * The work document types: PAYSLIP (migration 0007), the two of migration
- * 0014 and EVALUATION_RULES (0018), the rules an employer scores its
- * evaluations by.
+ * 0014, EVALUATION_RULES (0018), the rules an employer scores its
+ * evaluations by, and CERTIFICAZIONE_UNICA (0019), the yearly statement of
+ * the income an employer paid you and the taxes it withheld.
  */
 export const WORK_DOCUMENT_TYPES = [
   'PAYSLIP',
   'PERFORMANCE_REVIEW',
   'EMPLOYMENT_CONTRACT',
   'EVALUATION_RULES',
+  'CERTIFICAZIONE_UNICA',
 ] as const;
 export type WorkDocumentType = (typeof WORK_DOCUMENT_TYPES)[number];
 
@@ -33,6 +35,7 @@ export const WORK_DOCUMENT_TYPE_LABELS: Record<WorkDocumentType, string> = {
   PERFORMANCE_REVIEW: 'Evaluation',
   EMPLOYMENT_CONTRACT: 'Employment contract',
   EVALUATION_RULES: 'Evaluation rules',
+  CERTIFICAZIONE_UNICA: 'Certificazione Unica',
 };
 
 export const CONTRACT_KINDS = [
@@ -290,6 +293,71 @@ export const PAYSLIP_KEYS = {
   leaveLeft: 'leave_left',
   severance: 'severance_accrued',
   welfare: 'welfare_credits',
+  kind: 'payslip_kind',
+} as const;
+
+/**
+ * What a payslip pays: the month (regular), or only an extra month paid on
+ * its own payslip, in the same month as a regular one: the tredicesima
+ * (thirteenth), the quattordicesima (fourteenth), or a bonus, arrears or
+ * settlement (other). One that does not say is regular.
+ */
+export const PAYSLIP_KINDS = [
+  'regular',
+  'thirteenth',
+  'fourteenth',
+  'other',
+] as const;
+export type PayslipKind = (typeof PAYSLIP_KINDS)[number];
+export const PAYSLIP_KIND_LABELS: Record<PayslipKind, string> = {
+  regular: 'Monthly payslip',
+  thirteenth: 'Tredicesima (13th month)',
+  fourteenth: 'Quattordicesima (14th month)',
+  other: 'Extra payslip',
+};
+
+/**
+ * Template keys of a Certificazione Unica (CERTIFICAZIONE_UNICA, migration
+ * 0019), read by Work and by the 730. The points are the CU 2025 layout.
+ */
+export const TAX_CERTIFICATE_KEYS = {
+  employer: 'employer',
+  employerTaxCode: 'employer_tax_code',
+  /** The year the income is about, not the year in the form's name. */
+  incomeYear: 'income_year',
+  issueDate: 'issue_date',
+  /** Punti 1 + 2. */
+  employmentIncome: 'employment_income',
+  pensionIncome: 'pension_income',
+  /** Punto 6. */
+  days: 'days_worked',
+  /** Punto 21. */
+  irpefWithheld: 'irpef_withheld',
+  /** Punto 22. */
+  regionalSurtax: 'regional_surtax',
+  /** Punti 26 + 27. */
+  municipalSurtax: 'municipal_surtax',
+  /** Punto 361. */
+  grossTax: 'gross_tax',
+  /** Punti 367 + 368. */
+  workDeductions: 'work_deductions',
+  /** Punto 362. */
+  familyDeductions: 'family_deductions',
+  /** Punto 374. */
+  totalDeductions: 'total_deductions',
+  /** Punto 375. */
+  netTax: 'net_tax',
+  /** Punto 391. */
+  integrativeTreatment: 'integrative_treatment',
+  /** Punto 431. */
+  deductibleByEmployer: 'deductible_expenses_by_employer',
+  /** Punto 441. */
+  healthFund: 'health_fund_contributions',
+  /** Punto 571. */
+  productivityBonus: 'productivity_bonus',
+  /** Punto 576. */
+  productivityBonusTax: 'productivity_bonus_tax',
+  severance: 'severance',
 } as const;
 
 export const WORKPLACE_STATUSES = ['current', 'past'] as const;
@@ -431,6 +499,12 @@ export interface PendingWorkReviewDto {
   changes: WorkplaceChangeDto[];
   /** Older than a document you already approved: suggests keeping your values. */
   outdated: boolean;
+  /**
+   * A document you already have for the same thing (a payslip of the same
+   * workplace, month and kind; a CU of the same employer and year): likely a
+   * copy, to reject. Approving it anyway does not count it twice.
+   */
+  alreadyHave: { uploadId: string; title: string; what: string } | null;
 }
 
 export interface RejectedCareerDocumentDto {
@@ -469,6 +543,42 @@ export interface YearStatsDto {
   welfare: number;
   severance: number;
   averageNet: number;
+  /** Gross of the payslips that pay only an extra month (tredicesima, quattordicesima, bonus). */
+  extraPay: number;
+}
+
+/**
+ * A Certificazione Unica you approved, next to the payslips of the same
+ * workplace and year: a gap shows a payslip missing (or a conguaglio).
+ */
+export interface TaxCertificateDto {
+  uploadId: string;
+  title: string;
+  workplaceId: string;
+  workplaceName: string;
+  /** The year the income is about. */
+  year: number;
+  /** Employment income (punti 1 + 2). */
+  income: number | null;
+  days: number | null;
+  /** Ritenute IRPEF (punto 21). */
+  irpefWithheld: number | null;
+  /** Regional and municipal surtax (punti 22, 26 + 27). */
+  surtaxes: number | null;
+  grossTax: number | null;
+  totalDeductions: number | null;
+  netTax: number | null;
+  /** The payslips of the same workplace and year (each counted once). */
+  payslips: number;
+  /** Months of the year without a monthly payslip (YYYY-MM). */
+  missingMonths: string[];
+  /** Taxable income of those payslips, or their gross when not all print it. */
+  payslipIncome: number | null;
+  payslipIncomeKind: 'taxable' | 'gross' | null;
+  payslipIncomeTax: number | null;
+  /** CU minus payslips; null when a side is missing (the income one also when the payslips give only gross). */
+  incomeGap: number | null;
+  taxGap: number | null;
 }
 
 export interface MonthPointDto {
@@ -759,6 +869,8 @@ export interface WorkOverviewDto {
   stats: CareerStatsDto;
   /** Your evaluations: scores, criteria, bonus and roles. */
   evaluations: EvaluationStatsDto;
+  /** Your Certificazioni Uniche, newest year first. */
+  certificates: TaxCertificateDto[];
   platforms: HiringPlatformDto[];
   /** Newest first. */
   feedback: CareerFeedbackDto[];

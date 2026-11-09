@@ -1,10 +1,14 @@
 import {
   CONTRACT_KINDS,
   PAYSLIP_KEYS,
+  PAYSLIP_KINDS,
+  PAYSLIP_KIND_LABELS,
+  TAX_CERTIFICATE_KEYS,
   WORK_DOCUMENT_ROOT,
   WORK_DOCUMENT_TYPES,
   WORKPLACE_FIELD_DEFINITIONS,
   WORKPLACE_FIELDS,
+  type PayslipKind,
   type WorkDocumentType,
   type WorkFactDto,
   type WorkplaceChangeDto,
@@ -194,6 +198,10 @@ export interface WorkDocumentReading {
   employerTaxCode: string | null;
   /** The month paid, for a payslip (YYYY-MM). */
   period: string | null;
+  /** What a payslip pays: the month, or only an extra month (see PAYSLIP_KINDS). */
+  payslipKind: PayslipKind | null;
+  /** A Certificazione Unica, read. */
+  certificate: CertificateReading | null;
   /** When it counts: the first day of the month paid, the evaluation, the contract's signature or start. */
   date: string | null;
   gross: number | null;
@@ -230,6 +238,38 @@ export interface WorkDocumentReading {
   /** An evaluation rules document, read (see `readBands`, `readRuleItems`). */
   rules: RulesReading | null;
   facts: WorkFactDto[];
+}
+
+/** What a Certificazione Unica prints (see TAX_CERTIFICATE_KEYS). */
+export interface CertificateReading {
+  year: number | null;
+  income: number | null;
+  days: number | null;
+  irpefWithheld: number | null;
+  regionalSurtax: number | null;
+  municipalSurtax: number | null;
+  grossTax: number | null;
+  totalDeductions: number | null;
+  netTax: number | null;
+}
+
+/**
+ * A payslip's kind as printed: one of PAYSLIP_KINDS, or the words a model
+ * may write instead ("tredicesima", "13th", "14.ma mensilità"). Nothing is
+ * regular.
+ */
+export function payslipKindOf(value: unknown): PayslipKind {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  const exact = PAYSLIP_KINDS.find((k) => k === raw.replace(/[\s-]+/g, '_'));
+  if (exact) return exact;
+  if (/tredicesim|\b13|thirteen|natalizi|christmas/.test(raw))
+    return 'thirteenth';
+  if (/quattordicesim|\b14|fourteen/.test(raw)) return 'fourteenth';
+  if (
+    /bonus|premi|arretrat|arrears|conguagl|settlement|liquidaz|other/.test(raw)
+  )
+    return 'other';
+  return 'regular';
 }
 
 export type RulesReading = Omit<
@@ -361,6 +401,8 @@ const READ_BY_TYPE: Partial<
   ],
   // Rules only tell whose they are.
   EVALUATION_RULES: ['employerName', 'employerTaxCode'],
+  // A CU's dates are of the year it covers, not of the employment.
+  CERTIFICAZIONE_UNICA: ['employerName', 'employerTaxCode'],
 };
 
 export function readWorkDocument(
@@ -397,6 +439,8 @@ export function readWorkDocument(
     employerName: (values.employerName as string) ?? null,
     employerTaxCode: (values.employerTaxCode as string) ?? null,
     period: null,
+    payslipKind: null,
+    certificate: null,
     date: null,
     gross: null,
     deductions: null,
@@ -445,7 +489,10 @@ export function readWorkDocument(
       reading.severance = num(PAYSLIP_KEYS.severance);
       reading.vacationLeft = num(PAYSLIP_KEYS.vacationLeft);
       reading.leaveLeft = num(PAYSLIP_KEYS.leaveLeft);
+      reading.payslipKind = payslipKindOf(f[PAYSLIP_KEYS.kind]);
       fact('Month paid', reading.period);
+      if (reading.payslipKind !== 'regular')
+        fact('Kind', PAYSLIP_KIND_LABELS[reading.payslipKind]);
       amountFact('Gross', reading.gross);
       amountFact('Deductions', reading.deductions);
       amountFact('Net pay', reading.net);
@@ -561,6 +608,43 @@ export function readWorkDocument(
           ? `${rules.bands.length} bands, ${rules.bands.at(-1)!.pct}% from ${rules.bands.at(-1)!.min ?? 0} points`
           : null,
       );
+      break;
+    }
+    case 'CERTIFICAZIONE_UNICA': {
+      const K = TAX_CERTIFICATE_KEYS;
+      const year = numberOf(f[K.incomeYear]);
+      const sum = (...keys: string[]) => {
+        const parts = keys.map(num).filter((n): n is number => n !== null);
+        return parts.length ? round2(parts.reduce((a, b) => a + b, 0)) : null;
+      };
+      const certificate: CertificateReading = {
+        year:
+          year !== null && year >= 1990 && year <= 2100
+            ? Math.round(year)
+            : null,
+        income: num(K.employmentIncome),
+        days: num(K.days),
+        irpefWithheld: num(K.irpefWithheld),
+        regionalSurtax: num(K.regionalSurtax),
+        municipalSurtax: num(K.municipalSurtax),
+        grossTax: num(K.grossTax),
+        totalDeductions:
+          num(K.totalDeductions) ?? sum(K.workDeductions, K.familyDeductions),
+        netTax: num(K.netTax),
+      };
+      reading.certificate = certificate;
+      reading.date =
+        dateOf(f[K.issueDate]) ??
+        (certificate.year ? `${certificate.year}-12-31` : null);
+      fact('Income year', certificate.year);
+      amountFact('Employment income', certificate.income);
+      fact('Days', certificate.days);
+      amountFact('IRPEF withheld', certificate.irpefWithheld);
+      amountFact('Regional surtax', certificate.regionalSurtax);
+      amountFact('Municipal surtax', certificate.municipalSurtax);
+      amountFact('Gross tax', certificate.grossTax);
+      amountFact('Tax credits', certificate.totalDeductions);
+      amountFact('Net tax', certificate.netTax);
       break;
     }
     case 'EMPLOYMENT_CONTRACT': {
