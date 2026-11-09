@@ -58,7 +58,13 @@ export class CareerAdvisor {
     try {
       const message = await this.client.messages.create({
         model: this.config.feedbackModel,
-        max_tokens: 4000,
+        // Thinking is on by default and counts against max_tokens: 4000 left
+        // the answer cut mid-JSON once the dossier grew.
+        max_tokens: 16000,
+        output_config: {
+          effort: 'medium',
+          format: zodOutputFormat(careerFeedbackOutputSchema),
+        },
         system: [
           {
             type: 'text',
@@ -76,8 +82,15 @@ export class CareerAdvisor {
             }`,
           },
         ],
-        output_config: { format: zodOutputFormat(careerFeedbackOutputSchema) },
       });
+      if (message.stop_reason === 'refusal')
+        throw new FeedbackError(
+          'Claude declined to write this feedback. Try rephrasing your question.',
+        );
+      if (message.stop_reason === 'max_tokens')
+        throw new FeedbackError(
+          'The feedback came out too long and was cut. Try again, or ask a narrower question.',
+        );
       const text = message.content
         .flatMap((block) => (block.type === 'text' ? [block.text] : []))
         .join('');
@@ -88,9 +101,34 @@ export class CareerAdvisor {
       };
     } catch (error) {
       this.logger.error(`Career feedback failed: ${String(error)}`);
-      throw new ServiceUnavailableException(
-        'The Claude API could not write the feedback right now. Try again in a moment.',
-      );
+      throw new ServiceUnavailableException(explain(error, this.config));
     }
   }
+}
+
+class FeedbackError extends Error {}
+
+/** What went wrong, in words you can act on: the key, the model, credit, or a busy API. */
+export function explain(
+  error: unknown,
+  config: Pick<WorkConfig, 'feedbackModel'>,
+): string {
+  if (error instanceof FeedbackError) return error.message;
+  if (error instanceof Anthropic.AuthenticationError)
+    return 'The Claude API refused the key: check ANTHROPIC_API_KEY in .env and restart svc-work.';
+  if (error instanceof Anthropic.PermissionDeniedError)
+    return 'The Claude API key has no access to this model or feature. Check the key in the Claude Console.';
+  if (error instanceof Anthropic.NotFoundError)
+    return `The Claude API does not know the model "${config.feedbackModel}": check WORK_FEEDBACK_MODEL in .env.`;
+  if (error instanceof Anthropic.RateLimitError)
+    return 'The Claude API rate limit was reached. Try again in a minute.';
+  if (error instanceof Anthropic.BadRequestError)
+    return `The Claude API rejected the request: ${error.message}`;
+  if (error instanceof Anthropic.APIConnectionError)
+    return 'svc-work could not reach the Claude API: check the network or proxy.';
+  if (error instanceof Anthropic.APIError && (error.status ?? 0) >= 500)
+    return 'The Claude API is busy or down right now. Try again in a moment.';
+  if (error instanceof SyntaxError)
+    return 'The Claude API answered, but not in the expected format. Try again.';
+  return 'The Claude API could not write the feedback right now. Try again in a moment.';
 }
