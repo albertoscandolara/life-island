@@ -24,8 +24,10 @@ import {
   markCarDocumentRequestSchema,
   updateVehicleRequestSchema,
   type CarsOverviewDto,
+  type CarsPeopleDto,
 } from '@life-island/contracts';
 import { CarModels } from './car-models.js';
+import { CarPeople } from './car-people.js';
 import { CarsService } from './cars.service.js';
 
 @Controller()
@@ -33,12 +35,19 @@ export class CarsController {
   constructor(
     @Inject(CarsService) private readonly cars: CarsService,
     @Inject(CarModels) private readonly models: CarModels,
+    @Inject(CarPeople) private readonly people: CarPeople,
   ) {}
 
   /** Every car with its documents, renewals and costs, what waits for review, and warnings. */
   @Get('overview')
   overview(): Promise<CarsOverviewDto> {
     return this.cars.overview();
+  }
+
+  /** The people of the People area, to pick as the holder or owner of a car. */
+  @Get('people')
+  listPeople(): Promise<CarsPeopleDto> {
+    return this.people.list();
   }
 
   /** A car added by hand, by its plate. */

@@ -561,3 +561,9 @@
     grid-column: 2;
   }
 }
+
+/* Holder and owner: a person of People, or a name typed as printed. */
+.party {
+  display: grid;
+  gap: var(--space-1);
+}

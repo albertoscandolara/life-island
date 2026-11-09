@@ -17,6 +17,7 @@ import {
   REGISTRATION_CODE_MEANINGS,
   RENEWABLE_LABELS,
   VEHICLE_FIELD_DEFINITIONS,
+  VEHICLE_PARTY_FIELDS,
   VEHICLE_OPTION_LABELS,
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
@@ -28,7 +29,9 @@ import {
   type CostKind,
   type PendingCarReviewDto,
   type RenewalLevel,
+  type CarsPeopleDto,
   type UpdateVehicleRequest,
+  type VehiclePartyField,
   type VehicleChangeSuggestion,
   type VehicleDto,
   type VehicleField,
@@ -155,6 +158,11 @@ export class CarsPage {
   private readonly drafts = signal<Record<string, Draft>>({});
   /** Remove, being confirmed on the selected car. */
   protected readonly removing = signal(false);
+  /** The people of People, offered as the holder and owner while editing. */
+  protected readonly people = signal<CarsPeopleDto>({
+    people: [],
+    available: true,
+  });
   /** The values being edited on the selected car, or null when not editing. */
   protected readonly editing = signal<Record<string, string> | null>(null);
   /** Adding a car by hand: its plate and name. */
@@ -459,8 +467,18 @@ export class CarsPage {
 
   protected edit(vehicle: VehicleDto): void {
     this.selectedId.set(vehicle.id);
+    this.api.people().subscribe({
+      next: (people) => this.people.set(people),
+      error: () => this.people.set({ people: [], available: false }),
+    });
     this.editing.set({
       label: vehicle.label ?? '',
+      ...Object.fromEntries(
+        VEHICLE_PARTY_FIELDS.map((f) => [
+          personKey(f),
+          vehicle.people?.[f] ?? '',
+        ]),
+      ),
       ...Object.fromEntries(
         this.definitions.map((d) => [
           d.field,
@@ -480,6 +498,34 @@ export class CarsPage {
 
   protected editValue(field: string): string {
     return this.editing()?.[field] ?? '';
+  }
+
+  /** The holder and the owner: a person of People, or a name as printed. */
+  protected isParty(field: string): field is VehiclePartyField {
+    return (VEHICLE_PARTY_FIELDS as readonly string[]).includes(field);
+  }
+
+  protected pickedPerson(field: VehiclePartyField): string {
+    return this.editValue(personKey(field));
+  }
+
+  /** Picks a person (their name becomes the party's), or '' to type a name. */
+  protected pickPerson(field: VehiclePartyField, personId: string): void {
+    const person = this.people().people.find((p) => p.id === personId);
+    this.editing.update((values) =>
+      values
+        ? {
+            ...values,
+            [personKey(field)]: personId,
+            ...(person ? { [field]: person.name } : {}),
+          }
+        : values,
+    );
+  }
+
+  /** The person of People a party of the car is, when you picked one. */
+  protected linkedPerson(vehicle: VehicleDto, field: string): boolean {
+    return this.isParty(field) && !!vehicle.people?.[field];
   }
 
   protected inputType(definition: Definition): string {
@@ -505,6 +551,11 @@ export class CarsPage {
       if (value !== vehicle.values[d.field]) changed[d.field] = value;
     }
     const request: UpdateVehicleRequest = { values: changed };
+    for (const field of VEHICLE_PARTY_FIELDS) {
+      const personId = values[personKey(field)] || null;
+      if (personId !== (vehicle.people?.[field] ?? null))
+        request.people = { ...request.people, [field]: personId };
+    }
     const label = values['label']?.trim() || null;
     if (label !== vehicle.label) request.label = label;
     this.run(
@@ -543,4 +594,9 @@ export class CarsPage {
       },
     });
   }
+}
+
+/** Where the edit form keeps the person picked for a party. */
+function personKey(field: VehiclePartyField): string {
+  return `person:${field}`;
 }

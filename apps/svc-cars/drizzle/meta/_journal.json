@@ -22,6 +22,13 @@
       "when": 1794206890019,
       "tag": "0002_document_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794207733209,
+      "tag": "0003_vehicle_people",
+      "breakpoints": true
     }
   ]
 }
