@@ -175,6 +175,10 @@ describe.skipIf(!configured)(
         missingPaymentCount: 1,
         missingInvoiceCount: 0,
       });
+      expect(year.byMonth[5]).toBe(6500);
+      expect(year.deductions.lines).toEqual([
+        expect.objectContaining({ group: 'other', spent: 6500, deduction: 0 }),
+      ]);
       const [expense] = year.expenses;
       // Until you describe it, the invoice's title does.
       expect(expense.description).toBe('Fattura notaio');
@@ -230,11 +234,14 @@ describe.skipIf(!configured)(
       expect(row.slice(3)).toEqual([
         'Notaio Chiliberti Avv. Giuseppe',
         'Atto notarile prima casa',
-        'Altro',
         6500,
         'ok',
         'ok',
+        undefined,
+        'Altro',
       ]);
+      const summary = workbook.getWorksheet(`Riepilogo ${taxYear}`);
+      expect(summary?.getRow(3).getCell(1).value).toBe('Tipologia');
 
       const zipResponse = await fetch(
         `${base}/tax-years/${taxYear}/export.zip`,

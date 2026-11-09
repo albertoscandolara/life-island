@@ -58,6 +58,7 @@ import {
 } from './record-status';
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { reclassifyStartState } from '../reclassification/start-state';
+import { LinkChecks } from './link-checks';
 import { ReviewPanel, type ReviewOutcome } from './review-panel';
 
 const PAGE_SIZE = 20;
@@ -129,6 +130,7 @@ export function reparseNotice(result: ReparseUploadsResponse): string {
   imports: [
     CategoryFilter,
     DatePipe,
+    LinkChecks,
     QueueBanner,
     ReviewPanel,
     RouterLink,
@@ -152,6 +154,7 @@ export class InboxPage {
   private readonly api = inject(ReviewApi);
   private readonly ingestion = inject(IngestionApi);
   private readonly banner = viewChild.required(QueueBanner);
+  private readonly linkChecks = viewChild(LinkChecks);
   protected readonly store = inject(CategoryStore);
   protected readonly reclassification = inject(ReclassificationState);
   protected readonly reclassifyState = computed(() =>
@@ -459,6 +462,7 @@ export class InboxPage {
       this.records.reload();
       this.categoryCounts.reload();
       this.store.reload();
+      this.linkChecks()?.reload();
     };
     reload();
     clearTimeout(this.runReload);

@@ -30,6 +30,10 @@ import {
   type DocumentRow,
   type ExpenseRow,
 } from '../db/schema.js';
+import {
+  estimateDeductions,
+  type EstimatedExpense,
+} from '../deductions/deduction-estimate.js';
 import { toDocumentDto } from '../documents/document-view.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
@@ -61,7 +65,7 @@ export class DossierService {
   /** One year's expenses with their documents, oldest expense first. */
   async dossier(taxYear: number): Promise<TaxYearDossierDto> {
     const [dossier] = await this.dossiers([taxYear]);
-    return dossier ?? this.summarize(taxYear, [], []);
+    return dossier ?? this.summarize(taxYear, [], [], []);
   }
 
   /** The dossiers of the given years (all years when empty), newest first. */
@@ -70,7 +74,7 @@ export class DossierService {
     const yearFilter = years.length
       ? inArray(expenses.taxYear, years)
       : undefined;
-    const [expenseRows, attachmentRows] = await Promise.all([
+    const [expenseRows, attachmentRows, estimated] = await Promise.all([
       db
         .select()
         .from(expenses)
@@ -81,6 +85,16 @@ export class DossierService {
         .from(attachments)
         .where(years.length ? inArray(attachments.taxYear, years) : undefined)
         .orderBy(asc(attachments.createdAt)),
+      // Every year: home bonuses of earlier years still bring instalments.
+      db
+        .select({
+          taxYear: expenses.taxYear,
+          expenseType: expenses.expenseType,
+          amount: expenses.amount,
+          traceablePayment: expenses.traceablePayment,
+          beneficiaryFiscalCode: expenses.beneficiaryFiscalCode,
+        })
+        .from(expenses),
     ]);
     const documentsById = await this.documentsById(
       attachmentRows.map((row) => row.uploadId),
@@ -141,6 +155,7 @@ export class DossierService {
           year,
           expensesByYear.get(year) ?? [],
           (byYear.get(year) ?? []).sort(byRole),
+          estimated,
         ),
       );
   }
@@ -149,7 +164,14 @@ export class DossierService {
     taxYear: number,
     yearExpenses: DossierExpenseDto[],
     yearDocuments: Tax730AttachmentDto[],
+    estimated: EstimatedExpense[],
   ): TaxYearDossierDto {
+    const byMonth = Array.from({ length: 12 }, () => 0);
+    for (const expense of yearExpenses) {
+      const month = Number(expense.date.slice(5, 7)) - 1;
+      if (month >= 0 && month < 12)
+        byMonth[month] = round(byMonth[month] + expense.amount);
+    }
     const byType = new Map<string, { total: number; count: number }>();
     for (const expense of yearExpenses) {
       const entry = byType.get(expense.expenseType) ?? { total: 0, count: 0 };
@@ -170,6 +192,8 @@ export class DossierService {
       missingInvoiceCount: yearExpenses.filter((e) => !e.hasInvoice).length,
       missingPaymentCount: yearExpenses.filter((e) => !e.hasPaymentProof)
         .length,
+      deductions: estimateDeductions(taxYear, estimated),
+      byMonth,
       expenses: yearExpenses,
       yearDocuments,
     };

@@ -136,6 +136,11 @@
   margin-bottom: var(--space-4);
 }
 
+tax-deductions-card {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
 /* By type: one bar per type, in the accent. */
 .bars {
   display: grid;

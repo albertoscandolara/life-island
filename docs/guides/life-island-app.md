@@ -63,19 +63,29 @@ To add an area: create `apps/mfe-<area>` (copy `mfe-tax730`, tag it `scope:<area
 
 A confirmed expense files the document it was read from as its invoice. You file payment proofs yourself from the 730 screen: the picker ranks your documents by same amount, the supplier's name, a date within 90 days and payment words, and shows why. A year counts as "the year the expenses were paid": expenses of 2025 go in the 730/2026.
 
-| Endpoint (`/api/tax730/...`)              | Purpose                                                                       |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| `GET tax-years`                           | Totals per year and type, with how many expenses miss an invoice or a payment |
-| `GET tax-years/:year`                     | The year's expenses with their documents, and the year's own documents        |
-| `POST/DELETE tax-years/:year/attachments` | File or remove a document of the whole year                                   |
-| `PATCH expenses/:id`                      | Edit the description or the note                                              |
-| `POST/DELETE expenses/:id/attachments`    | File or remove an invoice, payment proof or other document                    |
-| `GET documents?search=&forExpense=`       | Your documents, ranked for an expense when `forExpense` is set                |
-| `GET documents/:uploadId/preview`         | The original file, streamed from `svc-ingestion`                              |
-| `GET exports/deductions.xlsx?year=`       | "Riepilogo detrazioni": one `Detrazioni YYYY` sheet per year                  |
-| `GET tax-years/:year/export.zip`          | The folder for the commercialista                                             |
+| Endpoint (`/api/tax730/...`)              | Purpose                                                                                                                           |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `GET tax-years`                           | Totals per year and type, with how many expenses miss an invoice or a payment, the estimated deductions and the spending by month |
+| `GET tax-years/:year`                     | The year's expenses with their documents, and the year's own documents                                                            |
+| `POST/DELETE tax-years/:year/attachments` | File or remove a document of the whole year                                                                                       |
+| `PATCH expenses/:id`                      | Edit the description or the note                                                                                                  |
+| `POST/DELETE expenses/:id/attachments`    | File or remove an invoice, payment proof or other document                                                                        |
+| `GET documents?search=&forExpense=`       | Your documents, ranked for an expense when `forExpense` is set                                                                    |
+| `GET documents/:uploadId/preview`         | The original file, streamed from `svc-ingestion`                                                                                  |
+| `GET exports/deductions.xlsx?year=`       | "Riepilogo detrazioni": a `Detrazioni YYYY` and a `Riepilogo YYYY` sheet per year                                                 |
+| `GET tax-years/:year/export.zip`          | The folder for the commercialista                                                                                                 |
 
-The Excel follows the commercialista's summary: Data, Fattura, Fornitore, Descrizione, Tipologia, Importo, Fattura (ok/ko), Dettaglio bonifico (ok/ko), Note, and a `SUM` row.
+The Excel follows the commercialista's summary: Data, Fattura, Fornitore, Descrizione, Importo, Fattura (ok/ko), Dettaglio bonifico (ok/ko), Note, then Tipologia, and a `SUM` row. `Riepilogo YYYY` puts each kind of expense against its rule: 730 row, spent, paid in cash (left out), cap, franchigia, eligible, rate, instalments and the estimated deduction, then the instalments of earlier years' home bonuses and the estimated total.
+
+### Deduction estimate
+
+`tax730DeductionRules(year)` in `libs/contracts` (`tax730-deductions.ts`) lists, for expenses paid in a given year, each kind's 730 row, rate (and the lower rate off your main home), cap and what it applies to (the year, each person, each home), franchigia, number of yearly instalments and whether cash counts. `svc-tax730` (`deductions/deduction-estimate.ts`) applies them to a year's expenses:
+
+- health (medical, medicines, devices) shares one €129.11 franchigia, has no cap, and leaves out doctors paid in cash (medicines may be cash);
+- per-person caps (school €800, children's sport €210) count each beneficiary's codice fiscale separately;
+- home bonuses (renovation, energy efficiency, furniture) are spread over 10 years, and each year's 730 also gets the instalments of the nine years before.
+
+It is a planning estimate: home bonuses at the main-home rate, and the income limits (above €75,000 and €120,000) are explained on the page, not applied. The page also explains the 730 itself (who files it, the yearly calendar, what goes in it, what you get back, the documents to keep) with its sources.
 
 The zip is named `YYYY-MM-DD - Documentazione 730 <filing year> per commercialista.zip` and holds one folder, `730 <filing year> - redditi <year>/`, with:
 

@@ -38,7 +38,7 @@ export const TARGET_CATALOG: readonly TargetDefinition[] = [
     category: 'tax730',
     label: '730 deductible expense',
     description:
-      'A document proving an expense that can be deducted in the Italian 730 tax return: medical visits, medicines (pharmacy receipts with a codice fiscale), school fees, kids sport, insurance, mortgage interest, renovations.',
+      'A document proving an expense that can be deducted in the Italian 730 tax return: medical visits, medicines (pharmacy receipts with a codice fiscale), school fees, kids sport, insurance, mortgage interest, renovations, energy-efficiency works, furniture and appliances for a renovated home, estate agent fees.',
     schema: Tax730ExpenseV1,
   },
   {

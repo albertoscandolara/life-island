@@ -346,6 +346,9 @@
   </p>
   }
 
+  <!-- Invoices and payments: what this one pays or is paid by -->
+  <app-document-links [uploadId]="rec.uploadId" />
+
   <!-- 4. What is sent to the module: only when a module loads it -->
   @if (showModuleData()) {
   <h3 class="section-title">

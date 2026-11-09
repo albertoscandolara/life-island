@@ -1,0 +1,232 @@
+<ui-card heading="The 730, in short" class="guide">
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    uiCardActions
+    type="button"
+    [attr.aria-expanded]="open()"
+    (click)="open.set(!open())"
+  >
+    <ui-icon [name]="open() ? 'chevron-down' : 'info'" [size]="16" />
+    {{ open() ? 'Hide' : 'What it is and how it works' }}
+  </button>
+
+  <p class="lead">
+    The <strong>730</strong> is the simplified income tax return for employees
+    and pensioners in Italy. It always covers the year before: the
+    <strong>730/{{ filingYear() }}</strong> declares the income and the expenses
+    of <strong>{{ taxYear() }}</strong>. Your employer or pension body settles
+    it in your pay: a refund arrives in the payslip, tax due is withheld from
+    it.
+  </p>
+
+  @if (open()) {
+  <div class="sections">
+    <section>
+      <h3>Who files it</h3>
+      <ul>
+        <li>
+          Employees and pensioners, and people with similar income
+          (collaborators, unemployment benefit, land and buildings income).
+        </li>
+        <li>
+          Without an employer that pays you in July (sostituto d'imposta), you
+          can still file it: a refund then comes from the Agenzia delle Entrate,
+          tax due is paid with an F24.
+        </li>
+        <li>
+          Business income or VAT number activity needs the Modello Redditi
+          instead.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>How it works, year by year</h3>
+      <ol class="timeline">
+        <li>
+          <strong>Through the year</strong>: keep invoices, receipts and the
+          proof that you paid them traceably. This page files them by year.
+        </li>
+        <li>
+          <strong>By March</strong>: your employer sends the Certificazione
+          Unica (CU); doctors, pharmacies, banks, insurers and schools send
+          their data to the Agenzia delle Entrate.
+        </li>
+        <li>
+          <strong>End of April</strong> (30 April in 2026): the
+          <em>precompilato</em> is ready on the Agenzia's site, already filled
+          with that data.
+        </li>
+        <li>
+          <strong>From mid May</strong> (15 May in 2026): accept it, change it,
+          or have a CAF or commercialista do it. Accepted as it is, the Agenzia
+          does not check the documents of the expenses already in it.
+        </li>
+        <li><strong>30 September</strong>: last day to send it.</li>
+        <li>
+          <strong>July (pensioners August or September)</strong>: the refund is
+          in your pay; tax due is withheld, in instalments up to November if you
+          ask.
+        </li>
+        <li>
+          <strong>Made a mistake?</strong> A corrective 730 (integrativo) by 25
+          October if it raises your refund; otherwise the Modello Redditi.
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h3>What goes in it</h3>
+      <ul>
+        <li>
+          <strong>Your details and family</strong>: dependants, who pays you in
+          July.
+        </li>
+        <li>
+          <strong>Income</strong>: land and buildings (quadri A and B), work and
+          pension (C, from the CU), other income (D).
+        </li>
+        <li>
+          <strong>Expenses (quadro E)</strong>: where this page helps. Section
+          I, expenses giving back 19% (health, vets, school, sport, mortgage
+          interest, insurance, estate agent); section II, deductible
+          contributions (pension funds, domestic workers); sections III and IV,
+          home bonuses (renovation, furniture, energy) over 10 years.
+        </li>
+        <li>
+          <strong>Taxes already paid and credits</strong> (F, G), and rent
+          bonuses for tenants.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>Detrazione or deduzione</h3>
+      <ul>
+        <li>
+          A <strong>detrazione</strong> lowers the tax: 19% of a health expense,
+          50% of a renovation. This page estimates these.
+        </li>
+        <li>
+          A <strong>deduzione</strong> (onere deducibile) lowers the income the
+          tax is computed on: pension fund contributions up to €5,164.57,
+          domestic workers' contributions up to €1,549.37, donations, alimony.
+        </li>
+        <li>
+          A detrazione can only take back tax you paid: if your tax is lower,
+          the rest is lost, and so are that year's home-bonus instalments.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>What you get back</h3>
+      <ul>
+        <li>
+          The settlement (730-3) compares the tax withheld from your pay during
+          the year with the tax due after the detrazioni: the difference is your
+          refund, or what you owe.
+        </li>
+        <li>
+          The detrazioni estimated on this page are roughly how much the refund
+          grows thanks to your expenses.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>Limits to keep in mind</h3>
+      <ul>
+        <li>
+          <strong>Each kind has its own cap and rate</strong>: no cap on health
+          but the first €129.11 never counts; €550 for vets; €96,000 per home
+          for renovations, over 10 years. The table below lists them all.
+        </li>
+        <li>
+          <strong>Above €120,000 of income</strong> the 19% detrazioni shrink,
+          to nothing at €240,000 (health and mortgage interest excepted).
+        </li>
+        <li>
+          <strong>Above €75,000</strong> (from the 2025 expenses), all your
+          detrazioni together are capped at €14,000 (up to €100,000) or €8,000
+          (above), times 0.50 with no children, 0.70 with one, 0.85 with two, 1
+          with three or more. Health expenses, and loans, policies and
+          renovations from before 2025, stay outside.
+        </li>
+        <li>
+          <strong>Pay traceably</strong>: card, bank transfer or cheque. Cash is
+          fine only for medicines, medical devices and the public health
+          service. Home bonuses need a <em>bonifico parlante</em>.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>Documents to keep</h3>
+      <ul>
+        <li>The Certificazione Unica of every employer or pension.</li>
+        <li>
+          Every invoice or receipt with your codice fiscale (scontrino parlante
+          at the pharmacy), and its payment proof.
+        </li>
+        <li>
+          Mortgage: the deed, the loan contract and the bank's yearly interest
+          statement.
+        </li>
+        <li>
+          Home bonuses: bonifici parlanti, invoices, permits or the
+          self-declaration, ENEA filing for energy works; condominium
+          statements.
+        </li>
+        <li>
+          Keep them five years after filing: the 730/{{ filingYear() }} until 31
+          December {{ filingYear() + 5 }}. Home bonus documents, for as long as
+          you take the instalments and five years after.
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <h3 class="table-title">Rates and caps for expenses of {{ taxYear() }}</h3>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Expense</th>
+          <th scope="col">730 row</th>
+          <th scope="col" class="num">Rate</th>
+          <th scope="col" class="num">Cap</th>
+          <th scope="col" class="num">Franchigia</th>
+          <th scope="col" class="num">Years</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rules(); track r.group) { @if (r.rate !== null) {
+        <tr>
+          <th scope="row">{{ r.label.en }}</th>
+          <td>{{ r.row730 }}</td>
+          <td class="num">{{ rateText(r) }}</td>
+          <td class="num">{{ capText(r) }}</td>
+          <td class="num">
+            {{ r.franchigia ? formatEuro(r.franchigia) : '–' }}
+          </td>
+          <td class="num">{{ r.instalments }}</td>
+        </tr>
+        } }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="sources">
+    Figures for the 730/2026; check each year's instructions with your
+    commercialista.
+  </p>
+  <p class="sources">
+    Sources: @for (s of sources; track s.url; let last = $last) {
+    <a [href]="s.url" target="_blank" rel="noopener">{{ s.name }}</a>@if (!last)
+    {, } }
+  </p>
+  }
+</ui-card>

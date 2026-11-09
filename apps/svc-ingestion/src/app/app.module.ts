@@ -10,6 +10,8 @@ import { CategoriesController } from './categories/categories.controller.js';
 import { CategoriesService } from './categories/categories.service.js';
 import { CONFIG, SERVICE_DB, STORAGE, type IngestionConfig } from './config.js';
 import { HealthController } from './health.controller.js';
+import { DocumentLinksController } from './links/document-links.controller.js';
+import { DocumentLinksService } from './links/document-links.service.js';
 import { ReclassificationLockedFilter } from './reclassification/locked.filter.js';
 import { ReclassificationController } from './reclassification/reclassification.controller.js';
 import { UploadsController } from './uploads/uploads.controller.js';
@@ -33,6 +35,7 @@ export class AppModule {
         UploadsController,
         CategoriesController,
         ReclassificationController,
+        DocumentLinksController,
       ],
       providers: [
         { provide: CONFIG, useValue: config },
@@ -41,6 +44,7 @@ export class AppModule {
         { provide: APP_FILTER, useClass: ReclassificationLockedFilter },
         UploadsService,
         CategoriesService,
+        DocumentLinksService,
         ...(options.events === false
           ? []
           : [

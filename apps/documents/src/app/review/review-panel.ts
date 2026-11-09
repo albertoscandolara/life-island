@@ -54,6 +54,7 @@ import {
   type JsonValue,
 } from './details-form-model';
 import { DetailsView, humanize, type SchemaShape } from './details-view';
+import { DocumentLinks } from './document-links';
 import {
   categoryDecisions,
   fieldText,
@@ -112,6 +113,7 @@ function canonical(value: unknown, schema: JsonSchema | undefined): string {
     DecimalPipe,
     DetailsForm,
     DetailsView,
+    DocumentLinks,
     PercentPipe,
     ProcessingPanel,
     UiAlert,

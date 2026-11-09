@@ -13,6 +13,8 @@ import type {
 import {
   categorySuggestions,
   documentCategories,
+  documentLinks,
+  forgetTransactionFacts,
   PARSE_QUEUE_ID,
   parseQueue,
   uploads,
@@ -31,6 +33,7 @@ import {
   type DocumentAnalyzer,
 } from './parsers/document-parser.js';
 import { FakeParser } from './parsers/fake-parser.js';
+import { NOTARY_QUOTE, NOTARY_TRANSFER } from './testing/notary-sample.js';
 
 // Needs the compose stack: `npm run infra:up`, then `npm run test:integration`.
 const configured =
@@ -82,6 +85,9 @@ class ScriptedAnalyzer implements DocumentAnalyzer {
 
   matchCategories: DocumentAnalyzer['matchCategories'] = (input, candidates) =>
     this.inner.matchCategories(input, candidates);
+
+  readTransaction: DocumentAnalyzer['readTransaction'] = (input) =>
+    this.inner.readTransaction(input);
 
   discover: DocumentAnalyzer['discover'] = async (input, context) => {
     this.check('discover');
@@ -666,6 +672,48 @@ describe.skipIf(!configured)(
         status: 'APPROVED',
         approvedCategoryId: id,
       });
+    });
+
+    it('links a payment and its quote read in separate runs, from their content only', async () => {
+      // The file names say nothing; the matcher reads the content.
+      const payment = await seed(NOTARY_TRANSFER, 'scan-001.txt');
+      const service = new ParseService(
+        svc,
+        storage,
+        new ScriptedAnalyzer(),
+        config,
+      );
+      await service.runOnce();
+      expect((await row(payment)).transactionFacts).toMatchObject({
+        role: 'PAYMENT',
+        amount: 6500,
+      });
+      const linksOf = () =>
+        db()
+          .select()
+          .from(documentLinks)
+          .where(eq(documentLinks.paymentUploadId, payment));
+      expect(await linksOf()).toEqual([]);
+
+      // Days later, in another session, the quote arrives.
+      const quote = await seed(NOTARY_QUOTE, 'scan-002.txt');
+      await service.runOnce();
+      expect(await linksOf()).toEqual([
+        expect.objectContaining({ invoiceUploadId: quote, status: 'AUTO' }),
+      ]);
+
+      // Parsed again: the matcher's link goes and comes back once it is read.
+      const client = await svc.pool.connect();
+      try {
+        await forgetTransactionFacts(client, [quote]);
+      } finally {
+        client.release();
+      }
+      expect(await linksOf()).toEqual([]);
+      await service.runOnce();
+      expect(await linksOf()).toEqual([
+        expect.objectContaining({ invoiceUploadId: quote, status: 'AUTO' }),
+      ]);
     });
   },
 );

@@ -27,7 +27,9 @@ import {
   uploadStatusSchema,
   type CategoryDimension,
   type CategoryTemplate,
+  DOCUMENT_LINK_STATUSES,
   type DocumentAnalysis,
+  type DocumentLinkStatus,
   type ExtractedFields,
   type FileFormat,
   type HistoricalStatus,
@@ -39,6 +41,7 @@ import {
   type ParseStep,
   type ProviderErrorDetails,
   type SuggestionStatus,
+  type TransactionFacts,
   type UploadStatus,
 } from '@life-island/contracts';
 import { sql } from 'drizzle-orm';
@@ -83,6 +86,14 @@ export const reclassificationRunStatus = ingestion.enum(
   reclassificationRunStatusSchema.options as [
     ReclassificationRunStatus,
     ...ReclassificationRunStatus[],
+  ],
+);
+
+export const documentLinkStatus = ingestion.enum(
+  'document_link_status',
+  DOCUMENT_LINK_STATUSES as unknown as [
+    DocumentLinkStatus,
+    ...DocumentLinkStatus[],
   ],
 );
 
@@ -170,6 +181,12 @@ export const uploads = ingestion.table(
       .array()
       .notNull()
       .default([]),
+    /**
+     * The money facts (invoice, quote, payment or none) read from the content
+     * once the document is PARSED; null until then. The invoice and payment
+     * matcher works on these only. Cleared when the document is parsed again.
+     */
+    transactionFacts: jsonb('transaction_facts').$type<TransactionFacts>(),
     ...timestamps,
   },
   (table) => [
@@ -365,7 +382,48 @@ export const reclassificationRuns = ingestion.table(
   ],
 );
 
+/**
+ * An invoice (or quote) and a payment that settles it. The matcher writes
+ * AUTO and SUGGESTED rows and recomputes them from all documents whenever
+ * money facts change, so the result never depends on the upload order; your
+ * CONFIRMED and REJECTED rows are decisions it never touches. Deleting either
+ * document deletes the link.
+ */
+export const documentLinks = ingestion.table(
+  'document_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    invoiceUploadId: uuid('invoice_upload_id')
+      .notNull()
+      .references(() => uploads.id, { onDelete: 'cascade' }),
+    paymentUploadId: uuid('payment_upload_id')
+      .notNull()
+      .references(() => uploads.id, { onDelete: 'cascade' }),
+    status: documentLinkStatus('status').notNull(),
+    score: numeric('score', { precision: 6, scale: 2, mode: 'number' })
+      .notNull()
+      .default(0),
+    reasons: jsonb('reasons').$type<string[]>().notNull().default([]),
+    /** When you confirmed, linked or rejected it; null for the matcher's own rows. */
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('document_links_pair_idx').on(
+      table.invoiceUploadId,
+      table.paymentUploadId,
+    ),
+    index('document_links_payment_idx').on(table.paymentUploadId),
+    index('document_links_status_idx').on(table.status),
+    check(
+      'document_links_two_documents',
+      sql`${table.invoiceUploadId} <> ${table.paymentUploadId}`,
+    ),
+  ],
+);
+
 export type UploadRow = typeof uploads.$inferSelect;
+export type DocumentLinkRow = typeof documentLinks.$inferSelect;
 export type CategoryRow = typeof documentCategories.$inferSelect;
 export type CategorySuggestionRow = typeof categorySuggestions.$inferSelect;
 export type ParseQueueRow = typeof parseQueue.$inferSelect;
