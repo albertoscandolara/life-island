@@ -6,8 +6,11 @@ import {
   DESCRIPTION_MAX_LENGTH,
   GENERAL_TARGET_KEY,
   TARGET_CATALOG,
+  PAYMENT_KINDS,
   TEMPLATE_FIELD_TYPES,
+  TRANSACTION_ROLES,
   findTarget,
+  type TransactionFacts,
 } from '@life-island/contracts';
 import { z } from 'zod';
 import type { NormalizedDocument } from '../normalize.js';
@@ -18,6 +21,7 @@ import {
   type ExtractionPlan,
   type RawFieldResult,
 } from '../templates.js';
+import { normalizeTransactionFacts } from '../transaction-facts.js';
 import {
   ContextTooLargeError,
   PermanentParseError,
@@ -32,6 +36,7 @@ import {
   type ParseInput,
   type ParseRunRecord,
   type StepOutput,
+  type TransactionContext,
 } from './document-parser.js';
 import { classifyProviderError } from './provider-errors.js';
 
@@ -271,6 +276,72 @@ function matchContextText(context: MatchContext): string {
 }
 
 // ---------------------------------------------------------------------------
+// TRANSACTION (invoice and payment matching)
+
+const TRANSACTION_INSTRUCTIONS = `You read the money facts of personal documents so that invoices can be matched with the payments that settle them. The file name and title may be wrong: rely on the content.
+${GROUNDING}
+
+Decide the role first:
+- INVOICE: asks to be paid or records a sale: invoice (fattura), bill (bolletta), fee note (parcella, notula), receipt of a purchase.
+- QUOTE: announces what will be asked: quote (preventivo), estimate, pro-forma, even when it says "TOTALE DA PAGARE".
+- PAYMENT: proves money moved: bank transfer (bonifico) detail or receipt, card slip, direct debit (addebito, SDD), F24 or pagoPA receipt, bank statement line.
+- NONE: anything else (ID documents, contracts, payslips, letters). Fill nothing else then.
+Then fill the facts. For an invoice or a quote the counterparty is the supplier who issued it (with its VAT number, tax code and the IBAN it asks to be paid on, also from a stamp or footer) and the customer is who it is addressed to. For a payment the counterparty is the beneficiary who received the money and the customer is the payer (ordinante). Copy names, numbers and the payment description (causale) exactly as printed; dates as YYYY-MM-DD, amounts as numbers with a dot for decimals. The amount of an invoice or quote is the total to pay; of a payment, the amount transferred without fees. In references list every other document the content names: invoice or quote numbers and dates in a payment's description ("saldo fattura 12/2025", "come da preventivo del 27 giugno 2025"). paymentKind says what the payment says it settles: FULL, ADVANCE (acconto, caparra), BALANCE (saldo), PARTIAL, INSTALLMENT (rata) or UNKNOWN. In subjects list what the document concerns as written: property addresses, cadastral data, contract, customer or supply numbers, plates, project names.`;
+
+const party = z.object({
+  name: z.string().nullable(),
+  vatNumber: z.string().nullable(),
+  taxCode: z.string().nullable(),
+  iban: z.string().nullable(),
+});
+
+/** Plain strings for dates: the stored facts are checked again after the call. */
+const transactionSchema = z.object({
+  role: z.enum(TRANSACTION_ROLES),
+  documentKind: z.string().nullable(),
+  documentNumber: z
+    .string()
+    .nullable()
+    .describe('Invoice or quote number; for a payment its CRO or TRN'),
+  issueDate: z.string().nullable(),
+  dueDate: z.string().nullable(),
+  paymentDate: z
+    .string()
+    .nullable()
+    .describe('Execution or debit date of a payment'),
+  amount: z.number().nullable(),
+  fees: z.number().nullable(),
+  currency: z.string().nullable(),
+  counterparty: party,
+  customer: party,
+  references: z.array(
+    z.object({
+      kind: z.string().nullable(),
+      number: z.string().nullable(),
+      date: z.string().nullable(),
+    }),
+  ),
+  paymentKind: z.enum(PAYMENT_KINDS).nullable(),
+  description: z
+    .string()
+    .nullable()
+    .describe('A payment causale verbatim; an invoice subject in one line'),
+  subjects: z.array(z.string()),
+});
+
+function transactionContextText(context: TransactionContext): string {
+  const { analysis } = context;
+  return [
+    ...(analysis
+      ? [
+          `When classified, this document looked like a ${analysis.documentType} (${analysis.purpose}), issued by ${analysis.issuer ?? 'an issuer not shown'}. Check it against the content.`,
+        ]
+      : []),
+    `Its categories: ${context.categories.join(', ') || 'none'}.`,
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
 
 function documentBlock(
   document: NormalizedDocument,
@@ -348,6 +419,8 @@ export interface ClaudeModels {
   discover: string;
   /** Historical reclassification; the classify model when not set. */
   reclassify?: string;
+  /** Money facts for invoice and payment matching; the classify model when not set. */
+  transaction?: string;
 }
 
 /**
@@ -612,6 +685,51 @@ export class ClaudeParser implements DocumentAnalyzer {
           })),
         },
       };
+    } catch (error) {
+      throw withRuns(error, runs);
+    }
+  }
+
+  /**
+   * Invoice and payment matching: the money facts, with the small model. The
+   * worker checks and stores them; the matcher works on them only.
+   */
+  async readTransaction(
+    input: ParseInput,
+    context: TransactionContext,
+  ): Promise<StepOutput<TransactionFacts>> {
+    const runs: ParseRunRecord[] = [];
+    try {
+      const { result: output } = await this.firstPart(input, (part, info) =>
+        this.call<unknown>(runs, 'transaction', {
+          model: this.models.transaction ?? this.models.classify,
+          max_tokens: 3000,
+          system: [
+            {
+              type: 'text',
+              text: TRANSACTION_INSTRUCTIONS,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          output_config: {
+            effort: 'low',
+            format: zodOutputFormat(transactionSchema),
+          },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                documentBlock(part.document),
+                {
+                  type: 'text',
+                  text: `${hintsOf(part, info)}\n${transactionContextText(context)}\n\nRead the money facts of this document.`,
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      return { runs, result: normalizeTransactionFacts(output) };
     } catch (error) {
       throw withRuns(error, runs);
     }

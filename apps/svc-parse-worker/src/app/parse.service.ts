@@ -60,6 +60,7 @@ import {
   type ProposedCategory,
 } from './parsers/document-parser.js';
 import { reviewReasons } from './review-readiness.js';
+import { TransactionLinker } from './transaction-linking.js';
 import { alignDetails, buildExtractionPlan } from './templates.js';
 
 /** Minutes to wait before attempt n+1: 1, 4, 16, 64... capped at one day. */
@@ -93,6 +94,7 @@ interface Progress {
 export class ParseService {
   private readonly logger = new Logger(ParseService.name);
   readonly queue: ParseQueue;
+  readonly linker: TransactionLinker;
   private stopRequested = false;
 
   constructor(
@@ -102,6 +104,7 @@ export class ParseService {
     @Inject(CONFIG) private readonly config: WorkerConfig,
   ) {
     this.queue = new ParseQueue(svc, config);
+    this.linker = new TransactionLinker(svc, storage, analyzer, this.queue);
   }
 
   /** Finish the current document, then stop (graceful shutdown). */
@@ -191,6 +194,9 @@ export class ParseService {
         summary[outcome]++;
         if (outcome === 'paused' || outcome === 'blocked') break;
       }
+      // Then match invoices and payments among everything read so far.
+      if (!this.stopRequested && (await this.queue.canProceed()))
+        await this.linker.run(() => this.stopRequested);
     } finally {
       await this.queue.finishRun(summary);
     }

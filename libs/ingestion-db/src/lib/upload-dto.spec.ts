@@ -38,6 +38,7 @@ describe('toUploadDto', () => {
     historicalSuggestions: [],
     historicalRunId: null,
     rejectedCategories: [],
+    transactionFacts: null,
     createdAt: new Date('2026-10-01T09:59:00Z'),
     updatedAt: new Date('2026-10-01T10:00:00Z'),
   };

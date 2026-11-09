@@ -16,6 +16,10 @@ import type {
   CreateUploadRequest,
   CreateUploadResponse,
   DeleteCategoryQuery,
+  DocumentLinkDto,
+  DocumentLinksDto,
+  DocumentLinkStatus,
+  LinkCandidateDto,
   Page,
   ParseQueueDto,
   ReparseUploadsResponse,
@@ -189,6 +193,55 @@ export class IngestionApi {
     return this.http.post<CategorySuggestionDto>(
       `${INGESTION_API}/category-suggestions/${id}/dismiss`,
       { uploadId },
+    );
+  }
+
+  /** A document's money facts and the invoices or payments linked to it. */
+  links(uploadId: string): Observable<DocumentLinksDto> {
+    return this.http.get<DocumentLinksDto>(
+      `${INGESTION_API}/uploads/${uploadId}/links`,
+    );
+  }
+
+  /** Documents of the other side it could be linked to by hand, best match first. */
+  linkCandidates(uploadId: string): Observable<LinkCandidateDto[]> {
+    return this.http.get<LinkCandidateDto[]>(
+      `${INGESTION_API}/uploads/${uploadId}/link-candidates`,
+    );
+  }
+
+  /** Links by status; `SUGGESTED` are the matches waiting for your check. */
+  documentLinks(
+    status?: DocumentLinkStatus,
+    limit = 50,
+  ): Observable<DocumentLinkDto[]> {
+    return this.http.get<DocumentLinkDto[]>(`${INGESTION_API}/document-links`, {
+      params: status ? { status, limit } : { limit },
+    });
+  }
+
+  linkDocuments(
+    invoiceUploadId: string,
+    paymentUploadId: string,
+  ): Observable<DocumentLinkDto> {
+    return this.http.post<DocumentLinkDto>(`${INGESTION_API}/document-links`, {
+      invoiceUploadId,
+      paymentUploadId,
+    });
+  }
+
+  confirmLink(id: string): Observable<DocumentLinkDto> {
+    return this.http.post<DocumentLinkDto>(
+      `${INGESTION_API}/document-links/${id}/confirm`,
+      {},
+    );
+  }
+
+  /** Unlink: never proposed again. */
+  rejectLink(id: string): Observable<DocumentLinkDto> {
+    return this.http.post<DocumentLinkDto>(
+      `${INGESTION_API}/document-links/${id}/reject`,
+      {},
     );
   }
 

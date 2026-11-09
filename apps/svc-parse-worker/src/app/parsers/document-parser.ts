@@ -4,6 +4,7 @@ import type {
   DocumentAnalysis,
   ExtractedFields,
   ProviderErrorDetails,
+  TransactionFacts,
 } from '@life-island/contracts';
 import type { NormalizedDocument } from '../normalize.js';
 import type { ExtractionPlan } from '../templates.js';
@@ -18,7 +19,13 @@ export interface ParseInput {
 
 /** One model call, stored in `ingestion.parse_runs`. */
 export interface ParseRunRecord {
-  step: 'classify' | 'extract' | 'correct' | 'discover' | 'reclassify';
+  step:
+    | 'classify'
+    | 'extract'
+    | 'correct'
+    | 'discover'
+    | 'reclassify'
+    | 'transaction';
   model: string;
   promptVersion: string;
   inputTokens?: number;
@@ -134,6 +141,21 @@ export interface DocumentAnalyzer {
     candidates: CategoryDefinition[],
     context: MatchContext,
   ): Promise<StepOutput<CategoryMatches>>;
+  /**
+   * Invoice and payment matching: the money facts of a parsed document (is it
+   * an invoice, a quote, a payment or neither; who, how much, which documents
+   * it names), read from its content only.
+   */
+  readTransaction(
+    input: ParseInput,
+    context: TransactionContext,
+  ): Promise<StepOutput<TransactionFacts>>;
+}
+
+/** What the worker already knows about a document when it reads its money facts. */
+export interface TransactionContext {
+  analysis: DocumentAnalysis | null;
+  categories: string[];
 }
 
 /** Base of the errors a step can throw; `runs` are the calls made before it failed. */

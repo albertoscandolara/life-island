@@ -274,6 +274,42 @@ Categories keep growing, so a document read last spring may also belong to a cat
 | `POST /api/ingestion/category-suggestions/approve`  | `{ items: [{ id, overrides? }] }`: confirms several suggestions with one version                                                   |
 | `PATCH /api/ingestion/uploads/:id` with `decisions` | `{ approveSuggestions, declineSuggestions, acceptHistorical, rejectHistorical }`, applied with your other edits in one transaction |
 
+### Invoices and their payments
+
+An invoice and the bank transfer that paid it are often uploaded months apart, in separate sessions, in either order. The matcher links them from what they say, never from their file names, and keeps the link whatever the order.
+
+**Money facts.** After its parse run, the worker reads the money facts of every PARSED document that has none yet (`uploads.transaction_facts`): its role (`INVOICE`, `QUOTE` for a quote, estimate or pro-forma, `PAYMENT`, or `NONE`), number, dates (issue, due, execution), amount and fees, the supplier or beneficiary and the customer or payer (name, VAT number, tax code, IBAN, also from a stamp or footer), the documents it names (an invoice number or "come da preventivo del 27 giugno 2025" in a causale), what part it pays (advance, balance, instalment) and what it concerns (an address, a contract number). One small-model call per document (`TRANSACTION`, the classify model), recorded in `parse_runs`; the offline parser reads the same facts from the text with regular expressions. Documents parsed before matching existed are read on the next run; **Parse again** clears the facts and reads them again.
+
+**Matching.** `proposeLinks` in `libs/ingestion-db` scores every invoice and quote against every payment, each point with a reason you can read:
+
+| Evidence                                                                   | Points       |
+| -------------------------------------------------------------------------- | ------------ |
+| The payment names the invoice number (in a reference or its description)   | +6           |
+| Paid to the supplier's IBAN, or the same VAT number or tax code            | +5           |
+| Same amount / same once the bank fee is counted / within rounding (≤ 0.5%) | +5 / +4 / +3 |
+| Beneficiary named like the supplier (titles and legal forms ignored)       | +3 (+1 weak) |
+| A labelled advance, balance or instalment / any other part of the total    | +3 / +1      |
+| The payment names a document of the invoice's date                         | +3           |
+| Words both descriptions share (an address, the service)                    | up to +3     |
+| Paid by the invoice's customer; paid within weeks of the invoice           | +1; +1 – 1.5 |
+| Another IBAN or VAT number; another document number; another currency      | −2; −2; −4   |
+
+Dates never rule a match out: an advance paid before the invoice or a payment a year later still matches. A pair is a candidate from 5 points, with some tie to the supplier or an explicit invoice number; amount alone is never enough. It links on its own (`AUTO`) from 8 points when the supplier matches and the amount or the invoice number does, and when no other invoice of the same kind comes within 3 points. One payment can settle several invoices of the same supplier (when exactly one set of them adds up to it), an advance and a balance can settle one invoice (when they add up to its total), and a payment "as per the quote" links to the quote and to the invoice that followed. Anything less clear is `SUGGESTED`: two invoices that fit equally, a part payment nothing explains, payments that add up to more than the invoice. Those wait for your check.
+
+**Upload order.** The matcher runs over all documents every time facts change, so the result depends only on which documents there are and on your decisions: an `AUTO` link can become `SUGGESTED` when a second matching invoice arrives, and the other way round. `CONFIRMED` (yours, or **It's a match**) and `REJECTED` (**Not a match** or **Unlink**, never proposed again) are never changed by it; a payment you matched by hand gets no other automatic link of that kind. Deleting a document deletes its links.
+
+**In the app.** The review panel of a document shows **Paid by** (an invoice or quote) or **What it pays** (a payment), with the reasons, the total paid so far, and **Link … by hand** with the best candidates first. The inbox lists the matches to check at the top.
+
+| Call                                             | What happens                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------- |
+| `GET /api/ingestion/uploads/:id/links`           | The document's money facts, its links (not the rejected ones), total linked |
+| `GET /api/ingestion/uploads/:id/link-candidates` | Documents of the other side not linked to it, best match first              |
+| `GET /api/ingestion/document-links?status=`      | Links by status; `SUGGESTED` are the ones to check                          |
+| `POST /api/ingestion/document-links`             | `{ invoiceUploadId, paymentUploadId }`: link by hand (`CONFIRMED`)          |
+| `POST /api/ingestion/document-links/:id/confirm` | Confirm a link or suggestion                                                |
+| `POST /api/ingestion/document-links/:id/reject`  | Unlink; never proposed again                                                |
+| `DELETE /api/ingestion/document-links/:id`       | Forget your decision; the matcher decides about the pair again              |
+
 ## Categories and target schemas
 
 Every parsed document gets a **category**, and its details follow a **target schema** that belongs to that category. The schema is versioned, so details stay consistent: every grocery receipt has the same fields.

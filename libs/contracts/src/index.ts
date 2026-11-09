@@ -11,3 +11,4 @@ export * from './lib/home.js';
 export * from './lib/people.js';
 export * from './lib/cars.js';
 export * from './lib/work.js';
+export * from './lib/document-links.js';

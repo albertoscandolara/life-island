@@ -1,6 +1,7 @@
 import {
   GENERAL_TARGET_KEY,
   findTarget,
+  type TransactionFacts,
   type GeneralDocumentV1,
   type GroceryReceiptV1,
   type Tax730ExpenseV1,
@@ -25,6 +26,7 @@ import {
   type StepOutput,
 } from './document-parser.js';
 import { readPayslipText } from './payslip-reader.js';
+import { readTransactionText } from './transaction-reader.js';
 
 const GROCERY_WORDS =
   /(receipt|scontrino|spesa|esselunga|coop|conad|lidl|carrefour|market|grocery)/i;
@@ -461,6 +463,22 @@ export class FakeParser implements DocumentAnalyzer {
         }),
       ],
       result: { suggestions },
+    };
+  }
+
+  /** The money facts a regular expression finds in the text; never the file name. */
+  async readTransaction(
+    input: ParseInput,
+  ): Promise<StepOutput<TransactionFacts>> {
+    this.spend();
+    const text =
+      input.document.kind === 'text' || input.document.kind === 'pdf'
+        ? input.document.text
+        : '';
+    const facts = readTransactionText(text);
+    return {
+      runs: [this.run('transaction', { role: facts.role })],
+      result: facts,
     };
   }
 

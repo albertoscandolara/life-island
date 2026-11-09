@@ -47,6 +47,8 @@ import {
   enqueueUploadDeleted,
   enqueueUploadUpdated,
   FieldEditError,
+  forgetTransactionFacts,
+  relinkDocuments,
   syncTemplateFields,
   toUploadDto,
   uploads,
@@ -599,6 +601,10 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
         .returning({ id: uploads.id });
       const requeuedIds = requeued.map((row) => row.id);
       if (requeuedIds.length) {
+        // Its money facts are read again too; the matcher's links to it go
+        // (others may now link differently), your own decisions stay.
+        await forgetTransactionFacts(client, requeuedIds);
+        await relinkDocuments(client);
         await client.query(
           `update ingestion.category_suggestions
               set upload_ids = array(select id from unnest(upload_ids) as id
@@ -674,6 +680,9 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           ),
         );
       await db.delete(uploads).where(eq(uploads.id, id));
+      // Its links went with it; a payment it competed for may now be clear.
+      if (row.transactionFacts && row.transactionFacts.role !== 'NONE')
+        await relinkDocuments(client);
       // Nothing downstream knows an upload whose file never arrived.
       if (row.status !== 'UPLOADING' && row.fileFormat)
         await enqueueUploadDeleted(client, this.svc.schema, id);
