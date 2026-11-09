@@ -45,8 +45,6 @@ export interface ManualCareerEvent {
 
 /** A rise smaller than this (0.5%) is rounding, not a rise. */
 const RISE_THRESHOLD = 0.005;
-/** A month whose gross is this much over the monthly salary has extra pay. */
-const EXTRA_PAY_THRESHOLD = 0.1;
 
 const money = (n: number) =>
   n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
@@ -169,32 +167,9 @@ export function buildTimeline(
   const counted = countedPayslips(docs);
   for (const workplace of workplaces) {
     const all = payslipsOf(workplace.id, counted);
-    // Month to month on the monthly payslips; an extra one is its own event.
+    // Month to month on the monthly payslips only: an extra one (a
+    // tredicesima on its own payslip) counts in the statistics, not here.
     const payslips = all.filter((p) => kindOf(p.doc.reading) === 'regular');
-    const extraMonths = new Set<string>();
-    for (const { doc, period } of all) {
-      const kind = kindOf(doc.reading);
-      if (kind === 'regular') continue;
-      extraMonths.add(period);
-      push({
-        id: `extra:${doc.uploadId}`,
-        date: `${period}-01`,
-        kind: 'extra_pay',
-        title:
-          doc.reading.gross !== null
-            ? `${PAYSLIP_KIND_LABELS[kind]}: ${money(doc.reading.gross)} gross`
-            : PAYSLIP_KIND_LABELS[kind],
-        detail:
-          doc.reading.net !== null
-            ? `${money(doc.reading.net)} net, on its own payslip`
-            : 'On its own payslip',
-        workplaceId: workplace.id,
-        source: 'document',
-        uploadId: doc.uploadId,
-        amount: doc.reading.gross,
-        changePct: null,
-      });
-    }
     const hireDate = (workplace.values.hireDate as string | undefined) ?? null;
     const firstSalary =
       payslips
@@ -286,44 +261,6 @@ export function buildTimeline(
             changePct: round1(change * 100),
           });
         }
-        const titleBefore =
-          text(before.values.jobTitle) ?? text(before.values.qualification);
-        const titleNow =
-          text(now.values.jobTitle) ?? text(now.values.qualification);
-        if (titleBefore && titleNow && titleBefore !== titleNow)
-          push({
-            ...base,
-            id: `role:${point.doc.uploadId}`,
-            kind: 'role_change',
-            title: titleNow,
-            detail: `Before: ${titleBefore}`,
-            amount: null,
-            changePct: null,
-          });
-        const ccnlBefore = text(before.values.collectiveAgreement);
-        const ccnlNow = text(now.values.collectiveAgreement);
-        if (ccnlBefore && ccnlNow && ccnlBefore !== ccnlNow)
-          push({
-            ...base,
-            id: `ccnl:${point.doc.uploadId}`,
-            kind: 'contract_change',
-            title: ccnlNow,
-            detail: `Before: ${ccnlBefore}`,
-            amount: null,
-            changePct: null,
-          });
-        const teamBefore = text(before.values.costCenter);
-        const teamNow = text(now.values.costCenter);
-        if (teamBefore && teamNow && teamBefore !== teamNow)
-          push({
-            ...base,
-            id: `team:${point.doc.uploadId}`,
-            kind: 'role_change',
-            title: `New team: ${teamNow}`,
-            detail: `Before: ${teamBefore}`,
-            amount: null,
-            changePct: null,
-          });
       }
       if (
         increments !== null &&
@@ -341,34 +278,6 @@ export function buildTimeline(
         });
       if (increments !== null) lastIncrements = increments;
 
-      const salary = numeric(now.values.monthlySalary);
-      if (
-        salary &&
-        now.gross !== null &&
-        now.gross > salary * (1 + EXTRA_PAY_THRESHOLD)
-      )
-        push({
-          ...base,
-          id: `extra:${point.doc.uploadId}`,
-          kind: 'extra_pay',
-          title: `${money(round2(now.gross - salary))} over the monthly salary`,
-          detail: extraMonths.has(point.period)
-            ? 'A bonus, arrears, paid-out leave or allowances (the extra month has its own payslip)'
-            : extraPayDetail(point.period),
-          amount: round2(now.gross - salary),
-          changePct: null,
-        });
-      if (now.welfare)
-        push({
-          ...base,
-          id: `welfare:${point.doc.uploadId}`,
-          kind: 'extra_pay',
-          title: `${money(now.welfare)} of welfare credits`,
-          detail:
-            'Benefits you can spend on the welfare platform, not paid in the net',
-          amount: now.welfare,
-          changePct: null,
-        });
       previous = point;
     }
 
@@ -493,14 +402,6 @@ function salaryDetail(
         : `a superminimum of ${money(superNow)}`,
     );
   return parts.join(', ');
-}
-
-function extraPayDetail(period: string): string {
-  const month = +period.slice(5, 7);
-  if (month === 12) return 'December: usually the tredicesima (13th month)';
-  if (month === 6 || month === 7)
-    return 'Summer: the quattordicesima (14th month), if your CCNL has one, or a bonus';
-  return 'A bonus, arrears, paid-out leave or allowances';
 }
 
 /** Statistics of your pay and career, from the payslips you approved. */
