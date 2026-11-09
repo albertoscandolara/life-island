@@ -7,6 +7,7 @@ import {
   type CareerWorkplace,
 } from './career.js';
 import { offlineFeedback, careerDossier } from './career-feedback.js';
+import { buildEvaluationStats } from './evaluations.js';
 import { readWorkDocument } from './work-documents.js';
 
 // The same anonymized payslip fields as work-documents.spec.ts.
@@ -159,6 +160,7 @@ describe('buildStats', () => {
       documents: docs,
       timeline,
       stats,
+      evaluations: buildEvaluationStats(docs, [workplace], stats.years),
       platforms: [],
       today: '2026-11-08',
     };

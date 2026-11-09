@@ -1,0 +1,416 @@
+@if (!data().count && !data().rules.length) {
+<ui-card class="block">
+  <ui-empty-state heading="No performance reviews on record yet" icon="check">
+    <p class="muted">
+      Load your evaluations (schede di valutazione) in the documents app and
+      approve them in "To review": scores, criteria and bonus appear here. Load
+      your employer's evaluation rules too (an incentive plan or scheda
+      obiettivi): each score is then read against them.
+    </p>
+  </ui-empty-state>
+</ui-card>
+} @else { @if (latest(); as l) {
+<section class="tiles" aria-label="Your evaluations in numbers">
+  <div class="tile tile--lead">
+    <span class="tile__label">Latest score</span>
+    <strong class="tile__value">{{ scoreText(l.score, l.maxScore) }}</strong>
+    <span class="tile__hint">
+      {{ l.cycle ?? periodText(l.date) }} @if (data().scoreChange !== null) { ·
+      <span
+        [class.up]="(data().scoreChange ?? 0) > 0"
+        [class.down]="(data().scoreChange ?? 0) < 0"
+        >{{ signed(data().scoreChange) }}</span
+      >
+      on the one before }
+    </span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Bonus conversion</span>
+    <strong class="tile__value"> {{ conversion(l) }} </strong>
+    <span class="tile__hint">
+      @if (l.band; as band) { @if (l.payoutPct !== null && l.payoutPct !==
+      band.pct) { as the form states } @else if (band.pointsToNext !== null) {
+      {{ pointsText(band.pointsToNext) }} to {{ band.nextPct }}% } @else { the
+      top band } } @else { of the bonus target }
+    </span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Average score</span>
+    <strong class="tile__value">{{ scoreText(data().averageScore) }}</strong>
+    <span class="tile__hint"
+      >Best {{ scoreText(data().bestScore) }} over {{ data().count }} period{{
+      data().count === 1 ? '' : 's' }}</span
+    >
+  </div>
+  <div class="tile">
+    <span class="tile__label">Average conversion</span>
+    <strong class="tile__value">{{ percent(data().averagePayoutPct) }}</strong>
+    <span class="tile__hint"
+      >Share of the bonus target, as the forms state</span
+    >
+  </div>
+  <div class="tile">
+    <span class="tile__label">Bonus on record</span>
+    <strong class="tile__value">{{ euro(data().bonusTotal) }}</strong>
+    <span class="tile__hint">Paid on the evaluations you approved</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Role</span>
+    <strong class="tile__value tile__value--text">{{ l.role ?? '–' }}</strong>
+    <span class="tile__hint">{{ l.team ?? l.workplaceName ?? '' }}</span>
+  </div>
+</section>
+}
+
+<div class="grid">
+  @if (scoreChart().buckets.length) {
+  <ui-card heading="Score by period">
+    <work-column-chart
+      [buckets]="scoreChart().buckets"
+      [series]="scoreChart().series"
+      mode="stacked"
+      [height]="240"
+      [format]="points"
+      [label]="labelOf"
+      [shortLabel]="shortOf"
+      [maxValue]="scoreChart().max"
+      ariaLabel="Total score of each period, by section"
+    />
+  </ui-card>
+  } @if (bonusChart().buckets.length) {
+  <ui-card heading="Bonus by year">
+    <work-column-chart
+      [buckets]="bonusChart().buckets"
+      [series]="bonusChart().series"
+      mode="grouped"
+      [height]="240"
+      [format]="euroShort"
+      ariaLabel="Bonus target and bonus paid each year"
+    />
+  </ui-card>
+  }
+</div>
+
+@if (data().criteria.length) {
+<ui-card heading="Criteria across periods" class="block">
+  <div class="lists">
+    @if (data().strongest.length) {
+    <div>
+      <h3>Strongest</h3>
+      <ul class="chips" role="list">
+        @for (name of data().strongest; track name) {
+        <li><ui-badge tone="success">{{ name }}</ui-badge></li>
+        }
+      </ul>
+    </div>
+    } @if (data().weakest.length) {
+    <div>
+      <h3>Most room to grow</h3>
+      <ul class="chips" role="list">
+        @for (name of data().weakest; track name) {
+        <li><ui-badge tone="warning">{{ name }}</ui-badge></li>
+        }
+      </ul>
+    </div>
+    } @if (data().improving.length) {
+    <div>
+      <h3>Improving</h3>
+      <ul class="chips" role="list">
+        @for (name of data().improving; track name) {
+        <li><ui-badge tone="info">{{ name }}</ui-badge></li>
+        }
+      </ul>
+    </div>
+    } @if (data().declining.length) {
+    <div>
+      <h3>Dropping</h3>
+      <ul class="chips" role="list">
+        @for (name of data().declining; track name) {
+        <li><ui-badge tone="danger">{{ name }}</ui-badge></li>
+        }
+      </ul>
+    </div>
+    }
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Criterion</th>
+          @for (e of columns(); track e.uploadId) {
+          <th scope="col" class="num" [title]="labelOf(e.uploadId)">
+            {{ cycleShort(e) }}
+          </th>
+          }
+          <th scope="col" class="num">Average</th>
+          <th scope="col" class="num">Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of data().criteria; track c.name) {
+        <tr>
+          <th scope="row">{{ c.name }}</th>
+          @for (e of columns(); track e.uploadId) {
+          <td class="num">{{ scoreText(scoreOf(c, e)) }}</td>
+          }
+          <td class="num">{{ scoreText(c.average) }}</td>
+          <td class="num" [class.up]="c.change > 0" [class.down]="c.change < 0">
+            {{ c.points.length > 1 ? signed(c.change) : '–' }}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+} @if (data().years.length) {
+<ui-card heading="Year by year" class="block">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Evaluations</th>
+          <th scope="col" class="num">Average score</th>
+          <th scope="col" class="num">Best</th>
+          <th scope="col" class="num">Bonus target</th>
+          <th scope="col" class="num">Bonus paid</th>
+          <th scope="col" class="num">Share of gross</th>
+          <th scope="col">Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (y of data().years; track y.year) {
+        <tr>
+          <th scope="row">{{ y.year }}</th>
+          <td class="num">{{ y.evaluations }}</td>
+          <td class="num">{{ scoreText(y.averageScore) }}</td>
+          <td class="num">{{ scoreText(y.bestScore) }}</td>
+          <td class="num">{{ euro(y.bonusTarget) }}</td>
+          <td class="num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
+          <td class="num">
+            {{ y.bonusShareOfGrossPct === null ? '–' : y.bonusShareOfGrossPct +
+            '%' }}
+          </td>
+          <td>{{ y.role ?? '–' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+}
+
+<!-- How the marks work: each workplace's own rules, from its documents. -->
+@for (r of rules(); track r.current.uploadId) {
+<ui-card
+  [heading]="'How ' + (r.current.workplaceName ?? 'your employer') + ' scores you'"
+  class="block"
+>
+  <div class="rules">
+    <div class="rules__head">
+      <p class="muted">
+        {{ r.current.title }} @if (r.current.version) { · version {{
+        r.current.version }} } @if (r.current.effectiveFrom) { · applies from {{
+        periodText(r.current.effectiveFrom) }} }
+      </p>
+      <a
+        uiButton
+        variant="secondary"
+        size="sm"
+        [href]="previewUrl(r.current.uploadId)"
+        target="_blank"
+        rel="noopener"
+      >
+        <ui-icon name="file" [size]="16" /> Open the rules
+      </a>
+    </div>
+
+    @if (latestOf(r.current); as e) { @if (e.band) {
+    <p class="reading">
+      Your latest score, {{ scoreText(e.score, e.maxScore) }} ({{ e.cycle ??
+      periodText(e.date) }}), converts to <strong>{{ e.band.pct }}%</strong> of
+      the bonus target by these rules. @if (e.band.pointsToNext !== null) { {{
+      pointsText(e.band.pointsToNext) }} more reach {{ e.band.nextPct }}%. } @if
+      (e.band.marginBelow !== null && e.band.marginBelow < 3) { It is {{
+      pointsText(e.band.marginBelow) }} over the start of its band. } @if
+      (e.payoutPct !== null && e.payoutPct !== e.band.pct) { The form itself
+      states {{ e.payoutPct }}%, which is what counts: the company may convert
+      the yearly average rather than the single period. }
+    </p>
+    } }
+
+    <div class="rules__parts">
+      @if (r.current.sections.length) {
+      <div>
+        <h3>What makes the score</h3>
+        <ul>
+          @for (s of r.current.sections; track s.name) {
+          <li><strong>{{ s.name }}</strong>: {{ sectionText(s) }}</li>
+          } @if (r.current.maxScore) {
+          <li>Highest total: {{ points(r.current.maxScore) }}</li>
+          }
+        </ul>
+      </div>
+      } @if (r.current.scale.length) {
+      <div>
+        <h3>What a mark means</h3>
+        <ul class="scale">
+          @for (s of r.current.scale; track s.name) {
+          <li>
+            <strong>{{ s.value ?? s.name }}</strong><span>{{ s.note }}</span>
+          </li>
+          }
+        </ul>
+      </div>
+      } @if (r.current.bands.length) {
+      <div>
+        <h3>Score to bonus</h3>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Score</th>
+                <th scope="col" class="num">Bonus</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (b of r.bands; track $index) {
+              <tr [class.now]="inBand(r.current, b)">
+                <th scope="row">{{ bandRange(b) }}</th>
+                <td class="num">{{ b.pct }}%</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (r.current.targetRule || r.current.maxPayoutPct !== null) {
+        <p class="muted">
+          @if (r.current.targetRule) { Target: {{ r.current.targetRule }}. } @if
+          (r.current.maxPayoutPct !== null) { Up to {{ r.current.maxPayoutPct
+          }}% with every extra. }
+        </p>
+        }
+      </div>
+      } @if (r.current.schedule.length) {
+      <div>
+        <h3>When it is paid</h3>
+        <ul>
+          @for (line of r.current.schedule; track $index) {
+          <li>{{ line }}</li>
+          }
+        </ul>
+      </div>
+      } @if (r.current.notes.length || r.current.eligibility.length) {
+      <div>
+        <h3>Good to know</h3>
+        <ul>
+          @for (line of r.current.notes; track $index) {
+          <li>{{ line }}</li>
+          } @for (line of r.current.eligibility; track $index) {
+          <li>{{ line }}</li>
+          }
+        </ul>
+      </div>
+      }
+    </div>
+
+    @if (r.older.length) {
+    <p class="muted">
+      Earlier versions: @for (o of r.older; track o.uploadId; let last = $last)
+      {
+      <a [href]="previewUrl(o.uploadId)" target="_blank" rel="noopener"
+        >{{ o.version ?? o.title }}@if (o.effectiveFrom) { ({{
+        periodText(o.effectiveFrom) }}) }</a
+      >{{ last ? '' : ', ' }} }
+    </p>
+    }
+  </div>
+</ui-card>
+} @if (missingRules()) {
+<ui-card heading="How your marks work" class="block">
+  <p class="muted">
+    Load your employer's evaluation rules (the incentive plan, sistema
+    incentivante or scheda obiettivi) in the documents app and approve them
+    under {{ latest()?.workplaceName ?? 'your workplace' }}: what each section
+    is worth, what a mark means and how the score converts to bonus show here,
+    and every evaluation is read against the version in force on its date. When
+    the company publishes a new version, load it too: it takes over from the day
+    it applies.
+  </p>
+</ui-card>
+} @if (newestFirst().length) {
+<ui-card heading="Every evaluation" class="block">
+  <ol class="list">
+    @for (e of newestFirst(); track e.uploadId) {
+    <li class="evaluation">
+      <div class="evaluation__head">
+        <h3>{{ e.cycle ?? periodText(e.date) }}</h3>
+        @if (e.workplaceName) {
+        <ui-badge tone="neutral">{{ e.workplaceName }}</ui-badge>
+        } @if (e.payoutPct !== null || e.band) {
+        <ui-badge tone="info">{{ conversion(e) }} of target</ui-badge>
+        }
+        <span class="evaluation__score"
+          >{{ e.score !== null ? scoreText(e.score, e.maxScore) : (e.rating ??
+          '–') }}</span
+        >
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(e.uploadId)"
+          target="_blank"
+          rel="noopener"
+          aria-label="Open the evaluation"
+        >
+          <ui-icon name="eye" [size]="16" />
+        </a>
+      </div>
+      <dl>
+        @if (e.date) {
+        <dt>Date</dt>
+        <dd>{{ periodText(e.date) }}</dd>
+        } @if (e.role || e.team) {
+        <dt>Role</dt>
+        <dd>
+          {{ e.role ?? '' }}{{ e.role && e.team ? ' · ' : '' }}{{ e.team ?? ''
+          }}
+        </dd>
+        } @if (e.reviewer) {
+        <dt>Reviewer</dt>
+        <dd>{{ e.reviewer }}</dd>
+        } @if (e.sections.length) {
+        <dt>Sections</dt>
+        <dd>
+          @for (s of e.sections; track s.name; let last = $last) { {{ s.name }}
+          {{ scoreText(s.score, s.max) }}{{ last ? '' : ' · ' }} }
+        </dd>
+        } @if (e.criteria.length) {
+        <dt>Criteria</dt>
+        <dd>
+          @for (c of e.criteria; track c.name; let last = $last) { {{ c.name }}
+          {{ scoreText(c.score, c.max) }}{{ last ? '' : ' · ' }} }
+        </dd>
+        } @if (e.bonus !== null) {
+        <dt>Bonus</dt>
+        <dd>{{ euro(e.bonus) }}</dd>
+        } @if (e.comments) {
+        <dt>Comments</dt>
+        <dd>{{ e.comments }}</dd>
+        } @if (e.strengths) {
+        <dt>Strengths</dt>
+        <dd>{{ e.strengths }}</dd>
+        } @if (e.improvements) {
+        <dt>To improve</dt>
+        <dd>{{ e.improvements }}</dd>
+        } @if (e.goals) {
+        <dt>Goals</dt>
+        <dd>{{ e.goals }}</dd>
+        }
+      </dl>
+    </li>
+    }
+  </ol>
+</ui-card>
+} }

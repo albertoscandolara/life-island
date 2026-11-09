@@ -1,7 +1,7 @@
 <ui-page-header
   emblem="💼"
   heading="Work"
-  subtitle="Every workplace you have had, read from payslips, evaluations and contracts: your career on a timeline, your pay year by year, a feedback on where to go next, and the hiring platforms you signed up to."
+  subtitle="Every workplace you have had, read from payslips, evaluations and contracts: your career on a timeline, your pay and your performance reviews year by year, a feedback on where to go next, and the hiring platforms you signed up to."
 />
 
 <nav class="tabs" aria-label="Work">
@@ -55,7 +55,8 @@
     Review
   </button>
 </ui-alert>
-} @if (stats(); as s) { @if (!s.payslips && !data.timeline.length) {
+} @if (stats(); as s) { @if (!s.payslips && !data.timeline.length &&
+!data.evaluations.count) {
 <ui-card class="block">
   <ui-empty-state heading="No career on record yet" icon="chart">
     <p class="muted">
@@ -92,88 +93,99 @@
       >Career on record {{ duration(s.careerMonths) }}</span
     >
   </div>
+  @if (data.evaluations.latest; as l) {
   <div class="tile">
-    <span class="tile__label">Since the last rise</span>
-    <strong class="tile__value">
-      @if (s.monthsSinceLastRise !== null) { {{ duration(s.monthsSinceLastRise)
-      }} } @else { none on record }
-    </strong>
-    <span class="tile__hint">Rises and promotions read from your payslips</span>
+    <span class="tile__label">Latest evaluation</span>
+    <strong class="tile__value">{{ scoreText(l.score, l.maxScore) }}</strong>
+    <span class="tile__hint">
+      {{ l.cycle ?? periodText(l.date) }} @if (data.evaluations.scoreChange !==
+      null) { · {{ signed(data.evaluations.scoreChange) }} } @if ((l.payoutPct
+      ?? l.band?.pct ?? null) !== null) { · {{ l.payoutPct ?? l.band?.pct }}% of
+      the bonus }
+    </span>
   </div>
+  } @if (bonusShare(); as b) {
   <div class="tile">
-    <span class="tile__label">Take-home</span>
-    <strong class="tile__value">
-      @if (s.netRatio !== null) { {{ (s.netRatio * 100).toFixed(0) }}% } @else {
-      – }
-    </strong>
-    <span class="tile__hint">Net over gross, last 12 months</span>
+    <span class="tile__label">Bonus in your pay</span>
+    <strong class="tile__value">{{ b.bonusShareOfGrossPct }}%</strong>
+    <span class="tile__hint"
+      >{{ euro(b.bonus) }} of {{ euro(b.gross) }} gross in {{ b.year }}</span
+    >
   </div>
+  } @if (data.evaluations.latest?.role ?? s.currentLevel; as role) {
   <div class="tile">
-    <span class="tile__label">Time off left</span>
-    <strong class="tile__value">{{ hours(s.vacationLeft) }}</strong>
-    <span class="tile__hint">Vacation; ROL {{ hours(s.leaveLeft) }}</span>
+    <span class="tile__label">Role</span>
+    <strong class="tile__value tile__value--text">{{ role }}</strong>
+    <span class="tile__hint"
+      >@if (s.monthsSinceLastRise !== null) { Last rise {{
+      duration(s.monthsSinceLastRise) }} ago } @else { No rise on record }</span
+    >
   </div>
+  }
 </section>
 
-@if (s.missingMonths.length) {
-<ui-alert tone="info" class="block">
-  No payslip on record for {{ s.missingMonths.map(periodText).join(', ') }}.
-  Load them to complete the picture.
-</ui-alert>
-}
-
-<div class="grid">
-  @if (payChart().buckets.length) {
-  <ui-card heading="Pay month by month" class="grid__wide">
-    <work-column-chart
-      [buckets]="payChart().buckets"
-      [series]="payChart().series"
-      mode="grouped"
-      [height]="240"
-      [format]="euroShort"
-      [label]="periodText"
-      [shortLabel]="shortPeriod"
-      ariaLabel="Gross and net pay of each month"
-    />
-  </ui-card>
-  } @if (s.years.length) {
-  <ui-card heading="Year by year" class="grid__wide">
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Year</th>
-            <th scope="col" class="num">Payslips</th>
-            <th scope="col" class="num">Gross</th>
-            <th scope="col" class="num">Net</th>
-            <th scope="col" class="num">Income tax</th>
-            <th scope="col" class="num">Contributions</th>
-            <th scope="col" class="num">Welfare</th>
-            <th scope="col" class="num">TFR accrued</th>
-            <th scope="col" class="num">Average net</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (y of s.years; track y.year) {
-          <tr>
-            <th scope="row">{{ y.year }}</th>
-            <td class="num">{{ y.payslips }}</td>
-            <td class="num">{{ euro(y.gross) }}</td>
-            <td class="num">{{ euro(y.net) }}</td>
-            <td class="num">{{ euro(y.incomeTax) }}</td>
-            <td class="num">{{ euro(y.contributions) }}</td>
-            <td class="num">{{ y.welfare ? euro(y.welfare) : '–' }}</td>
-            <td class="num">{{ y.severance ? euro(y.severance) : '–' }}</td>
-            <td class="num">{{ euro(y.averageNet) }}</td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </ui-card>
-  }
-</div>
-} }
+@if (years().length) {
+<ui-card heading="Pay and evaluations, year by year" class="block">
+  <div uiCardActions class="actions">
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="setTab('payslips')"
+    >
+      Payslips
+    </button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="setTab('evaluations')"
+    >
+      Performance reviews
+    </button>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Gross</th>
+          <th scope="col" class="num">Net</th>
+          <th scope="col" class="num">Evaluations</th>
+          <th scope="col" class="num">Average score</th>
+          <th scope="col" class="num">Bonus</th>
+          <th scope="col" class="num">Bonus share of gross</th>
+          <th scope="col">Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (y of years(); track y.year) {
+        <tr>
+          <th scope="row">{{ y.year }}</th>
+          <td class="num">{{ y.payslips ? euro(y.gross) : '–' }}</td>
+          <td class="num">{{ y.payslips ? euro(y.net) : '–' }}</td>
+          <td class="num">{{ y.evaluations || '–' }}</td>
+          <td class="num">{{ scoreText(y.averageScore) }}</td>
+          <td class="num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
+          <td class="num">
+            {{ y.bonusShareOfGrossPct === null ? '–' : y.bonusShareOfGrossPct +
+            '%' }}
+          </td>
+          <td>{{ y.role ?? '–' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="muted note">
+    Gross and net come from your payslips; scores and bonus from your
+    evaluations. A year with payslips but no evaluation, or the other way round,
+    shows a dash.
+  </p>
+</ui-card>
+} } }
 
 <ui-card heading="Timeline" class="block">
   <div uiCardActions class="actions">
@@ -350,6 +362,16 @@
   </section>
   }
 </ui-card>
+}
+
+<!-- ============================================================== payslips -->
+@case ('payslips') { @if (stats(); as s) {
+<work-payslips [stats]="s" />
+} }
+
+<!-- =========================================================== evaluations -->
+@case ('evaluations') {
+<work-evaluations [data]="data.evaluations" />
 }
 
 <!-- ================================================================ review -->

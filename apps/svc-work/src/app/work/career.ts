@@ -335,14 +335,19 @@ export function buildTimeline(
         id: `evaluation:${doc.uploadId}`,
         date: r.date,
         kind: 'evaluation',
-        title: r.rating
-          ? `Evaluation: ${r.rating}${r.ratingScale ? ` (${r.ratingScale})` : ''}`
-          : 'Evaluation',
+        title: `Evaluation${r.cycle ? ` ${r.cycle}` : ''}${
+          r.score !== null
+            ? `: ${r.score}${r.maxScore ? ` / ${r.maxScore}` : ''}`
+            : r.rating
+              ? `: ${r.rating}${r.ratingScale ? ` (${r.ratingScale})` : ''}`
+              : ''
+        }`,
         detail:
           [
             r.reviewer ? `By ${r.reviewer}` : null,
             r.values.level ? `new level ${r.values.level}` : null,
             r.values.jobTitle ? `new role ${r.values.jobTitle}` : null,
+            r.payoutPct !== null ? `${r.payoutPct}% of the bonus target` : null,
             r.bonus ? `bonus ${money(r.bonus)}` : null,
           ]
             .filter(Boolean)

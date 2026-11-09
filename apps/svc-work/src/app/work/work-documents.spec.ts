@@ -92,6 +92,52 @@ describe('readWorkDocument', () => {
     });
   });
 
+  it('reads the period, scores and bonus of an evaluation', () => {
+    const reading = readWorkDocument('PERFORMANCE_REVIEW', {
+      employer: 'Esempio Lavori srl',
+      review_date: '2026-05-20',
+      review_period: '2026-01-01/2026-04-30',
+      review_cycle: '1° quadrimestre 2026',
+      role: 'Developer Senior',
+      team: 'Team Alpha',
+      overall_score: '91,5',
+      section_scores: 'Team objective: 29.5\nPerformance: 32\nBehaviour: 30',
+      criteria_scores:
+        '- Gestione task: 4/5\nQualità: 4\nNo score here\nSupporto = 5 / 5',
+      payout_percent: 75,
+      bonus_target: '3.000,00',
+      bonus_amount: 750,
+      comments: 'Good feedback from the client',
+    });
+    expect(reading).toMatchObject({
+      cycle: '1° quadrimestre 2026',
+      periodStart: '2026-01-01',
+      periodEnd: '2026-04-30',
+      role: 'Developer Senior',
+      team: 'Team Alpha',
+      score: 91.5,
+      payoutPct: 75,
+      bonusTarget: 3000,
+      bonus: 750,
+      comments: 'Good feedback from the client',
+    });
+    expect(reading.sections.map((s) => s.score)).toEqual([29.5, 32, 30]);
+    expect(reading.criteria).toEqual([
+      { name: 'Gestione task', score: 4, max: 5 },
+      { name: 'Qualità', score: 4, max: null },
+      { name: 'Supporto', score: 5, max: 5 },
+    ]);
+  });
+
+  it('reads a plain numeric rating as the score', () => {
+    expect(
+      readWorkDocument('PERFORMANCE_REVIEW', { overall_rating: '4' }).score,
+    ).toBe(4);
+    expect(
+      readWorkDocument('PERFORMANCE_REVIEW', { overall_rating: '4/5' }).score,
+    ).toBeNull();
+  });
+
   it('takes the payer of an income document as the employer', () => {
     expect(
       readWorkDocument('PAYSLIP', { payer: 'ACME SPA' }).employerName,

@@ -12,11 +12,16 @@ import { z } from 'zod';
  * entities/employment, entities/workplace and payslips/payslip.schema.json).
  */
 
-/** The work document types: PAYSLIP (migration 0007) and the two of migration 0014. */
+/**
+ * The work document types: PAYSLIP (migration 0007), the two of migration
+ * 0014 and EVALUATION_RULES (0018), the rules an employer scores its
+ * evaluations by.
+ */
 export const WORK_DOCUMENT_TYPES = [
   'PAYSLIP',
   'PERFORMANCE_REVIEW',
   'EMPLOYMENT_CONTRACT',
+  'EVALUATION_RULES',
 ] as const;
 export type WorkDocumentType = (typeof WORK_DOCUMENT_TYPES)[number];
 
@@ -27,6 +32,7 @@ export const WORK_DOCUMENT_TYPE_LABELS: Record<WorkDocumentType, string> = {
   PAYSLIP: 'Payslip',
   PERFORMANCE_REVIEW: 'Evaluation',
   EMPLOYMENT_CONTRACT: 'Employment contract',
+  EVALUATION_RULES: 'Evaluation rules',
 };
 
 export const CONTRACT_KINDS = [
@@ -570,6 +576,180 @@ export interface CareerFeedbackDto extends CareerFeedbackOutput {
   createdAt: string;
 }
 
+/** One score of an evaluation: a section or a single criterion. */
+export interface ScoreItemDto {
+  name: string;
+  score: number;
+  /** The highest score possible, when the form says it. */
+  max: number | null;
+}
+
+/** One evaluation you approved, as Work reads it. */
+export interface EvaluationDto {
+  uploadId: string;
+  title: string;
+  workplaceId: string;
+  workplaceName: string | null;
+  /** When it counts: the evaluation's date, else the end of its period (YYYY-MM-DD). */
+  date: string | null;
+  /** The part of the year evaluated, as printed (1° quadrimestre 2026, H1, annual). */
+  cycle: string | null;
+  /** Its period, when printed (YYYY-MM-DD). */
+  periodStart: string | null;
+  periodEnd: string | null;
+  role: string | null;
+  team: string | null;
+  reviewer: string | null;
+  /** The total score of the period, and the highest possible when known. */
+  score: number | null;
+  maxScore: number | null;
+  /** The score over the highest possible, 0 to 1, when the highest is known. */
+  scoreShare: number | null;
+  /** The overall judgement as printed, when it is not a number (Exceeds expectations, B). */
+  rating: string | null;
+  sections: ScoreItemDto[];
+  criteria: ScoreItemDto[];
+  /** Share of the bonus target the score converts to, in percent. */
+  payoutPct: number | null;
+  bonus: number | null;
+  bonusTarget: number | null;
+  /** Annual gross (RAL) the form states. */
+  annualGross: number | null;
+  /** Where the score sits in the conversion table of its employer's rules, when you have them. */
+  band: EvaluationBandDto | null;
+  strengths: string | null;
+  improvements: string | null;
+  goals: string | null;
+  comments: string | null;
+}
+
+/** One criterion across your evaluations (same criterion under slightly different names counts once). */
+export interface CriterionTrendDto {
+  name: string;
+  /** Oldest first, one per evaluation that scores it. */
+  points: { uploadId: string; date: string | null; score: number }[];
+  max: number | null;
+  first: number;
+  latest: number;
+  average: number;
+  /** Latest minus first. */
+  change: number;
+}
+
+export interface EvaluationYearDto {
+  year: number;
+  evaluations: number;
+  averageScore: number | null;
+  bestScore: number | null;
+  /** Bonus paid by the evaluations of the year. */
+  bonus: number;
+  bonusTarget: number | null;
+  /** The year's gross pay from your payslips, to set the bonus against. */
+  payslipGross: number | null;
+  /** Bonus over the year's payslip gross, in percent. */
+  bonusShareOfGrossPct: number | null;
+  role: string | null;
+  annualGross: number | null;
+}
+
+/** Your evaluations in numbers. */
+/** One step of a rules document's conversion table: from `min` points, `pct` of the bonus target. */
+export interface ScoreBandDto {
+  /** Lowest score of the band; null for the bottom one ("below 60"). */
+  min: number | null;
+  /** Highest score of the band, when printed. */
+  max: number | null;
+  pct: number;
+}
+
+/** A line of a rules document: a section and its highest score, or what a mark means. */
+export interface RuleItemDto {
+  name: string;
+  /** The highest score of a section, or the mark a meaning is for. */
+  value: number | null;
+  /** How it is scored or what it means, as the rules say it. */
+  note: string | null;
+}
+
+/**
+ * The rules an employer scores its evaluations by (an incentive plan, a
+ * scheda obiettivi): one document per version, filed under its workplace.
+ * Every company has its own, so nothing here is fixed in code.
+ */
+export interface EvaluationRulesDto {
+  uploadId: string;
+  title: string;
+  workplaceId: string;
+  workplaceName: string | null;
+  version: string | null;
+  /** From when it applies (YYYY-MM-DD); else the document's date. */
+  effectiveFrom: string | null;
+  /** Highest total score of an evaluation. */
+  maxScore: number | null;
+  /** Highest share of the target the bonus can reach, in percent. */
+  maxPayoutPct: number | null;
+  /** How the yearly bonus target is set, as written (10% of the RAL). */
+  targetRule: string | null;
+  /** What each mark means, best last. */
+  scale: RuleItemDto[];
+  /** The parts of an evaluation and their highest score. */
+  sections: RuleItemDto[];
+  /** Score to bonus conversion, lowest first. */
+  bands: ScoreBandDto[];
+  /** When each period is evaluated and paid. */
+  schedule: string[];
+  /** Who it applies to and when it does not. */
+  eligibility: string[];
+  /** Anything else worth knowing to read the marks. */
+  notes: string[];
+}
+
+/** Where an evaluation's score sits in its rules' conversion table. */
+export interface EvaluationBandDto {
+  rulesUploadId: string;
+  /** Share of the target this score converts to, by the rules. */
+  pct: number;
+  /** The score the next band starts at, and its share; null at the top. */
+  nextAt: number | null;
+  nextPct: number | null;
+  /** Points to the next band. */
+  pointsToNext: number | null;
+  /** Points over the start of this band: how close to dropping one. */
+  marginBelow: number | null;
+}
+
+export interface EvaluationStatsDto {
+  count: number;
+  /** Oldest first. */
+  evaluations: EvaluationDto[];
+  latest: EvaluationDto | null;
+  /** Latest total score minus the one before. */
+  scoreChange: number | null;
+  averageScore: number | null;
+  bestScore: number | null;
+  /** Average payout over the evaluations that state one, in percent. */
+  averagePayoutPct: number | null;
+  bonusTotal: number;
+  /** Best criteria first (by average share of their max, else average). */
+  criteria: CriterionTrendDto[];
+  /** Your strongest and weakest criteria, by average. */
+  strongest: string[];
+  weakest: string[];
+  /** Criteria that improved or dropped the most between first and latest. */
+  improving: string[];
+  declining: string[];
+  /** Each role and team as the evaluations state them, oldest first. */
+  roles: {
+    role: string | null;
+    team: string | null;
+    from: string | null;
+    to: string | null;
+  }[];
+  years: EvaluationYearDto[];
+  /** The evaluation rules of each workplace, newest version first. */
+  rules: EvaluationRulesDto[];
+}
+
 export interface WorkOverviewDto {
   workplaces: WorkplaceDto[];
   reviews: PendingWorkReviewDto[];
@@ -577,6 +757,8 @@ export interface WorkOverviewDto {
   /** Newest first. */
   timeline: CareerEventDto[];
   stats: CareerStatsDto;
+  /** Your evaluations: scores, criteria, bonus and roles. */
+  evaluations: EvaluationStatsDto;
   platforms: HiringPlatformDto[];
   /** Newest first. */
   feedback: CareerFeedbackDto[];

@@ -13,6 +13,10 @@ import {
   type WorkplaceMatch,
   type WorkplaceValue,
   type WorkplaceValues,
+  type EvaluationRulesDto,
+  type RuleItemDto,
+  type ScoreBandDto,
+  type ScoreItemDto,
 } from '@life-island/contracts';
 
 /*
@@ -210,7 +214,133 @@ export interface WorkDocumentReading {
   improvements: string | null;
   goals: string | null;
   bonus: number | null;
+  /** An evaluation's period and scores (see `readScores`). */
+  cycle: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  role: string | null;
+  team: string | null;
+  score: number | null;
+  maxScore: number | null;
+  sections: ScoreItemDto[];
+  criteria: ScoreItemDto[];
+  payoutPct: number | null;
+  bonusTarget: number | null;
+  comments: string | null;
+  /** An evaluation rules document, read (see `readBands`, `readRuleItems`). */
+  rules: RulesReading | null;
   facts: WorkFactDto[];
+}
+
+export type RulesReading = Omit<
+  EvaluationRulesDto,
+  'uploadId' | 'title' | 'workplaceId' | 'workplaceName'
+>;
+
+/**
+ * Scores written one per line as "Name: score" or "Name: score/max" (also
+ * "Name - 4 / 5", "Name = 4"); separators may be new lines or semicolons.
+ * Lines without a number are skipped; a repeated name keeps its first score.
+ */
+export function readScores(value: unknown): ScoreItemDto[] {
+  const raw = typeof value === 'string' ? value : '';
+  const items: ScoreItemDto[] = [];
+  const seen = new Set<string>();
+  for (const line of raw.split(/\r?\n|;/)) {
+    const match =
+      /^\s*[-•*]?\s*(.+?)\s*[:=–-]\s*(-?\d+(?:[.,]\d+)?)\s*(?:\/\s*(\d+(?:[.,]\d+)?))?\s*(?:pt[is]?\.?|punti)?\s*$/i.exec(
+        line,
+      );
+    if (!match) continue;
+    const name = match[1].replace(/\s+/g, ' ').trim();
+    const score = Number(match[2].replace(',', '.'));
+    const max = match[3] ? Number(match[3].replace(',', '.')) : null;
+    const key = name.toLowerCase();
+    if (!name || !Number.isFinite(score) || seen.has(key)) continue;
+    seen.add(key);
+    items.push({ name, score: round2(score), max });
+  }
+  return items;
+}
+
+const NUMBER = String.raw`(\d+(?:[.,]\d+)?)`;
+const toNumber = (raw: string) => Number(raw.replace(',', '.'));
+
+/** Lines of a text field, without bullets or blanks. */
+export function readLines(value: unknown): string[] {
+  const raw = typeof value === 'string' ? value : '';
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-•*]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/**
+ * A conversion table written one band per line: "116-120: 100", "da 81 a 85:
+ * 65%", "< 60: 0", ">= 116: 100%". Lowest band first; lines without a share
+ * are skipped.
+ */
+export function readBands(value: unknown): ScoreBandDto[] {
+  const bands: ScoreBandDto[] = [];
+  for (const line of readLines(value)) {
+    const sides = /^(.*?)\s*(?::|=|→|->)\s*(-?\d+(?:[.,]\d+)?)\s*%?\s*$/.exec(
+      line,
+    );
+    if (!sides) continue;
+    const range = sides[1].toLowerCase();
+    const pct = toNumber(sides[2]);
+    const between = new RegExp(
+      `${NUMBER}\\s*(?:-|–|a|to|al)\\s*${NUMBER}`,
+    ).exec(range);
+    const below = new RegExp(
+      `(?:<=?|≤|below|sotto|meno di|under)\\s*${NUMBER}`,
+    ).exec(range);
+    const above = new RegExp(
+      `(?:>=?|≥|from|da|oltre|over|above)\\s*${NUMBER}`,
+    ).exec(range);
+    if (between)
+      bands.push({ min: toNumber(between[1]), max: toNumber(between[2]), pct });
+    else if (below)
+      bands.push({
+        min: null,
+        max: toNumber(below[1]) - (/<=|≤/.test(range) ? 0 : 1),
+        pct,
+      });
+    else if (above) bands.push({ min: toNumber(above[1]), max: null, pct });
+  }
+  return bands.sort((a, b) => (a.min ?? -Infinity) - (b.min ?? -Infinity));
+}
+
+/**
+ * Lines as "Name: value – note", "Name: note" or "value: note" (a mark and
+ * what it means): sections with their highest score, or a scale.
+ */
+export function readRuleItems(value: unknown): RuleItemDto[] {
+  const items: RuleItemDto[] = [];
+  for (const line of readLines(value)) {
+    const at = line.indexOf(':');
+    if (at <= 0) {
+      items.push({ name: line, value: null, note: null });
+      continue;
+    }
+    const name = line.slice(0, at).trim();
+    const rest = line.slice(at + 1).trim();
+    const lead = new RegExp(
+      `^(?:max\\.?\\s*)?${NUMBER}\\s*(?:pt[is]?\\.?|punti|points)?\\s*(?:[-–—,;(]\\s*(.*?)\\)?)?$`,
+      'i',
+    ).exec(rest);
+    const markOnly = /^(?:\D*?)(\d+(?:[.,]\d+)?)$/.exec(name);
+    if (lead)
+      items.push({
+        name,
+        value: toNumber(lead[1]),
+        note: lead[2]?.trim() || null,
+      });
+    else if (markOnly && name.length <= 12)
+      items.push({ name, value: toNumber(markOnly[1]), note: rest || null });
+    else items.push({ name, value: null, note: rest || null });
+  }
+  return items;
 }
 
 const money = (n: number) =>
@@ -229,6 +359,8 @@ const READ_BY_TYPE: Partial<
     'monthlySalary',
     'annualGrossSalary',
   ],
+  // Rules only tell whose they are.
+  EVALUATION_RULES: ['employerName', 'employerTaxCode'],
 };
 
 export function readWorkDocument(
@@ -283,6 +415,19 @@ export function readWorkDocument(
     improvements: null,
     goals: null,
     bonus: null,
+    cycle: null,
+    periodStart: null,
+    periodEnd: null,
+    role: null,
+    team: null,
+    score: null,
+    maxScore: null,
+    sections: [],
+    criteria: [],
+    payoutPct: null,
+    bonusTarget: null,
+    comments: null,
+    rules: null,
     facts,
   };
 
@@ -329,8 +474,41 @@ export function readWorkDocument(
       reading.improvements = str('improvements');
       reading.goals = str('goals');
       reading.bonus = num('bonus_amount');
+      const [start, end] = String(f['review_period'] ?? '').split('/');
+      reading.periodStart = dateOf(start);
+      reading.periodEnd = dateOf(end);
+      reading.cycle = str('review_cycle');
+      reading.role = str('role') ?? ((values.jobTitle as string) || null);
+      reading.team = str('team');
+      reading.score =
+        num('overall_score') ??
+        (reading.rating && /^\d+(?:[.,]\d+)?$/.test(reading.rating)
+          ? round2(Number(reading.rating.replace(',', '.')))
+          : null);
+      reading.maxScore = num('max_score');
+      reading.sections = readScores(f['section_scores']);
+      reading.criteria = readScores(f['criteria_scores']);
+      reading.payoutPct = num('payout_percent');
+      reading.bonusTarget = num('bonus_target');
+      reading.comments = str('comments');
       fact('Date', reading.date);
       fact('Period', str('review_period'));
+      fact('Cycle', reading.cycle);
+      fact('Role', reading.role);
+      fact('Team', reading.team);
+      fact(
+        'Score',
+        reading.score === null
+          ? null
+          : reading.maxScore
+            ? `${reading.score} / ${reading.maxScore}`
+            : reading.score,
+      );
+      fact(
+        'Bonus conversion',
+        reading.payoutPct === null ? null : `${reading.payoutPct}%`,
+      );
+      amountFact('Bonus target', reading.bonusTarget);
       fact(
         'Rating',
         reading.rating && reading.ratingScale
@@ -341,7 +519,48 @@ export function readWorkDocument(
       fact('Strengths', reading.strengths);
       fact('To improve', reading.improvements);
       fact('Goals', reading.goals);
+      fact('Comments', reading.comments);
       amountFact('Bonus', reading.bonus);
+      break;
+    }
+    case 'EVALUATION_RULES': {
+      const effectiveFrom = dateOf(f['effective_from']);
+      reading.date = effectiveFrom ?? dateOf(f['issue_date']);
+      const rules: RulesReading = {
+        version: str('version'),
+        effectiveFrom: reading.date,
+        maxScore: num('max_score'),
+        maxPayoutPct: num('max_payout_percent'),
+        targetRule: str('bonus_target_rule'),
+        scale: readRuleItems(f['score_scale']),
+        sections: readRuleItems(f['sections']),
+        bands: readBands(f['conversion_table']),
+        schedule: readLines(f['payout_schedule']),
+        eligibility: readLines(f['eligibility']),
+        notes: readLines(f['notes']),
+      };
+      reading.rules = rules;
+      reading.maxScore = rules.maxScore;
+      fact('Version', rules.version);
+      fact('Applies from', rules.effectiveFrom);
+      fact('Highest score', rules.maxScore);
+      fact('Bonus target', rules.targetRule);
+      fact(
+        'Highest payout',
+        rules.maxPayoutPct === null ? null : `${rules.maxPayoutPct}%`,
+      );
+      fact(
+        'Sections',
+        rules.sections
+          .map((i) => (i.value === null ? i.name : `${i.name} (${i.value})`))
+          .join(', ') || null,
+      );
+      fact(
+        'Conversion',
+        rules.bands.length
+          ? `${rules.bands.length} bands, ${rules.bands.at(-1)!.pct}% from ${rules.bands.at(-1)!.min ?? 0} points`
+          : null,
+      );
       break;
     }
     case 'EMPLOYMENT_CONTRACT': {
