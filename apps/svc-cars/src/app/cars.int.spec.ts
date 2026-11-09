@@ -225,6 +225,87 @@ describe.skipIf(!configured)(
       ]);
     }, 10_000);
 
+    it('makes one record of the certificate and receipt of that policy', async () => {
+      const policy = (await car(vehicleId)).series.find(
+        (s) => s.type === 'CAR_INSURANCE',
+      )?.versions[0].uploadId as string;
+      const certificate = await upload(['CAR_INSURANCE'], {
+        registration_number: plate,
+        policy_number: `P${run}`,
+        end_date: day(25),
+        document_kind: 'certificate',
+      });
+      const receipt = await upload(['CAR_INSURANCE'], {
+        registration_number: plate,
+        policy_number: `p ${run}`,
+        total_amount: 328.5,
+        payment_date: day(-340),
+        document_kind: 'receipt',
+      });
+      expect(await review(receipt)).toMatchObject({
+        role: 'receipt',
+        joins: { uploadId: policy, number: `p ${run}`, documentCount: 1 },
+      });
+      for (const id of [certificate, receipt])
+        expect(
+          (await send('POST', `/reviews/${id}/approve`, { vehicleId })).status,
+        ).toBe(204);
+
+      let updated = await car(vehicleId);
+      let versions = updated.series.find(
+        (s) => s.type === 'CAR_INSURANCE',
+      )!.versions;
+      expect(versions).toHaveLength(1);
+      expect(versions[0].documents.map((d) => [d.uploadId, d.role])).toEqual([
+        [policy, null],
+        [certificate, 'certificate'],
+        [receipt, 'receipt'],
+      ]);
+      // The premium is on the policy and on its receipt: paid once.
+      expect(updated.costs.filter((c) => c.kind === 'insurance')).toEqual([
+        expect.objectContaining({ uploadId: receipt, amount: 328.5 }),
+      ]);
+
+      // Out of the record by hand, and back in.
+      expect(
+        (
+          await send('PUT', `/documents/${certificate}/group`, {
+            attachTo: null,
+          })
+        ).status,
+      ).toBe(204);
+      versions = (await car(vehicleId)).series.find(
+        (s) => s.type === 'CAR_INSURANCE',
+      )!.versions;
+      expect(versions).toHaveLength(2);
+      expect(
+        (
+          await send('PUT', `/documents/${certificate}/group`, {
+            attachTo: receipt,
+          })
+        ).status,
+      ).toBe(204);
+      updated = await car(vehicleId);
+      versions = updated.series.find(
+        (s) => s.type === 'CAR_INSURANCE',
+      )!.versions;
+      expect(versions).toHaveLength(1);
+      expect(
+        versions[0].documents.find((d) => d.uploadId === certificate)
+          ?.linkedByHand,
+      ).toBe(true);
+      // Never into a record of another kind.
+      const bollo = updated.series.find((s) => s.type === 'ROAD_TAX');
+      expect(bollo).toBeUndefined();
+      expect(
+        (
+          await send('PUT', `/documents/${certificate}/group`, {
+            attachTo: randomUUID(),
+          })
+        ).status,
+      ).toBe(422);
+    });
+
     it('suggests a new car when a document names a plate you do not have', async () => {
       const bollo = await upload(['ROAD_TAX'], {
         registration_number: otherPlate,

@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import {
+  CAR_DOCUMENT_ROLE_LABELS,
   CAR_DOCUMENT_STATUS_LABELS,
   COST_KIND_LABELS,
   identifiesVehicle,
@@ -19,7 +20,10 @@ import {
   VEHICLE_OPTION_LABELS,
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
+  type CarDocumentPartDto,
+  type CarDocumentSeriesDto,
   type CarDocumentStatus,
+  type CarDocumentVersionDto,
   type CarsOverviewDto,
   type CostKind,
   type PendingCarReviewDto,
@@ -163,6 +167,7 @@ export class CarsPage {
   protected readonly definitions = VEHICLE_FIELD_DEFINITIONS;
   protected readonly codeMeanings = REGISTRATION_CODE_MEANINGS;
   protected readonly statusLabels = CAR_DOCUMENT_STATUS_LABELS;
+  protected readonly roleLabels = CAR_DOCUMENT_ROLE_LABELS;
   protected readonly statusTones = STATUS_TONES;
   protected readonly levelTones = LEVEL_TONES;
   protected readonly levelLabels = LEVEL_LABELS;
@@ -346,6 +351,28 @@ export class CarsPage {
   protected mark(uploadId: string, value: string): void {
     const status = value === 'cancelled' ? value : null;
     this.run(uploadId, () => this.api.mark(uploadId, { status }));
+  }
+
+  /** The documents of the other versions of a series, to put in this one. */
+  protected attachable(
+    series: CarDocumentSeriesDto,
+    version: CarDocumentVersionDto,
+  ): CarDocumentPartDto[] {
+    return series.versions
+      .filter((v) => v.uploadId !== version.uploadId)
+      .flatMap((v) => v.documents);
+  }
+
+  protected attach(select: HTMLSelectElement, target: string): void {
+    const uploadId = select.value;
+    select.value = '';
+    if (!uploadId) return;
+    this.run(uploadId, () => this.api.group(uploadId, { attachTo: target }));
+  }
+
+  /** Takes a document out of its record, into a version of its own. */
+  protected detach(uploadId: string): void {
+    this.run(uploadId, () => this.api.group(uploadId, { attachTo: null }));
   }
 
   // ---- cars ----------------------------------------------------------------

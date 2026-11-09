@@ -20,6 +20,7 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveCarReviewRequestSchema,
   createVehicleRequestSchema,
+  groupCarDocumentRequestSchema,
   markCarDocumentRequestSchema,
   updateVehicleRequestSchema,
   type CarsOverviewDto,
@@ -133,6 +134,19 @@ export class CarsController {
     return this.cars.mark(
       uploadId,
       parseOrThrow(markCarDocumentRequestSchema, body),
+    );
+  }
+
+  /** Attaches the document to the record of another one, or (null) detaches it. */
+  @Put('documents/:uploadId/group')
+  @HttpCode(204)
+  group(
+    @Param('uploadId', ParseUUIDPipe) uploadId: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.cars.group(
+      uploadId,
+      parseOrThrow(groupCarDocumentRequestSchema, body),
     );
   }
 }

@@ -12,6 +12,7 @@ import {
   type CarCostDto,
   type CarCostTotalDto,
   type CarDocumentFactDto,
+  type CarDocumentRole,
   type CarDocumentStatus,
   type CarDocumentType,
   type CostKind,
@@ -223,7 +224,34 @@ export interface CarDocumentReading {
   /** Expense: the service it says is due next. */
   nextServiceDate: string | null;
   nextServiceKm: number | null;
+  /** The day it says the money was paid, when it prints one. */
+  paymentDate: string | null;
+  /** What it is within its record (policy, certificate, receipt), when known. */
+  role: CarDocumentRole | null;
   facts: CarDocumentFactDto[];
+}
+
+/**
+ * What an insurance document is: as read (`document_kind`), else guessed
+ * from its title or file name (Polizza, Certificato, Ricevuta...).
+ */
+export function roleOf(
+  printed: string | number | boolean | null | undefined,
+  ...names: (string | null | undefined)[]
+): CarDocumentRole | null {
+  const read = text(printed)?.toLowerCase();
+  if (
+    read === 'policy' ||
+    read === 'certificate' ||
+    read === 'receipt' ||
+    read === 'other'
+  )
+    return read;
+  const name = names.filter(Boolean).join(' ').toLowerCase();
+  if (/ricevut|quietanz|receipt/.test(name)) return 'receipt';
+  if (/certificat|carta verde|green card/.test(name)) return 'certificate';
+  if (/polizz|policy|contratto/.test(name)) return 'policy';
+  return null;
 }
 
 /**
@@ -255,9 +283,14 @@ export function nextInspectionDue(
 const money = (n: number) =>
   n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
 
+/**
+ * What a car document prints, from its template fields; `names` (its title
+ * and file name) tell what an insurance document is when it was not read.
+ */
 export function readCarDocument(
   type: CarDocumentType | null,
   fields: Fields | null,
+  names: readonly (string | null)[] = [],
 ): CarDocumentReading {
   const f = fields ?? {};
   const values: Partial<Record<VehicleField, string | number>> = {};
@@ -300,6 +333,8 @@ export function readCarDocument(
     nextInstallmentDate: null,
     nextServiceDate: null,
     nextServiceKm: null,
+    paymentDate: date('payment_date'),
+    role: null,
     facts,
   };
 
@@ -320,6 +355,7 @@ export function readCarDocument(
       reading.validFrom = date('start_date');
       reading.validUntil = date('end_date');
       reading.nextInstallmentDate = date('next_installment_date');
+      reading.role = roleOf(f['document_kind'], ...names);
       reading.amount = amount;
       reading.costDate = date('payment_date') ?? reading.validFrom;
       fact('Insurer', reading.issuer);
@@ -526,12 +562,115 @@ export interface ApprovedCarDocument {
   uploadedAt: string;
   /** Cancelled, as you marked it. */
   markedStatus: CarDocumentStatus | null;
+  /** The record you put it in by hand; null: the one its number says. */
+  groupKey?: string | null;
+}
+
+/**
+ * Several documents that are one thing: the policy, certificate and receipt
+ * of one insurance. It reads as one document (`reading` merged from all of
+ * them, main one first) with its `members`.
+ */
+export interface CarDocumentGroup<
+  T extends ApprovedCarDocument,
+> extends ApprovedCarDocument {
+  key: string;
+  members: T[];
 }
 
 export interface CarVersion<T extends ApprovedCarDocument> {
-  document: T;
+  document: CarDocumentGroup<T>;
   version: number;
   status: CarDocumentStatus;
+}
+
+/** The record a document's number puts it in: same number, same record. */
+export function numberKey(number: string | null): string | null {
+  const code = normalizeCode(number);
+  return code ? `number:${code}` : null;
+}
+
+/** The record a document is in: yours by hand, else by its number, else its own. */
+export function groupKeyOf(d: ApprovedCarDocument): string {
+  return (
+    d.groupKey ??
+    (d.type === 'VEHICLE_EXPENSE' ? null : numberKey(d.reading.number)) ??
+    `own:${d.uploadId}`
+  );
+}
+
+/** The main document comes first: the policy, then the others, then the receipt. */
+const ROLE_ORDER: (CarDocumentRole | null)[] = [
+  'policy',
+  null,
+  'other',
+  'certificate',
+  'receipt',
+];
+
+function mergeReadings(members: readonly ApprovedCarDocument[]) {
+  const [main] = members;
+  const reading: CarDocumentReading = { ...main.reading, facts: [] };
+  const keys = Object.keys(reading) as (keyof CarDocumentReading)[];
+  for (const key of keys) {
+    if (key === 'facts' || key === 'values' || key === 'exempt') continue;
+    const found = members.find(
+      (m) => m.reading[key] !== null && m.reading[key] !== undefined,
+    );
+    if (found)
+      (reading as unknown as Record<string, unknown>)[key] = found.reading[key];
+  }
+  reading.values = Object.assign(
+    {},
+    ...[...members].reverse().map((m) => m.reading.values),
+  );
+  reading.exempt = members.some((m) => m.reading.exempt);
+  const seen = new Set<string>();
+  for (const m of members)
+    for (const f of m.reading.facts)
+      if (!seen.has(f.label)) {
+        seen.add(f.label);
+        reading.facts.push(f);
+      }
+  return reading;
+}
+
+/**
+ * Documents in records: same type and same number (a policy, its certificate
+ * and its receipt), or the record you put them in. Expenses stay one each,
+ * unless you put them together.
+ */
+export function groupDocuments<T extends ApprovedCarDocument>(
+  documents: readonly T[],
+): CarDocumentGroup<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const d of documents) {
+    const key = `${d.type ?? ''}|${groupKeyOf(d)}`;
+    const list = groups.get(key) ?? [];
+    list.push(d);
+    groups.set(key, list);
+  }
+  return [...groups.entries()].map(([key, list]) => {
+    const members = [...list].sort(
+      (a, b) =>
+        ROLE_ORDER.indexOf(a.reading.role) -
+          ROLE_ORDER.indexOf(b.reading.role) ||
+        a.uploadedAt.localeCompare(b.uploadedAt),
+    );
+    const [main] = members;
+    return {
+      key,
+      members,
+      uploadId: main.uploadId,
+      type: main.type,
+      reading: members.length === 1 ? main.reading : mergeReadings(members),
+      uploadedAt: members.map((m) => m.uploadedAt).sort()[0],
+      markedStatus: members.some((m) => m.markedStatus === 'cancelled')
+        ? 'cancelled'
+        : main.markedStatus,
+      groupKey: main.groupKey ?? null,
+    };
+  });
 }
 
 /** The order of versions: by when they start to count, else by upload. */
@@ -549,8 +688,8 @@ export function buildSeries<T extends ApprovedCarDocument>(
   documents: readonly T[],
   today: string,
 ): { type: CarDocumentType | null; versions: CarVersion<T>[] }[] {
-  const byType = new Map<CarDocumentType | null, T[]>();
-  for (const d of documents) {
+  const byType = new Map<CarDocumentType | null, CarDocumentGroup<T>[]>();
+  for (const d of groupDocuments(documents)) {
     if (d.type === 'VEHICLE_EXPENSE') continue;
     const list = byType.get(d.type) ?? [];
     list.push(d);
@@ -606,7 +745,7 @@ function latestOf<T extends ApprovedCarDocument>(
     versions: CarVersion<T>[];
   }[],
   type: CarDocumentType,
-): T | null {
+): CarDocumentGroup<T> | null {
   const latest = series.find((s) => s.type === type)?.versions[0];
   return latest && latest.status !== 'cancelled' ? latest.document : null;
 }
@@ -752,11 +891,17 @@ export function renewalsOf<T extends ApprovedCarDocument>(
   return renewals;
 }
 
-/** What each approved document cost, newest first. */
+/**
+ * What each payment cost, newest first. A record counts each payment once:
+ * its receipts when it has any, else every distinct payment its documents
+ * print (date and amount), else the amount of its main document. So the
+ * policy and the receipt of one premium are one cost, and two receipts of a
+ * split premium are two.
+ */
 export function costsOf<T extends ApprovedCarDocument & { title: string }>(
   documents: readonly T[],
 ): CarCostDto[] {
-  const kindOf = (d: T): CostKind | null => {
+  const kindOf = (d: ApprovedCarDocument): CostKind | null => {
     switch (d.type) {
       case 'CAR_INSURANCE':
         return 'insurance';
@@ -770,24 +915,44 @@ export function costsOf<T extends ApprovedCarDocument & { title: string }>(
         return null;
     }
   };
-  return documents
-    .flatMap((d) => {
-      const kind = kindOf(d);
-      if (!kind || d.reading.amount === null || d.markedStatus === 'cancelled')
-        return [];
-      return [
-        {
-          uploadId: d.uploadId,
-          title: d.title,
-          type: d.type,
-          kind,
-          date: d.reading.costDate,
-          amount: d.reading.amount,
-          supplier: d.reading.issuer,
-          odometerKm: d.reading.odometerKm,
-          litres: d.reading.litres,
-        },
-      ];
+  const costOf = (d: T, kind: CostKind): CarCostDto => ({
+    uploadId: d.uploadId,
+    title: d.title,
+    type: d.type,
+    kind,
+    date: d.reading.costDate,
+    amount: d.reading.amount as number,
+    supplier: d.reading.issuer,
+    odometerKm: d.reading.odometerKm,
+    litres: d.reading.litres,
+  });
+  return groupDocuments(documents)
+    .flatMap((group) => {
+      const kind = kindOf(group);
+      if (!kind || group.markedStatus === 'cancelled') return [];
+      const priced = group.members.filter((m) => m.reading.amount !== null);
+      if (priced.length <= 1)
+        return priced.map((m) => ({
+          ...costOf(m, kind),
+          supplier: m.reading.issuer ?? group.reading.issuer,
+        }));
+      const receipts = priced.filter((m) => m.reading.role === 'receipt');
+      const paid = receipts.length
+        ? receipts
+        : priced.filter((m) => m.reading.paymentDate);
+      if (!paid.length) return [costOf(priced[0], kind)];
+      const seen = new Set<string>();
+      return paid.flatMap((m) => {
+        const key = `${m.reading.costDate}|${m.reading.amount}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [
+          {
+            ...costOf(m, kind),
+            supplier: m.reading.issuer ?? group.reading.issuer,
+          },
+        ];
+      });
     })
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 }

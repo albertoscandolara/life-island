@@ -949,10 +949,47 @@ export const CAR_DOCUMENT_STATUS_LABELS: Record<CarDocumentStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+/**
+ * What one document of a record is: an insurer sends the policy, the
+ * certificate (the card shown at a police check, also the international one)
+ * and the receipt of the premium as separate files.
+ */
+export const CAR_DOCUMENT_ROLES = [
+  'policy',
+  'certificate',
+  'receipt',
+  'other',
+] as const;
+export type CarDocumentRole = (typeof CAR_DOCUMENT_ROLES)[number];
+export const CAR_DOCUMENT_ROLE_LABELS: Record<CarDocumentRole, string> = {
+  policy: 'Policy',
+  certificate: 'Certificate',
+  receipt: 'Receipt',
+  other: 'Document',
+};
+
 export type VehicleValue = string | number | null;
 export type VehicleValues = Record<VehicleField, VehicleValue>;
 
+/** One file of a record (a policy, its certificate, its receipt). */
+export interface CarDocumentPartDto {
+  uploadId: string;
+  title: string;
+  role: CarDocumentRole | null;
+  amount: number | null;
+  uploadedAt: string;
+  reviewedAt: string;
+  /** Put in this record by you, not by its number. */
+  linkedByHand: boolean;
+}
+
+/**
+ * One version of a renewable document: a record made of every document with
+ * the same number (policy, certificate and receipt of one insurance), or that
+ * you put together by hand. Its values are read from all of them.
+ */
 export interface CarDocumentVersionDto {
+  /** The record's main document (the policy, when there is one). */
   uploadId: string;
   title: string;
   type: CarDocumentType | null;
@@ -968,6 +1005,8 @@ export interface CarDocumentVersionDto {
   amount: number | null;
   uploadedAt: string;
   reviewedAt: string;
+  /** Every document of the record, main one first. */
+  documents: CarDocumentPartDto[];
 }
 
 /** One kind of renewable document of one car, newest version first. */
@@ -1084,6 +1123,21 @@ export interface PendingCarReviewDto {
   changes: VehicleChangeDto[];
   /** Older than a registration certificate you already have: suggests keeping your data. */
   outdated: boolean;
+  /** What this document is (policy, certificate, receipt), when known. */
+  role: CarDocumentRole | null;
+  /**
+   * A record of the matched car with the same number: approved, this
+   * document joins it instead of making a new version.
+   */
+  joins: CarDocumentJoinDto | null;
+}
+
+export interface CarDocumentJoinDto {
+  /** The record's main document. */
+  uploadId: string;
+  number: string;
+  /** How many documents the record has already. */
+  documentCount: number;
 }
 
 export interface RejectedCarDocumentDto {
@@ -1132,6 +1186,17 @@ export const markCarDocumentRequestSchema = z.object({
 });
 export type MarkCarDocumentRequest = z.input<
   typeof markCarDocumentRequestSchema
+>;
+
+/**
+ * Puts an approved document in the record of another one of the same car and
+ * type (`attachTo`), or takes it out into a record of its own (null).
+ */
+export const groupCarDocumentRequestSchema = z.object({
+  attachTo: z.uuid().nullable(),
+});
+export type GroupCarDocumentRequest = z.input<
+  typeof groupCarDocumentRequestSchema
 >;
 
 const vehicleValue = z.union([z.string().trim(), z.number(), z.null()]);

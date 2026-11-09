@@ -12,7 +12,9 @@ import {
   type CarDocumentStatus,
   type CarDocumentType,
   type CarsOverviewDto,
+  type CarDocumentPartDto,
   type CreateVehicleRequest,
+  type GroupCarDocumentRequest,
   type MarkCarDocumentRequest,
   type PendingCarReviewDto,
   type RenewalAlertDto,
@@ -21,7 +23,7 @@ import {
   type VehicleField,
   type VehicleValue,
 } from '@life-island/contracts';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import {
   categoryTree,
@@ -39,9 +41,12 @@ import {
   completeValues,
   costsOf,
   costTotals,
+  groupDocuments,
+  groupKeyOf,
   isOutdated,
   matchVehicle,
   normalizeCode,
+  numberKey,
   proposeVehicleChanges,
   readCarDocument,
   renewalsOf,
@@ -102,6 +107,7 @@ export class CarsService {
         reading: doc.reading,
         uploadedAt: doc.row.uploadedAt.toISOString(),
         markedStatus: review.markedStatus as CarDocumentStatus | null,
+        groupKey: review.groupKey,
         decidedAt: review.decidedAt,
       });
       approvedOf.set(review.vehicleId, list);
@@ -140,20 +146,32 @@ export class CarsService {
           updatedAt: row.updatedAt.toISOString(),
           series: series.map(({ type, versions }) => ({
             type,
-            versions: versions.map(({ document: d, version, status }) => ({
-              uploadId: d.uploadId,
-              title: d.title,
-              type,
-              version,
-              status,
-              number: d.reading.number,
-              issuer: d.reading.issuer,
-              validFrom: d.reading.validFrom,
-              validUntil: d.reading.validUntil,
-              amount: d.reading.amount,
-              uploadedAt: d.uploadedAt,
-              reviewedAt: d.decidedAt.toISOString(),
-            })),
+            versions: versions.map(({ document: group, version, status }) => {
+              const [main] = group.members;
+              return {
+                uploadId: group.uploadId,
+                title: main.title,
+                type,
+                version,
+                status,
+                number: group.reading.number,
+                issuer: group.reading.issuer,
+                validFrom: group.reading.validFrom,
+                validUntil: group.reading.validUntil,
+                amount: group.reading.amount,
+                uploadedAt: group.uploadedAt,
+                reviewedAt: main.decidedAt.toISOString(),
+                documents: group.members.map((m): CarDocumentPartDto => ({
+                  uploadId: m.uploadId,
+                  title: m.title,
+                  role: m.reading.role,
+                  amount: m.reading.amount,
+                  uploadedAt: m.uploadedAt,
+                  reviewedAt: m.decidedAt.toISOString(),
+                  linkedByHand: m.groupKey !== null && m.groupKey !== undefined,
+                })),
+              };
+            }),
           })),
           renewals,
           alerts,
@@ -174,10 +192,15 @@ export class CarsService {
       .filter((doc) => !reviewOf.has(doc.row.uploadId))
       .map((doc) => {
         const { vehicle, match } = matchVehicle(doc.reading, known);
-        const outdated = isOutdated(
-          doc.reading,
-          vehicle ? (approvedOf.get(vehicle.id) ?? []) : [],
-        );
+        const ofVehicle = vehicle ? (approvedOf.get(vehicle.id) ?? []) : [];
+        const outdated = isOutdated(doc.reading, ofVehicle);
+        const key = numberKey(doc.reading.number);
+        const record =
+          key && doc.type !== 'VEHICLE_EXPENSE'
+            ? groupDocuments(ofVehicle).find(
+                (g) => g.key === `${doc.type ?? ''}|${key}`,
+              )
+            : undefined;
         return {
           uploadId: doc.row.uploadId,
           title: doc.row.title,
@@ -201,6 +224,15 @@ export class CarsService {
             outdated,
           ),
           outdated,
+          role: doc.reading.role,
+          joins:
+            record && doc.reading.number
+              ? {
+                  uploadId: record.uploadId,
+                  number: doc.reading.number,
+                  documentCount: record.members.length,
+                }
+              : null,
         };
       })
       .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
@@ -332,16 +364,100 @@ export class CarsService {
       throw new NotFoundException('No rejected document with this id');
   }
 
+  /** Marks the record the document is in: all its documents together. */
   async mark(uploadId: string, request: MarkCarDocumentRequest): Promise<void> {
-    const updated = await this.svc.db
+    const { record } = await this.recordOf(uploadId);
+    await this.svc.db
       .update(reviews)
       .set({ markedStatus: request.status })
       .where(
+        and(
+          inArray(
+            reviews.uploadId,
+            record.members.map((m) => m.uploadId),
+          ),
+          eq(reviews.status, 'approved'),
+        ),
+      );
+  }
+
+  /**
+   * Puts an approved document in the record of another of the same car and
+   * type, or (attachTo null) in a record of its own.
+   */
+  async group(
+    uploadId: string,
+    request: GroupCarDocumentRequest,
+  ): Promise<void> {
+    const { document, approved } = await this.recordOf(uploadId);
+    let groupKey = `own:${uploadId}`;
+    if (request.attachTo !== null) {
+      if (request.attachTo === uploadId)
+        throw new UnprocessableEntityException(
+          'A document cannot be attached to itself',
+        );
+      const target = approved.find((d) => d.uploadId === request.attachTo);
+      if (!target)
+        throw new UnprocessableEntityException(
+          'Attach it to an approved document of the same car',
+        );
+      if (target.type !== document.type)
+        throw new UnprocessableEntityException(
+          'Attach it to a document of the same kind',
+        );
+      groupKey = groupKeyOf(target);
+    }
+    await this.svc.db
+      .update(reviews)
+      .set({ groupKey })
+      .where(eq(reviews.uploadId, uploadId));
+  }
+
+  /** An approved document, the record it is in, and every approved document of its car. */
+  private async recordOf(uploadId: string) {
+    const [review] = await this.svc.db
+      .select()
+      .from(reviews)
+      .where(
         and(eq(reviews.uploadId, uploadId), eq(reviews.status, 'approved')),
-      )
-      .returning();
-    if (!updated.length)
+      );
+    if (!review?.vehicleId)
       throw new NotFoundException('No approved car document with this id');
+    const [docs, decided] = await Promise.all([
+      this.carDocuments(),
+      this.svc.db
+        .select()
+        .from(reviews)
+        .where(
+          and(
+            eq(reviews.vehicleId, review.vehicleId),
+            eq(reviews.status, 'approved'),
+          ),
+        ),
+    ]);
+    const reviewOf = new Map(decided.map((r) => [r.uploadId, r]));
+    const approved: ApprovedCarDocument[] = docs.flatMap((doc) => {
+      const r = reviewOf.get(doc.row.uploadId);
+      return r
+        ? [
+            {
+              uploadId: doc.row.uploadId,
+              type: doc.type,
+              reading: doc.reading,
+              uploadedAt: doc.row.uploadedAt.toISOString(),
+              markedStatus: r.markedStatus as CarDocumentStatus | null,
+              groupKey: r.groupKey,
+            },
+          ]
+        : [];
+    });
+    const document = approved.find((d) => d.uploadId === uploadId);
+    if (!document)
+      throw new NotFoundException('No approved car document with this id');
+    const record = groupDocuments(approved).find((g) =>
+      g.members.some((m) => m.uploadId === uploadId),
+    ) as ReturnType<typeof groupDocuments<ApprovedCarDocument>>[number];
+    return { document, record, approved };
   }
 
   /** A car added by hand, before any of its documents. */
@@ -453,7 +569,16 @@ export class CarsService {
     return rows.flatMap((row) => {
       const { isCar, type } = carDocumentType(row.categories, parentOf);
       return isCar
-        ? [{ row, type, reading: readCarDocument(type, row.fields) }]
+        ? [
+            {
+              row,
+              type,
+              reading: readCarDocument(type, row.fields, [
+                row.title,
+                row.originalFilename,
+              ]),
+            },
+          ]
         : [];
     });
   }

@@ -1,0 +1,1 @@
+ALTER TABLE "cars"."reviews" ADD COLUMN "group_key" text;
