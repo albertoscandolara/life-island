@@ -172,6 +172,8 @@ Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as it
 
 **Versions.** The approved documents of each type form one series per car, numbered from the oldest: the newest is **Current** (or **Expired** once past its date), the older ones **Replaced by a newer one**. You can mark a version **Cancelled** (a policy you withdrew, for example). Expenses are not versioned: they are costs.
 
+**One record, several documents.** An insurer sends one insurance as separate files (the policy, the certificate, the receipt of the premium), and you load each one on its own. Documents of the same car and type that print the same number (spaces and dashes aside) are one version: its dates, insurer and premium are read from all of them, the policy first. The review says when a document joins a record you have. On the version, each document shows what it is (**Policy**, **Certificate**, **Receipt**: read as `document_kind`, else guessed from its name); **Detach** takes one out into a version of its own, and **Attach another document…** puts in one whose number was misread or missing. Cancelling a version cancels all its documents. A payment counts once: the receipts of a record when it has any, else each distinct payment date and amount it prints, so the policy and the receipt of one premium are one cost, and two instalment receipts are two.
+
 **Renewals** are worked out from the latest version of each series:
 
 | Item         | Due                                                                                                   | Warns   |
@@ -195,7 +197,8 @@ Levels are **ok**, **expiring**, **grace** (insurance past its end, still covere
 | `PATCH /vehicles/:id`, `DELETE /vehicles/:id`                      | Correct a car (`label`, `status`, `values`); remove it (its documents go back to review)        |
 | `POST /reviews/:uploadId/approve`                                  | `{vehicleId, accept: [fields], label?}`; `vehicleId: null` adds a new car (422 without a plate) |
 | `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not a document of any car, and back to review                                                   |
-| `PATCH /documents/:uploadId`                                       | `{status: 'cancelled' \| null}`                                                                 |
+| `PATCH /documents/:uploadId`                                       | `{status: 'cancelled' \| null}`, for every document of its version                              |
+| `PUT /documents/:uploadId/group`                                   | `{attachTo: uploadId}` puts it in that document's version (same car and type); `null` detaches  |
 | `PUT /vehicles/:id/model?filename=`, `GET`, `DELETE`               | The car's 3D model: the file is the request body; it replaces the one the car had               |
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                          |
 

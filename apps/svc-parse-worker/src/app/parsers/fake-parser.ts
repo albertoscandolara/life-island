@@ -65,7 +65,7 @@ const CAR_WORDS = {
   VEHICLE_REGISTRATION:
     /(carta di circolazione|libretto (di circolazione|auto)|documento unico di circolazione|registration certificate)/i,
   CAR_INSURANCE:
-    /(polizza (rca|auto)|rc ?auto|r\.c\. ?auto|responsabilit[aà] civile auto|car insurance|assicurazione auto)/i,
+    /(polizza (rca|auto)|rc ?auto|r\.c\. ?auto|responsabilit[aà] civile auto|car insurance|assicurazione auto|certificato di assicurazione|carta verde|international motor insurance card|premio (di )?polizza)/i,
   ROAD_TAX: /(tassa automobilistica|bollo auto|road tax)/i,
   VEHICLE_INSPECTION:
     /(revisione (auto|veicolo|periodica)|centro revisioni|\bMOT\b)/i,

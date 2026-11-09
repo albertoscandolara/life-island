@@ -4,6 +4,7 @@ import type {
   ApproveCarReviewRequest,
   CarsOverviewDto,
   CreateVehicleRequest,
+  GroupCarDocumentRequest,
   MarkCarDocumentRequest,
   UpdateVehicleRequest,
 } from '@life-island/contracts';
@@ -40,6 +41,14 @@ export class CarsApi {
 
   mark(uploadId: string, request: MarkCarDocumentRequest): Observable<void> {
     return this.http.patch<void>(`${CARS_API}/documents/${uploadId}`, request);
+  }
+
+  /** Puts the document in the record of another (attachTo), or in one of its own (null). */
+  group(uploadId: string, request: GroupCarDocumentRequest): Observable<void> {
+    return this.http.put<void>(
+      `${CARS_API}/documents/${uploadId}/group`,
+      request,
+    );
   }
 
   createVehicle(request: CreateVehicleRequest): Observable<{ id: string }> {

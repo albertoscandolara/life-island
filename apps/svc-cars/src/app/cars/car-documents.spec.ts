@@ -13,6 +13,7 @@ import {
   readCarDocument,
   renewalsOf,
   roadTaxDeadline,
+  roleOf,
   type ApprovedCarDocument,
 } from './car-documents.js';
 
@@ -50,12 +51,15 @@ function approved(
   type: ApprovedCarDocument['type'],
   fields: Record<string, string | number | boolean | null>,
   markedStatus: ApprovedCarDocument['markedStatus'] = null,
+  title = uploadId,
+  groupKey: string | null = null,
 ) {
   return {
     uploadId,
-    title: uploadId,
+    title,
     type,
-    reading: readCarDocument(type, fields),
+    groupKey,
+    reading: readCarDocument(type, fields, [title]),
     uploadedAt: '2026-01-01T00:00:00.000Z',
     markedStatus,
   };
@@ -358,5 +362,157 @@ describe('car documents', () => {
         approved('old', 'VEHICLE_REGISTRATION', libretto),
       ]),
     ).toBe(false);
+  });
+
+  describe('one insurance sent as policy, certificate and receipt', () => {
+    const common = {
+      registration_number: 'EJ560PZ',
+      insurer: 'Allianz Direct S.p.A.',
+      start_date: '2026-04-10',
+      end_date: '2027-04-10',
+    };
+    const policy = approved(
+      'pol',
+      'CAR_INSURANCE',
+      {
+        ...common,
+        policy_number: 'DI303516658-001',
+        cu_class: 1,
+        total_amount: 272.76,
+        payment_date: '2026-03-29',
+      },
+      null,
+      'Polizza_DI303516658-001.pdf',
+    );
+    const certificate = approved(
+      'cert',
+      'CAR_INSURANCE',
+      { ...common, policy_number: 'DI303516658-001', end_date: '2027-04-09' },
+      null,
+      'Certificato_di_Assicurazione-anche_internazionale_DI303516658-001.pdf',
+    );
+    const receipt = approved(
+      'rec',
+      'CAR_INSURANCE',
+      {
+        ...common,
+        policy_number: 'DI 303516658-001',
+        total_amount: 272.76,
+        payment_date: '2026-03-29',
+      },
+      null,
+      'Ricevuta_DI303516658-001.pdf',
+    );
+    const older = approved('old', 'CAR_INSURANCE', {
+      policy_number: 'XYZ1',
+      start_date: '2025-04-10',
+      end_date: '2026-04-10',
+      total_amount: 300,
+      payment_date: '2025-04-01',
+    });
+
+    it('tells the documents apart by what was read, else by their name', () => {
+      expect(roleOf('certificate', 'Ricevuta.pdf')).toBe('certificate');
+      expect(roleOf(null, 'Ricevuta_DI303516658-001.pdf')).toBe('receipt');
+      expect(roleOf(null, 'Quietanza premio')).toBe('receipt');
+      expect(roleOf(null, 'Carta verde')).toBe('certificate');
+      expect(roleOf(null, 'Polizza auto')).toBe('policy');
+      expect(roleOf(null, 'scan_001.pdf')).toBeNull();
+    });
+
+    it('makes one version of the three, with the policy as main document', () => {
+      const series = buildSeries(
+        [receipt, older, certificate, policy],
+        '2026-11-09',
+      );
+      expect(series).toHaveLength(1);
+      const [current, previous] = series[0].versions;
+      expect(current.version).toBe(2);
+      expect(current.status).toBe('current');
+      expect(current.document.uploadId).toBe('pol');
+      expect(current.document.members.map((m) => m.uploadId)).toEqual([
+        'pol',
+        'cert',
+        'rec',
+      ]);
+      expect(current.document.reading).toMatchObject({
+        number: 'DI303516658-001',
+        validFrom: '2026-04-10',
+        validUntil: '2027-04-10',
+        amount: 272.76,
+      });
+      expect(previous).toMatchObject({ version: 1, status: 'superseded' });
+    });
+
+    it('takes what the main document lacks from the others', () => {
+      const [version] = buildSeries([certificate, receipt], '2026-11-09')[0]
+        .versions;
+      expect(version.document.uploadId).toBe('cert');
+      expect(version.document.reading.amount).toBe(272.76);
+    });
+
+    it('counts the premium once, and each instalment receipt of a split one', () => {
+      expect(costsOf([policy, certificate, receipt])).toEqual([
+        expect.objectContaining({
+          uploadId: 'rec',
+          amount: 272.76,
+          date: '2026-03-29',
+        }),
+      ]);
+      const second = approved(
+        'rec2',
+        'CAR_INSURANCE',
+        {
+          policy_number: 'DI303516658-001',
+          total_amount: 136.38,
+          payment_date: '2026-10-10',
+        },
+        null,
+        'Ricevuta rata 2',
+      );
+      expect(costsOf([policy, receipt, second]).map((c) => c.uploadId)).toEqual(
+        ['rec2', 'rec'],
+      );
+      expect(costsOf([policy, certificate])).toHaveLength(1);
+    });
+
+    it('keeps documents you put together or apart by hand', () => {
+      const unread = approved(
+        'scan',
+        'CAR_INSURANCE',
+        { total_amount: 272.76 },
+        null,
+        'scan.pdf',
+        'number:DI303516658001',
+      );
+      const detached = { ...certificate, groupKey: 'own:cert' };
+      const versions = buildSeries(
+        [policy, detached, receipt, unread],
+        '2026-11-09',
+      )[0].versions;
+      expect(versions).toHaveLength(2);
+      const record = versions.find((v) => v.document.uploadId === 'pol');
+      expect(record?.document.members.map((m) => m.uploadId)).toEqual([
+        'pol',
+        'scan',
+        'rec',
+      ]);
+    });
+
+    it('cancels the whole record when one of its documents is', () => {
+      const today = '2026-11-09';
+      const series = buildSeries(
+        [policy, { ...receipt, markedStatus: 'cancelled' as const }],
+        today,
+      );
+      expect(series[0].versions[0].status).toBe('cancelled');
+      expect(
+        costsOf([policy, { ...receipt, markedStatus: 'cancelled' as const }]),
+      ).toEqual([]);
+      expect(
+        renewalsOf({}, series, [], today).find((r) => r.kind === 'insurance')
+          ?.level,
+      ).toBe('missing');
+    });
   });
 });

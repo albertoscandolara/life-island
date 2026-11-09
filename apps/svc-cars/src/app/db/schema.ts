@@ -115,6 +115,11 @@ export const reviews = cars.table(
       .default([]),
     /** Cancelled, as you marked the document. */
     markedStatus: text('marked_status'),
+    /**
+     * The record you put it in by hand (`number:<n>` or `own:<uploadId>`);
+     * null: the record of every document with its number.
+     */
+    groupKey: text('group_key'),
     decidedAt: timestamp('decided_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

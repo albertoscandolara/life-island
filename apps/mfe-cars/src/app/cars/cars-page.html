@@ -49,7 +49,9 @@
     <header class="review__head">
       <div>
         <h3 class="review__title">
-          {{ typeLabel(review.type) }} @if (review.registrationNumber) {
+          {{ typeLabel(review.type) }} @if (review.role) {
+          <span>· {{ roleLabels[review.role] }}</span>
+          } @if (review.registrationNumber) {
           <span class="mono">· {{ review.registrationNumber }}</span>
           }
         </h3>
@@ -89,6 +91,14 @@
       <strong>A new car?</strong> None of your cars has the plate
       <span class="mono">{{ review.registrationNumber ?? review.vin }}</span>.
       Add it as a new car, or pick the right car if the plate was misread.
+    </ui-alert>
+    } @if (review.joins; as joins) {
+    <ui-alert tone="info">
+      <strong>Same policy as one you have.</strong> It prints
+      <span class="mono">{{ joins.number }}</span>, like the record that already
+      has {{ joins.documentCount }} {{ joins.documentCount === 1 ? 'document' :
+      'documents' }}: approved, it joins that record instead of making a new
+      version.
     </ui-alert>
     } @if (review.outdated) {
     <ui-alert tone="info">
@@ -715,6 +725,57 @@ idle) {
               } @if (version.amount !== null) { · € {{ num(version.amount, 2,
               2)}} }
             </p>
+            @if (version.documents.length > 1) {
+            <ul
+              class="parts"
+              [attr.aria-label]="'Documents of version ' + version.version"
+            >
+              @for (part of version.documents; track part.uploadId) {
+              <li class="part">
+                <ui-badge tone="neutral"
+                  >{{ part.role ? roleLabels[part.role] : 'Document'
+                  }}</ui-badge
+                >
+                <a
+                  class="part__title"
+                  [href]="previewUrl(part.uploadId)"
+                  target="_blank"
+                  rel="noopener"
+                  [title]="part.title"
+                  >{{ part.title }}@if (part.linkedByHand) {
+                  <span class="part__by-hand">· added by you</span>
+                  }</a
+                >
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="busy() !== null"
+                  [attr.aria-label]="'Take ' + part.title + ' out of this record'"
+                  (click)="detach(part.uploadId)"
+                >
+                  Detach
+                </button>
+              </li>
+              }
+            </ul>
+            } @if ($first && attachable(series, version).length) {
+            <select
+              class="ui-input compact attach"
+              [attr.aria-label]="'Attach a document to version ' + version.version"
+              [disabled]="busy() !== null"
+              (change)="attach($any($event.target), version.uploadId)"
+            >
+              <option value="">Attach another document…</option>
+              @for (part of attachable(series, version); track part.uploadId) {
+              <option [value]="part.uploadId">
+                {{ part.role ? roleLabels[part.role] + ' · ' : '' }}{{
+                part.title }}
+              </option>
+              }
+            </select>
+            }
           </div>
           <div class="version__actions">
             <a
