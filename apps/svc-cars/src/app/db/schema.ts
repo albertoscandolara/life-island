@@ -11,6 +11,7 @@ import {
 import type {
   ModelFormat,
   VehicleField,
+  VehiclePartyField,
   VehicleStatus,
   VehicleValue,
 } from '@life-island/contracts';
@@ -31,6 +32,11 @@ export const vehicles = cars.table('vehicles', {
   status: text('status').$type<VehicleStatus>().notNull().default('active'),
   values: jsonb('values')
     .$type<Partial<Record<VehicleField, VehicleValue>>>()
+    .notNull()
+    .default({}),
+  /** The person of People each party (holder, owner) is, when you picked one. */
+  people: jsonb('people')
+    .$type<Partial<Record<VehiclePartyField, string>>>()
     .notNull()
     .default({}),
   /** Its 3D model, in this service's own bucket (the file never goes in the database). */

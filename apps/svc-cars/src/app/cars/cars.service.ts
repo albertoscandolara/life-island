@@ -21,7 +21,9 @@ import {
   type UpdateVehicleRequest,
   type VehicleDto,
   type VehicleField,
+  type VehiclePartyField,
   type VehicleValue,
+  VEHICLE_PARTY_FIELDS,
 } from '@life-island/contracts';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -179,6 +181,7 @@ export class CarsService {
           costTotals: costTotals(costs),
           odometerKm: readings.length ? Math.max(...readings) : null,
           model: modelOf(row),
+          people: row.people ?? {},
         };
       })
       .sort(
@@ -324,6 +327,8 @@ export class CarsService {
             .update(vehicles)
             .set({
               values: { ...vehicle.values, ...update },
+              // A party whose name the document changes is no longer the person you picked.
+              people: withoutChangedParties(vehicle.people, update),
               updatedAt: new Date(),
             })
             .where(eq(vehicles.id, vehicleId));
@@ -509,12 +514,26 @@ export class CarsService {
       }
       if (request.values && 'vin' in request.values && values.vin)
         await this.assertNoOtherCar(tx, String(values.vin), id);
+      const people = withoutChangedParties(
+        vehicle.people,
+        Object.fromEntries(
+          Object.entries(request.values ?? {}).filter(
+            ([field]) => !(field in (request.people ?? {})),
+          ),
+        ),
+      );
+      for (const [field, personId] of Object.entries(request.people ?? {})) {
+        const party = field as VehiclePartyField;
+        if (personId) people[party] = personId;
+        else delete people[party];
+      }
       await tx
         .update(vehicles)
         .set({
           ...(request.label !== undefined ? { label: request.label } : {}),
           ...(request.status ? { status: request.status } : {}),
           values,
+          people,
           updatedAt: new Date(),
         })
         .where(eq(vehicles.id, id));
@@ -590,6 +609,17 @@ export class CarsService {
     if (!doc) throw new NotFoundException('No car document with this id');
     return doc;
   }
+}
+
+/** The links to People of the parties whose name `changed` does not touch. */
+export function withoutChangedParties(
+  people: Partial<Record<VehiclePartyField, string>> | null | undefined,
+  changed: Partial<Record<string, unknown>>,
+): Partial<Record<VehiclePartyField, string>> {
+  const kept = { ...(people ?? {}) };
+  for (const field of VEHICLE_PARTY_FIELDS)
+    if (field in changed) delete kept[field];
+  return kept;
 }
 
 /** Expired first, then in the grace period, missing, and expiring soonest. */

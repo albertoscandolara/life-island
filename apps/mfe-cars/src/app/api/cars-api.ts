@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import type {
   ApproveCarReviewRequest,
   CarsOverviewDto,
+  CarsPeopleDto,
   CreateVehicleRequest,
   GroupCarDocumentRequest,
   MarkCarDocumentRequest,
@@ -49,6 +50,11 @@ export class CarsApi {
       `${CARS_API}/documents/${uploadId}/group`,
       request,
     );
+  }
+
+  /** The people of the People area, to pick as the holder or owner of a car. */
+  people(): Observable<CarsPeopleDto> {
+    return this.http.get<CarsPeopleDto>(`${CARS_API}/people`);
   }
 
   createVehicle(request: CreateVehicleRequest): Observable<{ id: string }> {

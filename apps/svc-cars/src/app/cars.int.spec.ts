@@ -396,6 +396,46 @@ describe.skipIf(!configured)(
       ).toBe(409);
     });
 
+    it('links the holder and owner to a person of People, or keeps a typed name', async () => {
+      // svc-people is not part of this test: names are typed then.
+      const people = await json<{ available: boolean }>(
+        await send('GET', '/people'),
+      );
+      expect(typeof people.available).toBe('boolean');
+
+      const valentina = randomUUID();
+      expect(
+        (
+          await send('PATCH', `/vehicles/${vehicleId}`, {
+            values: {
+              'parties.holder.name': 'Valentina Scandolara',
+              'parties.owner.name': 'Silvio Scandolara',
+            },
+            people: { 'parties.holder.name': valentina },
+          })
+        ).status,
+      ).toBe(204);
+      let updated = await car(vehicleId);
+      expect(updated.values['parties.holder.name']).toBe(
+        'Valentina Scandolara',
+      );
+      expect(updated.people).toEqual({ 'parties.holder.name': valentina });
+
+      // A name typed over a linked person is just a name again.
+      await send('PATCH', `/vehicles/${vehicleId}`, {
+        values: { 'parties.holder.name': 'VALENTINA SCANDOLARA' },
+      });
+      updated = await car(vehicleId);
+      expect(updated.people).toEqual({});
+      expect(
+        (
+          await send('PATCH', `/vehicles/${vehicleId}`, {
+            people: { 'parties.owner.name': 'not-a-uuid' },
+          })
+        ).status,
+      ).toBe(400);
+    });
+
     it.skipIf(!process.env['S3_ENDPOINT'])(
       'keeps a 3D model per car in its own bucket',
       async () => {

@@ -821,6 +821,29 @@ export const VEHICLE_FIELDS = VEHICLE_FIELD_DEFINITIONS.map(
   (d) => d.field,
 ) as VehicleField[];
 
+/**
+ * The people named on the card: each can be linked to a person of the People
+ * area (or stay a name as printed or typed), as the owners of a house are.
+ */
+export const VEHICLE_PARTY_FIELDS = [
+  'parties.holder.name',
+  'parties.owner.name',
+] as const satisfies readonly VehicleField[];
+export type VehiclePartyField = (typeof VEHICLE_PARTY_FIELDS)[number];
+
+/** A person of the People area, offered for the holder and the owner of a car. */
+export interface CarPersonDto {
+  id: string;
+  name: string;
+  taxCode: string | null;
+}
+
+export interface CarsPeopleDto {
+  people: CarPersonDto[];
+  /** False when the People service could not be reached: names are typed for now. */
+  available: boolean;
+}
+
 /** Never change on a car: a difference is a misread, or another car. */
 export const STABLE_VEHICLE_FIELDS: readonly VehicleField[] = [
   'registrationNumber',
@@ -1075,6 +1098,11 @@ export interface VehicleDto {
   odometerKm: number | null;
   /** Your 3D model of the car (as for houses), shown instead of the drawn car. */
   model: PropertyModelDto | null;
+  /**
+   * The person of People each named party is, when you picked one; the name
+   * itself stays in `values`.
+   */
+  people: Partial<Record<VehiclePartyField, string>>;
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';
@@ -1216,6 +1244,13 @@ export const updateVehicleRequestSchema = z.object({
       z.enum(VEHICLE_FIELDS as [VehicleField, ...VehicleField[]]),
       vehicleValue,
     )
+    .optional(),
+  /**
+   * The person of People a party is (null: just the name). A party whose
+   * name changes without a person here loses its link.
+   */
+  people: z
+    .partialRecord(z.enum(VEHICLE_PARTY_FIELDS), z.uuid().nullable())
     .optional(),
 });
 export type UpdateVehicleRequest = z.input<typeof updateVehicleRequestSchema>;

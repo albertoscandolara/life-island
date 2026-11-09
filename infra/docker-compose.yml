@@ -200,6 +200,8 @@ services:
       <<: *service-env
       # Previews of car documents are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
+      # The holder and owner of a car can be a person of People, read from svc-people's API.
+      PEOPLE_URL: http://svc-people:3000
     depends_on: *service-deps
 
   svc-work:

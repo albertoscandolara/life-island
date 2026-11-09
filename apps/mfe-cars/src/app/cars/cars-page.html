@@ -611,6 +611,35 @@ idle) {
             </option>
             }
           </select>
+          } @else if (isParty(d.field)) {
+          <span class="party">
+            <select
+              class="ui-input compact"
+              [attr.aria-label]="d.label + ': who'"
+              (change)="pickPerson(d.field, $any($event.target).value)"
+            >
+              <option value="" [selected]="!pickedPerson(d.field)">
+                A name, as printed
+              </option>
+              @for (person of people().people; track person.id) {
+              <option
+                [value]="person.id"
+                [selected]="pickedPerson(d.field) === person.id"
+              >
+                {{ person.name }}
+              </option>
+              }
+            </select>
+            @if (!pickedPerson(d.field)) {
+            <input
+              class="ui-input compact"
+              [id]="'car-' + d.key"
+              type="text"
+              [value]="editValue(d.field)"
+              (input)="setValue(d.field, $any($event.target).value)"
+            />
+            }
+          </span>
           } @else {
           <input
             class="ui-input compact"
@@ -621,6 +650,11 @@ idle) {
           />
           }
         </label>
+        } @if (!people().available) {
+        <small class="muted span"
+          >People is not reachable, so the holder and owner are typed for
+          now.</small
+        >
         }
         <footer class="review__actions">
           <button
@@ -669,7 +703,9 @@ idle) {
                   <span class="value"
                     >{{ valueText(d.field, value(vehicle, d.field)) }}</span
                   >
-                  } @else {
+                  @if (linkedPerson(vehicle, d.field)) {
+                  <ui-badge tone="neutral">In People</ui-badge>
+                  } } @else {
                   <span class="muted">—</span>
                   }
                 </div>
