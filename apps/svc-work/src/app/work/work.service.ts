@@ -48,6 +48,7 @@ import {
   type CareerWorkplace,
 } from './career.js';
 import type { CareerDossierInput } from './career-feedback.js';
+import { buildEvaluationStats } from './evaluations.js';
 import {
   cleanValue,
   completeValues,
@@ -232,6 +233,11 @@ export class WorkService {
       }),
       timeline: career.timeline,
       stats: career.stats,
+      evaluations: buildEvaluationStats(
+        career.approved,
+        career.workplaces,
+        career.stats.years,
+      ),
       platforms: career.platforms,
       feedback: feedbackRows.map(feedbackDto),
       aiFeedback: this.advisor.usesAi,
@@ -514,6 +520,11 @@ export class WorkService {
       documents: career.approved,
       timeline: career.timeline,
       stats: career.stats,
+      evaluations: buildEvaluationStats(
+        career.approved,
+        career.workplaces,
+        career.stats.years,
+      ),
       platforms: career.platforms,
       today,
     };

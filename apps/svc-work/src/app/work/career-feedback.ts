@@ -4,6 +4,7 @@ import {
   type CareerEventDto,
   type CareerFeedbackOutput,
   type CareerStatsDto,
+  type EvaluationStatsDto,
   type HiringPlatformDto,
 } from '@life-island/contracts';
 import type { ApprovedWorkDocument, CareerWorkplace } from './career.js';
@@ -20,6 +21,8 @@ export interface CareerDossierInput {
   documents: readonly ApprovedWorkDocument[];
   timeline: readonly CareerEventDto[];
   stats: CareerStatsDto;
+  /** Evaluations read against their employer's rules (see evaluations.ts). */
+  evaluations: EvaluationStatsDto;
   platforms: readonly HiringPlatformDto[];
   today: string;
 }
@@ -86,21 +89,7 @@ export function careerDossier(input: CareerDossierInput): string {
     lines.push(
       `- ${e.date} ${CAREER_EVENT_LABELS[e.kind]}: ${e.title}${e.detail ? ` (${e.detail})` : ''}${e.workplaceName ? ` at ${e.workplaceName}` : ''}`,
     );
-  const evaluations = input.documents.filter(
-    (d) => d.reading.type === 'PERFORMANCE_REVIEW',
-  );
-  if (evaluations.length) {
-    lines.push('', '## Evaluations');
-    for (const d of evaluations) {
-      const r = d.reading;
-      lines.push(
-        `- ${r.date ?? 'undated'}: rating ${r.rating ?? 'none'}${r.ratingScale ? ` on ${r.ratingScale}` : ''}`,
-        ...(r.strengths ? [`  Strengths: ${r.strengths}`] : []),
-        ...(r.improvements ? [`  To improve: ${r.improvements}`] : []),
-        ...(r.goals ? [`  Goals: ${r.goals}`] : []),
-      );
-    }
-  }
+  lines.push(...evaluationLines(input.evaluations));
   lines.push('', '## Hiring platforms');
   if (!input.platforms.length) lines.push('- none');
   for (const p of input.platforms)
@@ -110,8 +99,86 @@ export function careerDossier(input: CareerDossierInput): string {
   return lines.join('\n');
 }
 
+const pct = (n: number | null) => (n === null ? 'unknown' : `${n}%`);
+
+/** The evaluations, their statistics and the rules each employer scores them by. */
+function evaluationLines(stats: EvaluationStatsDto): string[] {
+  if (!stats.count && !stats.rules.length) return [];
+  const lines: string[] = [];
+  if (stats.rules.length) {
+    lines.push('', "## Evaluation rules (each employer's own)");
+    for (const r of stats.rules) {
+      lines.push(
+        `- ${r.workplaceName ?? r.title}${r.version ? `, version ${r.version}` : ''}${r.effectiveFrom ? `, from ${r.effectiveFrom}` : ''}: highest score ${r.maxScore ?? 'unknown'}, bonus target ${r.targetRule ?? 'unknown'}, highest payout ${pct(r.maxPayoutPct)}`,
+      );
+      if (r.sections.length)
+        lines.push(
+          `  Sections: ${r.sections.map((i) => `${i.name}${i.value !== null ? ` (max ${i.value})` : ''}${i.note ? `: ${i.note}` : ''}`).join('; ')}`,
+        );
+      if (r.scale.length)
+        lines.push(
+          `  Scale: ${r.scale.map((i) => `${i.name}${i.note ? ` = ${i.note}` : ''}`).join('; ')}`,
+        );
+      if (r.bands.length)
+        lines.push(
+          `  Conversion: ${r.bands.map((b) => `${b.min === null ? `below ${(b.max ?? 0) + 1}` : `${b.min}${b.max !== null ? `-${b.max}` : '+'}`} = ${b.pct}%`).join(', ')}`,
+        );
+      for (const line of [...r.schedule, ...r.notes].slice(0, 12))
+        lines.push(`  ${line}`);
+    }
+  }
+  if (!stats.count) return lines;
+  lines.push(
+    '',
+    '## Evaluations (one per period, oldest first)',
+    `- Average score ${stats.averageScore ?? 'unknown'}, best ${stats.bestScore ?? 'unknown'}, change since the one before ${stats.scoreChange ?? 'unknown'}; average bonus conversion ${pct(stats.averagePayoutPct)}`,
+  );
+  if (stats.strongest.length)
+    lines.push(`- Strongest criteria: ${stats.strongest.join(', ')}`);
+  if (stats.weakest.length)
+    lines.push(`- Weakest criteria: ${stats.weakest.join(', ')}`);
+  if (stats.improving.length)
+    lines.push(`- Improving: ${stats.improving.join(', ')}`);
+  if (stats.declining.length)
+    lines.push(`- Declining: ${stats.declining.join(', ')}`);
+  for (const y of stats.years)
+    lines.push(
+      `- ${y.year}: ${y.evaluations} evaluations, average ${y.averageScore ?? 'unknown'}, bonus paid ${money(y.bonus)} of target ${money(y.bonusTarget)}${y.bonusShareOfGrossPct !== null ? ` (${y.bonusShareOfGrossPct}% of the year's gross)` : ''}`,
+    );
+  for (const e of stats.evaluations) {
+    const score =
+      e.score !== null
+        ? `score ${e.score}${e.maxScore ? `/${e.maxScore}` : ''}`
+        : `rating ${e.rating ?? 'none'}`;
+    const band = e.band
+      ? `, converts to ${e.band.pct}%${e.band.pointsToNext !== null ? ` (${e.band.pointsToNext} points short of ${e.band.nextPct}%)` : ''}`
+      : e.payoutPct !== null
+        ? `, bonus conversion ${e.payoutPct}%`
+        : '';
+    lines.push(
+      `- ${e.date ?? 'undated'}${e.cycle ? ` (${e.cycle})` : ''}${e.workplaceName ? ` at ${e.workplaceName}` : ''}: ${score}${band}${e.role ? `, role ${e.role}` : ''}${e.team ? `, team ${e.team}` : ''}`,
+      ...(e.sections.length
+        ? [
+            `  Sections: ${e.sections.map((c) => `${c.name} ${c.score}${c.max ? `/${c.max}` : ''}`).join(', ')}`,
+          ]
+        : []),
+      ...(e.criteria.length
+        ? [
+            `  Criteria: ${e.criteria.map((c) => `${c.name} ${c.score}${c.max ? `/${c.max}` : ''}`).join(', ')}`,
+          ]
+        : []),
+      ...(e.comments ? [`  Comments: ${e.comments}`] : []),
+      ...(e.strengths ? [`  Strengths: ${e.strengths}`] : []),
+      ...(e.improvements ? [`  To improve: ${e.improvements}`] : []),
+      ...(e.goals ? [`  Goals: ${e.goals}`] : []),
+    );
+  }
+  return lines;
+}
+
 export const FEEDBACK_INSTRUCTIONS = `You are a frank, practical career coach for someone working in Italy. You read a dossier built from their own payslips, evaluations and contracts, and answer in English.
 Base every statement on the dossier: quote the numbers and dates it holds, and say plainly when the data is too thin to judge. Never invent salaries, market figures or facts about the employer. When you compare with the market or with inflation, say it is a general rule of thumb and suggest how to check it (for example the CCNL tables, salary surveys, job ads on the hiring platforms).
+Read each evaluation against its own employer's rules in the dossier (sections, scale, conversion to bonus): never apply one company's rules to another. Point out which criteria hold the score back and how many points the next bonus band needs.
 Know the Italian context: CCNL levels and minimums, superminimo, scatti di anzianità, tredicesima and quattordicesima, welfare credits, TFR, ROL and ferie.
 Give concrete next steps, verb first. If the person asks a question, answer it first and keep the rest short.`;
 
@@ -191,6 +258,31 @@ export function offlineFeedback(
   const evaluations = input.documents.filter(
     (d) => d.reading.type === 'PERFORMANCE_REVIEW',
   );
+  const review = input.evaluations;
+  const latest = review.latest;
+  if (latest?.score != null && review.scoreChange !== null) {
+    if (review.scoreChange > 0)
+      strengths.push(
+        `Your latest evaluation scored ${latest.score}, ${review.scoreChange} points more than the one before.`,
+      );
+    else if (review.scoreChange < 0)
+      watchouts.push(
+        `Your latest evaluation scored ${latest.score}, ${-review.scoreChange} points less than the one before.`,
+      );
+  }
+  if (review.strongest.length)
+    strengths.push(
+      `Your evaluations rate you best on ${review.strongest.join(', ')}.`,
+    );
+  if (review.declining.length)
+    watchouts.push(
+      `Dropping across your evaluations: ${review.declining.join(', ')}.`,
+    );
+  if (latest?.band?.pointsToNext != null && latest.band.nextPct !== null)
+    suggestions.push({
+      title: `Aim for ${latest.band.nextAt} points next time`,
+      detail: `Your latest score converts to ${latest.band.pct}% of the bonus target; ${latest.band.pointsToNext} more points reach ${latest.band.nextPct}%.${review.weakest.length ? ` Your weakest criteria (${review.weakest.join(', ')}) have the most room.` : ''}`,
+    });
   if (!evaluations.length)
     suggestions.push({
       title: 'Ask for a written evaluation',

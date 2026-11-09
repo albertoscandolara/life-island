@@ -172,3 +172,31 @@ export function eventEmblem(kind: CareerEventKind): string {
 export function safeUrl(url: string): string | null {
   return /^https?:\/\//i.test(url) ? url : null;
 }
+
+/** A change in percent, signed: "+12,7%". */
+export function pct(value: number | null): string {
+  if (value === null) return '–';
+  return `${value > 0 ? '+' : ''}${value.toLocaleString('it-IT')}%`;
+}
+
+/** Hours of leave: "64 h". */
+export function hours(value: number | null): string {
+  return value === null ? '–' : `${value.toLocaleString('it-IT')} h`;
+}
+
+/** A score as printed: "86,4", or "86,4 / 120" with its highest. */
+export function scoreText(
+  score: number | null,
+  max: number | null = null,
+): string {
+  if (score === null) return '–';
+  const text = score.toLocaleString('it-IT');
+  return max ? `${text} / ${max.toLocaleString('it-IT')}` : text;
+}
+
+/** A score change, signed: "+4", "−2,5". */
+export function signed(value: number | null): string {
+  if (value === null) return '–';
+  if (value === 0) return '0';
+  return `${value > 0 ? '+' : '−'}${Math.abs(value).toLocaleString('it-IT')}`;
+}

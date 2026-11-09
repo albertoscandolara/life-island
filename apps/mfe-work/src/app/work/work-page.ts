@@ -44,32 +44,42 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { WorkApi } from '../api/work-api';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
+import { EvaluationsTab } from './evaluations-tab';
+import { PayslipsTab } from './payslips-tab';
 import {
   duration,
   euro,
-  euroShort,
   eventEmblem,
   eventLabel,
   eventTone,
   fieldLabel,
+  pct,
   periodText,
   safeUrl,
-  shortPeriod,
+  scoreText,
+  signed,
   typeLabel,
   valueText,
   workplaceName,
 } from './labels';
 
 export type WorkTab =
-  'career' | 'review' | 'workplaces' | 'feedback' | 'platforms';
+  | 'career'
+  | 'payslips'
+  | 'evaluations'
+  | 'review'
+  | 'workplaces'
+  | 'feedback'
+  | 'platforms';
 
 const TABS: {
   id: WorkTab;
   label: string;
-  icon: 'chart' | 'inbox' | 'home' | 'info' | 'external';
+  icon: 'chart' | 'file' | 'check' | 'inbox' | 'home' | 'info' | 'external';
 }[] = [
-  { id: 'career', label: 'Career', icon: 'chart' },
+  { id: 'career', label: 'Overview', icon: 'chart' },
+  { id: 'payslips', label: 'Payslips', icon: 'file' },
+  { id: 'evaluations', label: 'Performance reviews', icon: 'check' },
   { id: 'review', label: 'To review', icon: 'inbox' },
   { id: 'workplaces', label: 'Workplaces', icon: 'home' },
   { id: 'feedback', label: 'Career feedback', icon: 'info' },
@@ -144,7 +154,8 @@ const today = () => new Date().toISOString().slice(0, 10);
   selector: 'work-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ColumnChart,
+    EvaluationsTab,
+    PayslipsTab,
     UiAlert,
     UiBadge,
     UiButton,
@@ -155,7 +166,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   ],
   host: { 'data-character': 'pachy', class: 'work' },
   templateUrl: './work-page.html',
-  styleUrl: './work-page.css',
+  styleUrls: ['./blocks.css', './work-page.css'],
 })
 export class WorkPage {
   private readonly api = inject(WorkApi);
@@ -209,10 +220,10 @@ export class WorkPage {
   );
 
   protected readonly euro = euro;
-  protected readonly euroShort = euroShort;
   protected readonly duration = duration;
   protected readonly periodText = periodText;
-  protected readonly shortPeriod = shortPeriod;
+  protected readonly scoreText = scoreText;
+  protected readonly signed = signed;
   protected readonly fieldLabel = fieldLabel;
   protected readonly typeLabel = typeLabel;
   protected readonly valueText = valueText;
@@ -221,6 +232,7 @@ export class WorkPage {
   protected readonly eventTone = eventTone;
   protected readonly eventEmblem = eventEmblem;
   protected readonly safeUrl = safeUrl;
+  protected readonly pct = pct;
 
   protected readonly workplaces = computed(
     () => this.overview()?.workplaces ?? [],
@@ -261,26 +273,43 @@ export class WorkPage {
     this.platforms().filter((p) => p.stale),
   );
 
-  /** The last 24 months of pay: gross and net, side by side. */
-  protected readonly payChart = computed(() => {
-    const monthly = (this.stats()?.monthly ?? []).slice(-24);
-    const buckets = monthly.map((m) => m.period);
-    const series: ChartSeries[] = [
-      {
-        id: 'gross',
-        label: 'Gross',
-        color: 'var(--viz-gross)',
-        values: monthly.map((m) => m.gross),
-      },
-      {
-        id: 'net',
-        label: 'Net pay',
-        color: 'var(--viz-net)',
-        values: monthly.map((m) => m.net),
-      },
-    ];
-    return { buckets, series };
+  protected readonly evaluations = computed(
+    () => this.overview()?.evaluations ?? null,
+  );
+
+  /**
+   * Pay and evaluations side by side, year by year: what the payslips say
+   * you earned and what the evaluations say about the same year.
+   */
+  protected readonly years = computed(() => {
+    const pay = this.stats()?.years ?? [];
+    const reviews = this.evaluations()?.years ?? [];
+    const all = [
+      ...new Set([...pay.map((y) => y.year), ...reviews.map((y) => y.year)]),
+    ].sort((a, b) => b - a);
+    return all.map((year) => {
+      const p = pay.find((y) => y.year === year) ?? null;
+      const r = reviews.find((y) => y.year === year) ?? null;
+      return {
+        year,
+        payslips: p?.payslips ?? 0,
+        gross: p?.gross ?? null,
+        net: p?.net ?? null,
+        evaluations: r?.evaluations ?? 0,
+        averageScore: r?.averageScore ?? null,
+        bonus: r?.bonus || null,
+        bonusShareOfGrossPct: r?.bonusShareOfGrossPct ?? null,
+        role: r?.role ?? null,
+      };
+    });
   });
+
+  /** The latest year with both a bonus and payslips: how much of your pay the evaluations moved. */
+  protected readonly bonusShare = computed(
+    () =>
+      this.years().find((y) => y.bonus && y.bonusShareOfGrossPct !== null) ??
+      null,
+  );
 
   constructor() {
     this.load();
@@ -350,15 +379,6 @@ export class WorkPage {
   protected nameOf(workplaceId: string | null): string {
     const workplace = this.workplaces().find((w) => w.id === workplaceId);
     return workplace ? workplaceName(workplace) : '';
-  }
-
-  protected pct(value: number | null): string {
-    if (value === null) return '–';
-    return `${value > 0 ? '+' : ''}${value.toLocaleString('it-IT')}%`;
-  }
-
-  protected hours(value: number | null): string {
-    return value === null ? '–' : `${value.toLocaleString('it-IT')} h`;
   }
 
   // ---- review -------------------------------------------------------------
