@@ -59,6 +59,8 @@ const dossier = (expenses: DossierExpenseDto[]): TaxYearDossierDto => ({
   untraceableCount: 0,
   missingInvoiceCount: 0,
   missingPaymentCount: 0,
+  deductions: { lines: [], carried: [], thisYear: 0, futureYears: 0 },
+  byMonth: Array(12).fill(0),
   expenses,
   yearDocuments: [],
 });
@@ -140,15 +142,15 @@ describe('the Riepilogo detrazioni workbook', () => {
       'Fattura',
       'Fornitore',
       'Descrizione',
-      'Tipologia',
       'Importo',
       'Fattura',
       'Dettaglio bonifico',
       'Note',
+      'Tipologia',
     ]);
-    expect(values(3).slice(5)).toEqual([550, 'ok', 'ko', 'In arrivo']);
-    expect(sheet?.getCell('F4').value).toEqual({
-      formula: 'SUM(F2:F3)',
+    expect(values(3).slice(4, 8)).toEqual([550, 'ok', 'ko', 'In arrivo']);
+    expect(sheet?.getCell('E4').value).toEqual({
+      formula: 'SUM(E2:E3)',
       result: 3750,
     });
   });

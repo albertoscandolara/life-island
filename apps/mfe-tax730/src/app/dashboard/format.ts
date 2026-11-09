@@ -4,9 +4,15 @@ import {
   type Tax730ExpenseType,
 } from '@life-island/contracts';
 
+// Italian leaves 4-digit amounts ungrouped (3200,00 €); 'always' groups them
+// too. The ES2023 option is missing from the es2022 lib typings.
+const grouping = {
+  useGrouping: 'always',
+} as unknown as Intl.NumberFormatOptions;
 const euro = new Intl.NumberFormat('it-IT', {
   style: 'currency',
   currency: 'EUR',
+  ...grouping,
 });
 const day = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',

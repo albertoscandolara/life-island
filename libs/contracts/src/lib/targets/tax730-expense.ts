@@ -11,6 +11,9 @@ export const TAX730_EXPENSE_TYPES = [
   'mortgage_interest',
   'insurance',
   'renovation',
+  'energy_efficiency',
+  'furniture',
+  'agency_fees',
   'other',
 ] as const;
 export type Tax730ExpenseType = (typeof TAX730_EXPENSE_TYPES)[number];
@@ -29,6 +32,18 @@ export const TAX730_EXPENSE_TYPE_LABELS: Record<
   mortgage_interest: { en: 'Mortgage interest', it: 'Interessi mutuo' },
   insurance: { en: 'Insurance', it: 'Assicurazioni' },
   renovation: { en: 'Home renovation', it: 'Ristrutturazione e bonus casa' },
+  energy_efficiency: {
+    en: 'Energy efficiency',
+    it: 'Riqualificazione energetica (ecobonus)',
+  },
+  furniture: {
+    en: 'Furniture and appliances',
+    it: 'Bonus mobili ed elettrodomestici',
+  },
+  agency_fees: {
+    en: 'Estate agent fees',
+    it: 'Intermediazione immobiliare',
+  },
   other: { en: 'Other', it: 'Altro' },
 };
 

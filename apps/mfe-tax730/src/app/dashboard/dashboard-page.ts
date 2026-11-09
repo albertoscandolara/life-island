@@ -26,6 +26,9 @@ import {
 } from '@life-island/design-system';
 import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
+import { Tax730Guide } from '../guide/tax730-guide';
+import { DeductionsCard } from './deductions-card';
+import { MonthChart } from './month-chart';
 import { YearComparison } from './year-comparison';
 import { formatDate, formatEuro, ROLE_LABELS, typeLabel } from './format';
 
@@ -54,6 +57,9 @@ type PickerTarget =
     UiEmptyState,
     DocumentPicker,
     YearComparison,
+    DeductionsCard,
+    MonthChart,
+    Tax730Guide,
   ],
   host: { 'data-character': 'ankylo', class: 'tax730' },
   templateUrl: './dashboard-page.html',
@@ -81,8 +87,9 @@ export class DashboardPage {
     return years.some((y) => y.taxYear === asked) ? asked : years[0].taxYear;
   });
 
-  protected readonly maxTypeTotal = computed(() =>
-    Math.max(1, ...(this.dossier()?.byType.map((t) => t.total) ?? [])),
+  /** The year the explainer's rates are for: the one shown, or last year. */
+  protected readonly guideYear = computed(
+    () => this.selectedYear() ?? new Date().getFullYear() - 1,
   );
 
   protected readonly formatEuro = formatEuro;

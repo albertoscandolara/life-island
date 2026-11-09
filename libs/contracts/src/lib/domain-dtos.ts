@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TAX730_EXPENSE_TYPES } from './targets/tax730-expense.js';
+import type { Tax730DeductionsDto } from './tax730-deductions.js';
 
 /*
  * HTTP DTOs of the domain services (svc-groceries, svc-tax730): what each
@@ -105,6 +106,10 @@ export interface TaxYearDto {
   /** Expenses with no invoice or no payment proof filed. */
   missingInvoiceCount: number;
   missingPaymentCount: number;
+  /** Estimated tax back, line by line against each kind's cap and rate. */
+  deductions: Tax730DeductionsDto;
+  /** Spending by month, January first (12 values). */
+  byMonth: number[];
 }
 
 /** What a document filed for the 730 is: an expense's invoice or payment proof, or a document of the year. */

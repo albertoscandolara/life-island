@@ -12,7 +12,7 @@
 
 @if (error(); as message) {
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
-} @if (years() === null) {
+} <tax-730-guide [taxYear]="guideYear()" /> @if (years() === null) {
 <p class="loading">Loading your tax years…</p>
 } @else if (!years()!.length) {
 <ui-empty-state icon="inbox" heading="No 730 expenses yet">
@@ -57,6 +57,10 @@
     >
   </div>
   <div class="tile">
+    <span class="tile__label">Estimated tax back</span>
+    <span class="tile__value">{{ formatEuro(d.deductions.thisYear) }}</span>
+  </div>
+  <div class="tile">
     <span class="tile__label">Expenses</span>
     <span class="tile__value">{{ d.expenseCount }}</span>
   </div>
@@ -70,7 +74,8 @@
   </div>
   <div class="exports">
     <a uiButton [href]="zipUrl(d.taxYear)" download>
-      <ui-icon name="folder" [size]="18" /> Zip for the commercialista
+      <ui-icon name="folder" [size]="18" /> Download the 730/{{ d.filingYear }}
+      folder
     </a>
     <a uiButton variant="secondary" [href]="workbookUrl([d.taxYear])" download>
       <ui-icon name="download" [size]="18" /> Excel {{ d.taxYear }}
@@ -78,30 +83,10 @@
   </div>
 </section>
 
+<tax-deductions-card [dossier]="d" class="deductions" />
+
 <div class="grid">
-  <ui-card heading="By type">
-    @if (d.byType.length) {
-    <ul class="bars" role="list">
-      @for (t of d.byType; track t.expenseType) {
-      <li
-        class="bar"
-        [title]="typeLabel(t.expenseType) + ': ' + formatEuro(t.total) + ' in ' + t.count + ' expenses'"
-      >
-        <span class="bar__label">{{ typeLabel(t.expenseType) }}</span>
-        <span class="bar__track">
-          <span
-            class="bar__fill"
-            [style.width.%]="(t.total / maxTypeTotal()) * 100"
-          ></span>
-        </span>
-        <span class="bar__value">{{ formatEuro(t.total) }}</span>
-      </li>
-      }
-    </ul>
-    } @else {
-    <p class="muted">No expenses in {{ d.taxYear }} yet.</p>
-    }
-  </ui-card>
+  <tax-month-chart [taxYear]="d.taxYear" [values]="d.byMonth" />
 
   <ui-card heading="Documents of the year">
     <button
