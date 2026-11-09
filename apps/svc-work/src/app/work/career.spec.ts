@@ -3,6 +3,7 @@ import {
   buildTimeline,
   levelRank,
   monthsBetween,
+  payslipChecks,
   type ApprovedWorkDocument,
   type CareerWorkplace,
 } from './career.js';
@@ -175,5 +176,74 @@ describe('buildStats', () => {
     expect(dossier).not.toContain('01234567890');
     expect(dossier).not.toContain('12345');
     expect(dossier).toContain('Level C3 → B1');
+  });
+});
+
+describe('payslips the AI read with gaps', () => {
+  it('compares a salary with the latest one read, across a month not read', () => {
+    const events = buildTimeline(
+      [workplace],
+      [
+        payslip('02', { monthly_salary: 2350 }),
+        payslip('03', { monthly_salary: null }),
+        payslip('04', { monthly_salary: 2480 }),
+      ],
+      [],
+    );
+    const rise = events.find((e) => e.kind === 'salary_rise');
+    expect(rise?.uploadId).toBe('u-04');
+    expect(rise?.changePct).toBe(5.5);
+  });
+
+  it('reads a level printed with a prefix as its code, not as a change', () => {
+    const events = buildTimeline(
+      [workplace],
+      [
+        payslip('02', { job_level: 'IMP.LIV.C3 L. 56/87' }),
+        payslip('03', { job_level: 'C3' }),
+        payslip('04', { job_level: 'IMP.LIV.C3' }),
+        payslip('05', { job_level: 'B1' }),
+      ],
+      [],
+    );
+    expect(events.filter((e) => e.kind === 'promotion')).toEqual([
+      expect.objectContaining({ title: 'Level C3 → B1', uploadId: 'u-05' }),
+    ]);
+  });
+
+  it('lists payslips with no month, values not read, or a clashing twin', () => {
+    const checks = payslipChecks([
+      payslip('01'),
+      payslip('02', { pay_period: null, gross_pay: null }),
+      payslip('03', { gross_pay: null, monthly_salary: null }),
+      payslip('04', { monthly_salary: null }),
+      {
+        ...payslip('04', { net_pay: '2.700,00' }),
+        uploadId: 'u-04b',
+        title: 'Dicembre',
+      },
+      // A copy with the same amounts is no check.
+      { ...payslip('01'), uploadId: 'u-01b' },
+    ]);
+    expect(checks.map((c) => [c.uploadId, c.kind, c.missing])).toEqual([
+      ['u-02', 'no_month', []],
+      ['u-03', 'missing_values', ['gross pay', 'monthly salary']],
+      ['u-04', 'missing_values', ['monthly salary']],
+      ['u-04b', 'same_month', []],
+    ]);
+    expect(checks[1].message).toContain('counts as 0 in the year totals');
+    expect(checks[3].message).toContain('different net');
+  });
+
+  it('puts the checks in the statistics', () => {
+    const stats = buildStats(
+      [workplace],
+      [payslip('01'), payslip('02', { net_pay: null })],
+      [],
+      '2026-07-15',
+    );
+    expect(stats.checks).toEqual([
+      expect.objectContaining({ uploadId: 'u-02', missing: ['net pay'] }),
+    ]);
   });
 });

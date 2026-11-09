@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import type {
+  CareerInsightsDto,
+  GoalDto,
+  MarketCheckDto,
+  NegotiationBriefDto,
+} from './work-insights.js';
 
 /*
  * The Work area (svc-work, mfe-work): every workplace you have had (the
@@ -294,6 +300,10 @@ export const PAYSLIP_KEYS = {
   severance: 'severance_accrued',
   welfare: 'welfare_credits',
   kind: 'payslip_kind',
+  overtimeHours: 'overtime_hours',
+  overtimePay: 'overtime_pay',
+  travelDays: 'travel_days',
+  travelAllowance: 'travel_allowance',
 } as const;
 
 /**
@@ -611,8 +621,27 @@ export interface CareerStatsDto {
   leaveLeft: number | null;
   /** The months with no payslip, between the first and the latest at the current workplace. */
   missingMonths: string[];
+  /** Payslips whose figures are incomplete or clash with another of the same month. */
+  checks: PayslipCheckDto[];
   years: YearStatsDto[];
   monthly: MonthPointDto[];
+}
+
+/**
+ * Why a payslip you approved is not fully in the figures: its month, or
+ * values the statistics need (gross, net, monthly salary), were not read; or
+ * another payslip of the same month and kind with different amounts makes
+ * one of them count only once.
+ */
+export interface PayslipCheckDto {
+  uploadId: string;
+  title: string;
+  /** The month paid (YYYY-MM), when read. */
+  period: string | null;
+  kind: 'no_month' | 'missing_values' | 'same_month';
+  /** Labels of the values not read, for missing_values. */
+  missing: string[];
+  message: string;
 }
 
 export const PLATFORM_STATUSES = ['active', 'paused', 'closed'] as const;
@@ -876,6 +905,13 @@ export interface WorkOverviewDto {
   feedback: CareerFeedbackDto[];
   /** Whether the feedback is written by the Claude API (ANTHROPIC_API_KEY is set). */
   aiFeedback: boolean;
+  /** Your pay against inflation, the CCNL, taxes; time off, workload, reviews against pay. */
+  insights: CareerInsightsDto;
+  /** The goals your evaluations set, newest evaluation first. */
+  goals: GoalDto[];
+  /** Newest first. */
+  marketChecks: MarketCheckDto[];
+  brief: NegotiationBriefDto;
 }
 
 /** Whether a document names an employer, so it can make a new workplace. */

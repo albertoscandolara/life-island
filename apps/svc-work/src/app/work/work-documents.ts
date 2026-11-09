@@ -155,6 +155,26 @@ export function normalizeValue(
   return String(value).toUpperCase().trim().replace(/\s+/g, ' ');
 }
 
+const LEVEL_CODE = String.raw`(?:[A-Z]{1,2}\d{1,2}|\d{1,2}[A-Z]{0,2}|Q(?:UADRO)?)`;
+
+/**
+ * A level as its code on the CCNL scale: payslips print it with a prefix or a
+ * note ("IMP.LIV.C3 L. 56/87", "LIVELLO 5S"), and a model copies it one way
+ * on a payslip and another on the next, so "IMP.LIV.C3" and "C3" read as a
+ * level change. Anything else (Quadro, a grade name) is kept as printed.
+ */
+export function levelCode(value: string | null): string | null {
+  if (!value) return null;
+  const upper = value.toUpperCase().trim();
+  const labelled = new RegExp(`\\bLIV(?:ELLO|\\.)?\\s*(${LEVEL_CODE})\\b`).exec(
+    upper,
+  );
+  if (labelled) return labelled[1];
+  if (new RegExp(`^${LEVEL_CODE}$`).test(upper.replace(/\s+/g, '')))
+    return upper.replace(/\s+/g, '');
+  return value;
+}
+
 function workplaceValueOf(
   field: WorkplaceField,
   raw: string | number | boolean | null | undefined,
@@ -184,6 +204,7 @@ function workplaceValueOf(
     }
     default: {
       const value = text(raw);
+      if (field === 'level') return levelCode(value);
       return field === 'employerTaxCode' ? normalizeTaxCode(value) : value;
     }
   }
@@ -214,6 +235,12 @@ export interface WorkDocumentReading {
   severance: number | null;
   vacationLeft: number | null;
   leaveLeft: number | null;
+  /** A payslip's hours, overtime and travel (see PAYSLIP_KEYS). */
+  hoursWorked: number | null;
+  overtimeHours: number | null;
+  overtimePay: number | null;
+  travelDays: number | null;
+  travelAllowance: number | null;
   /** An evaluation's overall rating, with its scale. */
   rating: string | null;
   ratingScale: string | null;
@@ -452,6 +479,11 @@ export function readWorkDocument(
     severance: null,
     vacationLeft: null,
     leaveLeft: null,
+    hoursWorked: null,
+    overtimeHours: null,
+    overtimePay: null,
+    travelDays: null,
+    travelAllowance: null,
     rating: null,
     ratingScale: null,
     reviewer: null,
@@ -489,6 +521,11 @@ export function readWorkDocument(
       reading.severance = num(PAYSLIP_KEYS.severance);
       reading.vacationLeft = num(PAYSLIP_KEYS.vacationLeft);
       reading.leaveLeft = num(PAYSLIP_KEYS.leaveLeft);
+      reading.hoursWorked = num(PAYSLIP_KEYS.hoursWorked);
+      reading.overtimeHours = num(PAYSLIP_KEYS.overtimeHours);
+      reading.overtimePay = num(PAYSLIP_KEYS.overtimePay);
+      reading.travelDays = num(PAYSLIP_KEYS.travelDays);
+      reading.travelAllowance = num(PAYSLIP_KEYS.travelAllowance);
       reading.payslipKind = payslipKindOf(f[PAYSLIP_KEYS.kind]);
       fact('Month paid', reading.period);
       if (reading.payslipKind !== 'regular')
@@ -508,6 +545,11 @@ export function readWorkDocument(
         'Leave (ROL) left',
         reading.leaveLeft === null ? null : `${reading.leaveLeft} h`,
       );
+      fact(
+        'Overtime',
+        reading.overtimeHours === null ? null : `${reading.overtimeHours} h`,
+      );
+      amountFact('Travel allowances', reading.travelAllowance);
       break;
     }
     case 'PERFORMANCE_REVIEW': {
@@ -519,7 +561,11 @@ export function readWorkDocument(
       reading.reviewer = str('reviewer');
       reading.strengths = str('strengths');
       reading.improvements = str('improvements');
-      reading.goals = str('goals');
+      // One goal per line, kept apart for the goals tracker.
+      reading.goals =
+        readLines(f['goals'])
+          .map((line) => line.replace(/\s+/g, ' '))
+          .join('\n') || null;
       reading.bonus = num('bonus_amount');
       const [start, end] = String(f['review_period'] ?? '').split('/');
       reading.periodStart = dateOf(start);

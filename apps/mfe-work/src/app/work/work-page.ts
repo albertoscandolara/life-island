@@ -40,12 +40,15 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  type UiIconName,
   type UiTone,
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { WorkApi } from '../api/work-api';
 import { EvaluationsTab } from './evaluations-tab';
+import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
+import { ToolsTab } from './tools-tab';
 import {
   duration,
   euro,
@@ -53,6 +56,7 @@ import {
   eventLabel,
   eventTone,
   fieldLabel,
+  parseNumber,
   pct,
   periodText,
   safeUrl,
@@ -66,23 +70,27 @@ import {
 export type WorkTab =
   | 'career'
   | 'payslips'
+  | 'analysis'
   | 'evaluations'
   | 'review'
   | 'workplaces'
   | 'feedback'
+  | 'tools'
   | 'platforms';
 
 const TABS: {
   id: WorkTab;
   label: string;
-  icon: 'chart' | 'file' | 'check' | 'inbox' | 'home' | 'info' | 'external';
+  icon: UiIconName;
 }[] = [
   { id: 'career', label: 'Overview', icon: 'chart' },
   { id: 'payslips', label: 'Payslips', icon: 'file' },
+  { id: 'analysis', label: 'Pay analysis', icon: 'layers' },
   { id: 'evaluations', label: 'Performance reviews', icon: 'check' },
   { id: 'review', label: 'To review', icon: 'inbox' },
   { id: 'workplaces', label: 'Workplaces', icon: 'home' },
   { id: 'feedback', label: 'Career feedback', icon: 'info' },
+  { id: 'tools', label: 'Tools', icon: 'wrench' },
   { id: 'platforms', label: 'Hiring platforms', icon: 'external' },
 ];
 
@@ -133,13 +141,7 @@ const GROUP_LABELS: Record<WorkplaceFieldGroup, string> = {
   pay: 'Pay',
 };
 
-/** "2.518,53" (Italian) or "2518.53" as 2518.53. */
-export function parseNumber(raw: string): number {
-  const text = raw.trim();
-  return Number(
-    text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text,
-  );
-}
+export { parseNumber } from './labels';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -155,7 +157,9 @@ const today = () => new Date().toISOString().slice(0, 10);
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     EvaluationsTab,
+    PayAnalysisTab,
     PayslipsTab,
+    ToolsTab,
     UiAlert,
     UiBadge,
     UiButton,

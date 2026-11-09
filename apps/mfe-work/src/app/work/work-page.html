@@ -369,9 +369,19 @@
 <work-payslips [stats]="s" [certificates]="overview()?.certificates ?? []" />
 } }
 
+<!-- ============================================================== analysis -->
+@case ('analysis') { @if (stats(); as s) {
+<work-pay-analysis [insights]="data.insights" [stats]="s" />
+} }
+
 <!-- =========================================================== evaluations -->
 @case ('evaluations') {
-<work-evaluations [data]="data.evaluations" />
+<work-evaluations
+  [data]="data.evaluations"
+  [goals]="data.goals"
+  [reviewsVsPay]="data.insights.reviewsVsPay"
+  (changed)="load()"
+/>
 }
 
 <!-- ================================================================ review -->
@@ -953,7 +963,17 @@
 } }
 
 <!-- ============================================================= platforms -->
-@case ('platforms') {
+<!-- ================================================================= tools -->
+@case ('tools') {
+<work-tools
+  [baseline]="data.insights.offer"
+  [marketChecks]="data.marketChecks"
+  [brief]="data.brief"
+  [feedback]="data.feedback"
+  [aiFeedback]="data.aiFeedback"
+  (changed)="load()"
+/>
+} @case ('platforms') {
 <ui-card heading="Hiring platforms" class="block">
   <div uiCardActions class="actions">
     <button

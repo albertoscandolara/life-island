@@ -5,7 +5,10 @@ import type {
   CareerEventRequest,
   CareerFeedbackDto,
   CreateWorkplaceRequest,
+  GoalStatusRequest,
   HiringPlatformRequest,
+  MarketCheckDto,
+  MarketCheckRequest,
   UpdateWorkplaceRequest,
   WorkOverviewDto,
 } from '@life-island/contracts';
@@ -84,6 +87,20 @@ export class WorkApi {
 
   removeFeedback(id: string): Observable<void> {
     return this.http.delete<void>(`${WORK_API}/feedback/${id}`);
+  }
+
+  /** Where a goal of an evaluation stands. */
+  setGoalStatus(request: GoalStatusRequest): Observable<void> {
+    return this.http.put<void>(`${WORK_API}/goals`, request);
+  }
+
+  /** Public salary ranges for your role, found on the web by Claude. */
+  runMarketCheck(request: MarketCheckRequest): Observable<MarketCheckDto> {
+    return this.http.post<MarketCheckDto>(`${WORK_API}/market-checks`, request);
+  }
+
+  removeMarketCheck(id: string): Observable<void> {
+    return this.http.delete<void>(`${WORK_API}/market-checks/${id}`);
   }
 
   previewUrl(uploadId: string): string {

@@ -52,7 +52,27 @@
   </div>
 </section>
 
-@if (stats().missingMonths.length) {
+@if (stats().checks.length) {
+<ui-alert tone="warning" class="block">
+  <strong
+    >{{ stats().checks.length }} payslip{{ stats().checks.length === 1 ? ' is' :
+    's are' }} not fully in these figures.</strong
+  >
+  <span class="muted"
+    >Some values could not be read from them. Open each one, then fill the
+    values in or use Parse again in the documents app.</span
+  >
+  <ul class="checks">
+    @for (c of stats().checks; track c.uploadId) {
+    <li>
+      <a [href]="previewUrl(c.uploadId)" target="_blank" rel="noopener"
+        >{{ c.period ? periodText(c.period) : c.title }}</a
+      >: {{ c.message }}
+    </li>
+    }
+  </ul>
+</ui-alert>
+} @if (stats().missingMonths.length) {
 <ui-alert tone="info" class="block">
   No payslip on record for {{ stats().missingMonths.map(periodText).join(', ')
   }}. Load them to complete the picture.

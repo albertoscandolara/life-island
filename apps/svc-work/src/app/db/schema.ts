@@ -3,6 +3,7 @@ import {
   date,
   index,
   integer,
+  primaryKey,
   jsonb,
   numeric,
   pgSchema,
@@ -13,6 +14,8 @@ import {
 import type {
   CareerEventKind,
   CareerFeedbackOutput,
+  GoalStatus,
+  MarketCheckOutput,
   PlatformStatus,
   WorkplaceField,
   WorkplaceStatus,
@@ -167,3 +170,37 @@ export const careerFeedback = work.table('career_feedback', {
 });
 
 export type CareerFeedbackRow = typeof careerFeedback.$inferSelect;
+
+/**
+ * Where each goal of an evaluation stands, as you marked it. A goal is the
+ * evaluation that set it plus its normalized text (`goalKey`); a goal with
+ * no row is open.
+ */
+export const goalStatuses = work.table(
+  'goal_statuses',
+  {
+    uploadId: uuid('upload_id').notNull(),
+    goalKey: text('goal_key').notNull(),
+    status: text('status').$type<GoalStatus>().notNull(),
+    note: text('note'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.uploadId, table.goalKey] })],
+);
+
+export type GoalStatusRow = typeof goalStatuses.$inferSelect;
+
+/** Every market check you ran: public salary ranges Claude found on the web, against your RAL then. */
+export const marketChecks = work.table('market_checks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  model: text('model'),
+  ral: numeric('ral', { precision: 12, scale: 2, mode: 'number' }),
+  output: jsonb('output').$type<MarketCheckOutput>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type MarketCheckRow = typeof marketChecks.$inferSelect;

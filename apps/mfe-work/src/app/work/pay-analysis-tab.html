@@ -1,0 +1,413 @@
+@if (!stats().payslips) {
+<ui-card class="block">
+  <ui-empty-state heading="No payslips to analyse yet" icon="chart">
+    <p class="muted">
+      Approve your payslips in "To review": your pay is then set against
+      inflation, the CCNL minimums and the tax brackets here.
+    </p>
+  </ui-empty-state>
+</ui-card>
+} @else {
+<section class="tiles" aria-label="Your pay analysed">
+  <div class="tile tile--lead">
+    <span class="tile__label">After inflation</span>
+    <strong
+      class="tile__value"
+      [class.up]="(real().realGrowthPct ?? 0) > 0"
+      [class.down]="(real().realGrowthPct ?? 0) < 0"
+      >{{ pct(real().realGrowthPct) }}</strong
+    >
+    <span class="tile__hint">
+      @if (real().realGrowthPct !== null) { Salary {{
+      pct(real().nominalGrowthPct) }}, prices {{ pct(real().inflationPct) }}
+      since {{ real().years[0].year }} } @else { Needs monthly salaries from two
+      years }
+    </span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Above the CCNL minimum</span>
+    <strong class="tile__value">{{ signedEuro(ccnl().aboveMinimum) }}</strong>
+    <span class="tile__hint">
+      @if (ccnl().minimum !== null) { {{ pct(ccnl().aboveMinimumPct) }} over the
+      {{ ccnl().level }} minimum of {{ euro(ccnl().minimum) }} } @else if
+      (ccnl().table) { Level {{ ccnl().level ?? 'unknown' }} is not in the table
+      } @else { No table for {{ ccnl().agreement ?? 'your CCNL' }} yet }
+    </span>
+  </div>
+  @if (ccnl().nextLevel) {
+  <div class="tile">
+    <span class="tile__label">To level {{ ccnl().nextLevel }}</span>
+    <strong class="tile__value">
+      @if ((ccnl().toNextLevel ?? 0) < 0) { {{ euro(-(ccnl().toNextLevel ?? 0))
+      }} } @else { Already above }
+    </strong>
+    <span class="tile__hint"
+      >Its minimum is {{ euro(ccnl().nextLevelMinimum) }} a month</span
+    >
+  </div>
+  } @if (latestTaxYear(); as t) {
+  <div class="tile">
+    <span class="tile__label">Tax bracket {{ t.year }}</span>
+    <strong class="tile__value">{{ rate(t.marginalRatePct) }}</strong>
+    <span class="tile__hint">
+      Effective {{ rate(t.effectiveRatePct) }} @if (t.toNextBracket !== null) {
+      · {{ euroShort(t.toNextBracket) }} to the next } @else { · the top bracket
+      }
+    </span>
+  </div>
+  }
+  <div class="tile">
+    <span class="tile__label">Vacation, last 12 months</span>
+    <strong
+      class="tile__value"
+      [class.down]="(insights().timeOff.vacationChange12 ?? 0) > 0"
+      >{{ signedHours(insights().timeOff.vacationChange12) }}</strong
+    >
+    <span class="tile__hint"
+      >{{ hours(insights().timeOff.vacationLeft) }} still to take</span
+    >
+  </div>
+</section>
+
+<!-- Pay against inflation -->
+<ui-card heading="Your pay against inflation" class="block">
+  @if (real().years.length) {
+  <p class="muted intro">
+    The average monthly salary of each year, as paid and in euros of {{
+    real().baseYear }}: a bar lower than the year before means the salary bought
+    less, whatever the payslip said.
+  </p>
+  <work-column-chart
+    [buckets]="realChart().buckets"
+    [series]="realChart().series"
+    mode="grouped"
+    [height]="220"
+    [format]="euroShort"
+    [label]="yearLabel"
+    [shortLabel]="yearLabel"
+    ariaLabel="Average monthly salary of each year, as paid and after inflation"
+  />
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Average salary</th>
+          <th scope="col" class="num">Prices</th>
+          <th scope="col" class="num">Salary</th>
+          <th scope="col" class="num">After inflation</th>
+          <th scope="col" class="num">In {{ real().baseYear }} euros</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (y of real().years; track y.year) {
+        <tr>
+          <th scope="row">{{ y.year }}</th>
+          <td class="num">{{ euro(y.averageSalary) }}</td>
+          <td class="num">{{ pct(y.inflationPct) }}</td>
+          <td class="num">{{ pct(y.nominalChangePct) }}</td>
+          <td
+            class="num"
+            [class.up]="(y.realChangePct ?? 0) > 0"
+            [class.down]="(y.realChangePct ?? 0) < 0"
+          >
+            {{ pct(y.realChangePct) }}
+          </td>
+          <td class="num">{{ euro(y.realSalary) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    Prices:
+    <a [href]="real().source.url" target="_blank" rel="noopener"
+      >{{ real().source.label }}</a
+    >. @if (real().partialNote) { {{ real().partialNote }} }
+  </p>
+  } @else {
+  <p class="muted">No monthly salary read from your payslips yet.</p>
+  }
+</ui-card>
+
+<div class="grid">
+  <!-- What the salary is made of -->
+  <ui-card heading="What your salary is made of" class="block">
+    @if (partsChart().buckets.length) {
+    <work-column-chart
+      [buckets]="partsChart().buckets"
+      [series]="partsChart().series"
+      [height]="220"
+      [format]="euroShort"
+      [label]="periodText"
+      [shortLabel]="shortPeriod"
+      ariaLabel="Monthly salary split into CCNL minimum, superminimum and other items"
+    />
+    <p class="note muted">
+      @if (partsChart().split) { The CCNL minimum rises with every renewal; the
+      superminimum is yours, but an "assorbibile" one can be absorbed by the
+      next renewal or promotion. } @else { Your payslips do not print the CCNL
+      minimum (minimo tabellare) apart: use Parse again to read it. }
+    </p>
+    } @else {
+    <p class="muted">No monthly salary read from your payslips yet.</p>
+    }
+  </ui-card>
+
+  <!-- CCNL -->
+  <ui-card heading="Your pay against the CCNL" class="block">
+    @if (ccnl().table; as table) { @if (ccnl().minimum !== null) {
+    <dl class="facts">
+      <div>
+        <dt>Your salary</dt>
+        <dd>{{ euro(ccnl().salary) }}</dd>
+      </div>
+      <div>
+        <dt>Minimum of {{ ccnl().level }}</dt>
+        <dd>{{ euro(ccnl().minimum) }}</dd>
+      </div>
+      @if (ccnl().nextLevel) {
+      <div>
+        <dt>Minimum of {{ ccnl().nextLevel }}</dt>
+        <dd>{{ euro(ccnl().nextLevelMinimum) }}</dd>
+      </div>
+      }
+    </dl>
+    } @if (ccnl().schedule.length) {
+    <h3 class="values__group">The minimums agreed from now on</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">From</th>
+            <th scope="col" class="num">{{ ccnl().level }}</th>
+            @if (ccnl().nextLevel) {
+            <th scope="col" class="num">{{ ccnl().nextLevel }}</th>
+            }
+            <th scope="col" class="num">You over {{ ccnl().level }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of ccnl().schedule; track s.from) {
+          <tr>
+            <th scope="row">{{ periodText(s.from) }}</th>
+            <td class="num">{{ euro(s.minimum) }}</td>
+            @if (ccnl().nextLevel) {
+            <td class="num">{{ euro(s.nextMinimum) }}</td>
+            }
+            <td class="num">
+              {{ ccnl().salary !== null && s.minimum !== null ?
+              signedEuro((ccnl().salary ?? 0) - s.minimum) : '–' }}
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="note muted">
+      If your superminimum is "assorbibile", a renewal can absorb it: the last
+      column is what is left of it at today's salary.
+    </p>
+    }
+    <p class="note muted">
+      {{ table.note }} Source:
+      <a [href]="table.source.url" target="_blank" rel="noopener"
+        >{{ table.source.label }}</a
+      >.
+    </p>
+    } @else {
+    <p class="muted">
+      Life Island has the minimum pay tables of the Metalmeccanici industria
+      CCNL only. Your payslips say {{ ccnl().agreement ?? 'no agreement' }}.
+    </p>
+    }
+  </ui-card>
+</div>
+
+<!-- Package -->
+@if (insights().packages.length) {
+<ui-card heading="What each year really paid you" class="block">
+  <p class="muted intro">
+    Not only the salary: the extra months, the welfare you were credited and the
+    severance (TFR) set aside for you. The bonus is shown apart, as it is
+    usually already in the gross.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Payslips</th>
+          <th scope="col" class="num">Gross</th>
+          <th scope="col" class="num">Of which extra months</th>
+          <th scope="col" class="num">Welfare</th>
+          <th scope="col" class="num">TFR set aside</th>
+          <th scope="col" class="num">Total</th>
+          <th scope="col" class="num">Bonus</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of insights().packages; track p.year) {
+        <tr>
+          <th scope="row">{{ p.year }}</th>
+          <td class="num">{{ p.payslips }}</td>
+          <td class="num">{{ euro(p.gross) }}</td>
+          <td class="num">{{ p.extraPay ? euro(p.extraPay) : '–' }}</td>
+          <td class="num">{{ p.welfare ? euro(p.welfare) : '–' }}</td>
+          <td class="num">{{ p.severance ? euro(p.severance) : '–' }}</td>
+          <td class="num"><strong>{{ euro(p.total) }}</strong></td>
+          <td class="num">{{ p.bonus ? euro(p.bonus) : '–' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+}
+
+<!-- Taxes -->
+<ui-card heading="Where your gross goes" class="block">
+  @if (taxChart().buckets.length) {
+  <work-column-chart
+    [buckets]="taxChart().buckets"
+    [series]="taxChart().series"
+    [height]="240"
+    [format]="euroShort"
+    [label]="periodText"
+    [shortLabel]="shortPeriod"
+    ariaLabel="Each month's gross split into net pay, IRPEF, contributions and other deductions"
+  />
+  } @if (insights().taxYears.length) {
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Taxable</th>
+          <th scope="col" class="num">IRPEF withheld</th>
+          <th scope="col" class="num">Effective rate</th>
+          <th scope="col" class="num">Contributions</th>
+          <th scope="col" class="num">Taxable over 12 months</th>
+          <th scope="col" class="num">Bracket</th>
+          <th scope="col" class="num">To the next bracket</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (t of insights().taxYears; track t.year) {
+        <tr>
+          <th scope="row">{{ t.year }}</th>
+          <td class="num">{{ euro(t.taxable) }}</td>
+          <td class="num">{{ euro(t.incomeTax) }}</td>
+          <td class="num">{{ rate(t.effectiveRatePct) }}</td>
+          <td class="num">
+            {{ euro(t.contributions) }} ({{ rate(t.contributionRatePct) }})
+          </td>
+          <td class="num">{{ euro(t.yearTaxable) }}</td>
+          <td class="num">{{ rate(t.marginalRatePct) }}</td>
+          <td class="num">
+            {{ t.toNextBracket === null ? '–' : euro(t.toNextBracket) }}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    The bracket is where your yearly taxable income falls, so it is the rate of
+    your next euro of rise: a rise of 100 € gross costs about 9 € in
+    contributions and the bracket's rate on the rest. Brackets:
+    <a [href]="irpefSource.url" target="_blank" rel="noopener"
+      >{{ irpefSource.label }}</a
+    >. Regional and municipal surtaxes are not in the rates.
+  </p>
+  } @else {
+  <p class="muted">No taxable income read from your payslips yet.</p>
+  }
+</ui-card>
+
+<div class="grid">
+  <!-- Time off -->
+  <ui-card heading="Time off" class="block">
+    @if (timeOffChart().buckets.length) {
+    <work-column-chart
+      [buckets]="timeOffChart().buckets"
+      [series]="timeOffChart().series"
+      mode="grouped"
+      [height]="200"
+      [format]="hoursFormat"
+      [label]="periodText"
+      [shortLabel]="shortPeriod"
+      ariaLabel="Hours of vacation and leave still to take, month by month"
+    />
+    <p class="note muted">
+      Hours still to take at each payslip. @if
+      ((insights().timeOff.vacationChange12 ?? 0) > 0) { Your vacation grew by
+      {{ hours(insights().timeOff.vacationChange12) }} in a year: you are taking
+      less than you accrue, and CCNLs usually want accrued vacation taken within
+      18 months. } @else if ((insights().timeOff.vacationChange12 ?? 0) < 0) {
+      You are using up your vacation. }
+    </p>
+    } @else {
+    <p class="muted">No vacation or leave balance read yet.</p>
+    }
+  </ui-card>
+
+  <!-- Overtime and travel -->
+  <ui-card heading="Overtime and travel" class="block">
+    @if (workload().length) {
+    <dl class="facts">
+      <div>
+        <dt>Overtime, last 12 months</dt>
+        <dd>
+          {{ hours(workloadTotals().overtimeHours) }} · {{
+          euro(workloadTotals().overtimePay) }}
+        </dd>
+      </div>
+      <div>
+        <dt>Travel, last 12 months</dt>
+        <dd>
+          {{ workloadTotals().travelDays }} days · {{
+          euro(workloadTotals().travelAllowance) }}
+        </dd>
+      </div>
+    </dl>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Month</th>
+            <th scope="col" class="num">Overtime</th>
+            <th scope="col" class="num">Overtime pay</th>
+            <th scope="col" class="num">Travel days</th>
+            <th scope="col" class="num">Allowances</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of workload(); track p.period) {
+          <tr>
+            <th scope="row">{{ periodText(p.period) }}</th>
+            <td class="num">
+              {{ p.overtimeHours ? hours(p.overtimeHours) : '–' }}
+            </td>
+            <td class="num">{{ p.overtimePay ? euro(p.overtimePay) : '–' }}</td>
+            <td class="num">{{ p.travelDays || '–' }}</td>
+            <td class="num">
+              {{ p.travelAllowance ? euro(p.travelAllowance) : '–' }}
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else if (workloadRead()) {
+    <p class="muted">No overtime or travel on your payslips.</p>
+    } @else {
+    <p class="muted">
+      Overtime and travel are read from payslips parsed from now on. Use Parse
+      again on your payslips in the documents app to read them from the ones you
+      have.
+    </p>
+    }
+  </ui-card>
+</div>
+}
