@@ -1,14 +1,17 @@
 import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
+  settingChangedHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
+import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CarModels } from './cars/car-models.js';
 import { CarPeople } from './cars/car-people.js';
 import { CarsController } from './cars/cars.controller.js';
 import { CarsService } from './cars/cars.service.js';
+import { QuoteAdvisor } from './cars/quote-advisor.js';
 import { CONFIG, SERVICE_DB, type CarsConfig } from './config.js';
 import {
   applyDocumentEvent,
@@ -39,6 +42,7 @@ export class AppModule {
         CarsService,
         CarModels,
         CarPeople,
+        QuoteAdvisor,
         IngestionFiles,
         ...(options.events === false
           ? []
@@ -61,6 +65,19 @@ export class AppModule {
                         durableName: 'cars-document-events',
                         eventTypes: DOCUMENT_EVENTS,
                         handle: applyDocumentEvent,
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The switch of the insurance quote comparison (svc-settings).
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'cars-settings',
+                        eventTypes: [SETTING_CHANGED_EVENT],
+                        handle: settingChangedHandler(db.schema),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,

@@ -466,6 +466,129 @@ describe.skipIf(!configured)(
       },
     );
 
+    it('reads km and fuel, dates fines from their notification, and keeps tyre sets', async () => {
+      const fuel = async (date: string, km: number, litres: number) => {
+        const id = await upload(['VEHICLE_EXPENSE'], {
+          expense_kind: 'fuel',
+          expense_date: date,
+          odometer_km: km,
+          litres,
+          total_amount: litres * 1.8,
+        });
+        await send('POST', `/reviews/${id}/approve`, { vehicleId, accept: [] });
+      };
+      // With the receipt of 2 days ago (48.210 km, 29,94 litres).
+      await fuel(day(-60), 47000, 40);
+      await fuel(day(-30), 47600, 36);
+      let usage = (await car(vehicleId)).usage;
+      expect(usage.fills.map((f) => f.litresPer100Km)).toEqual([4.9, 6, null]);
+      // (36 + 29,94) litres over 1.210 km.
+      expect(usage.litresPer100Km).toBe(5.4);
+      expect(usage.kmPerYear).toBe(7615);
+      expect(usage.pricePerLitre).toBeCloseTo(1.786, 3);
+
+      const fineId = await upload(['VEHICLE_EXPENSE'], {
+        registration_number: plate,
+        expense_kind: 'fine',
+        expense_date: day(-10),
+        violation_date: day(-10),
+        total_amount: 42,
+      });
+      await send('POST', `/reviews/${fineId}/approve`, {
+        vehicleId,
+        accept: [],
+      });
+      let fine = (await car(vehicleId)).fines.fines[0];
+      expect(fine).toMatchObject({ stage: 'unknown', reducedAmount: 29.4 });
+      expect(
+        (
+          await send('PUT', `/fines/${fineId}`, {
+            notifiedOn: day(-2),
+            points: 2,
+            driverName: 'Mario Rossi',
+          })
+        ).status,
+      ).toBe(204);
+      const after = await car(vehicleId);
+      fine = after.fines.fines[0];
+      expect(fine).toMatchObject({
+        stage: 'discount',
+        discountUntil: day(3),
+        payBy: day(58),
+        points: 2,
+        driverName: 'Mario Rossi',
+      });
+      expect(after.fines.points).toEqual([
+        {
+          driverName: 'Mario Rossi',
+          driverPersonId: null,
+          points: 2,
+          fines: 1,
+        },
+      ]);
+      expect(after.alerts.some((a) => a.kind === 'fine')).toBe(true);
+      expect((await send('PUT', `/fines/${randomUUID()}`, {})).status).toBe(
+        404,
+      );
+
+      const created = await json<{ id: string }>(
+        await send('POST', `/vehicles/${vehicleId}/tyres`, {
+          season: 'winter',
+          size: '205/55 R16 91T',
+          dot: '2324',
+          treadMm: 6,
+          mounted: true,
+        }),
+      );
+      const summer = await json<{ id: string }>(
+        await send('POST', `/vehicles/${vehicleId}/tyres`, {
+          season: 'summer',
+          storedAt: 'Gommista',
+        }),
+      );
+      expect(
+        (await send('POST', `/vehicles/${vehicleId}/tyres`, { season: 'x' }))
+          .status,
+      ).toBe(400);
+      expect(
+        (await send('PATCH', `/tyres/${summer.id}`, { mounted: true })).status,
+      ).toBe(204);
+      let tyres = (await car(vehicleId)).tyres;
+      expect(tyres.map((t) => [t.id, t.mounted])).toEqual([
+        [summer.id, true],
+        [created.id, false],
+      ]);
+      expect(tyres[1]).toMatchObject({ speedIndex: 'T', speedKmh: 190 });
+      expect((await send('DELETE', `/tyres/${created.id}`)).status).toBe(204);
+      tyres = (await car(vehicleId)).tyres;
+      expect(tyres).toHaveLength(1);
+      usage = (await car(vehicleId)).usage;
+      expect(usage.readings.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it.skipIf(!!process.env['ANTHROPIC_API_KEY'])(
+      'answers 503 for a quote comparison without the Claude API, and 400 without quotes',
+      async () => {
+        const form = new FormData();
+        form.append(
+          'quotes',
+          new Blob([Buffer.from('%PDF-1.4')], { type: 'application/pdf' }),
+          'quote.pdf',
+        );
+        const response = await fetch(
+          `${base}/vehicles/${vehicleId}/insurance-quotes`,
+          { method: 'POST', body: form },
+        );
+        expect(response.status).toBe(503);
+        const empty = await fetch(
+          `${base}/vehicles/${vehicleId}/insurance-quotes`,
+          { method: 'POST', body: new FormData() },
+        );
+        expect(empty.status).toBe(400);
+        expect((await overview()).aiQuotes).toBe(false);
+      },
+    );
+
     it('sends the documents of a removed car back to review', async () => {
       expect((await send('DELETE', `/vehicles/${vehicleId}`)).status).toBe(204);
       const all = await overview();

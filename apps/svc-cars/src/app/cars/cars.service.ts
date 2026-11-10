@@ -19,23 +19,38 @@ import {
   type PendingCarReviewDto,
   type RenewalAlertDto,
   type UpdateVehicleRequest,
+  type CreateTyreSetRequest,
+  type QuoteComparisonDto,
+  type QuoteComparisonOutput,
+  type UpdateFineRequest,
+  type UpdateTyreSetRequest,
   type VehicleDto,
   type VehicleField,
   type VehiclePartyField,
   type VehicleValue,
   VEHICLE_PARTY_FIELDS,
 } from '@life-island/contracts';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import {
   categoryTree,
   documents,
+  fines,
+  quoteComparisons,
   reviews,
+  tyreSets,
   vehicles,
   type DecidedVehicleChange,
   type DocumentRow,
+  type QuoteComparisonRow,
+  type TyreSetRow,
   type VehicleRow,
 } from '../db/schema.js';
+import { carFines, fineRenewals, type FineDetails } from './car-fines.js';
+import { insuranceHistory } from './car-insurance.js';
+import { tyreRenewals, tyreSetOf } from './car-tyres.js';
+import { carUsage } from './car-usage.js';
+import { quoteDossier } from './quote-dossier.js';
 import {
   buildSeries,
   carDocumentType,
@@ -90,12 +105,27 @@ export function vehicleName(row: Pick<VehicleRow, 'label' | 'values'>): string {
 export class CarsService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
-  async overview(today = todayIso()): Promise<CarsOverviewDto> {
-    const [docs, rows, decided] = await Promise.all([
-      this.carDocuments(),
-      this.svc.db.select().from(vehicles),
-      this.svc.db.select().from(reviews),
-    ]);
+  async overview(
+    today = todayIso(),
+    aiQuotes = false,
+  ): Promise<CarsOverviewDto> {
+    const [docs, rows, decided, fineRows, tyreRows, comparisonRows] =
+      await Promise.all([
+        this.carDocuments(),
+        this.svc.db.select().from(vehicles),
+        this.svc.db.select().from(reviews),
+        this.svc.db.select().from(fines),
+        this.svc.db.select().from(tyreSets).orderBy(tyreSets.createdAt),
+        this.svc.db
+          .select()
+          .from(quoteComparisons)
+          .orderBy(desc(quoteComparisons.createdAt)),
+      ]);
+    const fineDetails = new Map<string, FineDetails>(
+      fineRows.map((f) => [f.uploadId, f]),
+    );
+    const tyresOf = groupBy(tyreRows, (t) => t.vehicleId);
+    const comparisonsOf = groupBy(comparisonRows, (c) => c.vehicleId);
     const reviewOf = new Map(decided.map((r) => [r.uploadId, r]));
     const approvedOf = new Map<string, ApprovedDocument[]>();
     for (const doc of docs) {
@@ -119,26 +149,44 @@ export class CarsService {
       .map((row) => {
         const approved = approvedOf.get(row.id) ?? [];
         const series = buildSeries(approved, today);
-        const renewals = renewalsOf(
-          row.values,
-          series,
-          approved.filter((d) => d.type === 'VEHICLE_EXPENSE'),
-          today,
-        );
         const costs = costsOf(approved);
+        const { usage, trend } = carUsage(approved, costs, row.values, today);
+        const maxSpeed =
+          typeof row.values.maxSpeedKmh === 'number'
+            ? row.values.maxSpeedKmh
+            : null;
+        const tyres = (tyresOf.get(row.id) ?? [])
+          .map((t) => tyreSetOf(t, maxSpeed, today))
+          .sort((a, b) => Number(b.mounted) - Number(a.mounted));
+        const carFineList = carFines(approved, fineDetails, today);
+        const renewals = [
+          ...renewalsOf(
+            row.values,
+            series,
+            approved.filter((d) => d.type === 'VEHICLE_EXPENSE'),
+            today,
+            trend,
+          ),
+          ...fineRenewals(carFineList.fines, today),
+          ...(row.status === 'active'
+            ? tyreRenewals(tyres, maxSpeed, today)
+            : []),
+        ];
         const readings = approved
           .map((d) => d.reading.odometerKm)
           .filter((km): km is number => km !== null);
-        const alerts: RenewalAlertDto[] =
-          row.status === 'active'
-            ? renewals
-                .filter((r) => r.level !== 'ok')
-                .map((r) => ({
-                  ...r,
-                  vehicleId: row.id,
-                  vehicleName: vehicleName(row),
-                }))
-            : [];
+        // A fine is still to pay once the car is sold; the rest only counts while in use.
+        const alerts: RenewalAlertDto[] = renewals
+          .filter(
+            (r) =>
+              r.level !== 'ok' &&
+              (row.status === 'active' || r.kind === 'fine'),
+          )
+          .map((r) => ({
+            ...r,
+            vehicleId: row.id,
+            vehicleName: vehicleName(row),
+          }));
         return {
           id: row.id,
           label: row.label,
@@ -182,6 +230,11 @@ export class CarsService {
           odometerKm: readings.length ? Math.max(...readings) : null,
           model: modelOf(row),
           people: row.people ?? {},
+          usage,
+          insurance: insuranceHistory(series, costs),
+          fines: carFineList,
+          tyres,
+          quoteComparisons: (comparisonsOf.get(row.id) ?? []).map(comparisonOf),
         };
       })
       .sort(
@@ -247,6 +300,7 @@ export class CarsService {
       alerts: vehicleDtos
         .flatMap((v) => v.alerts)
         .sort((a, b) => alertRank(a) - alertRank(b)),
+      aiQuotes,
       rejected: decided.flatMap((r) => {
         const doc = docOf.get(r.uploadId);
         return r.status === 'rejected' && doc
@@ -553,6 +607,170 @@ export class CarsService {
   }
 
   /** One VIN, one car. */
+  // ---- fines ---------------------------------------------------------------
+
+  /** What you add to a fine by hand: when it reached you, when you paid, who drove. */
+  async updateFine(
+    uploadId: string,
+    request: UpdateFineRequest,
+  ): Promise<void> {
+    const doc = await this.carDocument(uploadId);
+    if (doc.type !== 'VEHICLE_EXPENSE' || doc.reading.expenseKind !== 'fine')
+      throw new UnprocessableEntityException('This document is not a fine');
+    const [current] = await this.svc.db
+      .select()
+      .from(fines)
+      .where(eq(fines.uploadId, uploadId));
+    const next = {
+      notifiedOn: current?.notifiedOn ?? null,
+      paidOn: current?.paidOn ?? null,
+      points: current?.points ?? null,
+      driverPersonId: current?.driverPersonId ?? null,
+      driverName: current?.driverName ?? null,
+    };
+    for (const key of Object.keys(next) as (keyof typeof next)[])
+      if (request[key] !== undefined)
+        (next as Record<string, unknown>)[key] = request[key];
+    if (
+      request.driverName !== undefined &&
+      request.driverPersonId === undefined
+    )
+      next.driverPersonId = null;
+    await this.svc.db
+      .insert(fines)
+      .values({ uploadId, ...next, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: fines.uploadId,
+        set: { ...next, updatedAt: new Date() },
+      });
+  }
+
+  // ---- tyres ---------------------------------------------------------------
+
+  async createTyreSet(
+    vehicleId: string,
+    request: CreateTyreSetRequest,
+  ): Promise<{ id: string }> {
+    await this.vehicleRow(vehicleId);
+    return this.svc.db.transaction(async (tx) => {
+      if (request.mounted)
+        await tx
+          .update(tyreSets)
+          .set({ mounted: false, updatedAt: new Date() })
+          .where(eq(tyreSets.vehicleId, vehicleId));
+      const [row] = await tx
+        .insert(tyreSets)
+        .values({
+          vehicleId,
+          season: request.season,
+          label: request.label ?? null,
+          size: request.size ?? null,
+          dot: request.dot ?? null,
+          purchasedOn: request.purchasedOn ?? null,
+          treadMm: request.treadMm ?? null,
+          mounted: request.mounted ?? false,
+          storedAt: request.storedAt ?? null,
+          notes: request.notes ?? null,
+        })
+        .returning({ id: tyreSets.id });
+      return { id: row.id };
+    });
+  }
+
+  /** A change to a tyre set; mounting it takes the others off the car. */
+  async updateTyreSet(
+    id: string,
+    request: UpdateTyreSetRequest,
+  ): Promise<void> {
+    const set = await this.tyreSetRow(id);
+    await this.svc.db.transaction(async (tx) => {
+      if (request.mounted)
+        await tx
+          .update(tyreSets)
+          .set({ mounted: false, updatedAt: new Date() })
+          .where(
+            and(eq(tyreSets.vehicleId, set.vehicleId), ne(tyreSets.id, id)),
+          );
+      const change: Partial<TyreSetRow> = { updatedAt: new Date() };
+      for (const [key, value] of Object.entries(request))
+        if (value !== undefined)
+          (change as Record<string, unknown>)[key] = value;
+      await tx.update(tyreSets).set(change).where(eq(tyreSets.id, id));
+    });
+  }
+
+  async removeTyreSet(id: string): Promise<void> {
+    await this.tyreSetRow(id);
+    await this.svc.db.delete(tyreSets).where(eq(tyreSets.id, id));
+  }
+
+  private async tyreSetRow(id: string): Promise<TyreSetRow> {
+    const [row] = await this.svc.db
+      .select()
+      .from(tyreSets)
+      .where(eq(tyreSets.id, id));
+    if (!row) throw new NotFoundException('Tyre set not found');
+    return row;
+  }
+
+  private async vehicleRow(id: string): Promise<VehicleRow> {
+    const [row] = await this.svc.db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.id, id));
+    if (!row) throw new NotFoundException('Car not found');
+    return row;
+  }
+
+  // ---- insurance quotes ----------------------------------------------------
+
+  /**
+   * What the quote comparison is told about a car: the car and its insurance
+   * history as text, and the documents of its current policy to send along.
+   */
+  async quoteContext(
+    vehicleId: string,
+    note: string | null,
+  ): Promise<{ dossier: string; policyUploadIds: string[] }> {
+    await this.vehicleRow(vehicleId);
+    const vehicle = (await this.overview()).vehicles.find(
+      (v) => v.id === vehicleId,
+    );
+    if (!vehicle) throw new NotFoundException('Car not found');
+    const latest = vehicle.series
+      .find((s) => s.type === 'CAR_INSURANCE')
+      ?.versions.find((v) => v.status !== 'cancelled');
+    const policies = latest?.documents.filter((d) => d.role === 'policy') ?? [];
+    const policyUploadIds = (
+      policies.length ? policies : (latest?.documents.slice(0, 1) ?? [])
+    )
+      .slice(0, 2)
+      .map((d) => d.uploadId);
+    return { dossier: quoteDossier(vehicle, note), policyUploadIds };
+  }
+
+  async saveComparison(
+    vehicleId: string,
+    files: string[],
+    note: string | null,
+    output: QuoteComparisonOutput,
+    model: string | null,
+  ): Promise<QuoteComparisonDto> {
+    const [row] = await this.svc.db
+      .insert(quoteComparisons)
+      .values({ vehicleId, files, note, output, model })
+      .returning();
+    return comparisonOf(row);
+  }
+
+  async removeComparison(id: string): Promise<void> {
+    const removed = await this.svc.db
+      .delete(quoteComparisons)
+      .where(eq(quoteComparisons.id, id))
+      .returning({ id: quoteComparisons.id });
+    if (!removed.length) throw new NotFoundException('Comparison not found');
+  }
+
   private async assertNoOtherCar(
     tx: Pick<ServiceDb['db'], 'select'>,
     vin: string | number | null,
@@ -609,6 +827,28 @@ export class CarsService {
     if (!doc) throw new NotFoundException('No car document with this id');
     return doc;
   }
+}
+
+function groupBy<T>(rows: readonly T[], key: (row: T) => string) {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = map.get(key(row)) ?? [];
+    list.push(row);
+    map.set(key(row), list);
+  }
+  return map;
+}
+
+export function comparisonOf(row: QuoteComparisonRow): QuoteComparisonDto {
+  return {
+    ...row.output,
+    id: row.id,
+    vehicleId: row.vehicleId,
+    files: row.files,
+    note: row.note,
+    model: row.model,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 /** The links to People of the parties whose name `changed` does not touch. */

@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import type { PropertyModelDto } from './home.js';
 import type { PersonLicenceDto } from './people.js';
+import type {
+  CarFinesDto,
+  CarUsageDto,
+  InsuranceHistoryDto,
+  QuoteComparisonDto,
+  TyreSetDto,
+} from './cars-insights.js';
 
 /*
  * The Cars area (svc-cars, mfe-cars): every car of the household with the
@@ -917,6 +924,8 @@ export const RENEWABLE_KINDS = [
   'inspection',
   'service',
   'registration',
+  'fine',
+  'tyres',
 ] as const;
 export type RenewableKind = (typeof RENEWABLE_KINDS)[number];
 
@@ -926,6 +935,8 @@ export const RENEWABLE_LABELS: Record<RenewableKind, string> = {
   inspection: 'Revisione',
   service: 'Service',
   registration: 'Temporary registration',
+  fine: 'Fine',
+  tyres: 'Tyres',
 };
 
 /**
@@ -938,6 +949,9 @@ export const RENEWAL_WARNING_DAYS: Record<RenewableKind, number> = {
   inspection: 60,
   service: 30,
   registration: 30,
+  // An unpaid fine always warns: the discount lasts 5 days, payment 60.
+  fine: 60,
+  tyres: 31,
 };
 
 /** The RCA still covers you 15 days after it expires (art. 170-bis Codice delle Assicurazioni). */
@@ -1046,6 +1060,11 @@ export type RenewalLevel = 'ok' | 'expiring' | 'grace' | 'expired' | 'missing';
 /** Where one renewable item of a car stands today. */
 export interface RenewalDto {
   kind: RenewableKind;
+  /**
+   * What it is about when a car can have several of a kind (a fine, a tyre
+   * check), shown in place of the kind's name; null otherwise.
+   */
+  subject: string | null;
   level: RenewalLevel;
   /** The date it has to be renewed by; null when nothing says (missing). */
   dueDate: string | null;
@@ -1106,6 +1125,13 @@ export interface VehicleDto {
    * itself stays in `values`.
    */
   people: Partial<Record<VehiclePartyField, string>>;
+  /** Odometer readings, km a year, fuel consumption and cost per km. */
+  usage: CarUsageDto;
+  insurance: InsuranceHistoryDto;
+  fines: CarFinesDto;
+  tyres: TyreSetDto[];
+  /** Insurance quote comparisons, newest first. */
+  quoteComparisons: QuoteComparisonDto[];
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';
@@ -1183,6 +1209,8 @@ export interface CarsOverviewDto {
   reviews: PendingCarReviewDto[];
   alerts: RenewalAlertDto[];
   rejected: RejectedCarDocumentDto[];
+  /** Whether the insurance quote comparison calls Claude now (key set, tool on). */
+  aiQuotes: boolean;
 }
 
 /**

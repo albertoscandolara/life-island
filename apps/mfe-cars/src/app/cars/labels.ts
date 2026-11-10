@@ -52,9 +52,24 @@ function days(n: number): string {
   return `${n} ${n === 1 ? 'day' : 'days'}`;
 }
 
+/** What a renewal is about: its subject (a fine, a tyre set), else its kind. */
+export function renewalTitle(renewal: RenewalDto): string {
+  return renewal.subject ?? RENEWABLE_LABELS[renewal.kind];
+}
+
 /** "is due in 12 days", "expired 3 days ago, still covered for 12 days"... */
 export function renewalText(renewal: RenewalDto): string {
   const left = renewal.daysLeft ?? 0;
+  if (renewal.dueDate === null && renewal.level !== 'missing')
+    return renewal.basis;
+  if (renewal.kind === 'fine' || renewal.kind === 'tyres')
+    return renewal.level === 'missing'
+      ? renewal.basis
+      : left < 0
+        ? `was due ${left === -1 ? 'yesterday' : `${days(-left)} ago`}`
+        : left === 0
+          ? 'is due today'
+          : `is due in ${days(left)}`;
   switch (renewal.level) {
     case 'missing':
       return 'none on file';
@@ -74,6 +89,14 @@ export function renewalText(renewal: RenewalDto): string {
 
 /** "Panda · AB123CD: insurance expires in 12 days." */
 export function alertText(alert: RenewalAlertDto): string {
+  if (alert.subject) {
+    const subject = `${alert.subject.charAt(0).toLowerCase()}${alert.subject.slice(1)}`;
+    return alert.dueDate
+      ? `${alert.vehicleName}: ${subject} ${renewalText(alert)}.`
+      : `${alert.vehicleName}: ${subject}.`;
+  }
+  if (alert.dueDate === null && alert.level !== 'missing')
+    return `${alert.vehicleName}: ${RENEWABLE_LABELS[alert.kind].toLowerCase()} · ${alert.basis}.`;
   if (alert.level === 'missing')
     return `${alert.vehicleName}: no ${RENEWABLE_LABELS[alert.kind].toLowerCase()} on file.`;
   return `${alert.vehicleName}: ${RENEWABLE_LABELS[alert.kind].toLowerCase()} ${renewalText(alert)}.`;

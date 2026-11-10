@@ -17,6 +17,12 @@ export interface CarsConfig {
    * null when S3 is not configured (models cannot be uploaded then).
    */
   storage: StorageOptions | null;
+  /**
+   * The Claude API key for the insurance quote comparison, the same one the
+   * parse worker reads; null leaves the comparison unavailable.
+   */
+  anthropicApiKey: string | null;
+  aiModel: string;
 }
 
 /**
@@ -27,6 +33,8 @@ export interface CarsConfig {
 export const LOCAL_CARS_PORT = 3007;
 export const LOCAL_CARS_DATABASE_URL =
   'postgres://cars_svc:dev_cars@localhost:5432/life_island';
+
+export const DEFAULT_CARS_AI_MODEL = 'claude-sonnet-5-5';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
   return {
@@ -52,6 +60,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
             bucket: env['CARS_S3_BUCKET'] || 'cars-models',
           }
         : null,
+    anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
+    aiModel: env['CARS_AI_MODEL']?.trim() || DEFAULT_CARS_AI_MODEL,
   };
 }
 
