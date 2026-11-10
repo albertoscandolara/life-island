@@ -9,3 +9,4 @@ export * from './lib/schema-name.js';
 export * from './lib/storage.js';
 export * from './lib/record-loader.js';
 export * from './lib/model-files.js';
+export * from './lib/ai-tools.js';

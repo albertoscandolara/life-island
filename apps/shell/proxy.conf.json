@@ -33,5 +33,12 @@
       "^/api/work": ""
     },
     "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": {
+      "^/api/settings": ""
+    },
+    "changeOrigin": true
   }
 }

@@ -30,7 +30,8 @@
         "apps/mfe-*/**/*",
         "apps/documents/**/*",
         "apps/shell/**/*",
-        "libs/design-system/**/*"
+        "libs/design-system/**/*",
+        "libs/settings-ui/**/*"
       ]
     },
     {

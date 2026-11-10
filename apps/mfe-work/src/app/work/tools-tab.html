@@ -211,13 +211,20 @@
 </ui-card>
 
 <!-- =========================================================== market -->
-<ui-card heading="Check your pay against the market" class="block no-print">
+<ui-ai-panel
+  heading="Market check"
+  class="block no-print"
+  [state]="checking() ? 'working' : 'idle'"
+  [offline]="!aiMarketCheck()"
+>
+  <li-ai-tool uiAiPanelActions toolId="work.market-check" />
   <p class="muted intro">
-    @if (aiFeedback()) { Claude searches the web for recent public salary ranges
-    (surveys, job boards, recruiter reports) for your role and area and sets
-    your RAL against them. Only the role, area, level, CCNL, years of experience
-    and RAL are sent. } @else { The market check searches the web with the
-    Claude API: set ANTHROPIC_API_KEY in .env and restart svc-work to use it. }
+    @if (aiMarketCheck()) { Claude searches the web for recent public salary
+    ranges (surveys, job boards, recruiter reports) for your role and area and
+    sets your RAL against them. Only the role, area, level, CCNL, years of
+    experience and RAL are sent. } @else { The market check searches the web
+    with the Claude API: it needs ANTHROPIC_API_KEY in .env (restart svc-work
+    after setting it) and the tool on in Settings → AI tools. }
   </p>
   <form class="form" (submit)="$event.preventDefault(); checkMarket()">
     <label>
@@ -245,12 +252,14 @@
         uiButton
         type="submit"
         [loading]="checking()"
-        [disabled]="!aiFeedback()"
+        [disabled]="!aiMarketCheck()"
       >
         <ui-icon name="search" [size]="16" /> Check the market
       </button>
       @if (checking()) {
-      <span class="muted small">Searching the web: this takes a minute.</span>
+      <ui-ai-status state="working"
+        >Searching the web: this takes a minute.</ui-ai-status
+      >
       }
     </div>
   </form>
@@ -347,7 +356,7 @@
     }
   </ul>
   }
-</ui-card>
+</ui-ai-panel>
 
 <!-- ============================================================ brief -->
 <ui-card heading="Your negotiation brief" class="block brief">
@@ -407,60 +416,77 @@
     }
   </ol>
 
-  @if (talkingPoints(); as t) {
-  <h3 class="values__group">Talking points</h3>
-  <p>{{ t.summary }}</p>
-  <div class="feedback__cols">
-    @if (t.strengths.length) {
-    <section>
-      <h4 class="muted small">Your arguments</h4>
-      <ul class="bullets bullets--good">
-        @for (s of t.strengths; track $index) {
-        <li>{{ s }}</li>
-        }
-      </ul>
-    </section>
-    } @if (t.watchouts.length) {
-    <section>
-      <h4 class="muted small">What they may say, and your answer</h4>
-      <ul class="bullets bullets--warn">
-        @for (w of t.watchouts; track $index) {
-        <li>{{ w }}</li>
-        }
-      </ul>
-    </section>
+  <ui-ai-panel
+    heading="Talking points"
+    class="talking-points"
+    [kind]="talkingPoints() ? 'result' : 'tool'"
+    [state]="writing() ? 'working' : 'idle'"
+    [offline]="talkingPoints() ? talkingPoints()?.source !== 'claude' : !aiFeedback()"
+  >
+    <li-ai-tool
+      uiAiPanelActions
+      toolId="work.career-feedback"
+      [compact]="true"
+    />
+    @if (talkingPoints(); as t) {
+    <p>{{ t.summary }}</p>
+    <div class="feedback__cols">
+      @if (t.strengths.length) {
+      <section>
+        <h4 class="muted small">Your arguments</h4>
+        <ul class="bullets bullets--good">
+          @for (s of t.strengths; track $index) {
+          <li>{{ s }}</li>
+          }
+        </ul>
+      </section>
+      } @if (t.watchouts.length) {
+      <section>
+        <h4 class="muted small">What they may say, and your answer</h4>
+        <ul class="bullets bullets--warn">
+          @for (w of t.watchouts; track $index) {
+          <li>{{ w }}</li>
+          }
+        </ul>
+      </section>
+      }
+    </div>
+    @if (t.suggestions.length) {
+    <ol class="suggestions">
+      @for (s of t.suggestions; track $index) {
+      <li>
+        <strong>{{ s.title }}</strong>
+        <p class="muted">{{ s.detail }}</p>
+      </li>
+      }
+    </ol>
     }
-  </div>
-  @if (t.suggestions.length) {
-  <ol class="suggestions">
-    @for (s of t.suggestions; track $index) {
-    <li>
-      <strong>{{ s.title }}</strong>
-      <p class="muted">{{ s.detail }}</p>
-    </li>
+    <p class="note muted">
+      Written {{ periodText(t.createdAt.slice(0, 10)) }} {{ t.source ===
+      'claude' ? 'by Claude' : "by Life Island's own rules" }}.
+    </p>
     }
-  </ol>
-  }
-  <p class="note muted">
-    Written {{ periodText(t.createdAt.slice(0, 10)) }} {{ t.source === 'claude'
-    ? 'by Claude' : "by Life Island's own rules" }}.
-  </p>
-  }
-  <div class="form__buttons no-print">
-    <button
-      uiButton
-      variant="secondary"
-      type="button"
-      [loading]="writing()"
-      (click)="writeTalkingPoints()"
-    >
-      {{ talkingPoints() ? 'Write the talking points again' : 'Write talking
-      points' }}
-    </button>
-    <span class="muted small">
-      @if (aiFeedback()) { Claude reads this brief with the rest of your career
-      and prepares what to say. } @else { Without a Claude API key the points
-      come from Life Island's own rules. }
-    </span>
-  </div>
+    <div class="form__buttons no-print">
+      <button
+        uiButton
+        variant="secondary"
+        type="button"
+        [loading]="writing()"
+        (click)="writeTalkingPoints()"
+      >
+        {{ talkingPoints() ? 'Write the talking points again' : 'Write talking
+        points' }}
+      </button>
+      @if (writing()) {
+      <ui-ai-status state="working">Preparing what to say…</ui-ai-status>
+      } @else {
+      <span class="muted small">
+        @if (aiFeedback()) { Claude reads this brief with the rest of your
+        career and prepares what to say. } @else { The career feedback tool is
+        off or has no API key, so the points come from Life Island's own rules.
+        }
+      </span>
+      }
+    </div>
+  </ui-ai-panel>
 </ui-card>

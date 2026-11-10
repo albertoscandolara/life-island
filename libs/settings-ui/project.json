@@ -1,0 +1,32 @@
+{
+  "name": "settings-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/settings-ui/src",
+  "prefix": "li",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:shared"],
+  "targets": {
+    "test": {
+      "executor": "@nx/angular:unit-test",
+      "options": {
+        "watch": false,
+        "buildTarget": "settings-ui:test-build:development"
+      }
+    },
+    "test-build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "project": "libs/settings-ui/ng-package.json",
+        "tsConfig": "libs/settings-ui/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/settings-ui/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      }
+    }
+  }
+}

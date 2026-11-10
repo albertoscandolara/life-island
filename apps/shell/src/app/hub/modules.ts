@@ -3,7 +3,15 @@ export interface IslandModule {
   id: string;
   /** The character theme (`[data-character]`); null for an area not built yet. */
   character:
-    'trice' | 'ankylo' | 'bronto' | 'stego' | 'para' | 'velo' | 'pachy' | null;
+    | 'trice'
+    | 'ankylo'
+    | 'bronto'
+    | 'stego'
+    | 'para'
+    | 'velo'
+    | 'pachy'
+    | 'archie'
+    | null;
   emblem: string;
   name: string;
   mission: string;
@@ -114,5 +122,16 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     path: '/cars',
     angle: 215,
     landmark: 'garage',
+  },
+  {
+    id: 'settings',
+    character: 'archie',
+    emblem: '⚙️',
+    name: 'Settings',
+    mission:
+      'Every setting of the island in one place, and every tool that uses AI, module by module: what one use costs, the request it sends, and a switch to turn it off.',
+    path: '/settings',
+    angle: 285,
+    landmark: 'lighthouse',
   },
 ];

@@ -26,4 +26,5 @@
 
 - Follow `docs/architecture.md`; its principles are non-negotiable and every new module goes through its "New feature checklist".
 - Nx tags: `type:app | type:lib` and `scope:<module> | scope:shared`. Apps never import other apps.
+- Every feature that calls an AI model follows `docs/guides/ai-tools.md`: it is registered in `AI_TOOLS` (libs/contracts), gated by its Settings switch, reports its request and uses, and is shown with `<ui-ai-panel>` and `<li-ai-tool>`.
 - Start local infrastructure with `npm run infra:up`; run integration tests with `npm run test:integration`.

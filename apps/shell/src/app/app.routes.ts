@@ -79,5 +79,9 @@ export const appRoutes: Route[] = [
     path: 'work',
     loadChildren: remote('mfe-work', './routes', 'WORK_ROUTES'),
   },
+  {
+    path: 'settings',
+    loadChildren: remote('mfe-settings', './routes', 'SETTINGS_ROUTES'),
+  },
   { path: '**', redirectTo: '' },
 ];

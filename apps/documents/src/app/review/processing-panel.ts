@@ -15,11 +15,13 @@ import type {
 } from '@life-island/contracts';
 import { PARSE_STEPS } from '@life-island/contracts/constants';
 import {
+  UiAiPanel,
   UiAlert,
   UiBadge,
   UiStatusDot,
   type UiTone,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import { of } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { PROCESSING_VIEW, STEP_LABELS } from './record-status';
@@ -70,7 +72,15 @@ export function formatFieldValue(field: ExtractedField): string {
 @Component({
   selector: 'app-processing-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, UiAlert, UiBadge, UiStatusDot],
+  imports: [
+    AiTool,
+    DatePipe,
+    RouterLink,
+    UiAiPanel,
+    UiAlert,
+    UiBadge,
+    UiStatusDot,
+  ],
   templateUrl: './processing-panel.html',
   styleUrl: './processing-panel.css',
 })

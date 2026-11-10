@@ -29,10 +29,12 @@ npx nx serve svc-cars         # cars, car documents, renewals and costs (port 30
 npx nx serve mfe-cars         # the Cars remote (port 4206), also usable on its own
 npx nx serve svc-work         # workplaces, career, feedback and platforms (port 3008)
 npx nx serve mfe-work         # the Work remote (port 4207), also usable on its own
+npx nx serve svc-settings     # settings, AI tool switches and costs (port 3009)
+npx nx serve mfe-settings     # the Settings remote (port 4208), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006, `/api/cars` to port 3007 and `/api/work` to port 3008 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205, http://localhost:4206 and http://localhost:4207.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006, `/api/cars` to port 3007 `/api/work` to port 3008 and `/api/settings` to port 3009 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205, http://localhost:4206, http://localhost:4207 and http://localhost:4208.
 
 ## Native Federation
 

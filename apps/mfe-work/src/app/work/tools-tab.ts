@@ -18,12 +18,15 @@ import {
   type OfferBaselineDto,
 } from '@life-island/contracts';
 import {
+  UiAiPanel,
+  UiAiStatus,
   UiBadge,
   UiButton,
   UiCard,
   UiIcon,
   type UiTone,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import { WorkApi } from '../api/work-api';
 import { euro, parseAmount, periodText } from './labels';
 
@@ -155,7 +158,7 @@ const POSITION_TONES: Record<MarketPosition, UiTone> = {
 @Component({
   selector: 'work-tools',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton, UiCard, UiIcon],
+  imports: [AiTool, UiAiPanel, UiAiStatus, UiBadge, UiButton, UiCard, UiIcon],
   templateUrl: './tools-tab.html',
   styleUrls: ['./blocks.css', './tools-tab.css'],
 })
@@ -167,6 +170,7 @@ export class ToolsTab {
   readonly brief = input.required<NegotiationBriefDto>();
   readonly feedback = input<CareerFeedbackDto[]>([]);
   readonly aiFeedback = input(false);
+  readonly aiMarketCheck = input(false);
   /** An offer to compare, from the job search. */
   readonly offerPrefill = input<OfferDraft | null>(null);
   /** Something was saved: the page reloads the overview. */

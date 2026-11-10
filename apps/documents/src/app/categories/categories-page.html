@@ -30,10 +30,13 @@
 <ui-alert tone="danger" class="notice">{{ error() }}</ui-alert>
 }
 
-<ui-card
+<ui-ai-panel
   [heading]="'Suggested categories' + (suggested().length ? ' (' + suggested().length + ')' : '')"
+  kind="result"
+  eyebrow="Suggested by AI"
   class="section"
 >
+  <li-ai-tool uiAiPanelActions toolId="documents.discover" />
   @if (store.suggested.error()) {
   <ui-alert tone="danger"
     >The suggestions could not be loaded. Is the ingestion service
@@ -122,7 +125,7 @@
     </ng-template>
   </ui-table>
   }
-</ui-card>
+</ui-ai-panel>
 
 <ui-card
   [heading]="'Confirmed categories' + (confirmed().length ? ' (' + confirmed().length + ')' : '') + ' · version ' + taxonomyVersion()"

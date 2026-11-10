@@ -55,16 +55,17 @@ It starts the Docker infrastructure and waits until it is healthy (`npm run infr
 
 When the infrastructure is already up, `npm run dev` alone restarts the apps and services. To run only some of them, name them: `npx nx run-many -t serve -p svc-people mfe-people shell`, or one at a time with `npx nx serve <project>`.
 
-| Open                            | What                                                  | Started by                                                                    |
-| ------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| http://localhost:4200           | The island, with every area below                     | `shell`                                                                       |
-| http://localhost:4200/taxes/730 | 730 & taxes                                           | `mfe-tax730` (4203) + `svc-tax730` (3004)                                     |
-| http://localhost:4200/home      | Home, and Bills at `/home/bills`                      | `mfe-home` (4204) + `svc-home` (3005)                                         |
-| http://localhost:4200/people    | People & IDs: ID documents, versions, reviews, expiry | `mfe-people` (4205) + `svc-people` (3006)                                     |
-| http://localhost:4200/cars      | Cars: registration codes, renewals, costs             | `mfe-cars` (4206) + `svc-cars` (3007)                                         |
-| http://localhost:4200/work      | Work: workplaces, career timeline, AI feedback        | `mfe-work` (4207) + `svc-work` (3008)                                         |
-| http://localhost:4201           | Documents: upload, review inbox, Parse now            | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |
-| —                               | Groceries service (no page yet)                       | `svc-groceries` (3003)                                                        |
+| Open                            | What                                                     | Started by                                                                    |
+| ------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| http://localhost:4200           | The island, with every area below                        | `shell`                                                                       |
+| http://localhost:4200/taxes/730 | 730 & taxes                                              | `mfe-tax730` (4203) + `svc-tax730` (3004)                                     |
+| http://localhost:4200/home      | Home, and Bills at `/home/bills`                         | `mfe-home` (4204) + `svc-home` (3005)                                         |
+| http://localhost:4200/people    | People & IDs: ID documents, versions, reviews, expiry    | `mfe-people` (4205) + `svc-people` (3006)                                     |
+| http://localhost:4200/cars      | Cars: registration codes, renewals, costs                | `mfe-cars` (4206) + `svc-cars` (3007)                                         |
+| http://localhost:4200/work      | Work: workplaces, career timeline, AI feedback           | `mfe-work` (4207) + `svc-work` (3008)                                         |
+| http://localhost:4200/settings  | Settings: app settings, AI tools with costs and switches | `mfe-settings` (4208) + `svc-settings` (3009)                                 |
+| http://localhost:4201           | Documents: upload, review inbox, Parse now               | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |
+| —                               | Groceries service (no page yet)                          | `svc-groceries` (3003)                                                        |
 
 Each remote also runs on its own at its port. The dev servers forward `/api/<service>` to the service's port, the same paths the gateway uses.
 

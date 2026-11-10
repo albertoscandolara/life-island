@@ -10,8 +10,10 @@ import {
   TEMPLATE_FIELD_TYPES,
   TRANSACTION_ROLES,
   findTarget,
+  type AiRequestStep,
   type TransactionFacts,
 } from '@life-island/contracts';
+import type { AiToolDescription } from '@life-island/be-common';
 import { z } from 'zod';
 import type { NormalizedDocument } from '../normalize.js';
 import {
@@ -411,6 +413,119 @@ function withRuns(error: unknown, runs: ParseRunRecord[]): unknown {
   if (error && typeof error === 'object')
     Object.assign(error, { runs: [...runs] });
   return error;
+}
+
+/**
+ * How each document AI tool calls the model, for the info button in Settings
+ * (AI_TOOLS in libs/contracts settings.ts): the instructions word for word,
+ * the models of this worker and the shape of each user message.
+ */
+export function describeClaudeParser(
+  models: ClaudeModels,
+  available: boolean,
+): AiToolDescription[] {
+  const document =
+    '{the document: PDF, image or its text}\nFile name: {file name}\nTitle given by the uploader: {title}\nDescription given by the uploader: {description, when given}';
+  const step = (
+    stepId: string,
+    label: string,
+    model: string,
+    effort: string,
+    maxTokens: number,
+    system: string,
+    userTemplate: string,
+    outputFormat: string,
+  ): AiRequestStep => ({
+    stepId,
+    label,
+    model,
+    effort,
+    maxTokens,
+    thinking: 'adaptive (default)',
+    tools: [],
+    system,
+    userTemplate,
+    outputFormat,
+    promptCaching: true,
+  });
+  const tool = (toolId: string, steps: AiRequestStep[]) => ({
+    toolId,
+    available,
+    promptVersion: PROMPT_VERSION,
+    steps,
+  });
+  return [
+    tool('documents.classify', [
+      step(
+        'classify',
+        'Classify',
+        models.classify,
+        'low',
+        4000,
+        `${CLASSIFY_INSTRUCTIONS}\n\nExisting categories:\n{every category: id, title, dimension and description}`,
+        `${document}\n\nAnalyse this document.`,
+        'classification (structured output)',
+      ),
+    ]),
+    tool('documents.discover', [
+      step(
+        'discover',
+        'Discover categories',
+        models.discover,
+        'high (default)',
+        16000,
+        `${DISCOVER_INSTRUCTIONS}\n\n{the categories, the pending suggestions and the recent rejections}`,
+        `${document}\n\n{what Classify read}\nWhich new categories should exist for it?`,
+        'discovery (structured output)',
+      ),
+    ]),
+    tool('documents.extract', [
+      step(
+        'extract',
+        'Extract',
+        models.extract,
+        'high (default)',
+        16000,
+        EXTRACT_INSTRUCTIONS,
+        `${document}\n\nThis document is a "{target}" ({target key}).\n{the fields to read, from the templates of its categories}\n\nExtract the details and the fields.`,
+        'the target schema plus the template fields (structured output)',
+      ),
+      step(
+        'correct',
+        'Correct (only when a value breaks its rules)',
+        models.extract,
+        'high (default)',
+        16000,
+        EXTRACT_INSTRUCTIONS,
+        'The details have these problems:\n{the rules each value breaks}\nCheck the document again and return corrected details and fields. If the document itself is inconsistent, keep what it says.',
+        'the target schema plus the template fields (structured output)',
+      ),
+    ]),
+    tool('documents.transactions', [
+      step(
+        'transaction',
+        'Read money facts',
+        models.transaction ?? models.classify,
+        'low',
+        3000,
+        TRANSACTION_INSTRUCTIONS,
+        `${document}\n{what Classify read and the categories}\n\nRead the money facts of this document.`,
+        'transaction facts (structured output)',
+      ),
+    ]),
+    tool('documents.reclassify', [
+      step(
+        'reclassify',
+        'Match new categories',
+        models.reclassify ?? models.classify,
+        'low',
+        2000,
+        `${RECLASSIFY_INSTRUCTIONS}\n\nCandidate categories:\n{the categories newer than the document's last check}`,
+        `${document}\n{what Classify read and the categories it has}\n\nWhich candidate categories apply?`,
+        'category matches (structured output)',
+      ),
+    ]),
+  ];
 }
 
 export interface ClaudeModels {

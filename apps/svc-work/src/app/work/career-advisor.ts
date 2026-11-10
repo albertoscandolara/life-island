@@ -5,14 +5,24 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
+  type OnApplicationBootstrap,
 } from '@nestjs/common';
 import {
+  describeAiTools,
+  isAiToolEnabled,
+  recordAiToolUse,
+  stepUsage,
+  type AiToolDescription,
+  type ServiceDb,
+} from '@life-island/be-common';
+import {
+  type AiStepUsage,
   careerFeedbackOutputSchema,
   marketCheckOutputSchema,
   type CareerFeedbackOutput,
   type MarketCheckOutput,
 } from '@life-island/contracts';
-import { CONFIG, type WorkConfig } from '../config.js';
+import { CONFIG, SERVICE_DB, type WorkConfig } from '../config.js';
 import {
   careerDossier,
   FEEDBACK_INSTRUCTIONS,
@@ -26,38 +36,82 @@ export interface WrittenFeedback {
   model: string | null;
 }
 
+/** The AI tools of Work (AI_TOOLS in libs/contracts settings.ts). */
+export const FEEDBACK_TOOL = 'work.career-feedback';
+export const MARKET_CHECK_TOOL = 'work.market-check';
+const SERVICE = 'svc-work';
+
 /**
  * Writes the career feedback: with the Claude API when ANTHROPIC_API_KEY is
- * set (the key the parse worker uses), else with Life Island's own rules, so
- * the area works with no key at all.
+ * set (the key the parse worker uses) and the tool is on in Settings, else
+ * with Life Island's own rules, so the area works with no key at all.
  */
 @Injectable()
-export class CareerAdvisor {
+export class CareerAdvisor implements OnApplicationBootstrap {
   private readonly logger = new Logger(CareerAdvisor.name);
   private readonly client: Anthropic | null;
 
-  constructor(@Inject(CONFIG) private readonly config: WorkConfig) {
+  constructor(
+    @Inject(CONFIG) private readonly config: WorkConfig,
+    @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+  ) {
     this.client = config.anthropicApiKey
       ? new Anthropic({ apiKey: config.anthropicApiKey, maxRetries: 2 })
       : null;
   }
 
-  get usesAi(): boolean {
-    return this.client !== null;
+  /** Whether a tool calls the model now: a key, and its switch in Settings. */
+  async usesAi(toolId: string = FEEDBACK_TOOL): Promise<boolean> {
+    return (
+      this.client !== null &&
+      (await isAiToolEnabled(this.svc.pool, this.svc.schema, toolId))
+    );
+  }
+
+  /** Tells Settings how each Work tool calls the model, for its info button. */
+  async onApplicationBootstrap(): Promise<void> {
+    await describeAiTools(
+      this.svc.pool,
+      this.svc.schema,
+      SERVICE,
+      describeWorkTools(this.config, this.client !== null),
+    ).catch((error: unknown) =>
+      this.logger.warn(`Could not describe the AI tools: ${String(error)}`),
+    );
+  }
+
+  private async record(
+    toolId: string,
+    steps: AiStepUsage[],
+    error?: unknown,
+  ): Promise<void> {
+    await recordAiToolUse(this.svc.pool, this.svc.schema, {
+      toolId,
+      service: SERVICE,
+      outcome: error ? 'error' : 'ok',
+      error: error ? String(error) : null,
+      steps,
+    }).catch((failure: unknown) =>
+      this.logger.warn(
+        `Could not record a use of ${toolId}: ${String(failure)}`,
+      ),
+    );
   }
 
   async write(
     input: CareerDossierInput,
     question: string | null,
   ): Promise<WrittenFeedback> {
-    if (!this.client)
+    if (!this.client || !(await this.usesAi(FEEDBACK_TOOL)))
       return {
         output: offlineFeedback(input, question),
         source: 'offline',
         model: null,
       };
     const dossier = careerDossier(input);
+    const steps: AiStepUsage[] = [];
     try {
+      const started = Date.now();
       const message = await this.client.messages.create({
         model: this.config.feedbackModel,
         // Thinking is on by default and counts against max_tokens: 4000 left
@@ -78,13 +132,12 @@ export class CareerAdvisor {
           {
             role: 'user',
             content: `<dossier>\n${dossier}\n</dossier>\n\n${
-              question
-                ? `My question: ${question}`
-                : 'Give me a feedback on my career so far and what to do next.'
+              question ? `My question: ${question}` : DEFAULT_QUESTION
             }`,
           },
         ],
       });
+      steps.push(stepUsage('feedback', message, Date.now() - started));
       if (message.stop_reason === 'refusal')
         throw new FeedbackError(
           'Claude declined to write this feedback. Try rephrasing your question.',
@@ -96,12 +149,11 @@ export class CareerAdvisor {
       const text = message.content
         .flatMap((block) => (block.type === 'text' ? [block.text] : []))
         .join('');
-      return {
-        output: careerFeedbackOutputSchema.parse(JSON.parse(text)),
-        source: 'claude',
-        model: message.model,
-      };
+      const output = careerFeedbackOutputSchema.parse(JSON.parse(text));
+      await this.record(FEEDBACK_TOOL, steps);
+      return { output, source: 'claude', model: message.model };
     } catch (error) {
+      await this.record(FEEDBACK_TOOL, steps, error);
       this.logger.error(`Career feedback failed: ${String(error)}`);
       throw new ServiceUnavailableException(explain(error, this.config));
     }
@@ -117,7 +169,12 @@ export class CareerAdvisor {
       throw new ServiceUnavailableException(
         'The market check searches the web with the Claude API: set ANTHROPIC_API_KEY in .env and restart svc-work.',
       );
+    if (!(await this.usesAi(MARKET_CHECK_TOOL)))
+      throw new ServiceUnavailableException(
+        'The market check is turned off in Settings → AI tools. Turn it on there to run it.',
+      );
     const client = this.client;
+    const steps: AiStepUsage[] = [];
     const person = [
       `Role: ${profile.role}`,
       `Area: ${profile.region}`,
@@ -137,6 +194,7 @@ export class CareerAdvisor {
       ];
       let research: Anthropic.Message | null = null;
       for (let turn = 0; turn < 4; turn++) {
+        const started = Date.now();
         research = await client.messages.create({
           model: this.config.feedbackModel,
           max_tokens: 16000,
@@ -147,6 +205,7 @@ export class CareerAdvisor {
           ],
           messages,
         });
+        steps.push(stepUsage('research', research, Date.now() - started));
         if (research.stop_reason !== 'pause_turn') break;
         messages.push({ role: 'assistant', content: research.content });
       }
@@ -162,6 +221,7 @@ export class CareerAdvisor {
           'The web search found nothing to report. Try a broader role or area.',
         );
 
+      const formatStarted = Date.now();
       const formatted = await client.messages.create({
         model: this.config.feedbackModel,
         max_tokens: 8000,
@@ -177,17 +237,20 @@ export class CareerAdvisor {
           },
         ],
       });
+      steps.push(stepUsage('format', formatted, Date.now() - formatStarted));
       if (formatted.stop_reason === 'refusal')
         throw new FeedbackError('Claude declined to run this market check.');
       if (formatted.stop_reason === 'max_tokens')
         throw new FeedbackError(
           'The market check came out too long and was cut. Try again.',
         );
-      return {
-        output: marketCheckOutputSchema.parse(JSON.parse(textOf(formatted))),
-        model: formatted.model,
-      };
+      const output = marketCheckOutputSchema.parse(
+        JSON.parse(textOf(formatted)),
+      );
+      await this.record(MARKET_CHECK_TOOL, steps);
+      return { output, model: formatted.model };
     } catch (error) {
+      await this.record(MARKET_CHECK_TOOL, steps, error);
       this.logger.error(`Market check failed: ${String(error)}`);
       throw new ServiceUnavailableException(explain(error, this.config));
     }
@@ -214,6 +277,74 @@ export interface MarketProfile {
 export interface WrittenMarketCheck {
   output: MarketCheckOutput;
   model: string;
+}
+
+const DEFAULT_QUESTION =
+  'Give me a feedback on my career so far and what to do next.';
+
+/**
+ * How the Work tools call the model, as the info button in Settings shows it:
+ * the same prompts, models and limits the calls above send.
+ */
+export function describeWorkTools(
+  config: Pick<WorkConfig, 'feedbackModel'>,
+  available: boolean,
+): AiToolDescription[] {
+  return [
+    {
+      toolId: FEEDBACK_TOOL,
+      available,
+      steps: [
+        {
+          stepId: 'feedback',
+          label: 'Write the feedback',
+          model: config.feedbackModel,
+          effort: 'medium',
+          maxTokens: 16000,
+          thinking: 'adaptive (default)',
+          tools: [],
+          system: FEEDBACK_INSTRUCTIONS,
+          userTemplate: `<dossier>\n{your approved workplaces, payslips, evaluations, contracts, goals and pay statistics, as text}\n</dossier>\n\n{My question: <your question>, or: ${DEFAULT_QUESTION}}`,
+          outputFormat: 'careerFeedbackOutput (structured output)',
+          promptCaching: true,
+        },
+      ],
+    },
+    {
+      toolId: MARKET_CHECK_TOOL,
+      available,
+      steps: [
+        {
+          stepId: 'research',
+          label: 'Search the web',
+          model: config.feedbackModel,
+          effort: 'medium',
+          maxTokens: 16000,
+          thinking: 'adaptive (default)',
+          tools: ['web_search (up to 8 searches)'],
+          system: MARKET_RESEARCH,
+          userTemplate:
+            'Role: {role}\nArea: {area}\nLevel: {level}\nCollective agreement: {CCNL}\nSector: {sector}\nYears of experience: {years}\nCurrent RAL: {RAL} euros',
+          outputFormat: null,
+          promptCaching: false,
+        },
+        {
+          stepId: 'format',
+          label: 'Structure the findings',
+          model: config.feedbackModel,
+          effort: 'low',
+          maxTokens: 8000,
+          thinking: 'adaptive (default)',
+          tools: [],
+          system: MARKET_FORMAT,
+          userTemplate:
+            '{the profile above}\n\n<notes>\n{the notes of the web search}\n</notes>',
+          outputFormat: 'marketCheckOutput (structured output)',
+          promptCaching: false,
+        },
+      ],
+    },
+  ];
 }
 
 const MARKET_RESEARCH = `You research Italian salary ranges for one person. Search the web for recent public figures (salary surveys, job boards, recruiter reports, collective agreement tables) for the role, area and seniority given, in gross yearly pay (RAL) in euros. For each source write: its name, the exact URL, what the figures cover (role, seniority, area, year) and the low, median and high RAL it gives. Copy figures as published; convert monthly figures to yearly over the months the source says (13 or 14 when it does not). Never invent a figure: leave out a source whose page you could not read. Then say in two or three sentences where the person's RAL stands against these ranges, and give two to four concrete next steps.`;

@@ -81,3 +81,8 @@ h4 {
     display: none !important;
   }
 }
+
+/* Talking points: an AI tool inside the (rule-based) negotiation brief. */
+.talking-points {
+  margin-top: var(--space-6);
+}

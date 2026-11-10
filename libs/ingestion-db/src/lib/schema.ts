@@ -430,3 +430,14 @@ export type ParseQueueRow = typeof parseQueue.$inferSelect;
 export type ReclassificationRunRow = typeof reclassificationRuns.$inferSelect;
 export type NewUploadRow = typeof uploads.$inferInsert;
 export type ParseRunRow = typeof parseRuns.$inferInsert;
+
+/**
+ * The parse worker's copy of the settings it reads (svc-settings publishes
+ * `settings.changed@1`): the switch of every document AI tool and the
+ * auto-approval of suggested categories (libs/be-common ai-tools.ts).
+ */
+export const settingsReplica = ingestion.table('settings_replica', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+});

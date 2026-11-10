@@ -1,0 +1,104 @@
+@if (api.overview.error()) {
+<ui-alert tone="warning" class="block">
+  Settings could not be reached: the costs below are estimates, and the switches
+  wait until it answers. Is svc-settings running?
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="api.overview.reload()"
+  >
+    Try again
+  </button>
+</ui-alert>
+} @if (error(); as message) {
+<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+}
+
+<ui-card class="block summary">
+  <div class="summary__row">
+    <div>
+      <span class="setting__label" id="all-ai">Use AI</span>
+      <p class="muted">
+        The master switch of all {{ count }} AI tools. Off, no service calls a
+        model and every tool works with Life Island's own rules.
+      </p>
+    </div>
+    <label class="switch">
+      <input
+        type="checkbox"
+        role="switch"
+        aria-labelledby="all-ai"
+        [checked]="aiEnabled()"
+        [disabled]="!api.overview.hasValue() || api.busy()"
+        (change)="setAll($any($event.target).checked)"
+      />
+      <span>{{ aiEnabled() ? 'On' : 'Off' }}</span>
+    </label>
+  </div>
+  @if (api.overview.hasValue()) {
+  <dl class="stats">
+    <div>
+      <dt>Calling a model</dt>
+      <dd>{{ totals().active }} of {{ count }}</dd>
+    </div>
+    <div>
+      <dt>Uses recorded</dt>
+      <dd>{{ totals().uses }}</dd>
+    </div>
+    <div>
+      <dt>Spent so far</dt>
+      <dd>{{ usd(totals().spent) }}</dd>
+    </div>
+  </dl>
+  @if (totals().noKey) {
+  <p class="muted small">
+    {{ totals().noKey }} tools have no Claude API key in their service: set
+    ANTHROPIC_API_KEY in .env (and PARSER=claude for documents) and restart.
+  </p>
+  } }
+</ui-card>
+
+@for (module of modules; track module.id) {
+<ui-card
+  [heading]="module.emblem + ' ' + module.name"
+  class="block"
+  [attr.data-character]="module.character"
+>
+  <ul class="tools">
+    @for (tool of module.tools; track tool.id) {
+    <li class="tool" [class.tool--off]="!view(tool.id)?.active">
+      <div class="tool__text">
+        <span class="tool__name">{{ tool.name }}</span>
+        <p class="muted">{{ tool.description }}</p>
+        <p class="muted small">
+          {{ models(tool) }} · @if (where(tool); as w) { @if (w.route) {
+          <a [routerLink]="w.route">{{ tool.where.label }}</a>
+          } @else {
+          <a [href]="w.href"
+            >{{ tool.where.label }} <ui-icon name="external" [size]="12"
+          /></a>
+          } } @if (view(tool.id)?.state?.usage; as usage) { @if (usage.uses) { ·
+          {{ usage.uses }} uses, {{ usd(usage.totalCostUsd) }} · last {{
+          usage.lastUsedAt | date: 'dd MMM' }} } }
+        </p>
+        @if (!view(tool.id)?.active) {
+        <p class="small">
+          <ui-badge tone="neutral">while off</ui-badge> {{ tool.whenOff }}
+        </p>
+        }
+      </div>
+      <li-ai-tool [toolId]="tool.id" />
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+
+<p class="muted small">
+  Costs per use are estimates from typical requests at the Claude API list
+  prices until a tool has been used; then they are the average of its real uses.
+  A new AI tool is added to AI_TOOLS in libs/contracts and shows up here and
+  next to the tool on its own (docs/guides/ai-tools.md).
+</p>

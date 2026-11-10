@@ -47,7 +47,11 @@ import {
   type MarketCheckRow,
   type WorkplaceRow,
 } from '../db/schema.js';
-import { CareerAdvisor } from './career-advisor.js';
+import {
+  CareerAdvisor,
+  FEEDBACK_TOOL,
+  MARKET_CHECK_TOOL,
+} from './career-advisor.js';
 import {
   buildStats,
   buildTimeline,
@@ -313,7 +317,8 @@ export class WorkService {
       certificates: [...input.certificates],
       platforms: career.platforms,
       feedback: feedbackRows.map(feedbackDto),
-      aiFeedback: this.advisor.usesAi,
+      aiFeedback: await this.advisor.usesAi(FEEDBACK_TOOL),
+      aiMarketCheck: await this.advisor.usesAi(MARKET_CHECK_TOOL),
       insights,
       goals,
       marketChecks: market,

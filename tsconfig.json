@@ -41,6 +41,9 @@
     },
     {
       "path": "./apps/svc-work"
+    },
+    {
+      "path": "./apps/svc-settings"
     }
   ],
   "compilerOptions": {}
