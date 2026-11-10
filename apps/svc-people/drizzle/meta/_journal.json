@@ -15,6 +15,13 @@
       "when": 1793981529279,
       "tag": "0001_residence_property",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794337727432,
+      "tag": "0002_household_history_guides",
+      "breakpoints": true
     }
   ]
 }

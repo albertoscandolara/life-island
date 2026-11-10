@@ -193,3 +193,7 @@ a.module:focus-visible {
   box-shadow: var(--accent-glow);
   transform: translateY(-1px);
 }
+
+.module__attention {
+  position: relative;
+}

@@ -15,8 +15,12 @@ import {
   approveReviewRequestSchema,
   markDocumentRequestSchema,
   mergePeopleRequestSchema,
+  renewalGuideRequestSchema,
+  setRelationRequestSchema,
   updatePersonRequestSchema,
+  type PeopleAttentionDto,
   type PeopleOverviewDto,
+  type RenewalGuideDto,
   type PersonSummaryDto,
   type ResidenceHousesDto,
 } from '@life-island/contracts';
@@ -42,7 +46,13 @@ export class PeopleController {
     return this.people.overview();
   }
 
-  /** Everyone in short, for the Houses area to offer as owners. */
+  /** What needs you (expired, expiring, to review), for the island hub. */
+  @Get('attention')
+  attention(): Promise<PeopleAttentionDto> {
+    return this.people.attention();
+  }
+
+  /** Everyone in short, with their driving licence, for the Houses and Cars areas. */
   @Get('people')
   list(): Promise<PersonSummaryDto[]> {
     return this.people.summaries();
@@ -78,6 +88,49 @@ export class PeopleController {
       id,
       parseOrThrow(mergePeopleRequestSchema, body),
     );
+  }
+
+  /** Sets how another person is related to this one. */
+  @Post('people/:id/relations')
+  @HttpCode(204)
+  setRelation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.people.setRelation(
+      id,
+      parseOrThrow(setRelationRequestSchema, body),
+    );
+  }
+
+  @Delete('people/:id/relations/:otherId')
+  @HttpCode(204)
+  removeRelation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('otherId', ParseUUIDPipe) otherId: string,
+  ): Promise<void> {
+    return this.people.removeRelation(id, otherId);
+  }
+
+  /** Writes a renewal guide with Claude (AI tool people.renewal-guide). */
+  @Post('people/:id/renewal-guides')
+  renewalGuide(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<RenewalGuideDto> {
+    return this.people.renewalGuide(
+      id,
+      parseOrThrow(renewalGuideRequestSchema, body),
+    );
+  }
+
+  @Delete('people/:id/renewal-guides/:guideId')
+  @HttpCode(204)
+  removeGuide(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('guideId', ParseUUIDPipe) guideId: string,
+  ): Promise<void> {
+    return this.people.removeGuide(id, guideId);
   }
 
   @Post('reviews/:uploadId/approve')

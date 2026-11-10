@@ -156,18 +156,27 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 
 **Editing, removing and merging people.** **Edit** corrects a person by hand. Their **Residence** can be one of your houses from Home or an address you type: a picked house shows as a link to its page in Home (`/home?property=<id>`), with its address kept as text. A typed address, or a different residence you take from a document, unlinks the house. svc-people reads the houses from svc-home's API (`HOME_URL`); when Home is not running, Residence is simply typed. **Remove** deletes a person and sends their ID documents back to review. **Merge a duplicate** moves a duplicate's documents to the person you are on, who keeps their details and takes only the missing ones; two different tax codes are never merged.
 
-**Expiry warnings** cover the latest version of each series only: **expired**, or **expiring** within 180 days for a passport (many countries want six months left), 90 for an identity card and a driving licence, 60 for a health card (`EXPIRY_WARNING_DAYS` in `libs/contracts`). They sit at the top of the page, on the person and on the version. A document you marked lost, stolen or withdrawn, or one with no expiry date, never warns.
+**Expiry warnings** cover the latest version of each series only: **expired**, or **expiring** within 180 days for a passport (many countries want six months left), 90 for an identity card and a driving licence, 60 for a health card (`EXPIRY_WARNING_DAYS` in `libs/contracts`). They sit at the top of the page, on the person and on the version. A document you marked lost, stolen or withdrawn, or one with no expiry date, never warns. A driving licence category whose own expiry date (field 11, read into `category_expiries`) comes before the licence's warns by itself. The island hub shows the counts on the People card (`GET /attention`).
 
-| Endpoint (`/api/people/...`)                                       | Purpose                                                                                            |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `GET /overview`                                                    | People with their series and warnings, documents to review, rejected ones                          |
-| `POST /reviews/:uploadId/approve`                                  | `{personId, accept: [fields]}`; `personId: null` adds a new person (409 on a tax code someone has) |
-| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen` | Not anyone's ID document, and back to review                                                       |
-| `PATCH /documents/:uploadId`                                       | `{status: 'lost' \| 'stolen' \| 'withdrawn' \| null}`                                              |
-| `PATCH /people/:id`                                                | Correct a person by hand; `residencePropertyId` links Residence to a house                         |
-| `DELETE /people/:id`, `POST /people/:id/merge`                     | Remove a person (documents back to review); merge `{from}`, a duplicate, into this person          |
-| `GET /houses`                                                      | The houses of Home, for Residence (`available: false` when svc-home cannot be reached)             |
-| `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                             |
+**Checks and details.** The tax code is checked against the person: its check character, then the last name, first name, birth date and sex it encodes (the birth place is a cadastral code and is not checked). A mismatch shows on the person and on a document waiting for review. Each version shows what only its type prints: CIE or paper, the CAN, height, "not valid for travel", passport type, the European health card (TEAM) on a health card's back, and a licence's categories and restriction codes explained (`LICENCE_CATEGORY_LABELS`, `RESTRICTION_CODE_LABELS` in `libs/contracts`). Tax codes and document numbers stay hidden until **Show numbers**.
+
+**Who has what** is the grid of everyone against the four document types. **Household** relates people (partner, parent, child, sibling) and records who a person is a fiscal dependent of, for the 730. A minor gets the rules that apply (shorter validity, parents' consent, travelling under 14) and a note before turning 18. **History** lists every document filed with the values taken, and your own edits and merges (`people.person_edits`).
+
+**Renewing.** Every document has **How to renew it**, Life Island's own checklist (`RENEWAL_GUIDES`). The **Renewal guide** is an AI tool (`people.renewal-guide`, see [AI tools](ai-tools.md)): Claude searches the web for your town's office, booking, documents to bring and fees. It sends only the document type, the town and whether the person is a minor. It needs `ANTHROPIC_API_KEY` (model: `PEOPLE_GUIDE_MODEL`). The Cars area shows the driving licence of a car's holder and owner, read from `GET /people`.
+
+| Endpoint (`/api/people/...`)                                        | Purpose                                                                                            |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                     | People with their series and warnings, documents to review, rejected ones                          |
+| `POST /reviews/:uploadId/approve`                                   | `{personId, accept: [fields]}`; `personId: null` adds a new person (409 on a tax code someone has) |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`  | Not anyone's ID document, and back to review                                                       |
+| `PATCH /documents/:uploadId`                                        | `{status: 'lost' \| 'stolen' \| 'withdrawn' \| null}`                                              |
+| `PATCH /people/:id`                                                 | Correct a person by hand; `residencePropertyId` links Residence to a house; `taxDependentOf`       |
+| `DELETE /people/:id`, `POST /people/:id/merge`                      | Remove a person (documents back to review); merge `{from}`, a duplicate, into this person          |
+| `GET /attention`                                                    | Counts of expired, expiring and to review, for the island hub                                      |
+| `POST /people/:id/relations`, `DELETE /people/:id/relations/:other` | `{personId, kind}`: what the other person is to this one                                           |
+| `POST /people/:id/renewal-guides`, `DELETE .../:guideId`            | `{type, town}`: a renewal guide written by Claude (503 when the tool is off or there is no key)    |
+| `GET /houses`                                                       | The houses of Home, for Residence (`available: false` when svc-home cannot be reached)             |
+| `GET /documents/:uploadId/preview`                                  | The original file (from svc-ingestion)                                                             |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/002-people-schema.sql`).
 

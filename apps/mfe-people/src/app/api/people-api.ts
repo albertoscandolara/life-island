@@ -5,7 +5,10 @@ import type {
   MarkDocumentRequest,
   MergePeopleRequest,
   PeopleOverviewDto,
+  RenewalGuideDto,
+  RenewalGuideRequest,
   ResidenceHousesDto,
+  SetRelationRequest,
   UpdatePersonRequest,
 } from '@life-island/contracts';
 import type { Observable } from 'rxjs';
@@ -55,6 +58,37 @@ export class PeopleApi {
   /** Merges the duplicate `from` into this person. */
   mergePeople(id: string, request: MergePeopleRequest): Observable<void> {
     return this.http.post<void>(`${PEOPLE_API}/people/${id}/merge`, request);
+  }
+
+  /** Sets how another person is related to this one. */
+  setRelation(id: string, request: SetRelationRequest): Observable<void> {
+    return this.http.post<void>(
+      `${PEOPLE_API}/people/${id}/relations`,
+      request,
+    );
+  }
+
+  removeRelation(id: string, otherId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${PEOPLE_API}/people/${id}/relations/${otherId}`,
+    );
+  }
+
+  /** Asks Claude for a renewal guide (AI tool people.renewal-guide). */
+  renewalGuide(
+    id: string,
+    request: RenewalGuideRequest,
+  ): Observable<RenewalGuideDto> {
+    return this.http.post<RenewalGuideDto>(
+      `${PEOPLE_API}/people/${id}/renewal-guides`,
+      request,
+    );
+  }
+
+  removeGuide(id: string, guideId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${PEOPLE_API}/people/${id}/renewal-guides/${guideId}`,
+    );
   }
 
   /** The Home area's houses, read through svc-people. */

@@ -25,6 +25,7 @@
     }
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.2.0",
     "@life-island/be-common": "*",
     "@life-island/be-nest": "*",
     "@life-island/contracts": "*",

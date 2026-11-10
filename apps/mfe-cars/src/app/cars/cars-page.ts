@@ -214,6 +214,63 @@ export class CarsPage {
 
   constructor() {
     this.load();
+    this.loadPeople();
+  }
+
+  /** The people of People: offered while editing, and their licence shown next to a car. */
+  private loadPeople(): void {
+    this.api.people().subscribe({
+      next: (people) => this.people.set(people),
+      error: () => this.people.set({ people: [], available: false }),
+    });
+  }
+
+  /**
+   * The driving licence of the person a party is, as People has it: a badge
+   * next to the holder and the owner of the car.
+   */
+  protected licenceOf(
+    vehicle: VehicleDto,
+    field: string,
+  ): {
+    text: string;
+    tone: 'success' | 'warning' | 'danger' | 'neutral';
+  } | null {
+    if (!this.isParty(field)) return null;
+    const personId = vehicle.people?.[field];
+    const person = this.people().people.find((p) => p.id === personId);
+    if (!person) return null;
+    const licence = person.licence;
+    if (!licence) return { text: 'No licence in People', tone: 'neutral' };
+    const until = licence.expiryDate
+      ? new Date(licence.expiryDate).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      : null;
+    const categories = licence.categories.length
+      ? ` (${licence.categories.join(', ')})`
+      : '';
+    switch (licence.status) {
+      case 'expired':
+        return {
+          text: `Licence expired${until ? ' on ' + until : ''}`,
+          tone: 'danger',
+        };
+      case 'expiring':
+        return {
+          text: `Licence expires in ${licence.daysLeft} days${categories}`,
+          tone: 'warning',
+        };
+      case 'unusable':
+        return { text: 'Licence lost, stolen or withdrawn', tone: 'danger' };
+      default:
+        return {
+          text: `Licence valid${until ? ' until ' + until : ''}${categories}`,
+          tone: 'success',
+        };
+    }
   }
 
   protected load(): void {
@@ -467,10 +524,7 @@ export class CarsPage {
 
   protected edit(vehicle: VehicleDto): void {
     this.selectedId.set(vehicle.id);
-    this.api.people().subscribe({
-      next: (people) => this.people.set(people),
-      error: () => this.people.set({ people: [], available: false }),
-    });
+    this.loadPeople();
     this.editing.set({
       label: vehicle.label ?? '',
       ...Object.fromEntries(

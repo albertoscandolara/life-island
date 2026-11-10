@@ -8,19 +8,29 @@ import {
 } from '@angular/core';
 import {
   ID_DOCUMENT_STATUS_LABELS,
+  ID_DOCUMENT_TYPES,
   identifiesSomeone,
   PERSON_FIELD_LABELS,
   PERSON_FIELDS,
+  RELATION_KINDS,
+  RELATION_LABELS,
+  RENEWAL_GUIDES,
   type ChangeSuggestion,
   type IdDocumentStatus,
+  type IdDocumentType,
   type PendingReviewDto,
   type PeopleOverviewDto,
   type PersonDto,
   type PersonField,
+  type PersonHistoryEntryDto,
+  type RelationKind,
   type ResidenceHouseDto,
+  type TaxCodeCheckStatus,
   type UpdatePersonRequest,
 } from '@life-island/contracts';
 import {
+  UiAiPanel,
+  UiAiStatus,
   UiAlert,
   UiBadge,
   UiButton,
@@ -30,9 +40,18 @@ import {
   UiPageHeader,
   type UiTone,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import type { Observable } from 'rxjs';
 import { PeopleApi } from '../api/people-api';
-import { alertText, personName, typeLabel } from './labels';
+import {
+  alertText,
+  coverage,
+  masked,
+  personName,
+  typeLabel,
+  type CoverageCell,
+  type CoverageState,
+} from './labels';
 
 /** The choices you make on one document waiting for review. */
 interface Draft {
@@ -56,6 +75,31 @@ const SUGGESTION_LABELS: Record<ChangeSuggestion, string> = {
   check: 'Check it',
 };
 
+const COVERAGE_TONES: Record<CoverageState, UiTone> = {
+  current: 'success',
+  expiring: 'warning',
+  expired: 'danger',
+  unusable: 'warning',
+  missing: 'neutral',
+};
+
+const TAX_CODE_BADGES: Record<
+  TaxCodeCheckStatus,
+  { text: string; tone: UiTone } | null
+> = {
+  valid: { text: 'Checked', tone: 'success' },
+  mismatch: { text: 'Does not match', tone: 'warning' },
+  invalid: { text: 'Not a valid code', tone: 'danger' },
+  unknown: null,
+};
+
+const HISTORY_TITLES: Record<PersonHistoryEntryDto['kind'], string> = {
+  created: 'Added from the',
+  document: 'Filed the',
+  edit: 'Edited by you',
+  merge: 'Merged a duplicate',
+};
+
 const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   accept: 'success',
   keep_current: 'neutral',
@@ -71,7 +115,10 @@ const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   selector: 'people-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AiTool,
     DatePipe,
+    UiAiPanel,
+    UiAiStatus,
     UiAlert,
     UiBadge,
     UiButton,
@@ -103,6 +150,26 @@ export class PeoplePage {
   protected readonly residenceHouse = signal('');
   /** The values being edited on the selected person, or null when not editing. */
   protected readonly editing = signal<Record<PersonField, string> | null>(null);
+  /** Tax codes and document numbers are hidden until you ask. */
+  protected readonly revealed = signal(false);
+  /** The relation being added to the selected person. */
+  protected readonly relationDraft = signal<{
+    personId: string;
+    kind: RelationKind;
+  }>({ personId: '', kind: 'partner' });
+  /** The renewal guide being asked for: which document, which town. */
+  protected readonly guideType = signal<IdDocumentType | null>(null);
+  protected readonly guideTown = signal('');
+  protected readonly guiding = signal(false);
+  protected readonly guideError = signal<string | null>(null);
+
+  protected readonly idTypes = ID_DOCUMENT_TYPES;
+  protected readonly relationKinds = RELATION_KINDS;
+  protected readonly relationLabels = RELATION_LABELS;
+  protected readonly renewalGuides = RENEWAL_GUIDES;
+  protected readonly coverageTones = COVERAGE_TONES;
+  protected readonly taxCodeBadges = TAX_CODE_BADGES;
+  protected readonly historyTitles = HISTORY_TITLES;
 
   protected readonly fields = PERSON_FIELDS;
   protected readonly fieldLabels = PERSON_FIELD_LABELS;
@@ -115,6 +182,13 @@ export class PeoplePage {
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
+  protected readonly aiRenewalGuide = computed(
+    () => this.overview()?.aiRenewalGuide ?? false,
+  );
+  /** Everyone against the four document types: the coverage grid. */
+  protected readonly coverageRows = computed(() =>
+    this.people().map((person) => ({ person, cells: coverage(person) })),
+  );
   protected readonly selected = computed(
     () =>
       this.people().find((p) => p.id === this.selectedId()) ??
@@ -159,8 +233,117 @@ export class PeoplePage {
     );
   }
 
+  /** The warning of the document itself (a licence category warns apart). */
   protected alertsOf(person: PersonDto, uploadId: string) {
-    return person.alerts.find((a) => a.uploadId === uploadId) ?? null;
+    return (
+      person.alerts.find(
+        (a) => a.uploadId === uploadId && a.category === null,
+      ) ?? null
+    );
+  }
+
+  /** A tax code or document number, hidden but its end until you ask. */
+  protected secret(value: string | null): string | null {
+    return masked(value, this.revealed());
+  }
+
+  protected coverageText(cell: CoverageCell): string {
+    switch (cell.state) {
+      case 'missing':
+        return 'None';
+      case 'unusable':
+        return 'Lost or withdrawn';
+      case 'expired':
+        return 'Expired';
+      default:
+        return cell.expiryDate
+          ? `Until ${new Date(cell.expiryDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
+          : 'Current';
+    }
+  }
+
+  protected nameOf(id: string | null): string {
+    const person = this.people().find((p) => p.id === id);
+    return person ? personName(person) : 'Someone removed';
+  }
+
+  // ---- household ----------------------------------------------------------
+
+  /** The people this one could still be related to. */
+  protected unrelated(person: PersonDto): PersonDto[] {
+    const related = new Set(person.relations.map((r) => r.personId));
+    return this.others(person).filter((p) => !related.has(p.id));
+  }
+
+  protected addRelation(person: PersonDto): void {
+    const draft = this.relationDraft();
+    const personId = draft.personId || this.unrelated(person)[0]?.id;
+    if (!personId) return;
+    this.run(
+      person.id,
+      () => this.api.setRelation(person.id, { personId, kind: draft.kind }),
+      () => this.relationDraft.set({ personId: '', kind: 'partner' }),
+    );
+  }
+
+  protected removeRelation(person: PersonDto, otherId: string): void {
+    this.run(person.id, () => this.api.removeRelation(person.id, otherId));
+  }
+
+  protected setDependent(person: PersonDto, value: string): void {
+    this.run(person.id, () =>
+      this.api.updatePerson(person.id, { taxDependentOf: value || null }),
+    );
+  }
+
+  // ---- renewal ------------------------------------------------------------
+
+  /** The document the guide is about: yours, else the most urgent one, else the first. */
+  protected guideTypeOf(person: PersonDto): IdDocumentType {
+    return (
+      this.guideType() ??
+      person.alerts.find((a) => a.type)?.type ??
+      person.series.find((s) => s.type)?.type ??
+      'IDENTITY_CARD'
+    );
+  }
+
+  protected guidesOf(person: PersonDto) {
+    const type = this.guideTypeOf(person);
+    return person.guides.filter((g) => g.type === type);
+  }
+
+  protected writeGuide(person: PersonDto): void {
+    this.guiding.set(true);
+    this.guideError.set(null);
+    this.api
+      .renewalGuide(person.id, {
+        type: this.guideTypeOf(person),
+        town: this.guideTown().trim() || null,
+      })
+      .subscribe({
+        next: () => {
+          this.guiding.set(false);
+          this.load();
+        },
+        error: (error: { error?: { message?: string } }) => {
+          this.guiding.set(false);
+          this.guideError.set(
+            error.error?.message ??
+              'The guide could not be written. Try again in a moment.',
+          );
+        },
+      });
+  }
+
+  protected removeGuide(person: PersonDto, guideId: string): void {
+    this.run(guideId, () => this.api.removeGuide(person.id, guideId));
+  }
+
+  protected euro(amount: number | null): string {
+    return amount === null
+      ? '—'
+      : amount.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
   }
 
   // ---- review -------------------------------------------------------------
@@ -252,6 +435,9 @@ export class PeoplePage {
     this.selectedId.set(personId);
     this.editing.set(null);
     this.action.set(null);
+    this.guideType.set(null);
+    this.guideError.set(null);
+    this.relationDraft.set({ personId: '', kind: 'partner' });
   }
 
   // ---- remove and merge ----------------------------------------------------
@@ -276,7 +462,7 @@ export class PeoplePage {
     const documents = person.series.map((s) => typeLabel(s.type)).join(', ');
     return [
       personName(person),
-      person.taxCode ?? person.birthDate,
+      this.secret(person.taxCode) ?? person.birthDate,
       documents || 'no documents',
     ]
       .filter(Boolean)

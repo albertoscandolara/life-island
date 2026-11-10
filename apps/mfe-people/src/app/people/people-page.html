@@ -4,11 +4,25 @@
   subtitle="Everyone your ID documents belong to: identity cards, passports, health cards and driving licences, every version kept, and a warning before one expires."
 />
 
-@if (error(); as message) {
+@if (people().length || reviews().length) {
+<div class="toolbar">
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    [attr.aria-pressed]="revealed()"
+    (click)="revealed.set(!revealed())"
+  >
+    <ui-icon name="eye" [size]="16" />
+    {{ revealed() ? 'Hide numbers' : 'Show numbers' }}
+  </button>
+</div>
+} @if (error(); as message) {
 <ui-alert tone="danger" class="block">{{ message }}</ui-alert>
 } @if (alerts().length) {
 <section class="alerts" aria-label="Expiry warnings">
-  @for (alert of alerts(); track alert.uploadId) {
+  @for (alert of alerts(); track alert.uploadId + (alert.category ?? '')) {
   <ui-alert [tone]="alert.level === 'expired' ? 'danger' : 'warning'">
     <strong>{{ alertText(alert) }}</strong>
     <span class="muted">
@@ -44,7 +58,7 @@
       <div>
         <h3 class="review__title">
           {{ typeLabel(review.type) }} @if (review.documentNumber) {
-          <span class="mono">· {{ review.documentNumber }}</span>
+          <span class="mono">· {{ secret(review.documentNumber) }}</span>
           }
         </h3>
         <p class="muted">
@@ -73,6 +87,14 @@
       in <span class="mono">.env</span>). Open it in the documents app and press
       Parse again, or type the holder's name there. You can still file it under
       someone you already have.
+    </ui-alert>
+    } @if (review.taxCodeCheck.status === 'invalid' ||
+    review.taxCodeCheck.status === 'mismatch') {
+    <ui-alert tone="warning">
+      <strong>Check the tax code.</strong>
+      @for (problem of review.taxCodeCheck.problems; track problem) { {{ problem
+      }} } It is usually one misread character: fix it in the documents app, or
+      untick it below.
     </ui-alert>
     } @if (review.outdated) {
     <ui-alert tone="info">
@@ -109,7 +131,7 @@
       @for (row of printed(review); track row.field) {
       <div>
         <dt>{{ fieldLabels[row.field] }}</dt>
-        <dd>{{ row.value }}</dd>
+        <dd>{{ row.field === 'taxCode' ? secret(row.value) : row.value }}</dd>
       </div>
       }
     </dl>
@@ -143,9 +165,15 @@
               />
             </td>
             <th scope="row">{{ fieldLabels[change.field] }}</th>
-            <td class="muted">{{ change.current ?? '—' }}</td>
+            <td class="muted">
+              {{ (change.field === 'taxCode' ? secret(change.current) :
+              change.current) ?? '—' }}
+            </td>
             <td>
-              <strong>{{ change.proposed }}</strong>
+              <strong
+                >{{ change.field === 'taxCode' ? secret(change.proposed) :
+                change.proposed }}</strong
+              >
             </td>
             <td>
               <ui-badge [tone]="suggestionTones[change.suggestion]"
@@ -198,6 +226,46 @@
   </ui-empty-state>
 </ui-card>
 } @if (people().length) {
+<ui-card heading="Who has what" class="block">
+  <p class="muted intro">
+    The latest version of each document, for everyone at home.
+  </p>
+  <div class="table-wrap">
+    <table class="table coverage">
+      <thead>
+        <tr>
+          <th scope="col">Person</th>
+          @for (type of idTypes; track type) {
+          <th scope="col">{{ typeLabel(type) }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of coverageRows(); track row.person.id) {
+        <tr>
+          <th scope="row">
+            <button
+              type="button"
+              class="link-button"
+              (click)="select(row.person.id)"
+            >
+              {{ personName(row.person) }}
+            </button>
+          </th>
+          @for (cell of row.cells; track cell.type) {
+          <td>
+            <ui-badge [tone]="coverageTones[cell.state]"
+              >{{ coverageText(cell) }}</ui-badge
+            >
+          </td>
+          }
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+
 <nav class="people-nav" aria-label="People">
   @for (person of people(); track person.id) {
   <button
@@ -221,223 +289,354 @@
 </nav>
 } @if (selected(); as person) {
 <div class="person">
-  <ui-card [heading]="personName(person)">
-    @if (!editing() && !action()) {
-    <div uiCardActions class="person__actions">
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        (click)="edit(person)"
-      >
-        Edit
-      </button>
-      @if (people().length > 1) {
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        (click)="startMerge(person)"
-      >
-        Merge a duplicate
-      </button>
-      }
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        (click)="action.set('remove')"
-      >
-        Remove
-      </button>
-    </div>
-    } @if (action() === 'remove') {
-    <div class="confirm" role="group" aria-label="Remove this person">
-      <p>
-        Remove <strong>{{ personName(person) }}</strong>? Their details are
-        deleted. Their ID documents are not: they go back to <em>To review</em>,
-        where you can file them under someone else or reject them.
-      </p>
-      <footer class="review__actions">
+  <div class="person__side">
+    <ui-card [heading]="personName(person)">
+      @if (!editing() && !action()) {
+      <div uiCardActions class="person__actions">
         <button
           uiButton
           variant="ghost"
+          size="sm"
           type="button"
-          [disabled]="busy() !== null"
-          (click)="action.set(null)"
+          (click)="edit(person)"
         >
-          Cancel
+          Edit
         </button>
+        @if (people().length > 1) {
         <button
           uiButton
-          variant="danger"
+          variant="ghost"
+          size="sm"
           type="button"
-          [loading]="busy() === person.id"
-          [disabled]="busy() !== null"
-          (click)="remove(person)"
+          (click)="startMerge(person)"
         >
-          Remove the person
+          Merge a duplicate
         </button>
-      </footer>
-    </div>
-    } @if (action() === 'merge') {
-    <div class="confirm" role="group" aria-label="Merge a duplicate">
-      <label class="edit__field">
-        <span>The duplicate of {{ personName(person) }}</span>
-        <select
-          class="ui-input compact"
-          (change)="mergeFrom.set($any($event.target).value)"
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="action.set('remove')"
         >
-          @for (other of others(person); track other.id) {
-          <option [value]="other.id" [selected]="mergeFrom() === other.id">
-            {{ describe(other) }}
-          </option>
+          Remove
+        </button>
+      </div>
+      } @if (action() === 'remove') {
+      <div class="confirm" role="group" aria-label="Remove this person">
+        <p>
+          Remove <strong>{{ personName(person) }}</strong>? Their details are
+          deleted. Their ID documents are not: they go back to
+          <em>To review</em>, where you can file them under someone else or
+          reject them.
+        </p>
+        <footer class="review__actions">
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="action.set(null)"
+          >
+            Cancel
+          </button>
+          <button
+            uiButton
+            variant="danger"
+            type="button"
+            [loading]="busy() === person.id"
+            [disabled]="busy() !== null"
+            (click)="remove(person)"
+          >
+            Remove the person
+          </button>
+        </footer>
+      </div>
+      } @if (action() === 'merge') {
+      <div class="confirm" role="group" aria-label="Merge a duplicate">
+        <label class="edit__field">
+          <span>The duplicate of {{ personName(person) }}</span>
+          <select
+            class="ui-input compact"
+            (change)="mergeFrom.set($any($event.target).value)"
+          >
+            @for (other of others(person); track other.id) {
+            <option [value]="other.id" [selected]="mergeFrom() === other.id">
+              {{ describe(other) }}
+            </option>
+            }
+          </select>
+        </label>
+        @if (mergePreview(person); as preview) { @if (preview.conflict) {
+        <ui-alert tone="danger">
+          These two have different tax codes, so they are different people. If
+          one tax code is a mistake, correct it with Edit first.
+        </ui-alert>
+        } @else {
+        <p>
+          The duplicate's ID documents move to the person shown here, and the
+          duplicate is removed. This person keeps every detail they already
+          have. @if (preview.taken.length) { From the duplicate they take only
+          what they do not know yet: } @else { Nothing is taken from the
+          duplicate: it knows nothing this person does not. }
+        </p>
+        @if (preview.taken.length) {
+        <ul class="taken">
+          @for (field of preview.taken; track field) {
+          <li>{{ fieldLabels[field] }}: {{ preview.from[field] }}</li>
           }
-        </select>
-      </label>
-      @if (mergePreview(person); as preview) { @if (preview.conflict) {
-      <ui-alert tone="danger">
-        These two have different tax codes, so they are different people. If one
-        tax code is a mistake, correct it with Edit first.
+        </ul>
+        } }
+        <footer class="review__actions">
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="action.set(null)"
+          >
+            Cancel
+          </button>
+          <button
+            uiButton
+            type="button"
+            [loading]="busy() === person.id"
+            [disabled]="busy() !== null || preview.conflict"
+            (click)="merge(person)"
+          >
+            Merge
+          </button>
+        </footer>
+        }
+      </div>
+      } @if (editing(); as values) {
+      <form class="edit" (submit)="$event.preventDefault(); save(person)">
+        @for (field of fields; track field) { @if (field === 'residenceAddress')
+        {
+        <div class="edit__field edit__residence">
+          <label for="residence-house">{{ fieldLabels[field] }}</label>
+          @if (houses().length) {
+          <select
+            id="residence-house"
+            class="ui-input compact"
+            (change)="chooseHouse($any($event.target).value)"
+          >
+            <option value="" [selected]="!residenceHouse()">
+              An address I type
+            </option>
+            @for (house of houses(); track house.id) {
+            <option
+              [value]="house.id"
+              [selected]="residenceHouse() === house.id"
+            >
+              {{ house.name }}@if (house.address) { · {{ house.address }} }
+            </option>
+            }
+          </select>
+          } @if (!residenceHouse()) {
+          <input
+            class="ui-input compact"
+            type="text"
+            [attr.aria-label]="fieldLabels[field]"
+            [id]="houses().length ? null : 'residence-house'"
+            placeholder="Street, number, city"
+            [value]="values[field]"
+            (input)="setValue(field, $any($event.target).value)"
+          />
+          } @if (!housesAvailable()) {
+          <small class="edit__hint"
+            >The Home area is not reachable, so its houses cannot be picked
+            right now.</small
+          >
+          } @else if (!houses().length) {
+          <small class="edit__hint">Add a house in Home to pick it here.</small>
+          }
+        </div>
+        } @else {
+        <label class="edit__field">
+          <span>{{ fieldLabels[field] }}</span>
+          <input
+            class="ui-input compact"
+            [type]="field === 'birthDate' ? 'date' : 'text'"
+            [value]="values[field]"
+            (input)="setValue(field, $any($event.target).value)"
+          />
+        </label>
+        } }
+        <footer class="review__actions">
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="editing.set(null)"
+          >
+            Cancel
+          </button>
+          <button
+            uiButton
+            type="submit"
+            [loading]="busy() === person.id"
+            [disabled]="busy() !== null"
+          >
+            <ui-icon name="check" [size]="18" /> Save
+          </button>
+        </footer>
+      </form>
+      } @else if (!action()) {
+      <dl class="facts">
+        @for (field of fields; track field) {
+        <div>
+          <dt>{{ fieldLabels[field] }}</dt>
+          @if (field === 'residenceAddress' && residenceOf(person); as house) {
+          <dd>
+            <a class="house-link" [href]="houseUrl(house.id)"
+              ><ui-icon name="home" [size]="16" /> {{ house.name }}</a
+            >
+            @if (person.residenceAddress) {
+            <span class="muted"> · {{ person.residenceAddress }}</span>
+            }
+          </dd>
+          } @else if (field === 'taxCode' && person.taxCode) {
+          <dd>
+            <span class="mono">{{ secret(person.taxCode) }}</span>
+            @if (taxCodeBadges[person.taxCodeCheck.status]; as badge) {
+            <ui-badge [tone]="badge.tone">{{ badge.text }}</ui-badge>
+            }
+          </dd>
+          } @else if (field === 'birthDate' && person.birthDate) {
+          <dd>
+            {{ person.birthDate | date: 'd MMM y' }} @if (person.age !== null) {
+            <span class="muted">· {{ person.age }} years</span>
+            } @if (person.age !== null && person.age < 18) {
+            <ui-badge tone="info">Minor</ui-badge>
+            }
+          </dd>
+          } @else {
+          <dd [class.muted]="!person[field]">
+            {{ person[field] ?? 'Not on any document yet' }}
+          </dd>
+          }
+        </div>
+        }
+      </dl>
+      @if (person.taxCodeCheck.problems.length) {
+      <ui-alert tone="warning" class="notice">
+        <strong>The tax code does not match.</strong>
+        @for (problem of person.taxCodeCheck.problems; track problem) { {{
+        problem }} } Check the documents, then correct it with Edit.
       </ui-alert>
-      } @else {
-      <p>
-        The duplicate's ID documents move to the person shown here, and the
-        duplicate is removed. This person keeps every detail they already have.
-        @if (preview.taken.length) { From the duplicate they take only what they
-        do not know yet: } @else { Nothing is taken from the duplicate: it knows
-        nothing this person does not. }
+      } @for (notice of person.notices; track notice.text) {
+      <ui-alert
+        class="notice"
+        [tone]="notice.level === 'warning' ? 'warning' : 'info'"
+        >{{ notice.text }}</ui-alert
+      >
+      }
+      <p class="muted small">
+        Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, through
+        the reviews above or by you.
       </p>
-      @if (preview.taken.length) {
-      <ul class="taken">
-        @for (field of preview.taken; track field) {
-        <li>{{ fieldLabels[field] }}: {{ preview.from[field] }}</li>
+      }
+    </ui-card>
+
+    <ui-card heading="Household" class="household">
+      @if (person.relations.length) {
+      <ul class="relations">
+        @for (relation of person.relations; track relation.personId) {
+        <li>
+          <span class="muted">{{ relationLabels[relation.kind] }}</span>
+          <button
+            type="button"
+            class="link-button"
+            (click)="select(relation.personId)"
+          >
+            {{ nameOf(relation.personId) }}
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [attr.aria-label]="'Remove the relation with ' + nameOf(relation.personId)"
+            [disabled]="busy() !== null"
+            (click)="removeRelation(person, relation.personId)"
+          >
+            <ui-icon name="x" [size]="16" />
+          </button>
+        </li>
         }
       </ul>
-      } }
-      <footer class="review__actions">
-        <button
-          uiButton
-          variant="ghost"
-          type="button"
-          [disabled]="busy() !== null"
-          (click)="action.set(null)"
-        >
-          Cancel
-        </button>
-        <button
-          uiButton
-          type="button"
-          [loading]="busy() === person.id"
-          [disabled]="busy() !== null || preview.conflict"
-          (click)="merge(person)"
-        >
-          Merge
-        </button>
-      </footer>
-      }
-    </div>
-    } @if (editing(); as values) {
-    <form class="edit" (submit)="$event.preventDefault(); save(person)">
-      @for (field of fields; track field) { @if (field === 'residenceAddress') {
-      <div class="edit__field edit__residence">
-        <label for="residence-house">{{ fieldLabels[field] }}</label>
-        @if (houses().length) {
+      } @else {
+      <p class="muted small">Not related to anyone here yet.</p>
+      } @if (unrelated(person).length) {
+      <form
+        class="inline-form"
+        (submit)="$event.preventDefault(); addRelation(person)"
+      >
         <select
-          id="residence-house"
           class="ui-input compact"
-          (change)="chooseHouse($any($event.target).value)"
+          aria-label="Who"
+          (change)="relationDraft.update(d => ({ ...d, personId: $any($event.target).value }))"
         >
-          <option value="" [selected]="!residenceHouse()">
-            An address I type
-          </option>
-          @for (house of houses(); track house.id) {
-          <option [value]="house.id" [selected]="residenceHouse() === house.id">
-            {{ house.name }}@if (house.address) { · {{ house.address }} }
+          @for (other of unrelated(person); track other.id) {
+          <option
+            [value]="other.id"
+            [selected]="relationDraft().personId === other.id"
+          >
+            {{ personName(other) }}
           </option>
           }
         </select>
-        } @if (!residenceHouse()) {
-        <input
+        <span class="muted small">is their</span>
+        <select
           class="ui-input compact"
-          type="text"
-          [attr.aria-label]="fieldLabels[field]"
-          [id]="houses().length ? null : 'residence-house'"
-          placeholder="Street, number, city"
-          [value]="values[field]"
-          (input)="setValue(field, $any($event.target).value)"
-        />
-        } @if (!housesAvailable()) {
-        <small class="edit__hint"
-          >The Home area is not reachable, so its houses cannot be picked right
-          now.</small
+          aria-label="Relation"
+          (change)="relationDraft.update(d => ({ ...d, kind: $any($event.target).value }))"
         >
-        } @else if (!houses().length) {
-        <small class="edit__hint">Add a house in Home to pick it here.</small>
-        }
-      </div>
-      } @else {
-      <label class="edit__field">
-        <span>{{ fieldLabels[field] }}</span>
-        <input
-          class="ui-input compact"
-          [type]="field === 'birthDate' ? 'date' : 'text'"
-          [value]="values[field]"
-          (input)="setValue(field, $any($event.target).value)"
-        />
-      </label>
-      } }
-      <footer class="review__actions">
+          @for (kind of relationKinds; track kind) {
+          <option [value]="kind" [selected]="relationDraft().kind === kind">
+            {{ relationLabels[kind].toLowerCase() }}
+          </option>
+          }
+        </select>
         <button
           uiButton
           variant="ghost"
-          type="button"
-          [disabled]="busy() !== null"
-          (click)="editing.set(null)"
-        >
-          Cancel
-        </button>
-        <button
-          uiButton
+          size="sm"
           type="submit"
-          [loading]="busy() === person.id"
           [disabled]="busy() !== null"
         >
-          <ui-icon name="check" [size]="18" /> Save
+          <ui-icon name="plus" [size]="16" /> Add
         </button>
-      </footer>
-    </form>
-    } @else if (!action()) {
-    <dl class="facts">
-      @for (field of fields; track field) {
-      <div>
-        <dt>{{ fieldLabels[field] }}</dt>
-        @if (field === 'residenceAddress' && residenceOf(person); as house) {
-        <dd>
-          <a class="house-link" [href]="houseUrl(house.id)"
-            ><ui-icon name="home" [size]="16" /> {{ house.name }}</a
+      </form>
+      } @if (others(person).length) {
+      <label class="edit__field dependent">
+        <span>Fiscal dependent of (familiare a carico)</span>
+        <select
+          class="ui-input compact"
+          [disabled]="busy() !== null"
+          (change)="setDependent(person, $any($event.target).value)"
+        >
+          <option value="" [selected]="!person.taxDependentOf">Nobody</option>
+          @for (other of others(person); track other.id) {
+          <option
+            [value]="other.id"
+            [selected]="person.taxDependentOf === other.id"
           >
-          @if (person.residenceAddress) {
-          <span class="muted"> · {{ person.residenceAddress }}</span>
+            {{ personName(other) }}
+          </option>
           }
-        </dd>
-        } @else {
-        <dd [class.muted]="!person[field]">
-          {{ person[field] ?? 'Not on any document yet' }}
-        </dd>
-        }
-      </div>
+        </select>
+        <small class="edit__hint"
+          >For the 730: who declares this person as a dependent.</small
+        >
+      </label>
       }
-    </dl>
-    <p class="muted small">
-      Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, through the
-      reviews above or by you.
-    </p>
-    }
-  </ui-card>
+    </ui-card>
+  </div>
 
   <div class="series">
     @for (series of person.series; track series.type) {
@@ -466,7 +665,7 @@
                 days left' }}
               </ui-badge>
               } @if (version.documentNumber) {
-              <span class="mono">{{ version.documentNumber }}</span>
+              <span class="mono">{{ secret(version.documentNumber) }}</span>
               }
             </div>
             <p class="muted small">
@@ -475,6 +674,56 @@
               version.expiryDate | date: 'd MMM y' }} } @if (version.issuer) { ·
               {{ version.issuer }} }
             </p>
+            @if (version.status !== 'superseded') { @let d = version.details;
+            <div class="details">
+              @if (d.cardFormat) {
+              <span
+                >{{ d.cardFormat === 'electronic' ? 'Electronic (CIE)' : 'Paper
+                card' }}</span
+              >
+              } @if (d.validForTravel === false) {
+              <ui-badge tone="warning">Not valid for travel</ui-badge>
+              } @if (d.cardAccessNumber) {
+              <span
+                >CAN
+                <span class="mono">{{ secret(d.cardAccessNumber) }}</span></span
+              >
+              } @if (d.heightCm) {
+              <span>{{ d.heightCm }} cm</span>
+              } @if (d.passportType) {
+              <span>Type {{ d.passportType }}</span>
+              } @if (d.eyeColor) {
+              <span>Eyes: {{ d.eyeColor }}</span>
+              } @if (d.healthCardKind) {
+              <span>{{ d.healthCardKind }}</span>
+              } @if (d.institutionCode) {
+              <ui-badge tone="info">European health card (TEAM)</ui-badge>
+              }
+            </div>
+            @if (d.licenceCategories.length) {
+            <ul class="categories">
+              @for (c of d.licenceCategories; track c.category) {
+              <li>
+                <strong class="category">{{ c.category }}</strong>
+                <span class="muted">{{ c.meaning ?? 'Category' }}</span>
+                @if (c.expiryDate && c.expiryDate !== version.expiryDate) {
+                <ui-badge tone="neutral"
+                  >until {{ c.expiryDate | date: 'd MMM y' }}</ui-badge
+                >
+                }
+              </li>
+              }
+            </ul>
+            } @if (d.restrictionCodes.length) {
+            <ul class="categories">
+              @for (r of d.restrictionCodes; track r.code) {
+              <li>
+                <strong class="category mono">{{ r.code }}</strong>
+                <span class="muted">{{ r.meaning ?? 'Restriction code' }}</span>
+              </li>
+              }
+            </ul>
+            } }
           </div>
           <div class="version__actions">
             <a
@@ -509,12 +758,241 @@
         </li>
         }
       </ol>
+      @if (series.type; as type) { @let g = renewalGuides[type];
+      <details class="renew">
+        <summary>How to renew it</summary>
+        <dl class="renew__facts">
+          <div>
+            <dt>Where</dt>
+            <dd>{{ g.where }}</dd>
+          </div>
+          <div>
+            <dt>Book</dt>
+            <dd>
+              {{ g.book }} @if (g.bookingUrl) {
+              <a [href]="g.bookingUrl" target="_blank" rel="noopener"
+                >{{ g.bookingUrl.replace('https://', '') }}</a
+              >
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>When</dt>
+            <dd>{{ g.when }}</dd>
+          </div>
+          <div>
+            <dt>Cost</dt>
+            <dd>{{ g.cost }}</dd>
+          </div>
+          <div>
+            <dt>Takes</dt>
+            <dd>{{ g.takes }}</dd>
+          </div>
+        </dl>
+        <p class="sub">Bring</p>
+        <ul class="renew__bring">
+          @for (item of g.bring; track item) {
+          <li>{{ item }}</li>
+          }
+        </ul>
+        @if (g.minors && person.age !== null && person.age < 18) {
+        <p class="small"><strong>For a minor:</strong> {{ g.minors }}</p>
+        }
+        <p class="muted small">
+          Life Island's own checklist, the same for every town. The renewal
+          guide below looks up your own office.
+        </p>
+      </details>
+      }
     </ui-card>
     } @empty {
     <ui-card>
       <p class="muted">No approved documents for this person yet.</p>
     </ui-card>
     }
+
+    <ui-ai-panel
+      heading="Renewal guide"
+      [state]="guiding() ? 'working' : 'idle'"
+      [offline]="!aiRenewalGuide()"
+    >
+      <li-ai-tool uiAiPanelActions toolId="people.renewal-guide" />
+      <p class="muted intro">
+        @if (aiRenewalGuide()) { Claude searches the web for how to renew this
+        document in your town: the office, how to book, what to bring and what
+        it costs. Only the document type, the town and whether the person is a
+        minor are sent. } @else { The renewal guide searches the web with the
+        Claude API: it needs ANTHROPIC_API_KEY in .env (restart svc-people after
+        setting it) and the tool on in Settings → AI tools. Meanwhile, each
+        document above has Life Island's own checklist under "How to renew it".
+        }
+      </p>
+      <form
+        class="inline-form"
+        (submit)="$event.preventDefault(); writeGuide(person)"
+      >
+        <select
+          class="ui-input compact"
+          aria-label="Document"
+          (change)="guideType.set($any($event.target).value)"
+        >
+          @for (type of idTypes; track type) {
+          <option [value]="type" [selected]="guideTypeOf(person) === type">
+            {{ typeLabel(type) }}
+          </option>
+          }
+        </select>
+        <input
+          class="ui-input compact"
+          type="text"
+          aria-label="Town"
+          maxlength="120"
+          placeholder="Town (residence by default)"
+          [value]="guideTown()"
+          (input)="guideTown.set($any($event.target).value)"
+        />
+        <button
+          uiButton
+          type="submit"
+          size="sm"
+          [loading]="guiding()"
+          [disabled]="!aiRenewalGuide() || guiding()"
+        >
+          <ui-icon name="sparkles" [size]="16" /> Write the guide
+        </button>
+        @if (guiding()) {
+        <ui-ai-status state="working"
+          >Searching the web: this takes a minute.</ui-ai-status
+        >
+        } @else if (guideError(); as message) {
+        <ui-ai-status state="error">{{ message }}</ui-ai-status>
+        }
+      </form>
+
+      @for (guide of guidesOf(person); track guide.id) {
+      <article class="guide">
+        <header class="review__head">
+          <div>
+            <h3 class="review__title">
+              {{ typeLabel(guide.type) }} in {{ guide.town }}
+            </h3>
+            <p class="muted small">
+              Written {{ guide.createdAt | date: 'd MMM y' }}: check the
+              sources, offices change their rules.
+            </p>
+          </div>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            aria-label="Delete this guide"
+            [disabled]="busy() !== null"
+            (click)="removeGuide(person, guide.id)"
+          >
+            <ui-icon name="trash" [size]="16" />
+          </button>
+        </header>
+        <p>{{ guide.output.summary }}</p>
+        <dl class="renew__facts">
+          <div>
+            <dt>Office</dt>
+            <dd>
+              {{ guide.output.office.name }} @if (guide.output.office.address) {
+              <span class="muted">· {{ guide.output.office.address }}</span>
+              } @if (guide.output.office.bookingUrl) {
+              <a
+                [href]="guide.output.office.bookingUrl"
+                target="_blank"
+                rel="noopener"
+                >Book</a
+              >
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Timing</dt>
+            <dd>{{ guide.output.timing }}</dd>
+          </div>
+        </dl>
+        @if (guide.output.steps.length) {
+        <p class="sub">Steps</p>
+        <ol class="renew__bring">
+          @for (step of guide.output.steps; track $index) {
+          <li><strong>{{ step.title }}</strong> {{ step.detail }}</li>
+          }
+        </ol>
+        } @if (guide.output.bring.length) {
+        <p class="sub">Bring</p>
+        <ul class="renew__bring">
+          @for (item of guide.output.bring; track $index) {
+          <li>{{ item }}</li>
+          }
+        </ul>
+        } @if (guide.output.costs.length) {
+        <p class="sub">Costs</p>
+        <ul class="renew__bring">
+          @for (cost of guide.output.costs; track $index) {
+          <li>
+            {{ cost.label }}: <strong>{{ euro(cost.amountEur) }}</strong>
+            @if (cost.note) {
+            <span class="muted">· {{ cost.note }}</span>
+            }
+          </li>
+          }
+        </ul>
+        } @if (guide.output.sources.length) {
+        <p class="muted small">
+          Sources: @for (source of guide.output.sources; track source.url; let
+          last = $last) {
+          <a [href]="source.url" target="_blank" rel="noopener"
+            >{{ source.title }}</a
+          >@if (!last) {, } }
+        </p>
+        }
+      </article>
+      }
+    </ui-ai-panel>
+
+    <ui-card heading="History">
+      @if (person.history.length) {
+      <ol class="history">
+        @for (entry of person.history; track $index) {
+        <li>
+          <div class="history__head">
+            <strong
+              >{{ historyTitles[entry.kind] }} @if (entry.uploadId) { {{
+              typeLabel(entry.type).toLowerCase() }} }</strong
+            >
+            <span class="muted small"
+              >{{ entry.at | date: 'd MMM y, HH:mm' }}</span
+            >
+          </div>
+          @if (entry.changes.length) {
+          <ul class="history__changes">
+            @for (change of entry.changes; track change.field) {
+            <li>
+              {{ fieldLabels[change.field] }}: @if (change.previous) {
+              <span class="muted strike"
+                >{{ change.field === 'taxCode' ? secret(change.previous) :
+                change.previous }}</span
+              >
+              → } {{ (change.field === 'taxCode' ? secret(change.value) :
+              change.value) ?? 'cleared' }}
+            </li>
+            }
+          </ul>
+          } @else if (entry.uploadId) {
+          <p class="muted small">Nothing changed: the data was the same.</p>
+          }
+        </li>
+        }
+      </ol>
+      } @else {
+      <p class="muted small">No changes recorded yet.</p>
+      }
+    </ui-card>
   </div>
 </div>
 } @if (rejected().length) {

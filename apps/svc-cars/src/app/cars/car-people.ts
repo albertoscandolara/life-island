@@ -33,7 +33,12 @@ export class CarPeople {
       return {
         available: true,
         people: people
-          .map((p) => ({ id: p.id, name: personName(p), taxCode: p.taxCode }))
+          .map((p) => ({
+            id: p.id,
+            name: personName(p),
+            taxCode: p.taxCode,
+            licence: p.drivingLicence ?? null,
+          }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       };
     } catch (error) {

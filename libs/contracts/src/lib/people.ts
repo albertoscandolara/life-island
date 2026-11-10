@@ -131,6 +131,43 @@ export function identifiesSomeone(holder: PersonValues): boolean {
   return !!(holder.lastName || holder.firstName || holder.taxCode);
 }
 
+/** A category of a driving licence (field 9), with its own dates (10 and 11). */
+export interface LicenceCategoryDto {
+  category: string;
+  /** What it lets you drive, or null for a code Life Island does not know. */
+  meaning: string | null;
+  /** Its own expiry when printed, else the licence's. */
+  expiryDate: string | null;
+}
+
+/** A restriction code of a driving licence (field 12), explained. */
+export interface RestrictionCodeDto {
+  code: string;
+  meaning: string | null;
+}
+
+/**
+ * What only some ID documents print, beyond the holder and the dates. Every
+ * value is null when it is not printed (or not read).
+ */
+export interface IdDocumentDetailsDto {
+  heightCm: number | null;
+  /** Identity card: electronic (CIE) or paper. */
+  cardFormat: 'electronic' | 'paper' | null;
+  /** CIE: the 6-digit card access number, needed to use it with a phone. */
+  cardAccessNumber: string | null;
+  /** False when printed "non valida per l'espatrio". */
+  validForTravel: boolean | null;
+  passportType: string | null;
+  eyeColor: string | null;
+  /** Health card: tessera sanitaria or tesserino codice fiscale. */
+  healthCardKind: string | null;
+  /** Health card: the institution code on the back, which makes it a European health card (TEAM / EHIC). */
+  institutionCode: string | null;
+  licenceCategories: LicenceCategoryDto[];
+  restrictionCodes: RestrictionCodeDto[];
+}
+
 export interface IdDocumentVersionDto {
   uploadId: string;
   title: string;
@@ -143,6 +180,7 @@ export interface IdDocumentVersionDto {
   expiryDate: string | null;
   uploadedAt: string;
   reviewedAt: string;
+  details: IdDocumentDetailsDto;
 }
 
 /** One kind of document of one person, newest version first. */
@@ -160,9 +198,72 @@ export interface ExpiryAlertDto {
   personName: string;
   uploadId: string;
   type: IdDocumentType | null;
+  /**
+   * A driving licence category whose own expiry date (field 11) comes before
+   * the licence's, e.g. "C"; null for the document itself.
+   */
+  category: string | null;
   expiryDate: string;
   /** Negative once expired. */
   daysLeft: number;
+}
+
+/**
+ * Whether the tax code agrees with the person: its check character, and the
+ * name, birth date and sex it encodes. The birth place is not checked (it is
+ * encoded as a cadastral code).
+ */
+export type TaxCodeCheckStatus = 'valid' | 'mismatch' | 'invalid' | 'unknown';
+
+export interface TaxCodeCheckDto {
+  status: TaxCodeCheckStatus;
+  /** What disagrees, in words: "The birth date encoded is 1 Jan 1980". */
+  problems: string[];
+}
+
+/** How a person is related to another, from this person's side. */
+export const RELATION_KINDS = [
+  'partner',
+  'parent',
+  'child',
+  'sibling',
+  'other',
+] as const;
+export type RelationKind = (typeof RELATION_KINDS)[number];
+
+export const RELATION_LABELS: Record<RelationKind, string> = {
+  partner: 'Partner',
+  parent: 'Parent',
+  child: 'Child',
+  sibling: 'Sibling',
+  other: 'Family',
+};
+
+export interface RelationDto {
+  personId: string;
+  /** What the other person is to this one: "parent" means they are this person's parent. */
+  kind: RelationKind;
+}
+
+/** Something worth knowing about a person, worked out from their data and documents. */
+export interface PersonNoticeDto {
+  level: 'info' | 'warning';
+  text: string;
+}
+
+/** One change in a person's history: a document filed, an edit, a merge. */
+export interface PersonHistoryEntryDto {
+  at: string;
+  kind: 'created' | 'document' | 'edit' | 'merge';
+  /** The document it came from, for `created` and `document`. */
+  uploadId: string | null;
+  title: string | null;
+  type: IdDocumentType | null;
+  changes: {
+    field: PersonField;
+    previous: string | null;
+    value: string | null;
+  }[];
 }
 
 export interface PersonDto extends PersonValues {
@@ -176,6 +277,17 @@ export interface PersonDto extends PersonValues {
   updatedAt: string;
   series: IdDocumentSeriesDto[];
   alerts: ExpiryAlertDto[];
+  taxCodeCheck: TaxCodeCheckDto;
+  /** Whole years today, from the birth date. */
+  age: number | null;
+  relations: RelationDto[];
+  /** The person this one is a fiscal dependent of (familiare a carico), for the 730. */
+  taxDependentOf: string | null;
+  notices: PersonNoticeDto[];
+  /** Newest first. */
+  history: PersonHistoryEntryDto[];
+  /** The renewal guides written for this person, newest first. */
+  guides: RenewalGuideDto[];
 }
 
 export type ChangeKind = 'new_value' | 'different_value';
@@ -209,6 +321,8 @@ export interface PendingReviewDto {
   changes: ProposedChangeDto[];
   /** Expired, or older than the version you already have: suggests keeping your data. */
   outdated: boolean;
+  /** The printed tax code against the printed name, birth date and sex (the matched person's where not printed). */
+  taxCodeCheck: TaxCodeCheckDto;
 }
 
 /** Decided ID documents that are not about anyone (rejected). */
@@ -224,6 +338,15 @@ export interface PeopleOverviewDto {
   reviews: PendingReviewDto[];
   alerts: ExpiryAlertDto[];
   rejected: RejectedDocumentDto[];
+  /** Whether the renewal guide calls Claude now (a key, and its switch on in Settings). */
+  aiRenewalGuide: boolean;
+}
+
+/** What the island hub shows on the People card: what needs you. */
+export interface PeopleAttentionDto {
+  expired: number;
+  expiring: number;
+  toReview: number;
 }
 
 export const approveReviewRequestSchema = z.object({
@@ -248,6 +371,8 @@ export type MarkDocumentRequest = z.input<typeof markDocumentRequestSchema>;
  */
 export const updatePersonRequestSchema = personValues.partial().extend({
   residencePropertyId: z.uuid().nullable().optional(),
+  /** The person this one is a fiscal dependent of; null: nobody's. */
+  taxDependentOf: z.uuid().nullable().optional(),
 });
 export type UpdatePersonRequest = z.input<typeof updatePersonRequestSchema>;
 
@@ -259,6 +384,22 @@ export const mergePeopleRequestSchema = z.object({
   /** The duplicate, removed once its documents have moved. */
   from: z.uuid(),
 });
+/** Sets how another person is related to this one (replacing what was there). */
+export const setRelationRequestSchema = z.object({
+  personId: z.uuid(),
+  /** What the other person is to this one. */
+  kind: z.enum(RELATION_KINDS),
+});
+export type SetRelationRequest = z.input<typeof setRelationRequestSchema>;
+
+/** The latest driving licence of a person, for the Cars area. */
+export interface PersonLicenceDto {
+  status: 'valid' | 'expiring' | 'expired' | 'unusable';
+  expiryDate: string | null;
+  daysLeft: number | null;
+  categories: string[];
+}
+
 /** A person in short, for other areas to pick (the Houses area offers them as owners). */
 export interface PersonSummaryDto {
   id: string;
@@ -266,6 +407,53 @@ export interface PersonSummaryDto {
   firstName: string | null;
   taxCode: string | null;
   residencePropertyId: string | null;
+  /** The person this one is a fiscal dependent of (familiare a carico). */
+  taxDependentOf: string | null;
+  /** Their latest driving licence; null when they have none on file. */
+  drivingLicence: PersonLicenceDto | null;
+}
+
+// ---------------------------------------------------------------------------
+// The renewal guide (AI tool people.renewal-guide)
+// ---------------------------------------------------------------------------
+
+export const renewalGuideRequestSchema = z.object({
+  type: z.enum(ID_DOCUMENT_TYPES),
+  /** The town to renew it in; the person's residence by default. */
+  town: z.string().trim().max(120).nullable().optional(),
+});
+export type RenewalGuideRequest = z.input<typeof renewalGuideRequestSchema>;
+
+/** What Claude writes for one renewal, from its web search (structured output). */
+export const renewalGuideOutputSchema = z.object({
+  summary: z.string(),
+  office: z.object({
+    name: z.string(),
+    address: z.string().nullable(),
+    bookingUrl: z.string().nullable(),
+  }),
+  steps: z.array(z.object({ title: z.string(), detail: z.string() })),
+  bring: z.array(z.string()),
+  costs: z.array(
+    z.object({
+      label: z.string(),
+      amountEur: z.number().nullable(),
+      note: z.string().nullable(),
+    }),
+  ),
+  timing: z.string(),
+  sources: z.array(z.object({ title: z.string(), url: z.string() })),
+});
+export type RenewalGuideOutput = z.infer<typeof renewalGuideOutputSchema>;
+
+export interface RenewalGuideDto {
+  id: string;
+  personId: string;
+  type: IdDocumentType;
+  town: string;
+  output: RenewalGuideOutput;
+  model: string;
+  createdAt: string;
 }
 
 /** A house of the Home area, as People offers it for Residence. */

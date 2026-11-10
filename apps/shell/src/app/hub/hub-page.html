@@ -28,6 +28,11 @@
       <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
       <span class="module__name">{{ module.name }}</span>
       <span class="module__mission">{{ module.mission }}</span>
+      @if (attention()[module.id]; as badge) {
+      <ui-badge class="module__attention" [tone]="badge.tone"
+        >{{ badge.text }}</ui-badge
+      >
+      }
       <span class="module__open"
         >Open <ui-icon name="chevron-right" [size]="16"
       /></span>
