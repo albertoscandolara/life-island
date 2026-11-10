@@ -8,5 +8,10 @@
     "target": "http://localhost:3002",
     "pathRewrite": { "^/api/review": "" },
     "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
   }
 }

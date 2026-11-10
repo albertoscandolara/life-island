@@ -22,6 +22,7 @@ import {
   type CategoryDimension,
 } from '@life-island/contracts/constants';
 import {
+  UiAiPanel,
   UiAlert,
   UiBadge,
   UiButton,
@@ -38,6 +39,7 @@ import {
   type UiOption,
   type UiTableColumn,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import { firstValueFrom } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { categoryRows, textMatch, type CategoryRow } from './category-rows';
@@ -130,6 +132,8 @@ const dimensionLabel = (dimension: CategoryDimension | null) =>
   host: { 'data-character': 'ptera' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AiTool,
+    UiAiPanel,
     UiAlert,
     UiBadge,
     UiButton,

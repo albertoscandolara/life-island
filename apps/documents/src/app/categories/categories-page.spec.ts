@@ -113,6 +113,9 @@ describe('CategoriesPage', () => {
       .expectOne((req) => req.url === '/api/ingestion/category-suggestions')
       .flush([]);
     flushReclassification(http);
+    // The AI tool switch next to the suggestions: Settings unreachable.
+    for (const request of http.match('/api/settings/overview'))
+      request.flush(null, { status: 503, statusText: 'Unavailable' });
     await fixture.whenStable();
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;

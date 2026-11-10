@@ -858,14 +858,20 @@
 
 <!-- ============================================================== feedback -->
 @case ('feedback') {
-<ui-card heading="Ask about your career" class="block">
+<ui-ai-panel
+  heading="Career feedback"
+  class="block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!data.aiFeedback"
+>
+  <li-ai-tool uiAiPanelActions toolId="work.career-feedback" />
   <p class="muted intro">
     @if (data.aiFeedback) { Claude reads what you approved here (workplaces,
     timeline, pay statistics, evaluations, hiring platforms) and answers. Tax
     codes, employee codes and addresses are never sent. } @else { Without a
-    Claude API key the feedback comes from Life Island's own rules. Set
-    ANTHROPIC_API_KEY in .env (the key the parse worker uses) for an AI that
-    also answers your questions. }
+    Claude API key, or with the tool off in Settings → AI tools, the feedback
+    comes from Life Island's own rules. Set ANTHROPIC_API_KEY in .env (the key
+    the parse worker uses) for an AI that also answers your questions. }
   </p>
   <form class="ask" (submit)="$event.preventDefault(); ask()">
     <textarea
@@ -876,21 +882,25 @@
       [value]="question()"
       (input)="question.set($any($event.target).value)"
     ></textarea>
-    <button uiButton type="submit" [loading]="asking()">
-      {{ question().trim() ? 'Ask' : 'Give me a feedback' }}
-    </button>
+    <div class="ask__end">
+      <button uiButton type="submit" [loading]="asking()">
+        {{ question().trim() ? 'Ask' : 'Give me a feedback' }}
+      </button>
+      @if (asking()) {
+      <ui-ai-status state="working">Reading your career…</ui-ai-status>
+      }
+    </div>
   </form>
-</ui-card>
+</ui-ai-panel>
 
 @if (shownFeedback(); as f) {
-<ui-card
+<ui-ai-panel
   [heading]="f.question ? f.question : 'Your career feedback'"
+  kind="result"
+  [offline]="f.source !== 'claude'"
   class="block feedback"
 >
-  <div uiCardActions class="actions">
-    <ui-badge [tone]="f.source === 'claude' ? 'info' : 'neutral'"
-      >{{ f.source === 'claude' ? 'Claude' : 'Offline rules' }}</ui-badge
-    >
+  <div uiAiPanelActions class="actions">
     <button
       uiButton
       variant="ghost"
@@ -941,7 +951,7 @@
     f.model }} }. A starting point for your own judgement, not professional
     advice.
   </p>
-</ui-card>
+</ui-ai-panel>
 } @if (feedback().length > 1) {
 <ui-card heading="Earlier feedback" class="block">
   <ul class="plain">
@@ -971,6 +981,7 @@
   [brief]="data.brief"
   [feedback]="data.feedback"
   [aiFeedback]="data.aiFeedback"
+  [aiMarketCheck]="data.aiMarketCheck"
   [offerPrefill]="offerPrefill()"
   (changed)="load()"
 />

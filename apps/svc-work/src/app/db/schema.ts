@@ -252,3 +252,13 @@ export const jobApplications = work.table('job_applications', {
 });
 
 export type JobApplicationRow = typeof jobApplications.$inferSelect;
+
+/**
+ * svc-work's copy of the settings it reads, kept by its consumer of
+ * `settings.changed@1` (svc-settings): the switches of the Work AI tools.
+ */
+export const settingsReplica = work.table('settings_replica', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+});

@@ -352,6 +352,7 @@ describe.skipIf(!configured)(
       expect(feedback.suggestions.length).toBeGreaterThan(0);
       const all = await overview();
       expect(all.aiFeedback).toBe(false);
+      expect(all.aiMarketCheck).toBe(false);
       expect(all.feedback[0].id).toBe(feedback.id);
       await send('DELETE', `/feedback/${feedback.id}`);
     });

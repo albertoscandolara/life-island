@@ -174,3 +174,22 @@
   --accent-glow: 0 8px 24px color-mix(in srgb, var(--accent) 26%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+/*
+ * AI identity (ui-ai-panel, ui-ai-badge, ui-ai-status): one quiet violet,
+ * used only by the AI components, so a feature that calls a model reads as AI
+ * in every module, whatever the character accent around it.
+ */
+:root {
+  --ai-accent: var(--violet-500);
+  --ai-text: color-mix(in srgb, var(--violet-500) 85%, var(--ink-900));
+  --ai-soft: color-mix(in srgb, var(--violet-500) 6%, var(--surface-card));
+  --ai-border: color-mix(in srgb, var(--violet-500) 24%, var(--border-subtle));
+}
+
+:root[data-theme='dark'] {
+  --ai-accent: var(--violet-400);
+  --ai-text: var(--violet-400);
+  --ai-soft: color-mix(in srgb, var(--violet-400) 9%, var(--surface-card));
+  --ai-border: color-mix(in srgb, var(--violet-400) 30%, var(--border-subtle));
+}

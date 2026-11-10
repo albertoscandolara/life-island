@@ -1,18 +1,19 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { UiAlert } from '@life-island/design-system';
+import { UiAiBadge, UiAlert } from '@life-island/design-system';
 import { ReclassificationState } from './reclassification-state';
 
 /** App-wide notice while a reclassification holds the lock. */
 @Component({
   selector: 'app-reclassification-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, UiAlert],
+  imports: [DatePipe, UiAiBadge, UiAlert],
   template: `
     @if (reclassification.locked()) {
       <ui-alert tone="progress" role="status">
         <strong class="heading"
-          >Checking past documents against new categories</strong
+          ><ui-ai-badge /> Checking past documents against new
+          categories</strong
         >
         <p>
           Uploads, parsing and changes to documents and categories are paused

@@ -14,6 +14,7 @@ This folder explains how Life Island is built and how to work on it. Start with 
 | [Documents loader](guides/documents-loader.md)       | Run or change the upload, parse and review flow: data model, categories, schedule, parser, APIs, storage                                              |
 | [Life Island app](guides/life-island-app.md)         | Work on the island hub, an area's remote, or the 730 area: Native Federation, the 3D island, documents per year, the zip and the Excel export         |
 | [Document storage](document-storage.md)              | Know where uploaded files live, how they are retrieved by id, and the SQL of the documents table                                                      |
+| [AI tools and Settings](guides/ai-tools.md)          | Add or change a feature that calls an AI model: the registry, the switches in Settings, costs, the request info and the AI visual language            |
 | [Testing and CI](guides/testing-and-ci.md)           | Write unit and integration tests and understand what the GitHub Actions pipeline checks                                                               |
 | [Architecture and ingestion plan](architecture.md)   | Read the source-of-truth plan: principles, AI pipeline, review inbox, roadmap and the new-feature checklist                                           |
 

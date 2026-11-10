@@ -44,6 +44,7 @@ import {
   type UiTableColumn,
   type UiTableSort,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
 import { CategoryStore } from '../categories/category-store';
@@ -128,6 +129,7 @@ export function reparseNotice(result: ReparseUploadsResponse): string {
   host: { 'data-character': 'ptera', class: 'inbox' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AiTool,
     CategoryFilter,
     DatePipe,
     LinkChecks,

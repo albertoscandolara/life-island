@@ -63,6 +63,14 @@
   --accent-2: var(--lagoon-600);
 }
 
+[data-character='archie'] {
+  /* settings: app settings and the AI tools of every module (violet stays the AI colour) */
+  --accent: var(--lagoon-700);
+  --accent-hover: color-mix(in srgb, var(--lagoon-700) 82%, var(--ink-900));
+  --accent-soft: var(--lagoon-50);
+  --accent-2: var(--sky-600);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -110,6 +118,12 @@
   --accent: var(--sun-300);
   --accent-hover: var(--sun-400);
   --accent-2: var(--lagoon-300);
+}
+
+:root[data-theme='dark'] [data-character='archie'] {
+  --accent: var(--lagoon-300);
+  --accent-hover: var(--lagoon-400);
+  --accent-2: var(--sky-400);
 }
 
 :root[data-theme='dark'] [data-character] {

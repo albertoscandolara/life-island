@@ -917,8 +917,10 @@ export interface WorkOverviewDto {
   platforms: HiringPlatformDto[];
   /** Newest first. */
   feedback: CareerFeedbackDto[];
-  /** Whether the feedback is written by the Claude API (ANTHROPIC_API_KEY is set). */
+  /** Whether the feedback is written by the Claude API: ANTHROPIC_API_KEY is set and the tool is on in Settings. */
   aiFeedback: boolean;
+  /** Whether the market check can run: ANTHROPIC_API_KEY is set and the tool is on in Settings. */
+  aiMarketCheck: boolean;
   /** Your pay against inflation, the CCNL, taxes; time off, workload, reviews against pay. */
   insights: CareerInsightsDto;
   /** The goals your evaluations set, newest evaluation first. */

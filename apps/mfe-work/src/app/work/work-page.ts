@@ -33,6 +33,8 @@ import {
   type WorkplaceStatus,
 } from '@life-island/contracts';
 import {
+  UiAiPanel,
+  UiAiStatus,
   UiAlert,
   UiBadge,
   UiButton,
@@ -43,6 +45,7 @@ import {
   type UiIconName,
   type UiTone,
 } from '@life-island/design-system';
+import { AiTool } from '@life-island/settings-ui';
 import type { Observable } from 'rxjs';
 import { WorkApi } from '../api/work-api';
 import { AuditTab } from './audit-tab';
@@ -165,6 +168,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   selector: 'work-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AiTool,
     AuditTab,
     EvaluationsTab,
     JobsTab,
@@ -172,6 +176,8 @@ const today = () => new Date().toISOString().slice(0, 10);
     PayslipsTab,
     TfrTab,
     ToolsTab,
+    UiAiPanel,
+    UiAiStatus,
     UiAlert,
     UiBadge,
     UiButton,

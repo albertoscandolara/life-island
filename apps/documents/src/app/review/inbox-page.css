@@ -116,6 +116,13 @@
   margin: 0 0 var(--space-1);
 }
 
+.ai-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
 .historical {
   display: block;
   margin-top: var(--space-1);

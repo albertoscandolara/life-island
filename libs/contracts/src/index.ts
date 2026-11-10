@@ -15,3 +15,4 @@ export * from './lib/work-insights.js';
 export * from './lib/work-checks.js';
 export * from './lib/document-links.js';
 export * from './lib/tax730-deductions.js';
+export * from './lib/settings.js';

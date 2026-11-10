@@ -1,3 +1,6 @@
+export * from './lib/ai/ai-badge';
+export * from './lib/ai/ai-panel';
+export * from './lib/ai/ai-status';
 export * from './lib/alert/alert';
 export * from './lib/badge/badge';
 export * from './lib/button/button';

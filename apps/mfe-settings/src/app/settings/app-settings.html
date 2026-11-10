@@ -1,0 +1,81 @@
+@if (api.overview.error()) {
+<ui-alert tone="warning" class="block">
+  Settings could not be reached, so only this browser's settings can change now.
+  Is svc-settings running?
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="api.overview.reload()"
+  >
+    Try again
+  </button>
+</ui-alert>
+} @if (error(); as message) {
+<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+} @for (group of groups; track group.name) {
+<ui-card [heading]="group.name" class="block">
+  <ul class="settings-list">
+    @for (setting of group.settings; track setting.key) {
+    <li class="setting">
+      <div class="setting__text">
+        <span class="setting__label" [id]="'label-' + setting.key"
+          >{{ setting.label }}</span
+        >
+        @if (setting.scope === 'browser') {
+        <ui-badge tone="neutral">this browser</ui-badge>
+        } @else if (state(setting)?.isSet === false) {
+        <ui-badge tone="neutral">default</ui-badge>
+        }
+        <p class="muted">{{ setting.description }}</p>
+        <p class="muted small">
+          Used by {{ setting.usedBy.join(', ') }} @if
+          (state(setting)?.changedAt; as at) { · changed {{ at | date: 'dd MMM
+          yyyy, HH:mm' }} }
+        </p>
+      </div>
+      <div class="setting__control">
+        @if (setting.type === 'boolean') {
+        <label class="switch">
+          <input
+            type="checkbox"
+            role="switch"
+            [checked]="value(setting) === true"
+            [disabled]="setting.scope === 'server' && (!api.overview.hasValue() || api.busy())"
+            [attr.aria-labelledby]="'label-' + setting.key"
+            (change)="choose(setting, $any($event.target).checked)"
+          />
+          <span>{{ value(setting) ? 'On' : 'Off' }}</span>
+        </label>
+        } @else {
+        <div
+          class="segmented"
+          role="radiogroup"
+          [attr.aria-labelledby]="'label-' + setting.key"
+        >
+          @for (option of setting.options; track option.value) {
+          <button
+            type="button"
+            role="radio"
+            class="segmented__option"
+            [class.segmented__option--on]="value(setting) === option.value"
+            [attr.aria-checked]="value(setting) === option.value"
+            (click)="choose(setting, option.value)"
+          >
+            {{ option.label }}
+          </button>
+          }
+        </div>
+        }
+      </div>
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+
+<p class="muted small">
+  A new setting is added to APP_SETTINGS in libs/contracts and shows up here on
+  its own (docs/guides/ai-tools.md).
+</p>

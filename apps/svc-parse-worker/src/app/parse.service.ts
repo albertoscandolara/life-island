@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   enqueueEvent,
+  readBooleanSetting,
   withTransaction,
   type ObjectStorage,
   type ServiceDb,
@@ -62,6 +63,9 @@ import {
 import { reviewReasons } from './review-readiness.js';
 import { TransactionLinker } from './transaction-linking.js';
 import { alignDetails, buildExtractionPlan } from './templates.js';
+
+/** The setting of auto-approving suggested categories (APP_SETTINGS, libs/contracts). */
+const AUTO_APPROVE_SETTING = 'documents.auto-approve-categories';
 
 /** Minutes to wait before attempt n+1: 1, 4, 16, 64... capped at one day. */
 export function backoffMinutes(attempts: number): number {
@@ -507,7 +511,7 @@ export class ParseService {
    * Stores the suggestions with the step, in one transaction. A suggestion
    * already pending under the same id gets this document added to it, so
    * neither a resumed step nor two similar documents create duplicates. With
-   * CATEGORY_AUTO_APPROVE the category is saved and assigned at once.
+   * auto-approval on (Settings, else CATEGORY_AUTO_APPROVE) the category is saved and assigned at once.
    */
   private async saveDiscovery(
     progress: Progress,
@@ -521,8 +525,15 @@ export class ParseService {
       runs,
       { completedSteps: this.withStep(progress, 'DISCOVER') },
       async (client) => {
+        // Settings decides once you set it there; until then, .env does.
+        const autoApprove = await readBooleanSetting(
+          client,
+          this.svc.schema,
+          AUTO_APPROVE_SETTING,
+          this.config.autoApproveCategories,
+        );
         for (const suggestion of suggestions) {
-          if (this.config.autoApproveCategories) {
+          if (autoApprove) {
             const inserted = await client.query(
               `insert into ingestion.document_categories
                  (id, title, description, template_json, parent_id, dimension)
