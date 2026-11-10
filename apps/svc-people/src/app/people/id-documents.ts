@@ -406,12 +406,14 @@ export function expiryAlerts(
     versions: Version<ApprovedDocument>[];
   }[],
   today: string,
+  /** Days before expiry the warning starts, per type (Settings → Reminders). */
+  windows: Readonly<Record<IdDocumentType, number>> = EXPIRY_WARNING_DAYS,
 ): ExpiryAlertDto[] {
   const alerts: ExpiryAlertDto[] = [];
   for (const { type, versions } of series) {
     const latest = versions[0];
     if (!latest || !['current', 'expired'].includes(latest.status)) continue;
-    const window = type ? EXPIRY_WARNING_DAYS[type] : 90;
+    const window = type ? windows[type] : 90;
     const warn = (expiryDate: string, category: string | null) => {
       const daysLeft = daysUntil(expiryDate, today);
       if (daysLeft > window) return;
@@ -492,6 +494,7 @@ export function licenceSummary(
     versions: Version<ApprovedDocument>[];
   }[],
   today: string,
+  windows: Readonly<Record<IdDocumentType, number>> = EXPIRY_WARNING_DAYS,
 ): PersonLicenceDto | null {
   const latest = series.find((s) => s.type === 'DRIVING_LICENCE')?.versions[0];
   if (!latest) return null;
@@ -503,7 +506,7 @@ export function licenceSummary(
     ? 'unusable'
     : daysLeft !== null && daysLeft < 0
       ? 'expired'
-      : daysLeft !== null && daysLeft <= EXPIRY_WARNING_DAYS.DRIVING_LICENCE
+      : daysLeft !== null && daysLeft <= windows.DRIVING_LICENCE
         ? 'expiring'
         : 'valid';
   return {

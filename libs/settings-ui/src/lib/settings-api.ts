@@ -10,10 +10,12 @@ import {
 import { rxResource } from '@angular/core/rxjs-interop';
 import {
   AI_ENABLED_SETTING,
+  aiModelSettingKey,
   aiTool,
   estimatedCostUsd,
   type AiToolDefinition,
   type AiToolDto,
+  type AppSettingValue,
   type SettingsOverviewDto,
 } from '@life-island/contracts';
 import { firstValueFrom } from 'rxjs';
@@ -29,6 +31,14 @@ export const AI_TOOLS_SETTINGS_URL = new InjectionToken<string>(
   'AI_TOOLS_SETTINGS_URL',
   { factory: () => '/settings/ai-tools' },
 );
+
+/** The link to one tool in Settings → AI tools, where it is shown highlighted. */
+export function aiToolSettingsLink(
+  settingsUrl: string,
+  toolId: string,
+): string {
+  return `${settingsUrl}?tool=${encodeURIComponent(toolId)}`;
+}
 
 /** The documents app, where the document AI tools live (the shell's `documentsUrl`). */
 export const DOCUMENTS_APP_URL = new InjectionToken<string>(
@@ -78,9 +88,11 @@ export class SettingsApi {
         ? 'no API key'
         : !overview?.aiEnabled
           ? 'all AI off'
-          : !state.enabled
-            ? 'off'
-            : null;
+          : overview.budget.blocking
+            ? 'budget reached'
+            : !state.enabled
+              ? 'off'
+              : null;
     return {
       definition,
       state,
@@ -103,7 +115,43 @@ export class SettingsApi {
     );
   }
 
-  async setSetting(key: string, value: boolean | string): Promise<void> {
+  /** The model of a tool, for all its steps; null gives the choice back to its service. */
+  async setModel(id: string, model: string | null): Promise<void> {
+    await (model === null
+      ? this.resetSetting(aiModelSettingKey(id))
+      : this.setSetting(aiModelSettingKey(id), model));
+  }
+
+  /** Back to the default (a tool's switch or model included). */
+  async resetSetting(key: string): Promise<void> {
+    await this.save(
+      this.http.delete<void>(
+        `${SETTINGS_API}/settings/${encodeURIComponent(key)}`,
+      ),
+    );
+  }
+
+  /** Every value set on the server, for a backup file. */
+  exportValues(): Promise<Record<string, AppSettingValue>> {
+    return firstValueFrom(
+      this.http.get<Record<string, AppSettingValue>>(
+        `${SETTINGS_API}/settings`,
+      ),
+    );
+  }
+
+  /** Sets many values at once (null resets one); all or nothing. */
+  async importValues(
+    values: Record<string, AppSettingValue | null>,
+  ): Promise<void> {
+    await this.save(
+      this.http.put<{ imported: number }>(`${SETTINGS_API}/settings`, {
+        values,
+      }),
+    );
+  }
+
+  async setSetting(key: string, value: AppSettingValue): Promise<void> {
     await this.save(
       this.http.put<void>(
         `${SETTINGS_API}/settings/${encodeURIComponent(key)}`,
@@ -118,7 +166,9 @@ export class SettingsApi {
     return this.setSetting(AI_ENABLED_SETTING, enabled);
   }
 
-  private async save(request: ReturnType<HttpClient['put']>): Promise<void> {
+  private async save(
+    request: ReturnType<HttpClient['put']> | ReturnType<HttpClient['delete']>,
+  ): Promise<void> {
     this.saving.update((n) => n + 1);
     try {
       await firstValueFrom(request);

@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import {
+  aiToolModel,
   isAiToolEnabled,
   recordAiToolUse,
   type ServiceDb,
@@ -62,6 +63,8 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     private readonly ai: DocumentAnalyzer,
     private readonly offline: DocumentAnalyzer,
     private readonly svc: ServiceDb,
+    /** The AI analyzer on the model you picked for a tool in Settings. */
+    private readonly aiOn?: (toolId: string, model: string) => DocumentAnalyzer,
   ) {
     this.name = ai.name;
   }
@@ -88,8 +91,12 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     const toolId = METHOD_TOOLS[method];
     if (!(await isAiToolEnabled(this.svc.pool, this.svc.schema, toolId)))
       return call(this.offline);
+    const model = this.aiOn
+      ? await aiToolModel(this.svc.pool, this.svc.schema, toolId)
+      : null;
+    const ai = model && this.aiOn ? this.aiOn(toolId, model) : this.ai;
     try {
-      const output = await call(this.ai);
+      const output = await call(ai);
       await this.record(toolId, output.runs);
       return output;
     } catch (error) {

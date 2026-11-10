@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { ServiceDb } from '@life-island/be-common';
+import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
 import {
   identifiesSomeone,
   PERSON_FIELDS,
@@ -23,6 +23,9 @@ import {
   type RelationDto,
   type SetRelationRequest,
   type UpdatePersonRequest,
+  EXPIRY_WARNING_DAYS,
+  ID_DOCUMENT_TYPES,
+  idReminderSettingKey,
 } from '@life-island/contracts';
 import { and, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -115,12 +118,31 @@ function valuesOf(row: PersonRow): PersonValues {
 export class PeopleService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
+  /**
+   * How many days before expiry each type of ID document warns: Settings →
+   * Reminders, from this service's replica; the defaults if it cannot be read.
+   */
+  private async warningWindows(): Promise<Record<IdDocumentType, number>> {
+    try {
+      return await readNumberSettings(
+        this.svc.pool,
+        this.svc.schema,
+        Object.fromEntries(
+          ID_DOCUMENT_TYPES.map((type) => [type, idReminderSettingKey(type)]),
+        ) as Record<IdDocumentType, string>,
+      );
+    } catch {
+      return { ...EXPIRY_WARNING_DAYS };
+    }
+  }
+
   async overview(today = todayIso()): Promise<PeopleOverviewDto> {
-    const [docs, people, decided, pairs] = await Promise.all([
+    const [docs, people, decided, pairs, windows] = await Promise.all([
       this.idDocuments(),
       this.svc.db.select().from(persons),
       this.svc.db.select().from(reviews),
       this.svc.db.select().from(relations),
+      this.warningWindows(),
     ]);
     const reviewOf = new Map(decided.map((r) => [r.uploadId, r]));
     const approvedOf = new Map<string, ApprovedIdDocument[]>();
@@ -170,7 +192,7 @@ export class PeopleService {
               details: d.doc.reading.details,
             })),
           })),
-          alerts: expiryAlerts(person, series, today),
+          alerts: expiryAlerts(person, series, today, windows),
           taxCodeCheck: checkTaxCode(person),
           age: ageOn(person.birthDate, today),
           relations: pairs.flatMap((row) => relationOf(row, person.id) ?? []),
@@ -246,7 +268,10 @@ export class PeopleService {
 
   /** Everyone in short, with their driving licence, for the Houses and Cars areas. */
   async summaries(today = todayIso()): Promise<PersonSummaryDto[]> {
-    const { people } = await this.overview(today);
+    const [{ people }, windows] = await Promise.all([
+      this.overview(today),
+      this.warningWindows(),
+    ]);
     return people.map((p) => ({
       id: p.id,
       lastName: p.lastName,
@@ -272,6 +297,7 @@ export class PeopleService {
           })),
         })),
         today,
+        windows,
       ),
     }));
   }

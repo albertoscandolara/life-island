@@ -204,3 +204,226 @@
     transition: none;
   }
 }
+
+/* The tabs and the search box, on one row when there is room. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.toolbar .tabs {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+.tab__hits {
+  min-inline-size: 1.5rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.search {
+  display: inline-flex;
+  flex: 0 1 18rem;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.search input {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.setting__control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.number {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.number__input {
+  inline-size: 6rem;
+}
+
+.time-input {
+  inline-size: 8rem;
+}
+
+.areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  max-inline-size: 32rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.area {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.area input,
+.select {
+  accent-color: var(--accent);
+}
+
+.backup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  background: var(--surface-hover);
+}
+
+.file-button:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
+.pending {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.pending p {
+  margin: 0;
+}
+
+/* AI tools: the budget, the months, the model of each tool. */
+.budget__row {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.budget__meter {
+  margin-top: var(--space-4);
+}
+
+.budget__meter p {
+  margin: 0 0 var(--space-2);
+}
+
+.meter--warning {
+  --accent-gradient: var(--tone-warning);
+}
+
+.months,
+.month__tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.month {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.month:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.month__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.month__tool {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.month__bar {
+  display: block;
+  block-size: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.month__bar span {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-full);
+  background: var(--ai-accent);
+}
+
+.model {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.select {
+  max-inline-size: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tool {
+  scroll-margin-block: var(--space-12);
+}
+
+.tool--focus {
+  margin-inline: calc(var(--space-3) * -1);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--ai-soft);
+  box-shadow: 0 0 0 1px var(--ai-border);
+}

@@ -5,11 +5,22 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import type { ServiceDb } from '@life-island/be-common';
+import { readSettings, type ServiceDb } from '@life-island/be-common';
+import {
+  READ_ON_START_SETTING,
+  READING_TIME_SETTING,
+  SCHEDULED_READING_SETTING,
+  validSettingValue,
+} from '@life-island/contracts';
 import { Cron } from 'croner';
 import type pg from 'pg';
 import { PARSE_QUEUE_ID } from '@life-island/ingestion-db';
-import { CONFIG, SERVICE_DB, type WorkerConfig } from './config.js';
+import {
+  CONFIG,
+  scheduleToCron,
+  SERVICE_DB,
+  type WorkerConfig,
+} from './config.js';
 import { ParseService } from './parse.service.js';
 
 /**
@@ -27,6 +38,40 @@ function requestedSinceLastRun(queue: {
     !!queue.runRequestedAt &&
     (!queue.runStartedAt || queue.runRequestedAt > queue.runStartedAt)
   );
+}
+
+/** The daily reading as Settings has it, else as .env has it. */
+export interface ReadingSchedule {
+  /** null: no daily run (Settings → Documents → Read documents every day is off). */
+  cron: string | null;
+  runOnStart: boolean;
+}
+
+/**
+ * Settings (documents.scheduled-reading, documents.reading-time,
+ * documents.read-on-start) win over PARSE_SCHEDULE and PARSE_RUN_ON_START
+ * once you set them; a value Settings never set leaves the .env one.
+ */
+export function readingSchedule(
+  config: Pick<WorkerConfig, 'schedule' | 'runOnStart'>,
+  stored: ReadonlyMap<string, unknown>,
+): ReadingSchedule {
+  const value = (key: string) => {
+    const v = stored.get(key);
+    return validSettingValue(key, v) ? v : undefined;
+  };
+  const daily = value(SCHEDULED_READING_SETTING);
+  const time = value(READING_TIME_SETTING);
+  const onStart = value(READ_ON_START_SETTING);
+  return {
+    cron:
+      daily === false
+        ? null
+        : typeof time === 'string'
+          ? scheduleToCron(time)
+          : config.schedule,
+    runOnStart: typeof onStart === 'boolean' ? onStart : config.runOnStart,
+  };
 }
 
 /** setTimeout cannot wait longer than ~24.8 days; longer waits re-check on wake. */
@@ -55,6 +100,8 @@ export class ParseScheduler
   private requestPoll?: NodeJS.Timeout;
   /** How often to look for a missed Parse now request (tests shorten it). */
   pollMs = REQUEST_POLL_MS;
+  /** The daily schedule running now; undefined before the first read. */
+  private cron?: string | null;
 
   constructor(
     @Inject(ParseService) private readonly parse: ParseService,
@@ -63,25 +110,56 @@ export class ParseScheduler
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    this.job = new Cron(
-      this.config.schedule,
-      { name: 'parse', protect: true, timezone: this.config.timezone },
-      () => this.trigger('schedule'),
-    );
-    const next = this.job.nextRun();
-    await this.parse.queue.setNextScheduledRun(next);
-    this.logger.log(
-      `Parsing on "${this.config.schedule}"${this.config.timezone ? ` (${this.config.timezone})` : ''}, next run ${next?.toISOString()}`,
-    );
+    const schedule = await this.readSchedule();
+    await this.applySchedule(schedule.cron);
     await this.listen();
     await this.beat();
     this.pollRequests();
-    if (this.config.runOnStart) void this.trigger('startup');
+    if (schedule.runOnStart) void this.trigger('startup');
     else if (await this.parse.queue.wasInterrupted())
       void this.trigger('recovery after restart');
     else if (await this.runRequestedSinceLastRun())
       void this.trigger('parse now (requested while stopped)');
     else await this.scheduleWake();
+  }
+
+  /** The schedule from this worker's settings replica; .env alone if it cannot be read. */
+  private async readSchedule(): Promise<ReadingSchedule> {
+    let stored: ReadonlyMap<string, unknown> = new Map();
+    try {
+      stored = await readSettings(this.svc.pool, this.svc.schema, [
+        SCHEDULED_READING_SETTING,
+        READING_TIME_SETTING,
+        READ_ON_START_SETTING,
+      ]);
+    } catch (error) {
+      this.logger.warn(`Could not read the reading schedule: ${String(error)}`);
+    }
+    return readingSchedule(this.config, stored);
+  }
+
+  /**
+   * Starts (or stops, for null) the daily run when its schedule changed: a
+   * change in Settings takes effect within a poll, without a restart.
+   */
+  private async applySchedule(cron: string | null): Promise<void> {
+    if (cron === this.cron) return;
+    this.job?.stop();
+    this.job = cron
+      ? new Cron(
+          cron,
+          { name: 'parse', protect: true, timezone: this.config.timezone },
+          () => this.trigger('schedule'),
+        )
+      : undefined;
+    this.cron = cron;
+    const next = this.job?.nextRun() ?? null;
+    await this.parse.queue.setNextScheduledRun(next);
+    this.logger.log(
+      cron
+        ? `Parsing on "${cron}"${this.config.timezone ? ` (${this.config.timezone})` : ''}, next run ${next?.toISOString()}`
+        : 'No daily reading (turned off in Settings): documents are read when you press Parse now',
+    );
   }
 
   /**
@@ -117,6 +195,11 @@ export class ParseScheduler
     if (this.stopping) return;
     this.requestPoll = setTimeout(async () => {
       await this.beat();
+      try {
+        await this.applySchedule((await this.readSchedule()).cron);
+      } catch (error) {
+        this.logger.warn(`Could not update the schedule: ${String(error)}`);
+      }
       try {
         const queue = this.current ? null : await this.parse.queue.get();
         if (

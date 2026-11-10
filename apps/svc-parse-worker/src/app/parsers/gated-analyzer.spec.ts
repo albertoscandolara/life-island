@@ -34,7 +34,9 @@ function fakeDb(replica: Record<string, unknown>) {
   }[] = [];
   const query = vi.fn(async (sql: string, params: unknown[] = []) => {
     if (sql.includes('settings_replica')) {
-      const keys = params[0] as string[];
+      const keys = (
+        Array.isArray(params[0]) ? params[0] : [params[0]]
+      ) as string[];
       return {
         rows: keys
           .filter((key) => key in replica)
@@ -128,5 +130,28 @@ describe('GatedAnalyzer', () => {
       toolId: 'documents.transactions',
       outcome: 'error',
     });
+  });
+
+  it('uses the model picked in Settings for that tool only', async () => {
+    const ai = analyzer('claude', [run]);
+    const onOpus = analyzer('opus', [run]);
+    const aiOn = vi.fn(() => onOpus);
+    const { svc } = fakeDb({
+      'ai-model.documents.classify': 'claude-opus-5-5',
+    });
+    const gated = new GatedAnalyzer(ai, analyzer('offline'), svc, aiOn);
+
+    expect((await gated.classify(input, [])).result).toEqual({ by: 'opus' });
+    expect(aiOn).toHaveBeenCalledWith('documents.classify', 'claude-opus-5-5');
+    // Extract has no model picked: the env one.
+    const plan = {} as Parameters<DocumentAnalyzer['extract']>[1];
+    expect((await gated.extract(input, plan)).result).toEqual({ by: 'claude' });
+  });
+
+  it('runs offline while the monthly budget stops AI', async () => {
+    const ai = analyzer('claude', [run]);
+    const { svc } = fakeDb({ 'ai.budget-reached': true });
+    const gated = new GatedAnalyzer(ai, analyzer('offline'), svc);
+    expect((await gated.classify(input, [])).result).toEqual({ by: 'offline' });
   });
 });

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   describeAiTools,
+  aiToolModel,
   isAiToolEnabled,
   recordAiToolUse,
   stepUsage,
@@ -177,11 +178,15 @@ export class QuoteAdvisor implements OnApplicationBootstrap {
     });
     content.push({ type: 'text', text: COMPARE_REQUEST });
 
+    // The model you picked in Settings, else CARS_AI_MODEL.
+    const model =
+      (await aiToolModel(this.svc.pool, this.svc.schema, QUOTES_TOOL)) ??
+      this.config.aiModel;
     const steps: AiStepUsage[] = [];
     try {
       const started = Date.now();
       const message = await this.client.messages.create({
-        model: this.config.aiModel,
+        model,
         max_tokens: 16000,
         output_config: {
           effort: 'medium',
@@ -212,7 +217,9 @@ export class QuoteAdvisor implements OnApplicationBootstrap {
     } catch (error) {
       await this.record(steps, error);
       this.logger.error(`Quote comparison failed: ${String(error)}`);
-      throw new ServiceUnavailableException(explain(error, this.config));
+      throw new ServiceUnavailableException(
+        explain(error, { ...this.config, aiModel: model }),
+      );
     }
   }
 }

@@ -1,4 +1,10 @@
 import {
+  aiModelSettingKey,
+  appSetting,
+  carReminderSettingKey,
+  idReminderSettingKey,
+  settingsFileSchema,
+  validSettingValue,
   AI_TOOL_MODULES,
   AI_TOOLS,
   aiToolSettingKey,
@@ -126,5 +132,57 @@ describe('settings keys', () => {
   it('keeps setting keys unique', () => {
     const keys = APP_SETTINGS.map((s) => s.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('settings you added later', () => {
+  it('accepts a model per AI tool, only among its choices', () => {
+    const key = aiModelSettingKey('documents.classify');
+    expect(isKnownSettingKey(key)).toBe(true);
+    expect(invalidSettingValue(key, 'claude-opus-5-5')).toBeNull();
+    expect(invalidSettingValue(key, 'gpt-something')).toMatch(/one of/);
+    expect(
+      invalidSettingValue(
+        aiModelSettingKey('work.market-check'),
+        'claude-haiku-5-5',
+      ),
+    ).toMatch(/one of/);
+  });
+
+  it('checks numbers and times against their bounds', () => {
+    expect(invalidSettingValue('ai.monthly-budget-usd', 25)).toBeNull();
+    expect(invalidSettingValue('ai.monthly-budget-usd', -1)).toMatch(
+      /whole number/,
+    );
+    expect(invalidSettingValue('ai.monthly-budget-usd', 2.5)).toMatch(
+      /whole number/,
+    );
+    expect(invalidSettingValue('documents.reading-time', '07:30')).toBeNull();
+    expect(invalidSettingValue('documents.reading-time', '25:00')).toMatch(
+      /HH:MM/,
+    );
+  });
+
+  it('has a reminder per ID document and car renewal, with the old windows as defaults', () => {
+    expect(appSetting(idReminderSettingKey('PASSPORT'))?.default).toBe(180);
+    expect(appSetting(carReminderSettingKey('inspection'))?.default).toBe(60);
+    expect(appSetting(carReminderSettingKey('fine'))).toBeUndefined();
+  });
+
+  it('never lets you set the budget state Settings keeps itself', () => {
+    expect(isKnownSettingKey('ai.budget-reached')).toBe(false);
+    expect(validSettingValue('ai.budget-reached', true)).toBe(false);
+  });
+
+  it('reads an exported settings file', () => {
+    expect(
+      settingsFileSchema.safeParse({
+        format: 'life-island-settings',
+        version: 1,
+        exportedAt: '2026-11-10T21:00:00Z',
+        server: { 'ai.enabled': false, 'ai.monthly-budget-usd': 5 },
+        browser: { 'appearance.theme': 'dark' },
+      }).success,
+    ).toBe(true);
   });
 });

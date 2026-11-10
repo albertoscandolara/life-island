@@ -4,6 +4,7 @@
   "peerDependencies": {
     "@angular/common": "^22.2.0",
     "@angular/core": "^22.2.0",
+    "@angular/router": "^22.2.0",
     "@life-island/contracts": "*",
     "rxjs": "~7.8.0"
   },

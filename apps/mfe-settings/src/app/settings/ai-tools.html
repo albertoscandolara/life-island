@@ -14,8 +14,7 @@
 </ui-alert>
 } @if (error(); as message) {
 <ui-alert tone="danger" class="block">{{ message }}</ui-alert>
-}
-
+} @if (!searching()) {
 <ui-card class="block summary">
   <div class="summary__row">
     <div>
@@ -59,8 +58,117 @@
   </p>
   } }
 </ui-card>
+} @if (!searching()) { @if (budget(); as b) { @if (b.blocking) {
+<ui-alert tone="danger" class="block">
+  The {{ monthName(b.month) }} budget of {{ usd(b.limitUsd ?? 0) }} is used up:
+  every AI tool works with Life Island's own rules until next month. Raise the
+  budget or turn off "Turn AI off at the budget" below to use AI again.
+</ui-alert>
+} @else if (b.reached) {
+<ui-alert tone="warning" class="block">
+  {{ monthName(b.month) }} has used up its budget of {{ usd(b.limitUsd ?? 0) }}.
+  AI keeps working, because "Turn AI off at the budget" is off.
+</ui-alert>
+} @else if (b.warning) {
+<ui-alert tone="warning" class="block">
+  {{ monthName(b.month) }} has used {{ usd(b.spentUsd) }} of its {{
+  usd(b.limitUsd ?? 0) }} budget, 80% or more.
+</ui-alert>
+} }
 
-@for (module of modules; track module.id) {
+<ui-card heading="Monthly budget" class="block">
+  <div class="summary__row">
+    <div>
+      <label class="setting__label" for="budget">Budget per month</label>
+      <p class="muted">
+        What AI may cost in a calendar month. Settings warns at 80%. 0 means no
+        budget.
+      </p>
+    </div>
+    <span class="number">
+      <span class="muted small">$</span>
+      <input
+        id="budget"
+        uiInput
+        type="number"
+        class="number__input"
+        inputmode="numeric"
+        min="0"
+        [max]="budgetMax"
+        step="1"
+        [value]="budget()?.limitUsd ?? 0"
+        [disabled]="!api.overview.hasValue() || api.busy()"
+        (change)="setBudget($any($event.target))"
+      />
+    </span>
+  </div>
+  <div class="summary__row budget__row">
+    <div>
+      <span class="setting__label" id="budget-stop"
+        >Turn AI off at the budget</span
+      >
+      <p class="muted">
+        Once the month reaches the budget, every tool works with its own rules
+        until the next month.
+      </p>
+    </div>
+    <label class="switch">
+      <input
+        type="checkbox"
+        role="switch"
+        aria-labelledby="budget-stop"
+        [checked]="budget()?.stopAtLimit ?? false"
+        [disabled]="!api.overview.hasValue() || api.busy() || !budget()?.limitUsd"
+        (change)="setBudgetStop($any($event.target).checked)"
+      />
+      <span>{{ budget()?.stopAtLimit ? 'On' : 'Off' }}</span>
+    </label>
+  </div>
+  @if (budget(); as b) {
+  <div class="budget__meter">
+    <p class="small">
+      <strong>{{ monthName(b.month) }}:</strong> {{ usd(b.spentUsd) }} @if
+      (b.limitUsd) { of {{ usd(b.limitUsd) }} }
+    </p>
+    @if (budgetShare() !== null) {
+    <ui-progress-bar
+      [value]="budgetShare()"
+      [label]="'Share of the ' + monthName(b.month) + ' budget spent'"
+      [class.meter--warning]="b.warning"
+    />
+    }
+  </div>
+  }
+</ui-card>
+
+@if (spending().length) {
+<ui-card heading="Spending by month" class="block">
+  <ul class="months">
+    @for (month of spending(); track month.month) {
+    <li class="month">
+      <div class="month__head">
+        <span class="setting__label">{{ monthName(month.month) }}</span>
+        <span>{{ usd(month.totalUsd) }}</span>
+        <span class="muted small">{{ month.uses }} uses</span>
+      </div>
+      <ul class="month__tools">
+        @for (tool of monthTools(month); track tool.name) {
+        <li class="month__tool">
+          <span class="small">{{ tool.name }}</span>
+          <span class="month__bar" aria-hidden="true"
+            ><span [style.inline-size.%]="tool.share"></span
+          ></span>
+          <span class="small">{{ usd(tool.cost) }}</span>
+        </li>
+        }
+      </ul>
+    </li>
+    }
+  </ul>
+</ui-card>
+} } @else if (!modules().length) {
+<p class="muted block">No AI tool matches your search. Try App settings too.</p>
+} @for (module of modules(); track module.id) {
 <ui-card
   [heading]="module.emblem + ' ' + module.name"
   class="block"
@@ -68,9 +176,17 @@
 >
   <ul class="tools">
     @for (tool of module.tools; track tool.id) {
-    <li class="tool" [class.tool--off]="!view(tool.id)?.active">
+    <li
+      class="tool"
+      [id]="anchor(tool.id)"
+      [class.tool--off]="!view(tool.id)?.active"
+      [class.tool--focus]="focused() === tool.id"
+    >
       <div class="tool__text">
         <span class="tool__name">{{ tool.name }}</span>
+        @if (view(tool.id)?.state?.customized) {
+        <ui-badge tone="info">changed</ui-badge>
+        }
         <p class="muted">{{ tool.description }}</p>
         <p class="muted small">
           {{ models(tool) }} · @if (where(tool); as w) { @if (w.route) {
@@ -88,8 +204,42 @@
           <ui-badge tone="neutral">while off</ui-badge> {{ tool.whenOff }}
         </p>
         }
+        <div class="model">
+          <label class="small" [for]="'model-' + anchor(tool.id)">Model</label>
+          <select
+            class="select"
+            [id]="'model-' + anchor(tool.id)"
+            [disabled]="!view(tool.id)?.state || api.busy()"
+            (change)="setModel(tool, $any($event.target).value)"
+          >
+            <option value="" [selected]="!view(tool.id)?.state?.modelOverride">
+              Its service's default ({{ defaultModels(tool) }})
+            </option>
+            @for (option of modelOptions(tool); track option.model) {
+            <option
+              [value]="option.model"
+              [selected]="view(tool.id)?.state?.modelOverride === option.model"
+            >
+              {{ option.label }}
+            </option>
+            }
+          </select>
+          @if (view(tool.id)?.state?.customized) {
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [disabled]="api.busy()"
+            [attr.aria-label]="'Reset ' + tool.name + ' to its defaults'"
+            (click)="resetTool(tool)"
+          >
+            <ui-icon name="refresh" [size]="14" /> Defaults
+          </button>
+          }
+        </div>
       </div>
-      <li-ai-tool [toolId]="tool.id" />
+      <li-ai-tool [toolId]="tool.id" [settingsLink]="false" />
     </li>
     }
   </ul>
@@ -99,6 +249,7 @@
 <p class="muted small">
   Costs per use are estimates from typical requests at the Claude API list
   prices until a tool has been used; then they are the average of its real uses.
-  A new AI tool is added to AI_TOOLS in libs/contracts and shows up here and
-  next to the tool on its own (docs/guides/ai-tools.md).
+  A cheaper model costs less but may read or write less well; Haiku cannot
+  search the web. A new AI tool is added to AI_TOOLS in libs/contracts and shows
+  up here and next to the tool on its own (docs/guides/ai-tools.md).
 </p>
