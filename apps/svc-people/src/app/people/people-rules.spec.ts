@@ -8,12 +8,7 @@ import {
   readIdDocument,
   type NoticeDocument,
 } from './id-documents.js';
-import {
-  historyOf,
-  relationOf,
-  residenceTown,
-  storedRelation,
-} from './people.service.js';
+import { relationOf, storedRelation } from './people.service.js';
 import {
   checkCharacter,
   checkTaxCode,
@@ -244,68 +239,5 @@ describe('relations', () => {
       personId: 'a',
       kind: 'partner',
     });
-  });
-});
-
-describe('residenceTown', () => {
-  it('takes the town of a typed address', () => {
-    expect(residenceTown('Via Roma 1, 37039 Tregnago (VR)')).toBe('Tregnago');
-    expect(residenceTown('Verona')).toBe('Verona');
-    expect(residenceTown(null)).toBeNull();
-  });
-});
-
-describe('historyOf', () => {
-  it('lists documents and edits, newest first, with what changed', () => {
-    const history = historyOf(
-      { id: 'p', createdAt: new Date('2026-01-01') },
-      [
-        {
-          uploadId: 'u1',
-          status: 'approved',
-          personId: 'p',
-          createdPerson: true,
-          changes: [
-            {
-              field: 'lastName',
-              previous: null,
-              proposed: 'ROSSI',
-              decision: 'accepted',
-            },
-            {
-              field: 'sex',
-              previous: null,
-              proposed: 'M',
-              decision: 'kept_current',
-            },
-          ],
-          markedStatus: null,
-          decidedAt: new Date('2026-01-01T10:00:00Z'),
-        },
-        {
-          uploadId: 'u2',
-          status: 'rejected',
-          personId: null,
-          createdPerson: false,
-          changes: [],
-          markedStatus: null,
-          decidedAt: new Date('2026-02-01T10:00:00Z'),
-        },
-      ],
-      [
-        {
-          id: 'e1',
-          personId: 'p',
-          kind: 'edit',
-          changes: [{ field: 'residenceAddress', previous: null, value: 'X' }],
-          at: new Date('2026-03-01T10:00:00Z'),
-        },
-      ],
-      new Map(),
-    );
-    expect(history.map((h) => [h.kind, h.changes.length])).toEqual([
-      ['edit', 1],
-      ['created', 1],
-    ]);
   });
 });

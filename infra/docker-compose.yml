@@ -190,8 +190,6 @@ services:
       INGESTION_URL: http://svc-ingestion:3000
       # Residence can point to a house, read from svc-home's API.
       HOME_URL: http://svc-home:3000
-      # The renewal guide uses the Claude API when the key is set; without, its own checklist.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
   svc-cars:

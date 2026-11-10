@@ -10,11 +10,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import type {
-  IdDocumentType,
-  PersonField,
-  RenewalGuideOutput,
-} from '@life-island/contracts';
+import type { PersonField } from '@life-island/contracts';
 
 export const people = pgSchema('people');
 
@@ -128,31 +124,6 @@ export const reviews = people.table(
 
 export type ReviewRow = typeof reviews.$inferSelect;
 
-/** One field of a person you changed by hand or through a merge. */
-export interface EditedField {
-  field: PersonField;
-  previous: string | null;
-  value: string | null;
-}
-
-/**
- * The changes to a person that do not come from a document: your edits and
- * merges. With the approved reviews, they are the person's history.
- */
-export const personEdits = people.table(
-  'person_edits',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    personId: uuid('person_id')
-      .notNull()
-      .references(() => persons.id, { onDelete: 'cascade' }),
-    kind: text('kind').$type<'edit' | 'merge'>().notNull(),
-    changes: jsonb('changes').$type<EditedField[]>().notNull().default([]),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index('person_edits_person_idx').on(table.personId)],
-);
-
 /**
  * How two people are related, stored once per pair: `parent` means
  * `person_id` is the parent of `related_id`; partner, sibling and other read
@@ -181,29 +152,3 @@ export const relations = people.table(
 );
 
 export type RelationRow = typeof relations.$inferSelect;
-
-/** The renewal guides Claude wrote (AI tool people.renewal-guide). */
-export const renewalGuides = people.table(
-  'renewal_guides',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    personId: uuid('person_id')
-      .notNull()
-      .references(() => persons.id, { onDelete: 'cascade' }),
-    type: text('type').$type<IdDocumentType>().notNull(),
-    town: text('town').notNull(),
-    output: jsonb('output').$type<RenewalGuideOutput>().notNull(),
-    model: text('model').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index('renewal_guides_person_idx').on(table.personId)],
-);
-
-/** svc-people's copy of the settings it reads (settings.changed@1). */
-export const settingsReplica = people.table('settings_replica', {
-  key: text('key').primaryKey(),
-  value: jsonb('value').notNull(),
-  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
-});

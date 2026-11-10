@@ -15,12 +15,10 @@ import {
   approveReviewRequestSchema,
   markDocumentRequestSchema,
   mergePeopleRequestSchema,
-  renewalGuideRequestSchema,
   setRelationRequestSchema,
   updatePersonRequestSchema,
   type PeopleAttentionDto,
   type PeopleOverviewDto,
-  type RenewalGuideDto,
   type PersonSummaryDto,
   type ResidenceHousesDto,
 } from '@life-island/contracts';
@@ -110,27 +108,6 @@ export class PeopleController {
     @Param('otherId', ParseUUIDPipe) otherId: string,
   ): Promise<void> {
     return this.people.removeRelation(id, otherId);
-  }
-
-  /** Writes a renewal guide with Claude (AI tool people.renewal-guide). */
-  @Post('people/:id/renewal-guides')
-  renewalGuide(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: unknown,
-  ): Promise<RenewalGuideDto> {
-    return this.people.renewalGuide(
-      id,
-      parseOrThrow(renewalGuideRequestSchema, body),
-    );
-  }
-
-  @Delete('people/:id/renewal-guides/:guideId')
-  @HttpCode(204)
-  removeGuide(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('guideId', ParseUUIDPipe) guideId: string,
-  ): Promise<void> {
-    return this.people.removeGuide(id, guideId);
   }
 
   @Post('reviews/:uploadId/approve')

@@ -251,21 +251,6 @@ export interface PersonNoticeDto {
   text: string;
 }
 
-/** One change in a person's history: a document filed, an edit, a merge. */
-export interface PersonHistoryEntryDto {
-  at: string;
-  kind: 'created' | 'document' | 'edit' | 'merge';
-  /** The document it came from, for `created` and `document`. */
-  uploadId: string | null;
-  title: string | null;
-  type: IdDocumentType | null;
-  changes: {
-    field: PersonField;
-    previous: string | null;
-    value: string | null;
-  }[];
-}
-
 export interface PersonDto extends PersonValues {
   id: string;
   /**
@@ -284,10 +269,6 @@ export interface PersonDto extends PersonValues {
   /** The person this one is a fiscal dependent of (familiare a carico), for the 730. */
   taxDependentOf: string | null;
   notices: PersonNoticeDto[];
-  /** Newest first. */
-  history: PersonHistoryEntryDto[];
-  /** The renewal guides written for this person, newest first. */
-  guides: RenewalGuideDto[];
 }
 
 export type ChangeKind = 'new_value' | 'different_value';
@@ -338,8 +319,6 @@ export interface PeopleOverviewDto {
   reviews: PendingReviewDto[];
   alerts: ExpiryAlertDto[];
   rejected: RejectedDocumentDto[];
-  /** Whether the renewal guide calls Claude now (a key, and its switch on in Settings). */
-  aiRenewalGuide: boolean;
 }
 
 /** What the island hub shows on the People card: what needs you. */
@@ -411,49 +390,6 @@ export interface PersonSummaryDto {
   taxDependentOf: string | null;
   /** Their latest driving licence; null when they have none on file. */
   drivingLicence: PersonLicenceDto | null;
-}
-
-// ---------------------------------------------------------------------------
-// The renewal guide (AI tool people.renewal-guide)
-// ---------------------------------------------------------------------------
-
-export const renewalGuideRequestSchema = z.object({
-  type: z.enum(ID_DOCUMENT_TYPES),
-  /** The town to renew it in; the person's residence by default. */
-  town: z.string().trim().max(120).nullable().optional(),
-});
-export type RenewalGuideRequest = z.input<typeof renewalGuideRequestSchema>;
-
-/** What Claude writes for one renewal, from its web search (structured output). */
-export const renewalGuideOutputSchema = z.object({
-  summary: z.string(),
-  office: z.object({
-    name: z.string(),
-    address: z.string().nullable(),
-    bookingUrl: z.string().nullable(),
-  }),
-  steps: z.array(z.object({ title: z.string(), detail: z.string() })),
-  bring: z.array(z.string()),
-  costs: z.array(
-    z.object({
-      label: z.string(),
-      amountEur: z.number().nullable(),
-      note: z.string().nullable(),
-    }),
-  ),
-  timing: z.string(),
-  sources: z.array(z.object({ title: z.string(), url: z.string() })),
-});
-export type RenewalGuideOutput = z.infer<typeof renewalGuideOutputSchema>;
-
-export interface RenewalGuideDto {
-  id: string;
-  personId: string;
-  type: IdDocumentType;
-  town: string;
-  output: RenewalGuideOutput;
-  model: string;
-  createdAt: string;
 }
 
 /** A house of the Home area, as People offers it for Residence. */
