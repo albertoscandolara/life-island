@@ -168,6 +168,13 @@ describe.skipIf(!configured)(
         body: body === undefined ? undefined : JSON.stringify(body),
       });
 
+    /** Every value you changed, as GET /settings exports them. */
+    const exportedValues = async () =>
+      (await (await send('GET', '/settings')).json()) as Record<
+        string,
+        unknown
+      >;
+
     async function latestChange(key: string) {
       const { rows } = await svc.pool.query<{
         payload: { key: string; value: unknown };
@@ -213,9 +220,7 @@ describe.skipIf(!configured)(
         ).status,
       ).toBe(400);
       expect(
-        (await (await send('GET', '/settings')).json())[
-          'people.warn-days.passport'
-        ],
+        (await exportedValues())['people.warn-days.passport'],
       ).toBeUndefined();
 
       const imported = await send('PUT', '/settings', {
@@ -225,7 +230,7 @@ describe.skipIf(!configured)(
         },
       });
       expect(await imported.json()).toEqual({ imported: 2 });
-      const exported = await (await send('GET', '/settings')).json();
+      const exported = await exportedValues();
       expect(exported).toMatchObject({
         'people.warn-days.passport': 120,
         'documents.reading-time': '21:30',
@@ -238,9 +243,7 @@ describe.skipIf(!configured)(
         },
       });
       expect(
-        (await (await send('GET', '/settings')).json())[
-          'people.warn-days.passport'
-        ],
+        (await exportedValues())['people.warn-days.passport'],
       ).toBeUndefined();
     });
 
