@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PropertyModelDto } from './home.js';
+import type { PersonLicenceDto } from './people.js';
 
 /*
  * The Cars area (svc-cars, mfe-cars): every car of the household with the
@@ -836,6 +837,8 @@ export interface CarPersonDto {
   id: string;
   name: string;
   taxCode: string | null;
+  /** Their latest driving licence in People; null when none is on file. */
+  licence: PersonLicenceDto | null;
 }
 
 export interface CarsPeopleDto {

@@ -10,6 +10,7 @@ import type {
   PeopleOverviewDto,
   PendingReviewDto,
   PersonDto,
+  PersonSummaryDto,
 } from '@life-island/contracts';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './bootstrap.js';
@@ -316,6 +317,97 @@ describe.skipIf(!configured)(
       );
       // Either svc-home answered, or Residence falls back to typing.
       expect(houses.available || houses.houses.length === 0).toBe(true);
+    });
+
+    it('records your edits in the history, with the documents', async () => {
+      await send('PATCH', `/people/${personId}`, { birthPlace: 'VERONA' });
+      const maria = await person(personId);
+      expect(maria.history[0]).toMatchObject({
+        kind: 'edit',
+        changes: [{ field: 'birthPlace', previous: null, value: 'VERONA' }],
+      });
+      expect(maria.history.map((h) => h.kind)).toContain('created');
+      expect(maria.taxCodeCheck.status).not.toBe('unknown');
+    });
+
+    it('relates people, keeps fiscal dependents, and counts what needs you', async () => {
+      const childCard = await upload(['IDENTITY_CARD'], {
+        last_name: lastName,
+        first_name: 'CHILD',
+        birth_date: day(-365 * 10),
+        valid_for_travel: 'false',
+        card_format: 'electronic',
+        card_access_number: '123456',
+        expiry_date: day(-1),
+      });
+      await send('POST', `/reviews/${childCard}/approve`, { personId: null });
+      const child = (await overview()).people.find(
+        (p) => p.firstName === 'CHILD',
+      ) as PersonDto;
+      expect(child.age).toBe(9);
+      expect(child.series[0].versions[0].details).toMatchObject({
+        cardFormat: 'electronic',
+        cardAccessNumber: '123456',
+        validForTravel: false,
+      });
+      expect(child.notices.map((n) => n.text).join(' ')).toMatch(/Under 14/);
+
+      expect(
+        (
+          await send('POST', `/people/${personId}/relations`, {
+            personId: child.id,
+            kind: 'child',
+          })
+        ).status,
+      ).toBe(204);
+      expect((await person(child.id)).relations).toEqual([
+        { personId, kind: 'parent' },
+      ]);
+      expect(
+        (
+          await send('PATCH', `/people/${child.id}`, {
+            taxDependentOf: personId,
+          })
+        ).status,
+      ).toBe(204);
+      expect(
+        (
+          await send('PATCH', `/people/${personId}`, {
+            taxDependentOf: child.id,
+          })
+        ).status,
+      ).toBe(422);
+
+      const attention = await json<{ expired: number; toReview: number }>(
+        await send('GET', '/attention'),
+      );
+      expect(attention.expired).toBeGreaterThanOrEqual(1);
+
+      const summary = (
+        await json<PersonSummaryDto[]>(await send('GET', '/people'))
+      ).find((p) => p.id === child.id);
+      expect(summary).toMatchObject({
+        taxDependentOf: personId,
+        drivingLicence: null,
+      });
+
+      expect(
+        (
+          await send('DELETE', `/people/${personId}/relations/${child.id}`)
+        ).status,
+      ).toBe(204);
+      expect((await person(child.id)).relations).toEqual([]);
+      await send('DELETE', `/people/${child.id}`);
+    });
+
+    it('answers 503 for a renewal guide without a Claude key', async () => {
+      const response = await send(
+        'POST',
+        `/people/${personId}/renewal-guides`,
+        { type: 'PASSPORT', town: 'Verona' },
+      );
+      // With a key and the tool on it writes a guide; without, it says why.
+      expect([201, 503]).toContain(response.status);
     });
 
     it('merges a duplicate into a person, moving its documents and filling only unknown details', async () => {

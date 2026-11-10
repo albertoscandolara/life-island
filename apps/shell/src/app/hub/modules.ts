@@ -17,6 +17,11 @@ export interface IslandModule {
   mission: string;
   /** Route in this app, served by the area's remote; null while it is planned. */
   path: string | null;
+  /**
+   * The area's API that says what needs you (expired, expiring, to review),
+   * shown as a badge on its card; the gateway serves it under /api.
+   */
+  attentionUrl?: string;
   /** Where its zone sits on the island, as an angle around the centre (degrees). */
   angle: number;
   /** What its zone's landmark looks like in 3D. */
@@ -109,6 +114,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Identity cards, passports, health cards and licences of everyone at home: every version kept, a review before personal data changes, and a warning before one expires.',
     path: '/people',
+    attentionUrl: '/api/people/attention',
     angle: 135,
     landmark: 'gate',
   },

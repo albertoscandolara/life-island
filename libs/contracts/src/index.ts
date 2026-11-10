@@ -9,6 +9,7 @@ export * from './lib/domain-dtos.js';
 export * from './lib/reclassification.js';
 export * from './lib/home.js';
 export * from './lib/people.js';
+export * from './lib/people-guides.js';
 export * from './lib/cars.js';
 export * from './lib/work.js';
 export * from './lib/work-insights.js';

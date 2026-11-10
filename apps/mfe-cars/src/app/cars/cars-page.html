@@ -705,7 +705,9 @@ idle) {
                   >
                   @if (linkedPerson(vehicle, d.field)) {
                   <ui-badge tone="neutral">In People</ui-badge>
-                  } } @else {
+                  @if (licenceOf(vehicle, d.field); as licence) {
+                  <ui-badge [tone]="licence.tone">{{ licence.text }}</ui-badge>
+                  } } } @else {
                   <span class="muted">—</span>
                   }
                 </div>

@@ -169,6 +169,13 @@
       "when": 1794332927785,
       "tag": "0023_settings_replica",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794332987785,
+      "tag": "0024_licence_category_expiries",
+      "breakpoints": true
     }
   ]
 }
