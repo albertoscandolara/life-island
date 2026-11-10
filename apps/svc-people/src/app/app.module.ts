@@ -1,10 +1,12 @@
 import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
+  settingChangedHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
+import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type PeopleConfig } from './config.js';
 import {
   applyDocumentEvent,
@@ -59,6 +61,19 @@ export class AppModule {
                         durableName: 'people-document-events',
                         eventTypes: DOCUMENT_EVENTS,
                         handle: applyDocumentEvent,
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The reminder windows of the ID documents (svc-settings).
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'people-reminder-settings',
+                        eventTypes: [SETTING_CHANGED_EVENT],
+                        handle: settingChangedHandler(db.schema),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,

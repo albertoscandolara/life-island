@@ -1,11 +1,15 @@
 import {
+  AI_BUDGET_REACHED_SETTING,
   AI_ENABLED_SETTING,
+  aiModelSettingKey,
+  aiToolModelChoices,
   AI_TOOL_DESCRIBED_EVENT,
   AI_TOOL_USED_EVENT,
   aiToolSettingKey,
   appSetting,
   requireAiTool,
   settingChangedV1Schema,
+  validSettingValue,
   type AiRequestStep,
   type AiStepUsage,
   type AiToolDescribedV1,
@@ -65,7 +69,86 @@ export async function readSetting(
     `select value from ${assertSchemaName(schema)}.${SETTINGS_REPLICA_TABLE} where key = $1`,
     [key],
   );
-  return rows[0]?.value;
+  return rows[0]?.value ?? undefined;
+}
+
+/**
+ * Several settings at once, by key; a key Settings never set (or reset to
+ * its default, stored as null) is missing.
+ */
+export async function readSettings(
+  db: Queryable,
+  schema: string,
+  keys: readonly string[],
+): Promise<Map<string, unknown>> {
+  const { rows } = await db.query<{ key: string; value: unknown }>(
+    `select key, value from ${assertSchemaName(schema)}.${SETTINGS_REPLICA_TABLE} where key = any($1)`,
+    [keys],
+  );
+  return new Map(
+    rows.filter((row) => row.value !== null).map((row) => [row.key, row.value]),
+  );
+}
+
+/** A whole-number setting: the replica, else the registry default. */
+export async function readNumberSetting(
+  db: Queryable,
+  schema: string,
+  key: string,
+): Promise<number> {
+  const value = await readSetting(db, schema, key);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const fallback = appSetting(key)?.default;
+  return typeof fallback === 'number' ? fallback : 0;
+}
+
+/**
+ * Several whole-number settings by name, e.g. the reminder windows: each one
+ * from the replica when it holds a valid value, else its registry default.
+ */
+export async function readNumberSettings<K extends string>(
+  db: Queryable,
+  schema: string,
+  keyOf: Readonly<Record<K, string>>,
+): Promise<Record<K, number>> {
+  const names = Object.keys(keyOf) as K[];
+  const stored = await readSettings(
+    db,
+    schema,
+    names.map((name) => keyOf[name]),
+  );
+  return Object.fromEntries(
+    names.map((name) => {
+      const key = keyOf[name];
+      const value = stored.get(key);
+      const fallback = appSetting(key)?.default;
+      return [
+        name,
+        validSettingValue(key, value)
+          ? value
+          : typeof fallback === 'number'
+            ? fallback
+            : 0,
+      ];
+    }),
+  ) as Record<K, number>;
+}
+
+/**
+ * The model you picked for a tool in Settings, or null while its service
+ * decides (its env, else the registry default). A value that is not one of
+ * the tool's choices is ignored.
+ */
+export async function aiToolModel(
+  db: Queryable,
+  schema: string,
+  toolId: string,
+): Promise<string | null> {
+  const tool = requireAiTool(toolId);
+  const value = await readSetting(db, schema, aiModelSettingKey(toolId));
+  return typeof value === 'string' && aiToolModelChoices(tool).includes(value)
+    ? value
+    : null;
 }
 
 /** A boolean setting: the replica, else `fallback`, else the registry default. */
@@ -82,8 +165,9 @@ export async function readBooleanSetting(
 }
 
 /**
- * Whether a tool may call the model now: the master switch and its own
- * switch, from this service's replica (the registry defaults until set).
+ * Whether a tool may call the model now: the master switch, its own switch
+ * and the monthly budget (svc-settings sets AI_BUDGET_REACHED_SETTING when AI
+ * must stop), from this service's replica (the registry defaults until set).
  */
 export async function isAiToolEnabled(
   db: Queryable,
@@ -93,12 +177,13 @@ export async function isAiToolEnabled(
   const tool = requireAiTool(toolId);
   const { rows } = await db.query<{ key: string; value: unknown }>(
     `select key, value from ${assertSchemaName(schema)}.${SETTINGS_REPLICA_TABLE} where key = any($1)`,
-    [[AI_ENABLED_SETTING, aiToolSettingKey(toolId)]],
+    [[AI_ENABLED_SETTING, aiToolSettingKey(toolId), AI_BUDGET_REACHED_SETTING]],
   );
   const value = (key: string) => rows.find((row) => row.key === key)?.value;
   const master = value(AI_ENABLED_SETTING);
   const own = value(aiToolSettingKey(toolId));
   return (
+    value(AI_BUDGET_REACHED_SETTING) !== true &&
     (typeof master === 'boolean' ? master : true) &&
     (typeof own === 'boolean' ? own : tool.defaultEnabled)
   );

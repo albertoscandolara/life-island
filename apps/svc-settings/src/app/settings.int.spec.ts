@@ -160,5 +160,133 @@ describe.skipIf(!configured)(
       expect(tool.usage.uses).toBe(before.usage.uses + 1);
       expect(tool.recentUses[0].costUsd).toBeCloseTo(0.1);
     });
+
+    const send = (method: string, path: string, body?: unknown) =>
+      fetch(`${base}${path}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+
+    async function latestChange(key: string) {
+      const { rows } = await svc.pool.query<{
+        payload: { key: string; value: unknown };
+      }>(
+        `select payload from settings.outbox
+          where event_type = $1 and payload->>'key' = $2
+          order by created_at desc limit 1`,
+        [SETTING_CHANGED_EVENT, key],
+      );
+      return rows[0]?.payload;
+    }
+
+    it('picks a model for a tool, and resets it to the service default', async () => {
+      const key = 'ai-model.documents.classify';
+      expect(
+        (await send('PUT', `/settings/${key}`, { value: 'claude-opus-5-5' }))
+          .status,
+      ).toBe(204);
+      let tool = (await overview()).tools.find(
+        (t) => t.id === 'documents.classify',
+      )!;
+      expect(tool.models['classify']).toBe('claude-opus-5-5');
+      expect(tool.customized).toBe(true);
+
+      expect((await send('DELETE', `/settings/${key}`)).status).toBe(204);
+      tool = (await overview()).tools.find(
+        (t) => t.id === 'documents.classify',
+      )!;
+      expect(tool.modelOverride).toBeNull();
+      expect(await latestChange(key)).toMatchObject({ key, value: null });
+      expect((await send('DELETE', '/settings/nope')).status).toBe(400);
+    });
+
+    it('imports a backup all or nothing, and exports what you set', async () => {
+      expect(
+        (
+          await send('PUT', '/settings', {
+            values: {
+              'people.warn-days.passport': 120,
+              'documents.reading-time': '99:00',
+            },
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (await (await send('GET', '/settings')).json())[
+          'people.warn-days.passport'
+        ],
+      ).toBeUndefined();
+
+      const imported = await send('PUT', '/settings', {
+        values: {
+          'people.warn-days.passport': 120,
+          'documents.reading-time': '21:30',
+        },
+      });
+      expect(await imported.json()).toEqual({ imported: 2 });
+      const exported = await (await send('GET', '/settings')).json();
+      expect(exported).toMatchObject({
+        'people.warn-days.passport': 120,
+        'documents.reading-time': '21:30',
+      });
+      expect(exported['ai.budget-reached']).toBeUndefined();
+      await send('PUT', '/settings', {
+        values: {
+          'people.warn-days.passport': null,
+          'documents.reading-time': null,
+        },
+      });
+      expect(
+        (await (await send('GET', '/settings')).json())[
+          'people.warn-days.passport'
+        ],
+      ).toBeUndefined();
+    });
+
+    it('stops AI once the month reaches the budget, and lifts it when raised', async () => {
+      const used = envelope(AI_TOOL_USED_EVENT, {
+        toolId: 'work.career-feedback',
+        service: 'svc-work',
+        outcome: 'ok',
+        usedAt: new Date().toISOString(),
+        steps: [
+          {
+            stepId: 'feedback',
+            model: 'claude-sonnet-5-5',
+            inputTokens: 1_000_000,
+            outputTokens: 0,
+          },
+        ],
+      });
+      await processOnce(svc.pool, svc.schema, used.id, (client) =>
+        settings.applyUsed(used, client),
+      );
+      const spent = (await overview()).budget.spentUsd;
+      expect(spent).toBeGreaterThanOrEqual(2);
+
+      await send('PUT', '/settings/ai.budget-stop', { value: true });
+      await send('PUT', '/settings/ai.monthly-budget-usd', { value: 1 });
+      let current = await overview();
+      expect(current.budget).toMatchObject({ reached: true, blocking: true });
+      expect(current.tools.every((t) => !t.active)).toBe(true);
+      expect(await latestChange('ai.budget-reached')).toMatchObject({
+        value: true,
+      });
+      expect(
+        current.spending[0].byTool['work.career-feedback'],
+      ).toBeGreaterThan(0);
+
+      await send('PUT', '/settings/ai.monthly-budget-usd', {
+        value: Math.ceil(spent) + 100,
+      });
+      current = await overview();
+      expect(current.budget.blocking).toBe(false);
+      expect(await latestChange('ai.budget-reached')).toMatchObject({
+        value: false,
+      });
+      await send('DELETE', '/settings/ai.monthly-budget-usd');
+      await send('DELETE', '/settings/ai.budget-stop');
+    });
   },
 );

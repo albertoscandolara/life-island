@@ -4,9 +4,16 @@ import {
   estimatedCostUsd,
   requireAiTool,
 } from '@life-island/contracts';
-import { buildOverview } from './overview.js';
+import { budgetOf, buildOverview, spendingByMonth } from './overview.js';
 
-const empty = { values: [], requests: [], totals: [], recentUses: [] };
+const empty = {
+  values: [],
+  requests: [],
+  totals: [],
+  recentUses: [],
+  month: '2026-11',
+  monthly: [],
+};
 const at = new Date('2026-11-10T10:00:00Z');
 
 describe('buildOverview', () => {
@@ -88,6 +95,8 @@ describe('buildOverview', () => {
         },
       ],
       recentUses: [],
+      month: '2026-11',
+      monthly: [],
     });
     const extract = overview.tools.find((t) => t.id === 'documents.extract')!;
     expect(extract).toMatchObject({ enabled: false, active: false });
@@ -111,5 +120,114 @@ describe('buildOverview', () => {
     const keys = buildOverview(empty).settings.map((s) => s.key);
     expect(keys).toContain('documents.auto-approve-categories');
     expect(keys).not.toContain('appearance.theme');
+  });
+});
+
+describe('models you pick', () => {
+  it('uses the model you picked for every step, over what the service reported', () => {
+    const overview = buildOverview({
+      ...empty,
+      values: [
+        {
+          key: 'ai-model.work.market-check',
+          value: 'claude-opus-5-5',
+          changedAt: at,
+        },
+      ],
+    });
+    const check = overview.tools.find((t) => t.id === 'work.market-check')!;
+    expect(check.models).toEqual({
+      research: 'claude-opus-5-5',
+      format: 'claude-opus-5-5',
+    });
+    expect(check.modelOverride).toBe('claude-opus-5-5');
+    expect(check.customized).toBe(true);
+    // Haiku cannot run the dynamic web search.
+    expect(check.modelChoices).not.toContain('claude-haiku-5-5');
+  });
+
+  it('ignores a stored model that is not one of the choices', () => {
+    const overview = buildOverview({
+      ...empty,
+      values: [
+        {
+          key: 'ai-model.work.market-check',
+          value: 'claude-haiku-5-5',
+          changedAt: at,
+        },
+      ],
+    });
+    const check = overview.tools.find((t) => t.id === 'work.market-check')!;
+    expect(check.modelOverride).toBeNull();
+    expect(check.customized).toBe(false);
+  });
+});
+
+describe('budget', () => {
+  const spend = (month: string, toolId: string, costUsd: number) => ({
+    month,
+    toolId,
+    uses: 1,
+    costUsd,
+  });
+
+  it('has no budget until you set one', () => {
+    expect(budgetOf([], '2026-11', 50)).toMatchObject({
+      limitUsd: null,
+      warning: false,
+      reached: false,
+      blocking: false,
+    });
+  });
+
+  it('warns at 80% and stops AI at the budget only when you asked it to', () => {
+    const limit = { key: 'ai.monthly-budget-usd', value: 10, changedAt: at };
+    const stop = { key: 'ai.budget-stop', value: true, changedAt: at };
+    expect(budgetOf([limit], '2026-11', 8)).toMatchObject({
+      warning: true,
+      reached: false,
+    });
+    expect(budgetOf([limit], '2026-11', 10)).toMatchObject({
+      reached: true,
+      blocking: false,
+    });
+    expect(budgetOf([limit, stop], '2026-11', 10).blocking).toBe(true);
+  });
+
+  it('counts only this month, and turns every tool off while it blocks', () => {
+    const overview = buildOverview({
+      ...empty,
+      values: [
+        { key: 'ai.monthly-budget-usd', value: 1, changedAt: at },
+        { key: 'ai.budget-stop', value: true, changedAt: at },
+      ],
+      monthly: [
+        spend('2026-10', 'work.career-feedback', 5),
+        spend('2026-11', 'work.career-feedback', 0.6),
+        spend('2026-11', 'documents.classify', 0.5),
+      ],
+    });
+    expect(overview.budget.spentUsd).toBeCloseTo(1.1);
+    expect(overview.budget.blocking).toBe(true);
+    expect(overview.tools.every((tool) => !tool.active)).toBe(true);
+    expect(overview.spending.map((m) => m.month)).toEqual([
+      '2026-11',
+      '2026-10',
+    ]);
+    expect(overview.spending[0].byTool['documents.classify']).toBeCloseTo(0.5);
+  });
+});
+
+describe('spendingByMonth', () => {
+  it('keeps the last 12 months, newest first', () => {
+    const rows = Array.from({ length: 14 }, (_, i) => ({
+      month: `${2025 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`,
+      toolId: 'documents.classify',
+      uses: 1,
+      costUsd: 1,
+    }));
+    const months = spendingByMonth(rows);
+    expect(months).toHaveLength(12);
+    expect(months[0].month).toBe('2026-02');
   });
 });

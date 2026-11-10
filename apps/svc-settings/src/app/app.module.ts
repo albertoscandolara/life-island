@@ -5,6 +5,7 @@ import {
   Module,
   type DynamicModule,
   type OnApplicationBootstrap,
+  type OnApplicationShutdown,
 } from '@nestjs/common';
 import {
   createServiceDb,
@@ -37,6 +38,38 @@ class RepublishOnStart implements OnApplicationBootstrap {
   }
 }
 
+/** How often the budget is checked without a use: a new month lifts a stop. */
+const BUDGET_CHECK_MS = 60 * 60 * 1000;
+
+/** Checks the monthly AI budget at startup and every hour. */
+@Injectable()
+class BudgetWatch implements OnApplicationBootstrap, OnApplicationShutdown {
+  private timer?: NodeJS.Timeout;
+
+  constructor(
+    @Inject(SettingsService) private readonly settings: SettingsService,
+  ) {}
+
+  async onApplicationBootstrap(): Promise<void> {
+    await this.check();
+    this.timer = setInterval(() => void this.check(), BUDGET_CHECK_MS);
+    this.timer.unref();
+  }
+
+  onApplicationShutdown(): void {
+    clearInterval(this.timer);
+  }
+
+  private async check(): Promise<void> {
+    try {
+      if (await this.settings.checkBudget())
+        logger.warn('The monthly AI budget is reached: AI is off');
+    } catch (error) {
+      logger.error(`Could not check the AI budget: ${String(error)}`);
+    }
+  }
+}
+
 @Module({})
 export class AppModule {
   static forRoot(
@@ -58,6 +91,7 @@ export class AppModule {
           ? []
           : [
               RepublishOnStart,
+              BudgetWatch,
               {
                 provide: EventsRuntime,
                 useFactory: (db: ServiceDb, settings: SettingsService) =>

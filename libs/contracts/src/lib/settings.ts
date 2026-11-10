@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { RENEWAL_WARNING_DAYS, type RenewableKind } from './cars.js';
+import { EXPIRY_WARNING_DAYS, type IdDocumentType } from './people.js';
 
 /*
  * Settings (svc-settings, mfe-settings): every setting of the platform in one
@@ -405,6 +407,22 @@ export function requireAiTool(id: string): AiToolDefinition {
   return tool;
 }
 
+/** The settings key of the model a tool uses, chosen in Settings (all its steps). */
+export function aiModelSettingKey(toolId: string): string {
+  return `ai-model.${toolId}`;
+}
+
+/**
+ * The models you can pick for a tool: every priced model, except Haiku for a
+ * tool that searches the web (dynamic web search runs on Sonnet and Opus).
+ */
+export function aiToolModelChoices(tool: AiToolDefinition): string[] {
+  const searches = tool.steps.some((step) => step.tools.includes('web_search'));
+  return Object.keys(MODEL_PRICES).filter(
+    (model) => !(searches && model.startsWith('claude-haiku')),
+  );
+}
+
 /** USD for the tokens and searches of one request on a model. */
 export function requestCostUsd(
   model: string,
@@ -464,6 +482,8 @@ export interface AppSettingOption {
   label: string;
 }
 
+export type AppSettingValue = boolean | string | number;
+
 export interface AppSettingDefinition {
   /** `<module>.<setting>`; also the key svc-settings stores and publishes. */
   key: string;
@@ -471,9 +491,16 @@ export interface AppSettingDefinition {
   group: string;
   label: string;
   description: string;
-  type: 'boolean' | 'choice';
+  /**
+   * `number`: a whole number between min and max, in `unit`. `time`: `HH:MM`.
+   * `modules`: island areas, comma-separated (the ones you hide).
+   */
+  type: 'boolean' | 'choice' | 'number' | 'time' | 'modules';
   options?: readonly AppSettingOption[];
-  default: boolean | string;
+  min?: number;
+  max?: number;
+  unit?: string;
+  default: AppSettingValue;
   /**
    * `server`: stored by svc-settings and replicated to the services that read
    * it. `browser`: kept by this browser only (the theme).
@@ -485,6 +512,90 @@ export interface AppSettingDefinition {
 
 /** The master switch of every AI tool: off, no service calls a model. */
 export const AI_ENABLED_SETTING = 'ai.enabled';
+/** The monthly AI budget in USD; 0 means no budget. */
+export const AI_BUDGET_SETTING = 'ai.monthly-budget-usd';
+/** Whether AI turns off once the month's spending reaches the budget. */
+export const AI_BUDGET_STOP_SETTING = 'ai.budget-stop';
+/**
+ * Set by svc-settings, never by you: true while the month's spending is at
+ * the budget and AI_BUDGET_STOP_SETTING is on. Services read it like a
+ * master switch (isAiToolEnabled).
+ */
+export const AI_BUDGET_REACHED_SETTING = 'ai.budget-reached';
+/** The share of the budget at which Settings warns. */
+export const AI_BUDGET_WARNING_SHARE = 0.8;
+
+/** Document reading (svc-parse-worker): the daily run, its time, a run at startup. */
+export const SCHEDULED_READING_SETTING = 'documents.scheduled-reading';
+export const READING_TIME_SETTING = 'documents.reading-time';
+export const READ_ON_START_SETTING = 'documents.read-on-start';
+
+/** The island (shell), kept by this browser. */
+export const HIDDEN_AREAS_SETTING = 'island.hidden-areas';
+export const START_PAGE_SETTING = 'island.start-page';
+export const ISLAND_VIEW_SETTING = 'island.view';
+
+/** The areas of the island, for the settings that name them (the shell has their full definitions). */
+export const ISLAND_AREAS = [
+  { id: 'taxes', emblem: '🦖', name: '730 & taxes' },
+  { id: 'groceries', emblem: '🦕', name: 'Groceries' },
+  { id: 'health', emblem: '🩺', name: 'Health' },
+  { id: 'work', emblem: '💼', name: 'Work' },
+  { id: 'home', emblem: '🏡', name: 'Houses' },
+  { id: 'studies', emblem: '📚', name: 'Studies' },
+  { id: 'people', emblem: '🪪', name: 'People & IDs' },
+  { id: 'cars', emblem: '🚗', name: 'Cars' },
+] as const;
+
+/** The reminder windows: how many days before a renewal its warning starts. */
+const ID_REMINDERS: readonly [IdDocumentType, string][] = [
+  ['PASSPORT', 'Passport'],
+  ['IDENTITY_CARD', 'Identity card'],
+  ['DRIVING_LICENCE', 'Driving licence'],
+  ['HEALTH_CARD', 'Health card'],
+];
+// Fines keep the law's terms and tyres the seasons' dates, so neither has a window to set.
+const CAR_REMINDERS: readonly [
+  Exclude<RenewableKind, 'fine' | 'tyres'>,
+  string,
+][] = [
+  ['insurance', 'Car insurance'],
+  ['road_tax', 'Road tax (bollo)'],
+  ['inspection', 'Revisione'],
+  ['service', 'Car service'],
+  ['registration', 'Temporary registration'],
+];
+
+/** The settings key of an ID document's reminder window. */
+export function idReminderSettingKey(type: IdDocumentType): string {
+  return `people.warn-days.${type.toLowerCase().replace(/_/g, '-')}`;
+}
+
+/** The settings key of a car renewal's reminder window. */
+export function carReminderSettingKey(kind: RenewableKind): string {
+  return `cars.warn-days.${kind.replace(/_/g, '-')}`;
+}
+
+function reminder(
+  key: string,
+  label: string,
+  days: number,
+  usedBy: string,
+): AppSettingDefinition {
+  return {
+    key,
+    group: 'Reminders',
+    label,
+    description: `How many days before it expires the warning starts (${days} unless you change it).`,
+    type: 'number',
+    min: 1,
+    max: 365,
+    unit: 'days',
+    default: days,
+    scope: 'server',
+    usedBy: [usedBy],
+  };
+}
 
 export const APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
@@ -503,6 +614,47 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     usedBy: ['shell', 'documents'],
   },
   {
+    key: ISLAND_VIEW_SETTING,
+    group: 'Island',
+    label: 'Island view',
+    description:
+      'The 3D island with the area cards under it, or the cards only: lighter, for a slower device.',
+    type: 'choice',
+    options: [
+      { value: '3d', label: '3D island' },
+      { value: 'cards', label: 'Cards only' },
+    ],
+    default: '3d',
+    scope: 'browser',
+    usedBy: ['shell'],
+  },
+  {
+    key: START_PAGE_SETTING,
+    group: 'Island',
+    label: 'Open on',
+    description:
+      'What Life Island shows when you open it: the island, or the area you used last.',
+    type: 'choice',
+    options: [
+      { value: 'island', label: 'The island' },
+      { value: 'last', label: 'Last area used' },
+    ],
+    default: 'island',
+    scope: 'browser',
+    usedBy: ['shell'],
+  },
+  {
+    key: HIDDEN_AREAS_SETTING,
+    group: 'Island',
+    label: 'Areas you use',
+    description:
+      'Turn off an area you do not use: it leaves the island and the list of areas. Its data stays, and you can bring it back here.',
+    type: 'modules',
+    default: '',
+    scope: 'browser',
+    usedBy: ['shell'],
+  },
+  {
     key: AI_ENABLED_SETTING,
     group: 'AI',
     label: 'Use AI',
@@ -511,7 +663,32 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     type: 'boolean',
     default: true,
     scope: 'server',
-    usedBy: ['svc-parse-worker', 'svc-work'],
+    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars'],
+  },
+  {
+    key: AI_BUDGET_SETTING,
+    group: 'AI',
+    label: 'Monthly AI budget',
+    description:
+      'What AI may cost in a calendar month, in USD. Settings warns at 80%. 0 means no budget.',
+    type: 'number',
+    min: 0,
+    max: 10000,
+    unit: 'USD',
+    default: 0,
+    scope: 'server',
+    usedBy: ['svc-settings'],
+  },
+  {
+    key: AI_BUDGET_STOP_SETTING,
+    group: 'AI',
+    label: 'Turn AI off at the budget',
+    description:
+      'Once the month reaches the budget, every tool works with its own rules until the next month (or until you raise the budget).',
+    type: 'boolean',
+    default: false,
+    scope: 'server',
+    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars'],
   },
   {
     key: 'documents.auto-approve-categories',
@@ -524,6 +701,55 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     scope: 'server',
     usedBy: ['svc-parse-worker'],
   },
+  {
+    key: SCHEDULED_READING_SETTING,
+    group: 'Documents',
+    label: 'Read documents every day',
+    description:
+      'Reads the documents waiting in the inbox every day at the time below. Off, they are read only when you press Parse now.',
+    type: 'boolean',
+    default: true,
+    scope: 'server',
+    usedBy: ['svc-parse-worker'],
+  },
+  {
+    key: READING_TIME_SETTING,
+    group: 'Documents',
+    label: 'Daily reading time',
+    description:
+      'When the daily reading starts. Until you set it here, PARSE_SCHEDULE in .env decides (06:00 by default).',
+    type: 'time',
+    default: '06:00',
+    scope: 'server',
+    usedBy: ['svc-parse-worker'],
+  },
+  {
+    key: READ_ON_START_SETTING,
+    group: 'Documents',
+    label: 'Read when the worker starts',
+    description:
+      'Also reads the waiting documents each time the parse worker starts. Until you set it here, PARSE_RUN_ON_START in .env decides.',
+    type: 'boolean',
+    default: false,
+    scope: 'server',
+    usedBy: ['svc-parse-worker'],
+  },
+  ...ID_REMINDERS.map(([type, label]) =>
+    reminder(
+      idReminderSettingKey(type),
+      label,
+      EXPIRY_WARNING_DAYS[type],
+      'svc-people',
+    ),
+  ),
+  ...CAR_REMINDERS.map(([kind, label]) =>
+    reminder(
+      carReminderSettingKey(kind),
+      label,
+      RENEWAL_WARNING_DAYS[kind],
+      'svc-cars',
+    ),
+  ),
 ];
 
 export function appSetting(key: string): AppSettingDefinition | undefined {
@@ -535,11 +761,26 @@ export function aiToolSettingKey(toolId: string): string {
   return `ai-tool.${toolId}`;
 }
 
-/** Every key svc-settings accepts: the server app settings and one switch per AI tool. */
+/** Every key svc-settings accepts: the server app settings, and a switch and a model per AI tool. */
 export function isKnownSettingKey(key: string): boolean {
   return (
     APP_SETTINGS.some((s) => s.key === key && s.scope === 'server') ||
-    AI_TOOLS.some((tool) => aiToolSettingKey(tool.id) === key)
+    AI_TOOLS.some(
+      (tool) =>
+        aiToolSettingKey(tool.id) === key || aiModelSettingKey(tool.id) === key,
+    )
+  );
+}
+
+/** The value a stored setting must have to count, else its default applies. */
+export function validSettingValue(
+  key: string,
+  value: unknown,
+): value is AppSettingValue {
+  return (
+    value !== null &&
+    value !== undefined &&
+    invalidSettingValue(key, value) === null
   );
 }
 
@@ -638,8 +879,14 @@ export interface AiToolDto {
   active: boolean;
   /** Whether its service can call the model at all (API key set); null before it reported. */
   available: boolean | null;
-  /** The models it uses now, by step (the service's env overrides, else the defaults). */
+  /** The models it uses now, by step: your choice in Settings, else the service's env, else the defaults. */
   models: Record<string, string>;
+  /** The model you picked for it in Settings; null while its service decides. */
+  modelOverride: string | null;
+  /** The models you can pick for it. */
+  modelChoices: string[];
+  /** Its switch or model differs from the defaults (it can be reset). */
+  customized: boolean;
   estimatedCostUsd: number;
   usage: {
     uses: number;
@@ -660,25 +907,74 @@ export interface AiToolDto {
 
 export interface AppSettingDto {
   key: string;
-  value: boolean | string;
+  value: AppSettingValue;
   /** False while it still has its default. */
   isSet: boolean;
   changedAt: string | null;
+}
+
+export interface AiBudgetDto {
+  /** USD; null when there is no budget. */
+  limitUsd: number | null;
+  stopAtLimit: boolean;
+  /** `YYYY-MM`, in the time zone of svc-settings (SETTINGS_TIMEZONE). */
+  month: string;
+  spentUsd: number;
+  /** At 80% of the budget or more. */
+  warning: boolean;
+  /** At the budget or more. */
+  reached: boolean;
+  /** AI is off because of the budget (reached, and stopAtLimit). */
+  blocking: boolean;
+}
+
+/** What AI cost in one month, in total and by tool. */
+export interface AiMonthSpendDto {
+  month: string;
+  totalUsd: number;
+  uses: number;
+  byTool: Record<string, number>;
 }
 
 export interface SettingsOverviewDto {
   aiEnabled: boolean;
   tools: AiToolDto[];
   settings: AppSettingDto[];
+  budget: AiBudgetDto;
+  /** The last months with any use, newest first (at most 12). */
+  spending: AiMonthSpendDto[];
 }
 
 export const setAiToolRequestSchema = z.object({ enabled: z.boolean() });
 export type SetAiToolRequest = z.infer<typeof setAiToolRequestSchema>;
 
+const settingValueSchema = z.union([
+  z.boolean(),
+  z.number(),
+  z.string().min(1).max(200),
+]);
+
 export const setAppSettingRequestSchema = z.object({
-  value: z.union([z.boolean(), z.string().min(1).max(200)]),
+  value: settingValueSchema,
 });
 export type SetAppSettingRequest = z.infer<typeof setAppSettingRequestSchema>;
+
+/** Many settings at once (a backup you import): null resets one to its default. */
+export const importSettingsRequestSchema = z.object({
+  values: z.record(z.string(), settingValueSchema.nullable()),
+});
+export type ImportSettingsRequest = z.infer<typeof importSettingsRequestSchema>;
+
+/** The file Settings exports: what you changed, on the server and in this browser. */
+export const SETTINGS_FILE_FORMAT = 'life-island-settings';
+export const settingsFileSchema = z.object({
+  format: z.literal(SETTINGS_FILE_FORMAT),
+  version: z.literal(1),
+  exportedAt: z.string(),
+  server: z.record(z.string(), settingValueSchema),
+  browser: z.record(z.string(), z.string()),
+});
+export type SettingsFile = z.infer<typeof settingsFileSchema>;
 
 /** Checks a value against its setting's type and options; returns an error message or null. */
 export function invalidSettingValue(
@@ -687,11 +983,43 @@ export function invalidSettingValue(
 ): string | null {
   if (AI_TOOLS.some((tool) => aiToolSettingKey(tool.id) === key))
     return typeof value === 'boolean' ? null : `${key} takes true or false`;
+  const modelOf = AI_TOOLS.find((tool) => aiModelSettingKey(tool.id) === key);
+  if (modelOf) {
+    const choices = aiToolModelChoices(modelOf);
+    return typeof value === 'string' && choices.includes(value)
+      ? null
+      : `${key} takes one of ${choices.join(', ')}`;
+  }
   const setting = appSetting(key);
   if (!setting || setting.scope !== 'server') return `${key} is not a setting`;
-  if (setting.type === 'boolean')
-    return typeof value === 'boolean' ? null : `${key} takes true or false`;
-  return setting.options?.some((option) => option.value === value)
-    ? null
-    : `${key} takes one of ${setting.options?.map((o) => o.value).join(', ')}`;
+  switch (setting.type) {
+    case 'boolean':
+      return typeof value === 'boolean' ? null : `${key} takes true or false`;
+    case 'number': {
+      const min = setting.min ?? 0;
+      const max = setting.max ?? Number.MAX_SAFE_INTEGER;
+      return typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= min &&
+        value <= max
+        ? null
+        : `${key} takes a whole number from ${min} to ${max}`;
+    }
+    case 'time':
+      return typeof value === 'string' && isTimeOfDay(value)
+        ? null
+        : `${key} takes a time of day, HH:MM`;
+    case 'modules':
+      return typeof value === 'string' ? null : `${key} takes area ids`;
+    default:
+      return setting.options?.some((option) => option.value === value)
+        ? null
+        : `${key} takes one of ${setting.options?.map((o) => o.value).join(', ')}`;
+  }
+}
+
+/** `06:00`, `7:30`, `23:59`. */
+export function isTimeOfDay(value: string): boolean {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  return !!match && Number(match[1]) < 24 && Number(match[2]) < 60;
 }

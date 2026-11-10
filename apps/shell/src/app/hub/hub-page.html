@@ -9,15 +9,15 @@
   </p>
 </section>
 
-@if (show3d) { @defer (on idle) {
-<app-island-view class="island" [modules]="modules" (open)="open($event)" />
+@if (show3d()) { @defer (on idle) {
+<app-island-view class="island" [modules]="modules()" (open)="open($event)" />
 } @placeholder {
 <div class="island island--placeholder" aria-hidden="true"></div>
 } }
 
 <h2 class="section-title">All areas</h2>
 <ul class="modules" role="list">
-  @for (module of modules; track module.id; let i = $index) {
+  @for (module of modules(); track module.id; let i = $index) {
   <li
     class="modules__item"
     [attr.data-character]="module.character"
@@ -48,6 +48,12 @@
   </li>
   }
 </ul>
+@if (hiddenCount()) {
+<p class="hidden-note">
+  {{ hiddenCount() }} {{ hiddenCount() === 1 ? 'area is' : 'areas are' }} turned
+  off. <a routerLink="/settings/app">Change in Settings</a>
+</p>
+}
 
 <aside class="documents">
   <div>

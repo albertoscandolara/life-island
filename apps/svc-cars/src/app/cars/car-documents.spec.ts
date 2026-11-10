@@ -1,3 +1,4 @@
+import { RENEWAL_WARNING_DAYS } from '@life-island/contracts';
 import {
   buildSeries,
   carDocumentType,
@@ -261,6 +262,16 @@ describe('car documents', () => {
       daysLeft: 53,
     });
     expect(of('service')).toMatchObject({ level: 'ok', dueOdometerKm: 90000 });
+    // A shorter revisione window set in Settings: not yet expiring.
+    const shorter = renewalsOf(
+      { firstRegistrationDate: '2019-03-14' },
+      series,
+      docs.filter((d) => d.type === 'VEHICLE_EXPENSE'),
+      today,
+      undefined,
+      { ...RENEWAL_WARNING_DAYS, inspection: 30 },
+    );
+    expect(shorter.find((r) => r.kind === 'inspection')?.level).toBe('ok');
     expect(
       renewalsOf({}, buildSeries([], today), [], today).map((r) => [
         r.kind,

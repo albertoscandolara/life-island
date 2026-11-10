@@ -7,9 +7,15 @@ import {
   signal,
 } from '@angular/core';
 import { formatUsd } from '@life-island/contracts';
+import { Router } from '@angular/router';
 import { UiAiBadge, UiButton, UiIcon } from '@life-island/design-system';
 import { AiToolInfo } from './ai-tool-info';
-import { SettingsApi, type AiToolView } from './settings-api';
+import {
+  AI_TOOLS_SETTINGS_URL,
+  aiToolSettingsLink,
+  SettingsApi,
+  type AiToolView,
+} from './settings-api';
 
 /**
  * Shown next to every tool that calls an AI model, where the tool lives: what
@@ -21,7 +27,8 @@ import { SettingsApi, type AiToolView } from './settings-api';
  * <li-ai-tool toolId="work.market-check" />
  * ```
  *
- * `compact` drops the switch's label, for a tight row.
+ * `compact` drops the switch's label, for a tight row. The badge links to the
+ * tool in Settings → AI tools (`settingsLink` false on that page itself).
  */
 @Component({
   selector: 'li-ai-tool',
@@ -30,15 +37,27 @@ import { SettingsApi, type AiToolView } from './settings-api';
   host: { class: 'li-ai-tool' },
   template: `
     @if (view(); as v) {
-      <ui-ai-badge
-        [label]="badge(v)"
-        [muted]="!v.active"
-        [attr.title]="
-          v.costIsEstimate
-            ? 'Estimated cost per ' + v.definition.unit
-            : 'Average cost per ' + v.definition.unit + ' over its real uses'
-        "
-      />
+      @if (settingsLink()) {
+        <a
+          class="badge-link"
+          [href]="link()"
+          [attr.aria-label]="v.definition.name + ' in Settings: ' + badge(v)"
+          title="Open in Settings → AI tools"
+          (click)="openSettings($event)"
+        >
+          <ui-ai-badge [label]="badge(v)" [muted]="!v.active" />
+        </a>
+      } @else {
+        <ui-ai-badge
+          [label]="badge(v)"
+          [muted]="!v.active"
+          [attr.title]="
+            v.costIsEstimate
+              ? 'Estimated cost per ' + v.definition.unit
+              : 'Average cost per ' + v.definition.unit + ' over its real uses'
+          "
+        />
+      }
       <label class="switch" [class.switch--compact]="compact()">
         <input
           type="checkbox"
@@ -81,6 +100,18 @@ import { SettingsApi, type AiToolView } from './settings-api';
       flex-wrap: wrap;
       gap: var(--space-1);
       vertical-align: middle;
+    }
+    .badge-link {
+      display: inline-flex;
+      border-radius: var(--radius-full);
+      text-decoration: none;
+    }
+    .badge-link:hover {
+      filter: brightness(0.97);
+    }
+    .badge-link:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
     }
     .switch {
       display: inline-flex;
@@ -140,9 +171,33 @@ import { SettingsApi, type AiToolView } from './settings-api';
 })
 export class AiTool {
   private readonly api = inject(SettingsApi);
+  private readonly router = inject(Router, { optional: true });
+  private readonly settingsUrl = inject(AI_TOOLS_SETTINGS_URL);
 
   readonly toolId = input.required<string>();
   readonly compact = input(false);
+  /** The badge opens the tool in Settings; off on Settings → AI tools itself. */
+  readonly settingsLink = input(true);
+
+  protected readonly link = computed(() =>
+    aiToolSettingsLink(this.settingsUrl, this.toolId()),
+  );
+
+  /** Inside the island the router opens Settings without reloading the page. */
+  protected openSettings(event: MouseEvent): void {
+    const url = this.link();
+    if (
+      !this.router ||
+      !url.startsWith('/') ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.button !== 0
+    )
+      return;
+    event.preventDefault();
+    void this.router.navigateByUrl(url);
+  }
 
   protected readonly view = computed(() => this.api.tool(this.toolId()));
   protected readonly infoOpen = signal(false);

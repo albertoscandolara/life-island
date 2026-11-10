@@ -40,6 +40,9 @@ function state(change: Partial<AiToolDto> = {}): AiToolDto {
     active: true,
     available: true,
     models: { research: 'claude-sonnet-5-5', format: 'claude-sonnet-5-5' },
+    modelOverride: null,
+    modelChoices: ['claude-sonnet-5-5', 'claude-opus-5-5'],
+    customized: false,
     estimatedCostUsd: estimatedCostUsd(tool),
     usage: { uses: 0, averageCostUsd: null, totalCostUsd: 0, lastUsedAt: null },
     request: null,
@@ -48,8 +51,22 @@ function state(change: Partial<AiToolDto> = {}): AiToolDto {
   };
 }
 
-function overview(tool: AiToolDto, aiEnabled = true): SettingsOverviewDto {
+function overview(
+  tool: AiToolDto,
+  aiEnabled = true,
+  blocking = false,
+): SettingsOverviewDto {
   return {
+    budget: {
+      limitUsd: blocking ? 1 : null,
+      stopAtLimit: blocking,
+      month: '2026-11',
+      spentUsd: blocking ? 1 : 0,
+      warning: blocking,
+      reached: blocking,
+      blocking,
+    },
+    spending: [],
     aiEnabled,
     tools: [
       tool,
@@ -117,6 +134,21 @@ describe('AiTool', () => {
     ).toContain('all AI off');
   });
 
+  it('says when the monthly budget stopped AI', async () => {
+    expect(
+      (await setup(overview(state(), true, true))).element.textContent,
+    ).toContain('budget reached');
+  });
+
+  it('links the badge to the tool in Settings', async () => {
+    const { element } = await setup(overview(state()));
+    expect(
+      element
+        .querySelector<HTMLAnchorElement>('a.badge-link')
+        ?.getAttribute('href'),
+    ).toBe('/settings/ai-tools?tool=work.market-check');
+  });
+
   it('turns the tool off through svc-settings and reloads', async () => {
     const { element, http, fixture } = await setup(overview(state()));
     const toggle =
@@ -140,6 +172,8 @@ describe('AiTool', () => {
     const { element, fixture } = await setup(
       overview(
         state({
+          // svc-settings reports the models the service uses, step by step.
+          models: { research: 'claude-opus-5-5', format: 'claude-sonnet-5-5' },
           request: {
             service: 'svc-work',
             promptVersion: null,

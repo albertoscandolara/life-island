@@ -4,6 +4,8 @@ export interface SettingsConfig {
   port: number;
   databaseUrl: string;
   natsUrl: string;
+  /** The time zone months are counted in, for the monthly AI budget. */
+  timezone: string;
 }
 
 /**
@@ -26,6 +28,7 @@ export function loadConfig(
     ),
     databaseUrl: env['SETTINGS_DATABASE_URL'] || LOCAL_SETTINGS_DATABASE_URL,
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
+    timezone: env['SETTINGS_TIMEZONE'] || 'Europe/Rome',
   };
 }
 

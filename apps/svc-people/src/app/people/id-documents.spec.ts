@@ -264,6 +264,15 @@ describe('expiryAlerts', () => {
       ['ts', 'expired', -3],
       ['p-new', 'expiring', 170],
     ]);
+    // With the identity card's window set to 150 days in Settings, it warns too.
+    expect(
+      expiryAlerts(person, series, today, {
+        PASSPORT: 180,
+        IDENTITY_CARD: 150,
+        DRIVING_LICENCE: 90,
+        HEALTH_CARD: 60,
+      }).map((a) => a.uploadId),
+    ).toEqual(['ts', 'cie', 'p-new']);
   });
 
   it('never warns about a document you marked lost or one with no expiry date', () => {

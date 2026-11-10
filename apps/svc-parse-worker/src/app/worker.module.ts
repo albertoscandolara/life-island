@@ -54,14 +54,33 @@ function createParser(config: WorkerConfig, svc: ServiceDb): DocumentAnalyzer {
   if (config.parser === 'fake') return offline;
   // The SDK retries 408/409/429/5xx twice, honouring retry-after; usage-quota
   // errors (400/402) are not retried, so an exhausted quota is never hammered.
-  const claude = new ClaudeParser(
-    new Anthropic({ maxRetries: 2 }),
-    modelsOf(config),
-    { chunkChars: config.chunkChars },
-  );
+  const client = new Anthropic({ maxRetries: 2 });
+  const models = modelsOf(config);
+  const options = { chunkChars: config.chunkChars };
+  const claude = new ClaudeParser(client, models, options);
   // Each step asks Settings' switches first; a step turned off runs offline.
-  return new GatedAnalyzer(claude, new FakeParser(), svc);
+  // A model picked in Settings replaces the env one for that tool's calls.
+  return new GatedAnalyzer(
+    claude,
+    new FakeParser(),
+    svc,
+    (toolId, model) =>
+      new ClaudeParser(
+        client,
+        { ...models, [TOOL_MODELS[toolId]]: model },
+        options,
+      ),
+  );
 }
+
+/** Which of the parser's models each document AI tool uses. */
+const TOOL_MODELS: Record<string, keyof ClaudeModels> = {
+  'documents.classify': 'classify',
+  'documents.discover': 'discover',
+  'documents.extract': 'extract',
+  'documents.transactions': 'transaction',
+  'documents.reclassify': 'reclassify',
+};
 
 const logger = new Logger('Settings');
 

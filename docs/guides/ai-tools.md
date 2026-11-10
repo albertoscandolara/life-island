@@ -47,6 +47,13 @@ libs/design-system  <ui-ai-panel>, <ui-ai-badge>, <ui-ai-status>, the --ai-* tok
 5. **Expose whether it is on** in the module's DTO (for example `aiFeedback` and `aiMarketCheck` in `WorkOverviewDto`), so the page can say what the user will get.
 6. **Show it** with the components below.
 
+## What you can change in Settings
+
+- **Model per tool.** Each tool can run on any model in `aiToolModelChoices(tool)`. Haiku is left out for a tool that searches the web. The choice is stored as `ai-model.<toolId>` and applies to every step of the tool. Read it with `aiToolModel(db, schema, toolId)` before each call, and fall back to the service's env model. The page shows the estimated cost per use on each model.
+- **Monthly budget.** `ai.monthly-budget-usd` and `ai.budget-stop`. svc-settings adds up the recorded uses per calendar month, in `SETTINGS_TIMEZONE`, which defaults to Europe/Rome. Settings warns at 80%. When the stop is on and the budget is reached, svc-settings publishes `ai.budget-reached = true`. `isAiToolEnabled` reads that flag, so every tool goes offline until the next month, or until you raise the budget. svc-settings checks after each use, after each budget change, at startup and every hour. No one sets `ai.budget-reached` by hand.
+- **Reset and backup.** `DELETE /api/settings/settings/:key` puts any key back to its default. Replicas receive `null`, which reads as "not set". `GET /api/settings/settings` returns everything you set. `PUT /api/settings/settings` with `{ values }` sets many keys at once, all or nothing. App settings saves these values, plus the browser settings, to a `life-island-settings` JSON file and loads them back.
+- **Links.** The badge of `<li-ai-tool>` links to `/settings/ai-tools?tool=<id>`, which scrolls to the tool and highlights it. Pass `[settingsLink]="false"` on the Settings page itself.
+
 ## The visual language
 
 Violet (`--ai-accent`, `--ai-text`, `--ai-soft`, `--ai-border`) is reserved for AI. No module accent uses it, so AI reads as AI everywhere. Keep it to the components below. Do not add gradients or new colours.
@@ -63,4 +70,31 @@ Titles: the panel heading names the tool in the user's words ("Career feedback",
 
 ## App settings
 
-Settings → App settings shows every setting in `APP_SETTINGS`. A `browser` setting, such as the theme, is kept by the browser. A `server` setting is stored by svc-settings and reaches services through their replica, which they read with `readBooleanSetting` or `readSetting`. To add a server setting, add it to `APP_SETTINGS`, then read it from the replica of the service that uses it.
+Settings → App settings shows every setting in `APP_SETTINGS`, and a search box filters both pages.
+
+A setting has a `type`:
+
+- `boolean`
+- `choice`
+- `number`, with `min`, `max` and a `unit`
+- `time`, as `HH:MM`
+- `modules`, a list of island areas
+
+**Browser settings.** A `browser` setting is kept by this browser in localStorage, as `life-island.setting.<key>`, through `BrowserSettings` in libs/settings-ui. The theme is the exception: `UiThemeService` keeps it. Browser settings include:
+
+- the island view (3D or cards only)
+- the start page (the island, or the last area used)
+- the areas you turned off
+
+**Server settings.** A `server` setting is stored by svc-settings and reaches services through their replica. Services read it with `readBooleanSetting`, `readNumberSettings` or `readSettings`.
+
+| Setting                                                  | Read by                                                                            |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Reminder windows `people.warn-days.*`                    | svc-people (it has a replica for them)                                             |
+| Reminder windows `cars.warn-days.*`                      | svc-cars                                                                           |
+| Daily reading switch, time and startup run `documents.*` | the parse worker, which checks them every 15 seconds, so a change needs no restart |
+
+To add a server setting:
+
+1. Add it to `APP_SETTINGS`.
+2. Read it from the replica of the service that uses it, with a fallback for when the replica cannot be read.

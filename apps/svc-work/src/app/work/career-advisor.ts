@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   describeAiTools,
+  aiToolModel,
   isAiToolEnabled,
   recordAiToolUse,
   stepUsage,
@@ -68,6 +69,14 @@ export class CareerAdvisor implements OnApplicationBootstrap {
     );
   }
 
+  /** The model you picked for a tool in Settings, else WORK_FEEDBACK_MODEL. */
+  private async modelFor(toolId: string): Promise<string> {
+    return (
+      (await aiToolModel(this.svc.pool, this.svc.schema, toolId)) ??
+      this.config.feedbackModel
+    );
+  }
+
   /** Tells Settings how each Work tool calls the model, for its info button. */
   async onApplicationBootstrap(): Promise<void> {
     await describeAiTools(
@@ -109,11 +118,12 @@ export class CareerAdvisor implements OnApplicationBootstrap {
         model: null,
       };
     const dossier = careerDossier(input);
+    const model = await this.modelFor(FEEDBACK_TOOL);
     const steps: AiStepUsage[] = [];
     try {
       const started = Date.now();
       const message = await this.client.messages.create({
-        model: this.config.feedbackModel,
+        model,
         // Thinking is on by default and counts against max_tokens: 4000 left
         // the answer cut mid-JSON once the dossier grew.
         max_tokens: 16000,
@@ -155,7 +165,9 @@ export class CareerAdvisor implements OnApplicationBootstrap {
     } catch (error) {
       await this.record(FEEDBACK_TOOL, steps, error);
       this.logger.error(`Career feedback failed: ${String(error)}`);
-      throw new ServiceUnavailableException(explain(error, this.config));
+      throw new ServiceUnavailableException(
+        explain(error, { feedbackModel: model }),
+      );
     }
   }
 
@@ -174,6 +186,7 @@ export class CareerAdvisor implements OnApplicationBootstrap {
         'The market check is turned off in Settings → AI tools. Turn it on there to run it.',
       );
     const client = this.client;
+    const model = await this.modelFor(MARKET_CHECK_TOOL);
     const steps: AiStepUsage[] = [];
     const person = [
       `Role: ${profile.role}`,
@@ -196,7 +209,7 @@ export class CareerAdvisor implements OnApplicationBootstrap {
       for (let turn = 0; turn < 4; turn++) {
         const started = Date.now();
         research = await client.messages.create({
-          model: this.config.feedbackModel,
+          model,
           max_tokens: 16000,
           output_config: { effort: 'medium' },
           system: MARKET_RESEARCH,
@@ -223,7 +236,7 @@ export class CareerAdvisor implements OnApplicationBootstrap {
 
       const formatStarted = Date.now();
       const formatted = await client.messages.create({
-        model: this.config.feedbackModel,
+        model,
         max_tokens: 8000,
         output_config: {
           effort: 'low',
@@ -252,7 +265,9 @@ export class CareerAdvisor implements OnApplicationBootstrap {
     } catch (error) {
       await this.record(MARKET_CHECK_TOOL, steps, error);
       this.logger.error(`Market check failed: ${String(error)}`);
-      throw new ServiceUnavailableException(explain(error, this.config));
+      throw new ServiceUnavailableException(
+        explain(error, { feedbackModel: model }),
+      );
     }
   }
 }

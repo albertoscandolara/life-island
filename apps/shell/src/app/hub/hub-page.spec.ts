@@ -57,3 +57,34 @@ describe('HubPage', () => {
     });
   });
 });
+
+describe('HubPage with Settings → Island', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('leaves out the areas you turned off, never Settings', async () => {
+    localStorage.setItem(
+      'life-island.setting.island.hidden-areas',
+      'cars,health',
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    const fixture = TestBed.createComponent(HubPage);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const names = [...element.querySelectorAll('.module__name')].map((n) =>
+      n.textContent?.trim(),
+    );
+    expect(names).not.toContain('Cars');
+    expect(names).not.toContain('Health');
+    expect(names).toContain('Settings');
+    expect(element.querySelector('.hidden-note')?.textContent).toContain(
+      '2 areas are',
+    );
+  });
+});

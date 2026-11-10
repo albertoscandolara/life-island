@@ -29,6 +29,13 @@
       "when": 1794339663464,
       "tag": "0003_remove_guides_and_history",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794345904730,
+      "tag": "0004_settings_replica",
+      "breakpoints": true
     }
   ]
 }

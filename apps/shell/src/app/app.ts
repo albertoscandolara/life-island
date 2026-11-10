@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { UiIcon, UiThemeToggle } from '@life-island/design-system';
 import { environment } from '../environments/environment';
+import { LastArea } from './last-area';
 
 /** Life Island: the host for everything that shows and uses your data. */
 @Component({
@@ -12,4 +13,8 @@ import { environment } from '../environments/environment';
 })
 export class App {
   protected readonly documentsUrl = environment.documentsUrl;
+
+  constructor() {
+    inject(LastArea).start();
+  }
 }

@@ -5,8 +5,12 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { ServiceDb } from '@life-island/be-common';
+import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
 import {
+  carReminderSettingKey,
+  RENEWABLE_KINDS,
+  RENEWAL_WARNING_DAYS,
+  type RenewableKind,
   identifiesVehicle,
   type ApproveCarReviewRequest,
   type CarDocumentStatus,
@@ -105,11 +109,35 @@ export function vehicleName(row: Pick<VehicleRow, 'label' | 'values'>): string {
 export class CarsService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
+  /**
+   * How many days before each renewal its warning starts: Settings →
+   * Reminders, from this service's replica; the defaults if it cannot be read.
+   */
+  private async warningWindows(): Promise<Record<RenewableKind, number>> {
+    const kinds = RENEWABLE_KINDS.filter(
+      (kind) => kind !== 'fine' && kind !== 'tyres',
+    );
+    try {
+      return {
+        ...RENEWAL_WARNING_DAYS,
+        ...(await readNumberSettings(
+          this.svc.pool,
+          this.svc.schema,
+          Object.fromEntries(
+            kinds.map((kind) => [kind, carReminderSettingKey(kind)]),
+          ) as Record<(typeof kinds)[number], string>,
+        )),
+      };
+    } catch {
+      return { ...RENEWAL_WARNING_DAYS };
+    }
+  }
+
   async overview(
     today = todayIso(),
     aiQuotes = false,
   ): Promise<CarsOverviewDto> {
-    const [docs, rows, decided, fineRows, tyreRows, comparisonRows] =
+    const [docs, rows, decided, fineRows, tyreRows, comparisonRows, windows] =
       await Promise.all([
         this.carDocuments(),
         this.svc.db.select().from(vehicles),
@@ -120,6 +148,7 @@ export class CarsService {
           .select()
           .from(quoteComparisons)
           .orderBy(desc(quoteComparisons.createdAt)),
+        this.warningWindows(),
       ]);
     const fineDetails = new Map<string, FineDetails>(
       fineRows.map((f) => [f.uploadId, f]),
@@ -166,6 +195,7 @@ export class CarsService {
             approved.filter((d) => d.type === 'VEHICLE_EXPENSE'),
             today,
             trend,
+            windows,
           ),
           ...fineRenewals(carFineList.fines, today),
           ...(row.status === 'active'

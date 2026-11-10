@@ -15,7 +15,11 @@ import {
   type AiToolStep,
 } from '@life-island/contracts';
 import { UiAiBadge, UiBadge, UiDialog } from '@life-island/design-system';
-import { AI_TOOLS_SETTINGS_URL, SettingsApi } from './settings-api';
+import {
+  AI_TOOLS_SETTINGS_URL,
+  aiToolSettingsLink,
+  SettingsApi,
+} from './settings-api';
 
 interface StepView {
   definition: AiToolStep;
@@ -184,7 +188,7 @@ interface StepView {
         }
         <p class="muted small">
           Prices are the Claude API list prices; thinking is billed as output.
-          <a [href]="settingsUrl">All AI tools in Settings</a>
+          <a [href]="settingsLink()">This tool in Settings</a>
         </p>
       </ui-dialog>
     }
@@ -272,6 +276,9 @@ export class AiToolInfo {
   readonly open = model(false);
 
   protected readonly view = computed(() => this.api.tool(this.toolId()));
+  protected readonly settingsLink = computed(() =>
+    aiToolSettingsLink(this.settingsUrl, this.toolId()),
+  );
   protected readonly steps = computed<StepView[]>(() => {
     const view = this.view();
     if (!view) return [];
@@ -279,7 +286,11 @@ export class AiToolInfo {
       const request =
         view.state?.request?.steps.find((s) => s.stepId === definition.id) ??
         null;
-      const model = request?.model ?? definition.defaultModel;
+      // The model you picked in Settings applies over what the service reported.
+      const model =
+        view.state?.models[definition.id] ??
+        request?.model ??
+        definition.defaultModel;
       return {
         definition,
         request,

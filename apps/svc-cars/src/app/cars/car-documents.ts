@@ -774,6 +774,7 @@ function levelOf(
   kind: RenewableKind,
   dueDate: string,
   today: string,
+  windows: Readonly<Record<RenewableKind, number>>,
 ): { level: RenewalLevel; daysLeft: number; graceUntil: string | null } {
   const daysLeft = daysUntil(dueDate, today);
   const graceUntil =
@@ -784,7 +785,7 @@ function levelOf(
     return { level: 'expired', daysLeft, graceUntil };
   }
   return {
-    level: daysLeft <= RENEWAL_WARNING_DAYS[kind] ? 'expiring' : 'ok',
+    level: daysLeft <= windows[kind] ? 'expiring' : 'ok',
     daysLeft,
     graceUntil,
   };
@@ -820,6 +821,8 @@ export function renewalsOf<T extends ApprovedCarDocument>(
   expenses: readonly T[],
   today: string,
   odometer: OdometerTrend = NO_TREND,
+  /** Days before a renewal its warning starts, per kind (Settings → Reminders). */
+  windows: Readonly<Record<RenewableKind, number>> = RENEWAL_WARNING_DAYS,
 ): RenewalDto[] {
   const renewals: RenewalDto[] = [];
   const push = (
@@ -847,7 +850,7 @@ export function renewalsOf<T extends ApprovedCarDocument>(
     renewals.push({
       kind,
       subject: null,
-      ...levelOf(kind, dueDate, today),
+      ...levelOf(kind, dueDate, today, windows),
       dueDate,
       uploadId,
       basis,

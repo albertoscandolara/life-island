@@ -13,8 +13,10 @@
   </button>
 </ui-alert>
 } @if (error(); as message) {
-<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
-} @for (group of groups; track group.name) {
+<ui-alert tone="danger" class="block" role="alert">{{ message }}</ui-alert>
+} @if (notice(); as message) {
+<ui-alert tone="success" class="block" role="status">{{ message }}</ui-alert>
+} @for (group of groups(); track group.name) {
 <ui-card [heading]="group.name" class="block">
   <ul class="settings-list">
     @for (setting of group.settings; track setting.key) {
@@ -25,7 +27,7 @@
         >
         @if (setting.scope === 'browser') {
         <ui-badge tone="neutral">this browser</ui-badge>
-        } @else if (state(setting)?.isSet === false) {
+        } @else if (!isSet(setting)) {
         <ui-badge tone="neutral">default</ui-badge>
         }
         <p class="muted">{{ setting.description }}</p>
@@ -36,19 +38,59 @@
         </p>
       </div>
       <div class="setting__control">
-        @if (setting.type === 'boolean') {
+        @switch (setting.type) { @case ('boolean') {
         <label class="switch">
           <input
             type="checkbox"
             role="switch"
             [checked]="value(setting) === true"
-            [disabled]="setting.scope === 'server' && (!api.overview.hasValue() || api.busy())"
+            [disabled]="locked(setting)"
             [attr.aria-labelledby]="'label-' + setting.key"
             (change)="choose(setting, $any($event.target).checked)"
           />
           <span>{{ value(setting) ? 'On' : 'Off' }}</span>
         </label>
-        } @else {
+        } @case ('number') {
+        <span class="number">
+          <input
+            uiInput
+            type="number"
+            class="number__input"
+            inputmode="numeric"
+            [min]="setting.min ?? 0"
+            [max]="setting.max ?? null"
+            step="1"
+            [value]="value(setting)"
+            [disabled]="locked(setting)"
+            [attr.aria-labelledby]="'label-' + setting.key"
+            (change)="chooseNumber(setting, $any($event.target))"
+          />
+          <span class="muted small">{{ setting.unit }}</span>
+        </span>
+        } @case ('time') {
+        <input
+          uiInput
+          type="time"
+          class="time-input"
+          [value]="value(setting)"
+          [disabled]="locked(setting)"
+          [attr.aria-labelledby]="'label-' + setting.key"
+          (change)="chooseTime(setting, $any($event.target))"
+        />
+        } @case ('modules') {
+        <fieldset class="areas" [attr.aria-labelledby]="'label-' + setting.key">
+          @for (area of areas; track area.id) {
+          <label class="area">
+            <input
+              type="checkbox"
+              [checked]="areaShown(setting, area.id)"
+              (change)="toggleArea(setting, area.id, $any($event.target).checked)"
+            />
+            <span aria-hidden="true">{{ area.emblem }}</span> {{ area.name }}
+          </label>
+          }
+        </fieldset>
+        } @default {
         <div
           class="segmented"
           role="radiogroup"
@@ -61,17 +103,83 @@
             class="segmented__option"
             [class.segmented__option--on]="value(setting) === option.value"
             [attr.aria-checked]="value(setting) === option.value"
+            [disabled]="locked(setting)"
             (click)="choose(setting, option.value)"
           >
             {{ option.label }}
           </button>
           }
         </div>
+        } } @if (isSet(setting)) {
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="reset"
+          [disabled]="locked(setting)"
+          [attr.aria-label]="'Reset ' + setting.label + ' to its default'"
+          (click)="reset(setting)"
+        >
+          <ui-icon name="refresh" [size]="14" /> Default
+        </button>
         }
       </div>
     </li>
     }
   </ul>
+</ui-card>
+} @empty {
+<p class="muted block">No setting matches your search. Try AI tools too.</p>
+} @if (!searching()) {
+<ui-card heading="Backup" class="block">
+  <p class="muted">
+    Save every setting you changed to a file, here and in Settings → AI tools
+    (switches, models, budget, reminders, this browser's island and theme), and
+    load it back later or on another computer. Settings at their default are not
+    in the file, and loading a file leaves them as they are.
+  </p>
+  <div class="backup">
+    <button uiButton variant="secondary" type="button" (click)="exportFile()">
+      <ui-icon name="download" [size]="16" /> Save to a file
+    </button>
+    <label class="file-button">
+      <ui-icon name="upload" [size]="16" /> Load a file
+      <input
+        type="file"
+        accept="application/json,.json"
+        class="ui-visually-hidden"
+        (change)="readFile($any($event.target))"
+      />
+    </label>
+  </div>
+  @if (pending(); as p) {
+  <div class="pending" role="region" aria-label="Settings file to load">
+    <p>
+      <strong>{{ p.name }}</strong>, saved {{ p.file.exportedAt | date: 'dd MMM
+      yyyy, HH:mm' }}: {{ count(p.file.server) }} settings for the services and
+      AI tools, {{ count(p.file.browser) }} for this browser.
+    </p>
+    <div class="backup">
+      <button
+        uiButton
+        type="button"
+        [disabled]="count(p.file.server) > 0 && !api.overview.hasValue()"
+        (click)="applyFile()"
+      >
+        Apply these settings
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        (click)="pending.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+  }
 </ui-card>
 }
 

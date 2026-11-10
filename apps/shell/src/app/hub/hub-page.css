@@ -197,3 +197,9 @@ a.module:focus-visible {
 .module__attention {
   position: relative;
 }
+
+.hidden-note {
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}

@@ -152,3 +152,13 @@ export const relations = people.table(
 );
 
 export type RelationRow = typeof relations.$inferSelect;
+
+/**
+ * svc-people's copy of the settings it reads (the reminder windows of the ID
+ * documents), kept by its consumer of settings.changed@1. Nothing else writes it.
+ */
+export const settingsReplica = people.table('settings_replica', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+});
