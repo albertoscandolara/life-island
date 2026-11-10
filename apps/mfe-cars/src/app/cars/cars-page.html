@@ -8,19 +8,20 @@
 <ui-alert tone="danger" class="block">{{ message }}</ui-alert>
 } @if (alerts().length) {
 <section class="alerts" aria-label="Renewal warnings">
-  @for (alert of alerts(); track alert.vehicleId + alert.kind) {
+  @for (alert of alerts(); track $index) {
   <ui-alert
     [tone]="alert.level === 'expired' ? 'danger' : alert.level === 'missing' ? 'info' : 'warning'"
   >
     <strong>{{ alertText(alert) }}</strong>
     <span class="muted">
-      @if (alert.dueDate) { {{ alert.level === 'expired' || alert.level ===
-      'grace' ? 'Was due on' : 'Due by' }} {{ alert.dueDate | date: 'd MMM y'
-      }}. } @if (alert.level === 'missing') { Add it to your documents to see
-      when it is due. } @else if (alert.level === 'grace') { The RCA still
-      covers you until {{ alert.graceUntil | date: 'd MMM y' }}: renew it now. }
-      @else if (alert.level === 'expired') { Renew it, then add the new one to
-      your documents. }
+      @if (alert.subject || alert.dueDate === null && alert.level !== 'missing')
+      { {{ alert.basis }} } @else { @if (alert.dueDate) { {{ alert.level ===
+      'expired' || alert.level === 'grace' ? 'Was due on' : 'Due by' }} {{
+      alert.dueDate | date: 'd MMM y' }}. } @if (alert.level === 'missing') {
+      Add it to your documents to see when it is due. } @else if (alert.level
+      === 'grace') { The RCA still covers you until {{ alert.graceUntil | date:
+      'd MMM y' }}: renew it now. } @else if (alert.level === 'expired') { Renew
+      it, then add the new one to your documents. } }
     </span>
     <button
       uiButton
@@ -496,10 +497,10 @@ idle) {
 
     <ui-card heading="Renewals">
       <ul class="renewals">
-        @for (renewal of vehicle.renewals; track renewal.kind) {
+        @for (renewal of vehicle.renewals; track $index) {
         <li class="renewal">
           <div class="renewal__line">
-            <strong>{{ renewableLabels[renewal.kind] }}</strong>
+            <strong>{{ renewalTitle(renewal) }}</strong>
             <ui-badge [tone]="levelTones[renewal.level]"
               >{{ levelLabels[renewal.level] }}</ui-badge
             >
@@ -507,8 +508,8 @@ idle) {
           <p class="muted small">
             @if (renewal.dueDate) { Due by {{ renewal.dueDate | date: 'd MMM y'
             }} · {{ renewalText(renewal) }} } @else { {{ renewal.basis }} } @if
-            (renewal.dueOdometerKm) { · or at {{ num(renewal.dueOdometerKm, 0,
-            0)}} km }
+            (renewal.dueOdometerKm) { · {{ renewal.dueDate ? 'or at' : 'at' }}
+            {{ num(renewal.dueOdometerKm, 0, 0)}} km }
           </p>
           @if (renewal.dueDate) {
           <p class="muted small">{{ renewal.basis }}</p>
@@ -572,6 +573,21 @@ idle) {
       </p>
       }
     </ui-card>
+
+    <cars-usage-card [usage]="vehicle.usage" />
+
+    <cars-fines-card
+      [fines]="vehicle.fines"
+      [people]="people()"
+      [today]="today"
+      (changed)="load()"
+    />
+
+    <cars-tyres-card
+      [vehicleId]="vehicle.id"
+      [sets]="vehicle.tyres"
+      (changed)="load()"
+    />
   </div>
 
   <div class="car__main">
@@ -728,6 +744,15 @@ idle) {
       </p>
       }
     </ui-card>
+
+    <cars-insurance-history [history]="vehicle.insurance" />
+
+    <cars-insurance-quotes
+      [vehicleId]="vehicle.id"
+      [comparisons]="vehicle.quoteComparisons"
+      [aiOn]="overview()?.aiQuotes ?? false"
+      (changed)="load()"
+    />
 
     @for (series of vehicle.series; track series.type) {
     <ui-card [heading]="typeLabel(series.type)">

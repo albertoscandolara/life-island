@@ -2,14 +2,18 @@ import {
   bigint,
   boolean,
   index,
+  integer,
   jsonb,
   pgSchema,
+  real,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type {
   ModelFormat,
+  QuoteComparisonOutput,
+  TyreSeason,
   VehicleField,
   VehiclePartyField,
   VehicleStatus,
@@ -134,3 +138,86 @@ export const reviews = cars.table(
 );
 
 export type ReviewRow = typeof reviews.$inferSelect;
+
+/**
+ * What you add by hand to a fine filed as a car expense: the day it reached
+ * you (every deadline runs from it), the day you paid, the points and who
+ * was driving. What the fine prints stays in its document.
+ */
+export const fines = cars.table('fines', {
+  uploadId: uuid('upload_id').primaryKey(),
+  notifiedOn: text('notified_on'),
+  paidOn: text('paid_on'),
+  points: integer('points'),
+  /** A person of People (svc-people), or only a typed name. */
+  driverPersonId: uuid('driver_person_id'),
+  driverName: text('driver_name'),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type FineRow = typeof fines.$inferSelect;
+
+/** The tyre sets of each car, typed by you; one of them is on the car. */
+export const tyreSets = cars.table(
+  'tyre_sets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vehicleId: uuid('vehicle_id')
+      .notNull()
+      .references(() => vehicles.id, { onDelete: 'cascade' }),
+    season: text('season').$type<TyreSeason>().notNull(),
+    label: text('label'),
+    size: text('size'),
+    dot: text('dot'),
+    purchasedOn: text('purchased_on'),
+    treadMm: real('tread_mm'),
+    mounted: boolean('mounted').notNull().default(false),
+    storedAt: text('stored_at'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('tyre_sets_vehicle_idx').on(table.vehicleId)],
+);
+
+export type TyreSetRow = typeof tyreSets.$inferSelect;
+
+/**
+ * Each insurance quote comparison Claude wrote: the names of the files you
+ * uploaded (the files themselves are never kept) and its answer.
+ */
+export const quoteComparisons = cars.table(
+  'quote_comparisons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vehicleId: uuid('vehicle_id')
+      .notNull()
+      .references(() => vehicles.id, { onDelete: 'cascade' }),
+    files: text('files').array().notNull().default([]),
+    note: text('note'),
+    output: jsonb('output').$type<QuoteComparisonOutput>().notNull(),
+    model: text('model'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('quote_comparisons_vehicle_idx').on(table.vehicleId)],
+);
+
+export type QuoteComparisonRow = typeof quoteComparisons.$inferSelect;
+
+/**
+ * svc-cars' copy of the settings it reads (the switch of its AI tool), kept
+ * by its consumer of settings.changed@1. Nothing else writes it.
+ */
+export const settingsReplica = cars.table('settings_replica', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+});

@@ -13,6 +13,7 @@ const alert = (
   daysLeft: number | null,
 ): RenewalAlertDto => ({
   kind,
+  subject: null,
   level,
   daysLeft,
   dueDate: '2027-01-01',
@@ -47,6 +48,37 @@ describe('labels', () => {
     expect(valueText('engine.capacityCc', 1242)).toBe('1.242 cm³');
     expect(valueText('firstRegistrationDate', '2019-03-14')).toBe('14/03/2019');
     expect(valueText('colour', null)).toBe('');
+  });
+
+  it('names a fine or a tyre set by its subject, with its rule when undated', () => {
+    expect(
+      alertText({
+        ...alert('fine', 'expiring', 2),
+        subject: 'Fine of 20 Oct 2026',
+      }),
+    ).toBe('Panda · AB123CD: fine of 20 Oct 2026 is due in 2 days.');
+    expect(
+      alertText({
+        ...alert('tyres', 'expired', -16),
+        subject: 'Tyre change',
+      }),
+    ).toBe('Panda · AB123CD: tyre change was due 16 days ago.');
+    expect(
+      alertText({
+        ...alert('tyres', 'expired', null),
+        dueDate: null,
+        subject: 'Winter tyres',
+      }),
+    ).toBe('Panda · AB123CD: winter tyres.');
+    expect(
+      alertText({
+        ...alert('service', 'expired', null),
+        dueDate: null,
+        basis: 'The car has passed the km of the next service',
+      }),
+    ).toBe(
+      'Panda · AB123CD: service · The car has passed the km of the next service.',
+    );
   });
 
   it('says what is due, expired, in its grace period or missing', () => {

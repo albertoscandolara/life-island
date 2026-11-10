@@ -203,6 +203,8 @@ services:
       INGESTION_URL: http://svc-ingestion:3000
       # The holder and owner of a car can be a person of People, read from svc-people's API.
       PEOPLE_URL: http://svc-people:3000
+      # The insurance quote comparison uses the Claude API; without the key it is unavailable.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
   svc-work:

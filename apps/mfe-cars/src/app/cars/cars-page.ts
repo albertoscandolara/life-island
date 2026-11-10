@@ -50,11 +50,17 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
+import { CarFinesCard } from './car-fines-card';
+import { CarTyresCard } from './car-tyres-card';
+import { CarUsageCard } from './car-usage-card';
 import { GarageView } from './garage-view';
+import { InsuranceHistoryCard } from './insurance-history-card';
+import { InsuranceQuotesPanel } from './insurance-quotes-panel';
 import {
   alertText,
   italianNumber,
   renewalText,
+  renewalTitle,
   typeLabel,
   valueText,
   vehicleName,
@@ -134,8 +140,13 @@ const DEFINITION = new Map<string, Definition>(
   selector: 'cars-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CarFinesCard,
+    CarTyresCard,
+    CarUsageCard,
     DatePipe,
     GarageView,
+    InsuranceHistoryCard,
+    InsuranceQuotesPanel,
     UiAlert,
     UiBadge,
     UiButton,
@@ -292,6 +303,11 @@ export class CarsPage {
   protected readonly num = italianNumber;
   protected readonly maxMb = MODEL_MAX_BYTES / 1024 / 1024;
   protected readonly renewalText = renewalText;
+  protected readonly renewalTitle = renewalTitle;
+  /** Today in Rome, as the fines' deadlines count it. */
+  protected readonly today = new Date().toLocaleDateString('sv-SE', {
+    timeZone: 'Europe/Rome',
+  });
   protected readonly valueText = valueText;
 
   protected select(vehicleId: string): void {

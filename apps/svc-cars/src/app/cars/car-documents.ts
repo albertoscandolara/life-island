@@ -228,7 +228,31 @@ export interface CarDocumentReading {
   paymentDate: string | null;
   /** What it is within its record (policy, certificate, receipt), when known. */
   role: CarDocumentRole | null;
+  /** Insurance: the bonus-malus class and the covers it lists. */
+  cuClass: number | null;
+  coverages: string[] | null;
+  /** Fine (an expense of kind fine): what the verbale prints. */
+  fine: FineReading | null;
   facts: CarDocumentFactDto[];
+}
+
+/** What a fine's verbale prints. */
+export interface FineReading {
+  violationDate: string | null;
+  notificationDate: string | null;
+  article: string | null;
+  points: number | null;
+  reducedAmount: number | null;
+}
+
+/** "Furto, incendio; Cristalli" → ['Furto', 'incendio', 'Cristalli']: one cover each. */
+export function coverList(value: string | null): string[] | null {
+  if (!value) return null;
+  const list = value
+    .split(/[,;\n|]+|\s+\+\s+/)
+    .map((c) => c.trim().replace(/\.$/, ''))
+    .filter((c) => c.length > 1);
+  return list.length ? list : null;
 }
 
 /**
@@ -335,6 +359,9 @@ export function readCarDocument(
     nextServiceKm: null,
     paymentDate: date('payment_date'),
     role: null,
+    cuClass: null,
+    coverages: null,
+    fine: null,
     facts,
   };
 
@@ -358,6 +385,8 @@ export function readCarDocument(
       reading.role = roleOf(f['document_kind'], ...names);
       reading.amount = amount;
       reading.costDate = date('payment_date') ?? reading.validFrom;
+      reading.cuClass = num('cu_class');
+      reading.coverages = coverList(str('coverages'));
       fact('Insurer', reading.issuer);
       fact('Policy', reading.number);
       fact('From', reading.validFrom);
@@ -444,6 +473,17 @@ export function readCarDocument(
       reading.nextServiceKm = num('next_service_km');
       reading.validUntil = reading.nextServiceDate;
       reading.amount = amount;
+      if (reading.expenseKind === 'fine') {
+        reading.fine = {
+          violationDate: date('violation_date'),
+          notificationDate: date('notification_date'),
+          article: str('violation_article'),
+          points: num('licence_points'),
+          reducedAmount: num('reduced_amount'),
+        };
+        reading.validFrom = reading.fine.violationDate ?? reading.validFrom;
+        reading.costDate = reading.paymentDate ?? reading.validFrom;
+      }
       fact('Kind', reading.expenseKind);
       fact('Supplier', reading.issuer);
       fact('Date', reading.validFrom);
@@ -451,6 +491,18 @@ export function readCarDocument(
       fact('Litres', reading.litres);
       fact('Next service by', reading.nextServiceDate);
       fact('Next service at km', reading.nextServiceKm);
+      if (reading.fine) {
+        fact('Violation', reading.fine.violationDate);
+        fact('Notified', reading.fine.notificationDate);
+        fact('Rule', reading.fine.article);
+        fact('Licence points', reading.fine.points);
+        fact(
+          'Within 5 days',
+          reading.fine.reducedAmount === null
+            ? null
+            : money(reading.fine.reducedAmount),
+        );
+      }
       fact('Amount', amount === null ? null : money(amount));
       break;
     }
@@ -767,6 +819,7 @@ export function renewalsOf<T extends ApprovedCarDocument>(
   }[],
   expenses: readonly T[],
   today: string,
+  odometer: OdometerTrend = NO_TREND,
 ): RenewalDto[] {
   const renewals: RenewalDto[] = [];
   const push = (
@@ -779,6 +832,7 @@ export function renewalsOf<T extends ApprovedCarDocument>(
     if (!dueDate) {
       renewals.push({
         kind,
+        subject: null,
         level: 'missing',
         dueDate: null,
         daysLeft: null,
@@ -792,6 +846,7 @@ export function renewalsOf<T extends ApprovedCarDocument>(
     }
     renewals.push({
       kind,
+      subject: null,
       ...levelOf(kind, dueDate, today),
       dueDate,
       uploadId,
@@ -820,6 +875,7 @@ export function renewalsOf<T extends ApprovedCarDocument>(
   else if (roadTax.reading.exempt)
     renewals.push({
       kind: 'road_tax',
+      subject: null,
       level: 'ok',
       dueDate: null,
       daysLeft: null,
@@ -869,16 +925,47 @@ export function renewalsOf<T extends ApprovedCarDocument>(
       (a.reading.validFrom ?? '').localeCompare(b.reading.validFrom ?? ''),
     )
     .at(-1);
-  if (service?.reading.nextServiceDate)
-    push(
-      'service',
-      service.reading.nextServiceDate,
-      service.uploadId,
-      'Printed on the last service',
-      {
-        dueOdometerKm: service.reading.nextServiceKm,
-      },
-    );
+  if (service) {
+    const { nextServiceDate, nextServiceKm } = service.reading;
+    const byKm =
+      nextServiceKm !== null ? dateAtKm(nextServiceKm, odometer) : null;
+    const reached =
+      nextServiceKm !== null &&
+      odometer.estimatedKm !== null &&
+      odometer.estimatedKm >= nextServiceKm;
+    if (nextServiceDate && (!byKm || nextServiceDate <= byKm))
+      push(
+        'service',
+        nextServiceDate,
+        service.uploadId,
+        'Printed on the last service',
+        {
+          dueOdometerKm: nextServiceKm,
+        },
+      );
+    else if (byKm)
+      push(
+        'service',
+        byKm,
+        service.uploadId,
+        `Estimated: the car does about ${Math.round(odometer.kmPerYear ?? 0).toLocaleString('it-IT')} km a year`,
+        { dueOdometerKm: nextServiceKm },
+      );
+    else if (nextServiceKm !== null)
+      renewals.push({
+        kind: 'service',
+        subject: null,
+        level: reached ? 'expired' : 'ok',
+        dueDate: null,
+        daysLeft: null,
+        graceUntil: null,
+        uploadId: service.uploadId,
+        basis: reached
+          ? 'The car has passed the km of the next service'
+          : 'Printed on the last service: the date shows once two km readings are a month apart',
+        dueOdometerKm: nextServiceKm,
+      });
+  }
 
   const until = values.registrationValidUntil;
   if (typeof until === 'string')
@@ -889,6 +976,26 @@ export function renewalsOf<T extends ApprovedCarDocument>(
       'Field H of the registration certificate',
     );
   return renewals;
+}
+
+/** How far the car goes: what the service estimate by km needs. */
+export interface OdometerTrend {
+  kmPerYear: number | null;
+  last: { date: string; km: number } | null;
+  estimatedKm: number | null;
+}
+
+export const NO_TREND: OdometerTrend = {
+  kmPerYear: null,
+  last: null,
+  estimatedKm: null,
+};
+
+/** The day the car reaches `km` at its pace, or null when its pace is unknown. */
+export function dateAtKm(km: number, trend: OdometerTrend): string | null {
+  if (!trend.kmPerYear || trend.kmPerYear <= 0 || !trend.last) return null;
+  const days = Math.round(((km - trend.last.km) / trend.kmPerYear) * 365);
+  return addDays(trend.last.date, days);
 }
 
 /**

@@ -29,6 +29,13 @@
       "when": 1794207733209,
       "tag": "0003_vehicle_people",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794343723956,
+      "tag": "0004_insights",
+      "breakpoints": true
     }
   ]
 }

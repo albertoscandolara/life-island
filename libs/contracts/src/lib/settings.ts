@@ -89,6 +89,13 @@ export const AI_TOOL_MODULES = [
     character: 'pachy',
     service: 'svc-work',
   },
+  {
+    id: 'cars',
+    name: 'Cars',
+    emblem: '🚗',
+    character: 'velo',
+    service: 'svc-cars',
+  },
 ] as const;
 export type AiToolModuleId = (typeof AI_TOOL_MODULES)[number]['id'];
 
@@ -354,6 +361,32 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
         maxTokens: 8000,
         tools: [],
         estimate: { inputTokens: 4000, outputTokens: 1500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'cars.insurance-quotes',
+    module: 'cars',
+    name: 'Insurance quote comparison',
+    description:
+      'Reads the insurance quotes you upload and sets them against your current policy (its record and, when on file, its policy document): price, bonus-malus class, every cover, excess, exclusions and what to ask before signing.',
+    unit: 'comparison',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/cars', label: 'Cars · Insurance' },
+    whenOff:
+      'The comparison is not available; past comparisons stay visible, and the insurance history works without AI.',
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'compare',
+        label: 'Compare the quotes',
+        modelEnv: 'CARS_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        maxTokens: 16000,
+        tools: [],
+        estimate: { inputTokens: 24000, outputTokens: 5000 },
         always: true,
       },
     ],

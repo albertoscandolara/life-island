@@ -4,7 +4,11 @@ import type {
   ApproveCarReviewRequest,
   CarsOverviewDto,
   CarsPeopleDto,
+  CreateTyreSetRequest,
   CreateVehicleRequest,
+  QuoteComparisonDto,
+  UpdateFineRequest,
+  UpdateTyreSetRequest,
   GroupCarDocumentRequest,
   MarkCarDocumentRequest,
   UpdateVehicleRequest,
@@ -85,6 +89,48 @@ export class CarsApi {
   /** The car's 3D model file; `version` busts the cache when it is replaced. */
   modelUrl(id: string, version: string): string {
     return `${CARS_API}/vehicles/${id}/model?v=${encodeURIComponent(version)}`;
+  }
+
+  /** What you add to a fine by hand: when it reached you, when you paid, who drove. */
+  updateFine(uploadId: string, request: UpdateFineRequest): Observable<void> {
+    return this.http.put<void>(`${CARS_API}/fines/${uploadId}`, request);
+  }
+
+  createTyreSet(
+    vehicleId: string,
+    request: CreateTyreSetRequest,
+  ): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(
+      `${CARS_API}/vehicles/${vehicleId}/tyres`,
+      request,
+    );
+  }
+
+  updateTyreSet(id: string, request: UpdateTyreSetRequest): Observable<void> {
+    return this.http.patch<void>(`${CARS_API}/tyres/${id}`, request);
+  }
+
+  removeTyreSet(id: string): Observable<void> {
+    return this.http.delete<void>(`${CARS_API}/tyres/${id}`);
+  }
+
+  /** Claude compares the quotes with the car's current policy (multipart). */
+  compareQuotes(
+    vehicleId: string,
+    quotes: readonly File[],
+    note: string | null,
+  ): Observable<QuoteComparisonDto> {
+    const form = new FormData();
+    for (const file of quotes) form.append('quotes', file, file.name);
+    if (note) form.append('note', note);
+    return this.http.post<QuoteComparisonDto>(
+      `${CARS_API}/vehicles/${vehicleId}/insurance-quotes`,
+      form,
+    );
+  }
+
+  removeComparison(id: string): Observable<void> {
+    return this.http.delete<void>(`${CARS_API}/quote-comparisons/${id}`);
   }
 
   previewUrl(uploadId: string): string {
