@@ -1,0 +1,9 @@
+/* TFR and pension: the yearly table and the company-or-fund comparison. */
+:host {
+  display: block;
+}
+
+.total th,
+.total td {
+  border-top: 1px solid var(--border-subtle);
+}

@@ -1,0 +1,264 @@
+@if (!tfr().years.length) {
+<ui-card class="block">
+  <ui-empty-state heading="No TFR on your payslips yet" icon="calendar">
+    <p class="muted">
+      The TFR (trattamento di fine rapporto) is read from the quota each payslip
+      sets aside. Approve your payslips in "To review" and it is added up here,
+      year by year, with the revaluation the law grants.
+    </p>
+  </ui-empty-state>
+</ui-card>
+} @else {
+<section class="tiles" aria-label="Your TFR">
+  <div class="tile tile--lead">
+    <span class="tile__label">Your company holds</span>
+    <strong class="tile__value">{{ euro(tfr().companyFund) }}</strong>
+    <span class="tile__hint"
+      >Since {{ periodText(tfr().firstPeriod) }}, revalued, from your payslips
+      only</span
+    >
+  </div>
+  @if (thisYear(); as y) {
+  <div class="tile">
+    <span class="tile__label">Set aside in {{ y.year }}</span>
+    <strong class="tile__value">{{ euro(y.accrued) }}</strong>
+    <span class="tile__hint"
+      >{{ y.payslips }} payslip{{ y.payslips === 1 ? '' : 's' }} so far</span
+    >
+  </div>
+  }
+  <div class="tile">
+    <span class="tile__label">If you left today</span>
+    <strong class="tile__value">
+      @if (tfr().separateTaxPct !== null) { {{ tfr().separateTaxPct }}% } @else
+      { – }
+    </strong>
+    <span class="tile__hint">Separate taxation, estimated</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Pension fund</span>
+    <strong class="tile__value tile__value--text">
+      {{ tfr().inFund ? euro(tfr().fundTotal) : 'Not on your payslips' }}
+    </strong>
+    <span class="tile__hint">
+      @if (tfr().inFund) { You {{ euro(tfr().employeeContributions) }}, the
+      employer {{ euro(tfr().employerContributions) }} } @else { Your TFR stays
+      with the company }
+    </span>
+  </div>
+</section>
+
+<ui-card heading="Your TFR, year by year" class="block">
+  <p class="muted intro">
+    Each year the company adds the quota of your payslips (about your pay
+    divided by 13.5) and revalues what it already held by 1.5% plus 75% of
+    inflation, less a 17% tax. Payslips missing from a year lower its quota, so
+    the total is what your documents show, not what the company owes you.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Payslips</th>
+          <th scope="col" class="num">Quota</th>
+          <th scope="col" class="num">Pay ÷ 13.5</th>
+          <th scope="col" class="num">Revaluation</th>
+          <th scope="col" class="num">Company holds</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (y of tfr().years; track y.year) {
+        <tr>
+          <th scope="row">{{ y.year }}</th>
+          <td class="num">{{ y.payslips }}</td>
+          <td class="num">
+            {{ euro(y.accrued) }} @if (y.toFund) {
+            <span class="muted small">({{ euro(y.toFund) }} to the fund)</span>
+            }
+          </td>
+          <td class="num">
+            @if (y.expected !== null) { {{ euro(y.expected) }} @if
+            (gapPct(y.accrued, y.expected); as gap) { @if (gap < -15) {
+            <ui-badge tone="warning">{{ gap }}%</ui-badge>
+            } } } @else { – }
+          </td>
+          <td class="num">
+            @if (y.revaluation) { +{{ euro(y.revaluation - y.revaluationTax) }}
+            <span class="muted small"
+              >{{ rate(y.revaluationPct) }}%{{ y.revaluationEstimated ? ',
+              estimated' : '' }}</span
+            >
+            } @else { – }
+          </td>
+          <td class="num">{{ euro(y.companyFund) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    Revaluation coefficients from
+    <a [href]="tfr().source.url" target="_blank" rel="noopener"
+      >{{ tfr().source.label }}</a
+    >. The running year is revalued in December.
+  </p>
+</ui-card>
+}
+
+<ui-card heading="Company or pension fund?" class="block">
+  <p class="muted intro">
+    From today on, the TFR you will set aside, left with the company or sent to
+    a pension fund (such as Cometa for the metalworkers) with your contribution
+    and the employer's. Your contributions are deductible up to {{
+    euro(deductionLimit) }} a year, and the fund pays out taxed at 15%, less 0.3
+    points a year after the 15th, down to 9%.
+  </p>
+  <form class="form" (submit)="$event.preventDefault()">
+    <label>
+      <span>RAL (yearly gross)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().ral"
+        (input)="setDraft({ ral: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Years to retirement</span>
+      <input
+        class="ui-input"
+        inputmode="numeric"
+        [value]="draft().years"
+        (input)="setDraft({ years: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>TFR already set aside</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().startingTfr"
+        (input)="setDraft({ startingTfr: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Your contribution, % of RAL</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().employeePct"
+        (input)="setDraft({ employeePct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Employer's contribution, % of RAL</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().employerPct"
+        (input)="setDraft({ employerPct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Fund return a year, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().fundReturnPct"
+        (input)="setDraft({ fundReturnPct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Inflation a year, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().inflationPct"
+        (input)="setDraft({ inflationPct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Pay growth a year, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="draft().salaryGrowthPct"
+        (input)="setDraft({ salaryGrowthPct: $any($event.target).value })"
+      />
+    </label>
+  </form>
+
+  @if (choice(); as c) {
+  <div class="table-wrap">
+    <table class="table compare">
+      <thead>
+        <tr>
+          <th scope="col"></th>
+          <th scope="col" class="num">Company</th>
+          <th scope="col" class="num">Pension fund</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">At retirement, before tax</th>
+          <td class="num">{{ euro(c.company.gross) }}</td>
+          <td class="num">{{ euro(c.fund.gross) }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Tax at exit</th>
+          <td class="num">{{ c.company.taxPct }}%</td>
+          <td class="num">{{ c.fund.taxPct }}%</td>
+        </tr>
+        <tr>
+          <th scope="row">Net</th>
+          <td class="num">{{ euro(c.company.net) }}</td>
+          <td class="num">{{ euro(c.fund.net) }}</td>
+        </tr>
+        <tr>
+          <th scope="row">You paid in</th>
+          <td class="num">–</td>
+          <td class="num">{{ euro(c.fund.paidIn) }}</td>
+        </tr>
+        <tr>
+          <th scope="row">The employer added</th>
+          <td class="num">–</td>
+          <td class="num">{{ euro(c.fund.employerPaidIn) }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Income tax saved</th>
+          <td class="num">–</td>
+          <td class="num">{{ euro(c.fund.taxSaved) }}</td>
+        </tr>
+        <tr class="total">
+          <th scope="row">Fund against company</th>
+          <td class="num" colspan="2">
+            <strong
+              [class.up]="c.difference > 0"
+              [class.down]="c.difference < 0"
+              >{{ signedEuro(c.difference) }}</strong
+            >
+            <span class="muted small">
+              after your {{ euro(c.fund.paidIn) }} of contributions</span
+            >
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    An estimate at today's rules, not a promise: fund returns go up and down,
+    the company revalues at {{ c.companyRatePct }}% a year net with these
+    assumptions, and the TFR already set aside stays with the company either
+    way. Rules from
+    <a [href]="fundSource.url" target="_blank" rel="noopener"
+      >{{ fundSource.label }}</a
+    >.
+    <button type="button" class="link" (click)="reset()">
+      Back to your figures
+    </button>
+  </p>
+  } @else {
+  <p class="muted">Type your RAL and the years to retirement.</p>
+  }
+</ui-card>

@@ -1,0 +1,52 @@
+/* Job search: one entry per application, with its status and next step. */
+:host {
+  display: block;
+}
+
+.applications {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.application {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.application:last-child {
+  border-bottom: 0;
+}
+
+.application p {
+  margin: var(--space-1) 0;
+}
+
+.application__badges,
+.application__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.application__actions {
+  margin-top: var(--space-2);
+}
+
+.application__actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.application__status {
+  width: auto;
+}
+
+.application__notes {
+  color: var(--text-secondary);
+  white-space: pre-line;
+}

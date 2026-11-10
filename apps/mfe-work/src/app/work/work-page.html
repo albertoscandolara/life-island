@@ -971,7 +971,25 @@
   [brief]="data.brief"
   [feedback]="data.feedback"
   [aiFeedback]="data.aiFeedback"
+  [offerPrefill]="offerPrefill()"
   (changed)="load()"
+/>
+}
+<!-- ================================================================= audit -->
+@case ('audit') {
+<work-audit [audit]="data.audit" [netChanges]="data.netChanges" />
+}
+<!-- =================================================================== tfr -->
+@case ('tfr') {
+<work-tfr [tfr]="data.tfr" />
+}
+<!-- ================================================================== jobs -->
+@case ('jobs') {
+<work-jobs
+  [applications]="data.applications"
+  [stats]="data.jobSearch"
+  (changed)="load()"
+  (compare)="compareOffer($event)"
 />
 } @case ('platforms') {
 <ui-card heading="Hiring platforms" class="block">

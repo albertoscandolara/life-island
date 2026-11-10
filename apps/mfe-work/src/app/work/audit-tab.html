@@ -1,0 +1,133 @@
+@if (!audit().checkedPayslips) {
+<ui-card class="block">
+  <ui-empty-state heading="No payslips to check yet" icon="check">
+    <p class="muted">
+      Approve your payslips in "To review": each one is then checked against the
+      rules of your CCNL here.
+    </p>
+  </ui-empty-state>
+</ui-card>
+} @else {
+<section class="tiles" aria-label="Your payslips checked">
+  @for (c of counts(); track c.severity) {
+  <div class="tile" [class.tile--lead]="c.severity === 'problem' && c.count">
+    <span class="tile__label">{{ severityLabels[c.severity] }}</span>
+    <strong class="tile__value">{{ c.count }}</strong>
+    <span class="tile__hint">
+      @switch (c.severity) { @case ('problem') { A rule the payslip seems to
+      break } @case ('check') { Worth asking the payroll office } @default {
+      Worth knowing } }
+    </span>
+  </div>
+  }
+  <div class="tile">
+    <span class="tile__label">Payslips checked</span>
+    <strong class="tile__value">{{ audit().checkedPayslips }}</strong>
+    <span class="tile__hint">{{ audit().agreement ?? 'CCNL not read' }}</span>
+  </div>
+</section>
+
+<ui-card heading="Your payslips against the CCNL" class="block">
+  @if (!audit().rulesKnown) {
+  <p class="muted intro">
+    Life Island knows the rules of the Metalmeccanici industria CCNL only; your
+    payslips say {{ audit().agreement ?? 'no agreement' }}. The checks below are
+    the ones that hold for every contract.
+  </p>
+  } @if (audit().findings.length) {
+  <ul class="findings">
+    @for (f of audit().findings; track $index) {
+    <li class="finding">
+      <div class="row">
+        <strong>{{ f.title }}</strong>
+        <ui-badge [tone]="severityTones[f.severity]"
+          >{{ severityLabels[f.severity] }}</ui-badge
+        >
+      </div>
+      <p class="finding__detail">{{ f.detail }}</p>
+      @if (f.uploadId) {
+      <a
+        class="small"
+        [href]="previewUrl(f.uploadId)"
+        target="_blank"
+        rel="noopener"
+        >Open the payslip of {{ periodText(f.period) }}</a
+      >
+      }
+    </li>
+    }
+  </ul>
+  } @else {
+  <p>Nothing to flag: your payslips follow the rules Life Island checks.</p>
+  } @if (audit().passed.length) {
+  <h3 class="values__group">What checks out</h3>
+  <ul class="bullets bullets--good">
+    @for (p of audit().passed; track $index) {
+    <li>{{ p }}</li>
+    }
+  </ul>
+  }
+  <p class="note muted">
+    A check, not legal advice: company agreements, apprenticeships and part time
+    change the rules. Ask your payroll office or union (patronato) about
+    anything flagged. Rules from @for (s of audit().sources; track s.url; let
+    last = $last) {
+    <a [href]="s.url" target="_blank" rel="noopener">{{ s.label }}</a>{{ last ?
+    '.' : ', ' }} }
+  </p>
+</ui-card>
+
+<ui-card heading="Why your net changed" class="block">
+  @if (netChanges().length) {
+  <p class="muted intro">
+    Each monthly payslip against the one before: what raised your net (green)
+    and what lowered it (red). Surtaxes, the IRPEF adjustment and tax credits
+    are read from payslips parsed from now on; until then they are in "other".
+  </p>
+  <ol class="changes">
+    @for (c of netChanges(); track c.uploadId) {
+    <li class="change">
+      <div class="row">
+        <strong
+          >{{ periodText(c.period) }}
+          <span class="muted small">vs {{ periodText(c.previousPeriod) }}</span>
+        </strong>
+        <span class="change__total">
+          {{ euro(c.net) }}
+          <span [class.up]="c.change > 0" [class.down]="c.change < 0"
+            >{{ signedEuro(c.change) }}</span
+          >
+        </span>
+      </div>
+      @if (c.parts.length) {
+      <ul class="parts">
+        @for (p of c.parts; track p.label) {
+        <li class="part">
+          <span class="part__label">{{ p.label }}</span>
+          <span class="part__bar" aria-hidden="true">
+            <span
+              class="part__fill"
+              [class.part__fill--down]="p.amount < 0"
+              [style.width.%]="width(c, p.amount)"
+            ></span>
+          </span>
+          <span
+            class="part__amount"
+            [class.up]="p.amount > 0"
+            [class.down]="p.amount < 0"
+            >{{ signedEuro(p.amount) }}</span
+          >
+        </li>
+        }
+      </ul>
+      } @else {
+      <p class="muted small">The same net as the month before.</p>
+      }
+    </li>
+    }
+  </ol>
+  } @else {
+  <p class="muted">Two monthly payslips with their net are needed.</p>
+  }
+</ui-card>
+}

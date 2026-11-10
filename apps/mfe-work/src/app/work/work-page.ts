@@ -45,10 +45,13 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { WorkApi } from '../api/work-api';
+import { AuditTab } from './audit-tab';
 import { EvaluationsTab } from './evaluations-tab';
+import { JobsTab } from './jobs-tab';
 import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
-import { ToolsTab } from './tools-tab';
+import { TfrTab } from './tfr-tab';
+import { ToolsTab, type OfferDraft } from './tools-tab';
 import {
   duration,
   euro,
@@ -75,7 +78,10 @@ export type WorkTab =
   | 'review'
   | 'workplaces'
   | 'feedback'
+  | 'audit'
+  | 'tfr'
   | 'tools'
+  | 'jobs'
   | 'platforms';
 
 const TABS: {
@@ -90,7 +96,10 @@ const TABS: {
   { id: 'review', label: 'To review', icon: 'inbox' },
   { id: 'workplaces', label: 'Workplaces', icon: 'home' },
   { id: 'feedback', label: 'Career feedback', icon: 'info' },
+  { id: 'audit', label: 'Payslip audit', icon: 'alert' },
+  { id: 'tfr', label: 'TFR and pension', icon: 'calendar' },
   { id: 'tools', label: 'Tools', icon: 'wrench' },
+  { id: 'jobs', label: 'Job search', icon: 'search' },
   { id: 'platforms', label: 'Hiring platforms', icon: 'external' },
 ];
 
@@ -156,9 +165,12 @@ const today = () => new Date().toISOString().slice(0, 10);
   selector: 'work-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AuditTab,
     EvaluationsTab,
+    JobsTab,
     PayAnalysisTab,
     PayslipsTab,
+    TfrTab,
     ToolsTab,
     UiAlert,
     UiBadge,
@@ -201,6 +213,8 @@ export class WorkPage {
   protected readonly question = signal('');
   protected readonly asking = signal(false);
   protected readonly shownFeedbackId = signal<string | null>(null);
+  /** An offer from the job search, for the comparison in Tools. */
+  protected readonly offerPrefill = signal<OfferDraft | null>(null);
 
   protected readonly tabs = TABS;
   protected readonly contractKinds = CONTRACT_KINDS;
@@ -373,6 +387,12 @@ export class WorkPage {
   protected tabCount(tab: WorkTab): number | null {
     if (tab === 'review') return this.reviews().length || null;
     if (tab === 'platforms') return this.stalePlatforms().length || null;
+    if (tab === 'audit')
+      return (
+        this.overview()?.audit.findings.filter((f) => f.severity === 'problem')
+          .length || null
+      );
+    if (tab === 'jobs') return this.overview()?.jobSearch.stale || null;
     return null;
   }
 
@@ -383,6 +403,12 @@ export class WorkPage {
   protected nameOf(workplaceId: string | null): string {
     const workplace = this.workplaces().find((w) => w.id === workplaceId);
     return workplace ? workplaceName(workplace) : '';
+  }
+
+  /** Open an offer of the job search in the comparison of Tools. */
+  protected compareOffer(draft: OfferDraft): void {
+    this.offerPrefill.set({ ...draft });
+    this.setTab('tools');
   }
 
   // ---- review -------------------------------------------------------------

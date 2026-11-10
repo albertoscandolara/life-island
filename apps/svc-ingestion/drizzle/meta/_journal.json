@@ -155,6 +155,13 @@
       "when": 1795334400000,
       "tag": "0021_payslip_workload_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795420800000,
+      "tag": "0022_payslip_net_and_pension_fields",
+      "breakpoints": true
     }
   ]
 }

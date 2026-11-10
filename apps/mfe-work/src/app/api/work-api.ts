@@ -7,6 +7,7 @@ import type {
   CreateWorkplaceRequest,
   GoalStatusRequest,
   HiringPlatformRequest,
+  JobApplicationRequest,
   MarketCheckDto,
   MarketCheckRequest,
   UpdateWorkplaceRequest,
@@ -101,6 +102,21 @@ export class WorkApi {
 
   removeMarketCheck(id: string): Observable<void> {
     return this.http.delete<void>(`${WORK_API}/market-checks/${id}`);
+  }
+
+  addApplication(request: JobApplicationRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${WORK_API}/applications`, request);
+  }
+
+  updateApplication(
+    id: string,
+    request: JobApplicationRequest,
+  ): Observable<void> {
+    return this.http.put<void>(`${WORK_API}/applications/${id}`, request);
+  }
+
+  removeApplication(id: string): Observable<void> {
+    return this.http.delete<void>(`${WORK_API}/applications/${id}`);
   }
 
   previewUrl(uploadId: string): string {

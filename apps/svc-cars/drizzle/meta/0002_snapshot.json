@@ -211,12 +211,8 @@
           "tableFrom": "reviews",
           "tableTo": "vehicles",
           "schemaTo": "cars",
-          "columnsFrom": [
-            "vehicle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vehicle_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

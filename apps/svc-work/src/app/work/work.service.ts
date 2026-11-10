@@ -13,6 +13,7 @@ import {
   type CareerFeedbackDto,
   type CreateWorkplaceRequest,
   type GoalStatusRequest,
+  type JobApplicationRequest,
   type MarketCheckDto,
   type MarketCheckRequest,
   type HiringPlatformDto,
@@ -35,6 +36,7 @@ import {
   documents,
   goalStatuses,
   hiringPlatforms,
+  jobApplications,
   marketChecks,
   reviews,
   workplaces,
@@ -56,6 +58,14 @@ import {
 } from './career.js';
 import type { CareerDossierInput } from './career-feedback.js';
 import { buildCertificates } from './certificates.js';
+import {
+  buildAudit,
+  buildJobSearchStats,
+  buildNetChanges,
+  buildTfr,
+  jobApplicationDto,
+  sortApplications,
+} from './checks.js';
 import { buildEvaluationStats } from './evaluations.js';
 import {
   buildBrief,
@@ -121,6 +131,7 @@ export class WorkService {
       feedbackRows,
       goalRows,
       marketRows,
+      applicationRows,
     ] = await Promise.all([
       this.workDocuments(),
       this.svc.db.select().from(workplaces),
@@ -138,6 +149,7 @@ export class WorkService {
         .from(marketChecks)
         .orderBy(desc(marketChecks.createdAt))
         .limit(5),
+      this.svc.db.select().from(jobApplications),
     ]);
     const career = this.career(
       docs,
@@ -275,6 +287,9 @@ export class WorkService {
     const insights = buildInsights(input);
     const goals = buildGoals(input.evaluations, goalRows);
     const market = marketRows.map(marketCheckDto);
+    const applications = sortApplications(
+      applicationRows.map((row) => jobApplicationDto(row, today)),
+    );
 
     return {
       workplaces: workplaceDtos,
@@ -303,6 +318,16 @@ export class WorkService {
       goals,
       marketChecks: market,
       brief: buildBrief(input, insights, goals, market[0] ?? null),
+      audit: buildAudit(career.workplaces, career.approved, today),
+      netChanges: buildNetChanges(career.approved),
+      tfr: buildTfr(
+        career.workplaces,
+        career.approved,
+        insights.offer.ral,
+        today,
+      ),
+      applications,
+      jobSearch: buildJobSearchStats(applications),
     };
   }
 
@@ -711,6 +736,59 @@ export class WorkService {
     if (!deleted.length) throw new NotFoundException('Market check not found');
   }
 
+  // ---- job search ----------------------------------------------------------
+
+  async addApplication(
+    request: JobApplicationRequest,
+  ): Promise<{ id: string }> {
+    const status = request.status ?? 'applied';
+    const [created] = await this.svc.db
+      .insert(jobApplications)
+      .values({
+        ...applicationValues(request),
+        status,
+        history: [{ status, at: request.appliedAt ?? todayIso() }],
+      })
+      .returning({ id: jobApplications.id });
+    return created;
+  }
+
+  /** Changes an application; a new status is added to its history, dated today. */
+  async updateApplication(
+    id: string,
+    request: JobApplicationRequest,
+  ): Promise<void> {
+    await this.svc.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(jobApplications)
+        .where(eq(jobApplications.id, id))
+        .for('update');
+      if (!row) throw new NotFoundException('Application not found');
+      const status = request.status ?? row.status;
+      await tx
+        .update(jobApplications)
+        .set({
+          ...applicationValues(request),
+          status,
+          history:
+            status === row.status
+              ? row.history
+              : [...row.history, { status, at: todayIso() }],
+          updatedAt: new Date(),
+        })
+        .where(eq(jobApplications.id, id));
+    });
+  }
+
+  async removeApplication(id: string): Promise<void> {
+    const deleted = await this.svc.db
+      .delete(jobApplications)
+      .where(eq(jobApplications.id, id))
+      .returning({ id: jobApplications.id });
+    if (!deleted.length) throw new NotFoundException('Application not found');
+  }
+
   async removeFeedback(id: string): Promise<void> {
     const deleted = await this.svc.db
       .delete(careerFeedback)
@@ -918,4 +996,25 @@ export function cityOf(address: string | null): string | null {
   if (!address) return null;
   const match = /\b\d{5}\s+([^,(]+?)(?:\s*\(|,|$)/.exec(address);
   return match ? match[1].trim() : null;
+}
+
+/** The columns a request sets; status and history are the caller's. */
+function applicationValues(request: JobApplicationRequest) {
+  return {
+    company: request.company,
+    role: request.role,
+    source: request.source || null,
+    url: request.url || null,
+    location: request.location || null,
+    appliedAt: request.appliedAt ?? null,
+    nextStep: request.nextStep || null,
+    nextStepAt: request.nextStepAt ?? null,
+    ralMin: request.ralMin ?? null,
+    ralMax: request.ralMax ?? null,
+    offerRal: request.offerRal ?? null,
+    offerMonths: request.offerMonths ?? null,
+    offerWelfare: request.offerWelfare ?? null,
+    offerBonus: request.offerBonus ?? null,
+    notes: request.notes || null,
+  };
 }
