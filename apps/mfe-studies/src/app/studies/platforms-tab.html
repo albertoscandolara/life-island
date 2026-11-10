@@ -1,0 +1,284 @@
+<ui-card heading="Training platforms" class="block">
+  <div uiCardActions>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="start()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add one
+    </button>
+  </div>
+  <p class="muted intro">
+    The sites you learn on, one click away. A subscription shows what it costs a
+    year and warns you before it renews, so you keep only what you use.
+  </p>
+
+  <div class="chips" role="group" aria-label="Filter by topic">
+    <button
+      type="button"
+      class="chip"
+      [class.chip--on]="!topic()"
+      (click)="topic.set(null)"
+    >
+      All
+    </button>
+    @for (t of topics; track t) {
+    <button
+      type="button"
+      class="chip"
+      [class.chip--on]="topic() === t"
+      (click)="topic.set(topic() === t ? null : t)"
+    >
+      <span class="dot" [style.background]="topicColors[t]"></span> {{
+      topicLabels[t] }}
+    </button>
+    }
+  </div>
+
+  @if (presets().length) {
+  <h3 class="sub">Suggested for you</h3>
+  <ul class="presets">
+    @for (p of presets(); track p.name) {
+    <li class="preset">
+      <div>
+        <strong>{{ p.name }}</strong>
+        <span class="muted small">· {{ planLabels[p.plan] }}</span>
+        <p class="muted small">{{ p.note }}</p>
+      </div>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [loading]="busy() === p.name"
+        [attr.aria-label]="'Add ' + p.name"
+        (click)="addPreset(p)"
+      >
+        <ui-icon name="plus" [size]="16" /> Add
+      </button>
+    </li>
+    }
+  </ul>
+  } @if (draft(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); save()">
+    <label>
+      <span>Name</span>
+      <input
+        class="ui-input"
+        required
+        maxlength="80"
+        [value]="d.name"
+        (input)="set({ name: $any($event.target).value })"
+      />
+    </label>
+    <label class="form__wide">
+      <span>Link</span>
+      <input
+        class="ui-input"
+        type="url"
+        required
+        maxlength="500"
+        pattern="https?://.+"
+        [value]="d.url"
+        (input)="set({ url: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Signed up as</span>
+      <input
+        class="ui-input"
+        maxlength="200"
+        placeholder="E-mail or username"
+        [value]="d.account"
+        (input)="set({ account: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>How you pay</span>
+      <select
+        class="ui-input"
+        (change)="set({ plan: $any($event.target).value })"
+      >
+        @for (p of plans; track p) {
+        <option [value]="p" [selected]="d.plan === p">
+          {{ planLabels[p] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Status</span>
+      <select
+        class="ui-input"
+        (change)="set({ status: $any($event.target).value })"
+      >
+        @for (s of statuses; track s) {
+        <option [value]="s" [selected]="d.status === s">
+          {{ statusLabels[s] }}
+        </option>
+        }
+      </select>
+    </label>
+    @if (d.plan === 'subscription') {
+    <label>
+      <span>Price (€)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.price"
+        (input)="set({ price: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Every</span>
+      <select
+        class="ui-input"
+        (change)="set({ billingPeriod: $any($event.target).value })"
+      >
+        @for (p of periods; track p) {
+        <option [value]="p" [selected]="d.billingPeriod === p">{{ p }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Renews on</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.renewsOn"
+        (input)="set({ renewsOn: $any($event.target).value })"
+      />
+    </label>
+    }
+    <div class="form__wide">
+      <span class="form-label">Topics</span>
+      <div class="chips topics">
+        @for (t of topics; track t) {
+        <button
+          type="button"
+          class="chip"
+          [class.chip--on]="d.topics.includes(t)"
+          [attr.aria-pressed]="d.topics.includes(t)"
+          (click)="toggleTopic(t)"
+        >
+          {{ topicLabels[t] }}
+        </button>
+        }
+      </div>
+    </div>
+    <label class="form__wide">
+      <span>Notes</span>
+      <textarea
+        class="ui-input"
+        rows="2"
+        maxlength="2000"
+        [value]="d.notes"
+        (input)="set({ notes: $any($event.target).value })"
+      ></textarea>
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        type="submit"
+        [loading]="busy() === (d.id ?? 'platform')"
+      >
+        {{ d.id ? 'Save' : 'Add' }}
+      </button>
+      <button uiButton variant="ghost" type="button" (click)="draft.set(null)">
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (!data().platforms.length && !draft()) {
+  <ui-empty-state heading="No platform yet" icon="external">
+    <p class="muted">
+      Add one of the suggestions above, or any other with its link.
+    </p>
+  </ui-empty-state>
+  }
+
+  <h3 class="sub">Yours</h3>
+  <ul class="cards">
+    @for (p of platforms(); track p.id) {
+    <li class="item" [class.item--off]="p.status !== 'active'">
+      <div class="item__head">
+        <span class="item__mark" aria-hidden="true"
+          >{{ p.name.slice(0, 1) }}</span
+        >
+        <div>
+          <strong>{{ p.name }}</strong>
+          <span class="muted small block-line">{{ hostOf(p.url) }}</span>
+        </div>
+        <ui-badge [tone]="p.status === 'active' ? 'success' : 'neutral'"
+          >{{ statusLabels[p.status] }}</ui-badge
+        >
+      </div>
+      <p class="small">
+        {{ planLabels[p.plan] }} @if (p.yearlyCost !== null) { · {{
+        euro(p.price) }} a {{ p.billingPeriod }} ({{ euro(p.yearlyCost) }} a
+        year) } @if (p.courses) { · {{ p.courses }} course{{ p.courses === 1 ?
+        '' : 's' }} }
+      </p>
+      @if (renewal(p); as text) {
+      <p class="small warn">{{ text }}</p>
+      } @else if (p.renewsOn) {
+      <p class="small muted">Renews {{ dateText(p.renewsOn) }}</p>
+      } @if (p.account) {
+      <p class="small">
+        Signed up as <span class="mono">{{ p.account }}</span>
+      </p>
+      } @if (p.topics.length) {
+      <p class="small topics-line">
+        @for (t of p.topics; track t) {
+        <span class="topic"
+          ><span class="dot" [style.background]="topicColors[t]"></span> {{
+          topicLabels[t] }}</span
+        >
+        }
+      </p>
+      } @if (p.notes) {
+      <p class="muted small">{{ p.notes }}</p>
+      }
+      <p class="muted small">{{ lastOpened(p) }}</p>
+      <div class="item__buttons">
+        @if (safeUrl(p.url); as url) {
+        <a
+          uiButton
+          size="sm"
+          [href]="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          (click)="opened(p)"
+        >
+          <ui-icon name="external" [size]="16" /> Open
+        </a>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit"
+          (click)="start(undefined, p)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Remove"
+          (click)="remove(p)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </li>
+    } @empty { @if (data().platforms.length) {
+    <li class="muted">None for this topic.</li>
+    } }
+  </ul>
+</ui-card>

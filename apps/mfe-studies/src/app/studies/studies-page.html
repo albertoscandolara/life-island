@@ -1,0 +1,66 @@
+<ui-page-header
+  emblem="📚"
+  heading="Studies"
+  subtitle="Learning paths for what you want to grow in, the courses, exams and training platforms you use, your study time against a weekly goal, and a coach that plans your week."
+/>
+
+<nav class="tabs" aria-label="Studies">
+  @for (t of tabs; track t.id) {
+  <button
+    type="button"
+    class="tab"
+    [class.tab--on]="tab() === t.id"
+    [attr.aria-current]="tab() === t.id ? 'page' : null"
+    (click)="setTab(t.id)"
+  >
+    <ui-icon [name]="t.icon" [size]="18" /> {{ t.label }} @if (t.id ===
+    'overview' && reminderCount()) {
+    <span class="tab__count">{{ reminderCount() }}</span>
+    }
+  </button>
+  }
+</nav>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="block">
+  {{ message }}
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
+</ui-alert>
+} @if (!overview() && !error()) {
+<p class="muted">Loading your studies…</p>
+} @if (overview(); as data) { @switch (tab()) { @case ('overview') {
+<studies-overview
+  [data]="data"
+  (changed)="load()"
+  (failed)="failed($event)"
+  (openPath)="openPath($event)"
+  (openTab)="setTab($event)"
+/>
+} @case ('paths') {
+<studies-paths
+  [data]="data"
+  [pathId]="pathId()"
+  (selectPath)="selectPath($event)"
+  (changed)="load()"
+  (failed)="failed($event)"
+/>
+} @case ('courses') {
+<studies-courses [data]="data" (changed)="load()" (failed)="failed($event)" />
+} @case ('platforms') {
+<studies-platforms [data]="data" (changed)="load()" (failed)="failed($event)" />
+} @case ('coach') {
+<studies-coach
+  [data]="data"
+  (changed)="load()"
+  (failed)="failed($event)"
+  (openPath)="openPath($event)"
+/>
+} } }

@@ -92,6 +92,7 @@ A setting has a `type`:
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Reminder windows `people.warn-days.*`                    | svc-people (it has a replica for them)                                             |
 | Reminder windows `cars.warn-days.*`                      | svc-cars                                                                           |
+| Weekly goal and reminders `studies.*`                    | svc-studies                                                                        |
 | Daily reading switch, time and startup run `documents.*` | the parse worker, which checks them every 15 seconds, so a change needs no restart |
 
 To add a server setting:

@@ -11,6 +11,7 @@ export interface IslandModule {
     | 'velo'
     | 'pachy'
     | 'archie'
+    | 'iggy'
     | null;
   emblem: string;
   name: string;
@@ -98,11 +99,13 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
   },
   {
     id: 'studies',
-    character: null,
+    character: 'iggy',
     emblem: '📚',
     name: 'Studies',
-    mission: 'Courses, certificates, exams and what they cost.',
-    path: null,
+    mission:
+      'Learning paths for AI coding, other frameworks, Docker and Kubernetes, team leadership and 3D, with your progress step by step; courses, exams and the training platforms you use, what they cost, your study time against a weekly goal, and a coach that plans your week.',
+    path: '/studies',
+    attentionUrl: '/api/studies/attention',
     angle: 180,
     landmark: 'library',
   },

@@ -2,15 +2,16 @@
 
 The Life Island app is where you use your data. It is a Native Federation **host** (`apps/shell`) that shows the island and loads each area of life from its own **remote** (`apps/mfe-<area>`) at runtime. Every area is backed by its own service (`apps/svc-<area>`), which owns its schema and builds what it knows from the documents you upload and confirm.
 
-| Area            | Remote       | Service         | Status                         |
-| --------------- | ------------ | --------------- | ------------------------------ |
-| 730 & taxes     | `mfe-tax730` | `svc-tax730`    | Live                           |
-| Home, Bills     | `mfe-home`   | `svc-home`      | Live                           |
-| People & IDs    | `mfe-people` | `svc-people`    | Live                           |
-| Cars            | `mfe-cars`   | `svc-cars`      | Live                           |
-| Work            | `mfe-work`   | `svc-work`      | Live                           |
-| Groceries       | planned      | `svc-groceries` | Service live, screen coming    |
-| Health, Studies | planned      | planned         | On the island as "coming soon" |
+| Area         | Remote        | Service         | Status                         |
+| ------------ | ------------- | --------------- | ------------------------------ |
+| 730 & taxes  | `mfe-tax730`  | `svc-tax730`    | Live                           |
+| Home, Bills  | `mfe-home`    | `svc-home`      | Live                           |
+| People & IDs | `mfe-people`  | `svc-people`    | Live                           |
+| Cars         | `mfe-cars`    | `svc-cars`      | Live                           |
+| Work         | `mfe-work`    | `svc-work`      | Live                           |
+| Groceries    | planned       | `svc-groceries` | Service live, screen coming    |
+| Studies      | `mfe-studies` | `svc-studies`   | Live                           |
+| Health       | planned       | planned         | On the island as "coming soon" |
 
 The list of areas, their order on the island and their routes live in `apps/shell/src/app/hub/modules.ts`.
 
@@ -31,10 +32,12 @@ npx nx serve svc-work         # workplaces, career, feedback and platforms (port
 npx nx serve mfe-work         # the Work remote (port 4207), also usable on its own
 npx nx serve svc-settings     # settings, AI tool switches and costs (port 3009)
 npx nx serve mfe-settings     # the Settings remote (port 4208), also usable on its own
+npx nx serve svc-studies      # learning paths, courses, exams, platforms, study coach (port 3010)
+npx nx serve mfe-studies      # the Studies remote (port 4209), also usable on its own
 npx nx serve shell            # the island (port 4200)
 ```
 
-Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006, `/api/cars` to port 3007 `/api/work` to port 3008 and `/api/settings` to port 3009 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205, http://localhost:4206, http://localhost:4207 and http://localhost:4208.
+Open http://localhost:4200. The dev servers proxy `/api/tax730` to port 3004 and `/api/home` to port 3005, `/api/people` to port 3006, `/api/cars` to port 3007 `/api/work` to port 3008 `/api/settings` to port 3009 and `/api/studies` to port 3010 (`proxy.conf.json` in each app). The remotes also run standalone at http://localhost:4203, http://localhost:4204, http://localhost:4205, http://localhost:4206, http://localhost:4207, http://localhost:4208 and http://localhost:4209.
 
 ## Native Federation
 
@@ -262,3 +265,26 @@ Pachy's zone (`/work`, `mfe-work` and `svc-work`) keeps every **workplace** you 
 | `GET /documents/:uploadId/preview`                                    | The original file (from svc-ingestion)                                                    |
 
 A database created before this area existed gets its schema and role from svc-work itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/004-work-schema.sql`).
+
+## Studies
+
+Iggy's zone (`/studies`, `mfe-studies` and `svc-studies`) is where you grow: it reads no documents, everything in it is what you record.
+
+- **This week.** Your study time against the weekly goal (Settings → App settings → Studies), the streak of weeks at goal, your pace over the last 8 weeks, the hours so far and what you spent this year (courses, exams and subscription renewals). **Needs you** lists the reminders: a subscription about to renew, an exam ahead or missed, a certification expiring, a path behind its target date, and a nudge after some days with no study time. Each window is in Settings → Reminders (`studies.warn-days.*`, `studies.idle-days`), and the island's badge counts the dated ones (`GET /attention`). You log a session here, on a path step, a course or a topic; a chart shows the last 12 weeks by topic against the goal.
+- **Learning paths.** `LEARNING_PATHS` in `libs/contracts` (`studies-paths.ts`): AI coding and tools, Beyond Angular, Docker, Kubernetes and infrastructure, Becoming a team leader, 3D for the web and Blender, all at beginner level. A path has stages, a stage has steps (learn, build, practice) with hours, what you will be able to do, and resources that link only to official docs, the authors' sites or well-known courses. You follow, pause or stop a path and set a target date; each step is Not started, Studying or Done, with your notes, and from the time you log Studies projects when you finish. The paths are code: a new resource or path is a pull request.
+- **Courses and exams.** Courses on any platform, tied to a path step if you like, with progress, length, cost and the certificate link; exams and certifications with their date, cost and expiry (presets for KCNA, CKAD and others).
+- **Training platforms.** Like Work's hiring platforms: Anthropic Academy, Udemy, Coursera, DeepLearning.AI, KodeKloud, Three.js Journey and more, filtered by topic and added in one click. A subscription keeps its price, period and renewal date, so you see its yearly cost and get a warning before it renews.
+- **Study coach.** The AI tool `studies.study-coach` (Settings → AI tools) plans your week from the paths you follow, the steps in progress, your weeks against the goal, courses and exams, or answers your question. Off, or without `ANTHROPIC_API_KEY`, Life Island's own rules plan it: an exam within a month first, then the steps you are studying, then the next step of each path, within your hours.
+
+| Endpoint                                                                                       | What it does                                                                           |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /overview`                                                                                | Platforms, paths with your progress, courses, exams, sessions, stats, reminders, plans |
+| `GET /attention`                                                                               | The island badge: reminders past and within their window                               |
+| `POST /platforms`, `PUT /platforms/:id`, `POST /platforms/:id/opened`, `DELETE /platforms/:id` | Training platforms                                                                     |
+| `POST /courses`, `PUT /courses/:id`, `DELETE /courses/:id`                                     | Courses                                                                                |
+| `POST /certifications`, `PUT /certifications/:id`, `DELETE /certifications/:id`                | Exams and certifications                                                               |
+| `POST /sessions`, `DELETE /sessions/:id`                                                       | Study time; a session on a step starts it and follows its path                         |
+| `PUT /paths/:pathId`, `PUT /steps/:stepId`                                                     | Follow, pause or stop a path (`status: null`), its target; a step's status and notes   |
+| `POST /plans`, `DELETE /plans/:id`                                                             | The study coach (optional `question` and `hours`)                                      |
+
+A database created before this area existed gets its schema and role from svc-studies itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/006-studies-schema.sql`).

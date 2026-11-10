@@ -1,0 +1,308 @@
+@let s = stats();
+<section class="tiles" aria-label="Your studies in numbers">
+  <div class="tile tile--lead">
+    <span class="tile__label">This week</span>
+    <strong class="tile__value"
+      >{{ hours(s.weekMinutes) }}
+      <span class="tile__of">of {{ s.weeklyGoalHours }} h</span></strong
+    >
+    <ui-progress-bar [value]="weekShare()" label="Weekly goal" />
+    <span class="tile__hint">
+      @if (s.weekMinutes >= goalMinutes()) { Goal reached. } @else { {{
+      duration(goalMinutes() - s.weekMinutes) }} to go. } Change the goal in
+      Settings.
+    </span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Streak</span>
+    <strong class="tile__value"
+      >{{ s.streakWeeks }} week{{ s.streakWeeks === 1 ? '' : 's' }}</strong
+    >
+    <span class="tile__hint">In a row at your goal</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Your pace</span>
+    <strong class="tile__value">{{ hours(s.averageWeekMinutes) }}</strong>
+    <span class="tile__hint">A week, over the last 8 weeks</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Studied so far</span>
+    <strong class="tile__value">{{ s.totalHours }} h</strong>
+    <span class="tile__hint"
+      >{{ s.stepsDone }} path step{{ s.stepsDone === 1 ? '' : 's' }} done · {{
+      s.coursesCompleted }} course{{ s.coursesCompleted === 1 ? '' : 's' }}
+      completed</span
+    >
+  </div>
+  <div class="tile">
+    <span class="tile__label">Spent this year</span>
+    <strong class="tile__value">{{ euro(s.spentThisYear) }}</strong>
+    <span class="tile__hint"
+      >Courses, exams and renewals · subscriptions {{
+      euro(s.subscriptionsPerYear) }} a year</span
+    >
+  </div>
+</section>
+
+@if (data().reminders.length) {
+<ui-card heading="Needs you" class="block">
+  <ul class="plain">
+    @for (r of data().reminders; track r.kind + (r.refId ?? '')) {
+    <li class="reminder">
+      <ui-badge [tone]="reminderTones[r.severity]"
+        >{{ r.date ? daysText(r.daysLeft) : 'Nudge' }}</ui-badge
+      >
+      <div>
+        <strong>{{ r.title }}</strong>
+        <p class="muted small">{{ r.detail }}</p>
+      </div>
+      @if (r.kind !== 'idle') {
+      <button uiButton variant="ghost" size="sm" type="button" (click)="act(r)">
+        Open
+      </button>
+      }
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+
+<div class="grid">
+  <ui-card heading="Log study time">
+    @let d = draft();
+    <form class="form" (submit)="$event.preventDefault(); log()">
+      <label>
+        <span>Day</span>
+        <input
+          class="ui-input"
+          type="date"
+          required
+          [value]="d.date"
+          (input)="set({ date: $any($event.target).value })"
+        />
+      </label>
+      <label>
+        <span>Minutes</span>
+        <input
+          class="ui-input"
+          type="number"
+          min="5"
+          max="960"
+          step="5"
+          required
+          [value]="d.minutes"
+          (input)="set({ minutes: +$any($event.target).value })"
+        />
+      </label>
+      <div
+        class="form__wide chips quick"
+        role="group"
+        aria-label="Quick durations"
+      >
+        @for (m of quick; track m) {
+        <button
+          type="button"
+          class="chip"
+          [class.chip--on]="d.minutes === m"
+          (click)="set({ minutes: m })"
+        >
+          {{ duration(m) }}
+        </button>
+        }
+      </div>
+      <label class="form__wide">
+        <span>On</span>
+        <select
+          class="ui-input"
+          (change)="set({ what: $any($event.target).value })"
+        >
+          <option value="" [selected]="!d.what">Something else</option>
+          @for (group of options().steps; track group.label) {
+          <optgroup [label]="group.label">
+            @for (o of group.items; track o.value) {
+            <option [value]="o.value" [selected]="d.what === o.value">
+              {{ o.label }}
+            </option>
+            }
+          </optgroup>
+          } @if (options().courses.length) {
+          <optgroup label="Courses">
+            @for (o of options().courses; track o.value) {
+            <option [value]="o.value" [selected]="d.what === o.value">
+              {{ o.label }}
+            </option>
+            }
+          </optgroup>
+          }
+          <optgroup label="A topic">
+            @for (t of topics; track t) {
+            <option [value]="'topic:' + t" [selected]="d.what === 'topic:' + t">
+              {{ topicLabels[t] }}
+            </option>
+            }
+          </optgroup>
+        </select>
+      </label>
+      <label class="form__wide">
+        <span>Note</span>
+        <input
+          class="ui-input"
+          maxlength="500"
+          placeholder="What you did, what to pick up next time"
+          [value]="d.note"
+          (input)="set({ note: $any($event.target).value })"
+        />
+      </label>
+      <div class="form__buttons">
+        <button uiButton type="submit" [loading]="busy()">
+          <ui-icon name="plus" [size]="16" /> Log it
+        </button>
+      </div>
+    </form>
+    <p class="muted small">
+      A session on a path step starts that step and follows its path.
+    </p>
+  </ui-card>
+
+  <ui-card heading="Last 12 weeks">
+    @if (s.totalHours === 0) {
+    <ui-empty-state heading="No time logged yet" icon="chart">
+      <p class="muted">Log your first session: your weeks build up here.</p>
+    </ui-empty-state>
+    } @else {
+    <div
+      class="chart"
+      role="img"
+      [attr.aria-label]="'Minutes studied per week, goal ' + s.weeklyGoalHours + ' hours'"
+    >
+      <div class="chart__bars">
+        <span class="chart__goal" [style.bottom.%]="weeks().goal"
+          ><span>Goal</span></span
+        >
+        @for (b of weeks().bars; track b.week.weekStart) {
+        <div
+          class="chart__stack"
+          [title]="b.label + ': ' + duration(b.week.minutes)"
+        >
+          @for (p of b.parts; track p.topic) {
+          <span
+            class="chart__part"
+            [style.height.%]="p.height"
+            [style.background]="topicColors[p.topic]"
+          ></span>
+          }
+        </div>
+        }
+      </div>
+      <div class="chart__labels" aria-hidden="true">
+        @for (b of weeks().bars; track b.week.weekStart) {
+        <span class="chart__label" [class.chart__label--met]="b.week.goalMet"
+          >{{ b.label }}</span
+        >
+        }
+      </div>
+    </div>
+    <ul class="legend">
+      @for (t of topicsUsed(); track t) {
+      <li>
+        <span class="dot" [style.background]="topicColors[t]"></span> {{
+        topicLabels[t] }}
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+</div>
+
+<ui-card heading="Paths you follow" class="block">
+  @if (!followed().length) {
+  <ui-empty-state heading="No path yet" icon="layers">
+    <p class="muted">
+      Pick one of the learning paths: AI coding, other frameworks, Docker and
+      Kubernetes, team leadership or 3D.
+    </p>
+    <button uiButton type="button" (click)="openTab.emit('paths')">
+      Choose a path
+    </button>
+  </ui-empty-state>
+  } @else {
+  <ul class="plain">
+    @for (f of followed(); track f.path.id) {
+    <li class="follow">
+      <span class="follow__emblem" aria-hidden="true">{{ f.path.emblem }}</span>
+      <div class="follow__body">
+        <div class="row">
+          <strong>{{ f.path.name }}</strong>
+          <span class="muted small"
+            >{{ f.progress.doneSteps }}/{{ f.progress.totalSteps }} steps · {{
+            f.progress.hoursDone }}/{{ f.progress.hoursTotal }} h</span
+          >
+        </div>
+        <ui-progress-bar
+          [value]="(f.progress.hoursDone / f.progress.hoursTotal) * 100"
+          [label]="f.path.name + ' progress'"
+        />
+        <p class="small">
+          @if (f.next) { Next: <strong>{{ f.next.title }}</strong> } @else {
+          Every step done: time for the capstone. } @if (f.progress.projectedOn)
+          { · at your pace, done by {{ dateText(f.progress.projectedOn) }} } @if
+          (f.progress.behind) { <span class="warn">· behind your target</span> }
+        </p>
+      </div>
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="openPath.emit(f.path.id)"
+      >
+        Open
+      </button>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+
+@if (recent().length) {
+<ui-card heading="Recent sessions" class="block">
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Day</th>
+          <th scope="col">On</th>
+          <th scope="col" class="num">Time</th>
+          <th scope="col"><span class="visually-hidden">Remove</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of recent(); track r.id) {
+        <tr>
+          <td class="day">{{ dateText(r.date) }}</td>
+          <td>
+            <span class="dot" [style.background]="topicColors[r.topic]"></span>
+            {{ sessionLabel(r) }} @if (r.note) {
+            <span class="muted small block-line">{{ r.note }}</span>
+            }
+          </td>
+          <td class="num">{{ duration(r.minutes) }}</td>
+          <td class="num">
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              aria-label="Remove session"
+              (click)="remove(r.id)"
+            >
+              <ui-icon name="trash" [size]="16" />
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+}
