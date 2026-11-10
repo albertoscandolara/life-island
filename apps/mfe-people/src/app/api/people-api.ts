@@ -5,8 +5,6 @@ import type {
   MarkDocumentRequest,
   MergePeopleRequest,
   PeopleOverviewDto,
-  RenewalGuideDto,
-  RenewalGuideRequest,
   ResidenceHousesDto,
   SetRelationRequest,
   UpdatePersonRequest,
@@ -71,23 +69,6 @@ export class PeopleApi {
   removeRelation(id: string, otherId: string): Observable<void> {
     return this.http.delete<void>(
       `${PEOPLE_API}/people/${id}/relations/${otherId}`,
-    );
-  }
-
-  /** Asks Claude for a renewal guide (AI tool people.renewal-guide). */
-  renewalGuide(
-    id: string,
-    request: RenewalGuideRequest,
-  ): Observable<RenewalGuideDto> {
-    return this.http.post<RenewalGuideDto>(
-      `${PEOPLE_API}/people/${id}/renewal-guides`,
-      request,
-    );
-  }
-
-  removeGuide(id: string, guideId: string): Observable<void> {
-    return this.http.delete<void>(
-      `${PEOPLE_API}/people/${id}/renewal-guides/${guideId}`,
     );
   }
 

@@ -319,15 +319,8 @@ describe.skipIf(!configured)(
       expect(houses.available || houses.houses.length === 0).toBe(true);
     });
 
-    it('records your edits in the history, with the documents', async () => {
-      await send('PATCH', `/people/${personId}`, { birthPlace: 'VERONA' });
-      const maria = await person(personId);
-      expect(maria.history[0]).toMatchObject({
-        kind: 'edit',
-        changes: [{ field: 'birthPlace', previous: null, value: 'VERONA' }],
-      });
-      expect(maria.history.map((h) => h.kind)).toContain('created');
-      expect(maria.taxCodeCheck.status).not.toBe('unknown');
+    it('checks the tax code of each person', async () => {
+      expect((await person(personId)).taxCodeCheck.status).not.toBe('unknown');
     });
 
     it('relates people, keeps fiscal dependents, and counts what needs you', async () => {
@@ -397,16 +390,6 @@ describe.skipIf(!configured)(
       ).toBe(204);
       expect((await person(child.id)).relations).toEqual([]);
       await send('DELETE', `/people/${child.id}`);
-    });
-
-    it('answers 503 for a renewal guide without a Claude key', async () => {
-      const response = await send(
-        'POST',
-        `/people/${personId}/renewal-guides`,
-        { type: 'PASSPORT', town: 'Verona' },
-      );
-      // With a key and the tool on it writes a guide; without, it says why.
-      expect([201, 503]).toContain(response.status);
     });
 
     it('merges a duplicate into a person, moving its documents and filling only unknown details', async () => {

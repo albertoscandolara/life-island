@@ -8,13 +8,7 @@ export interface PeopleConfig {
   ingestionUrl: string;
   /** svc-home, which lists the houses a person's residence can point to. */
   homeUrl: string;
-  /** The Claude API key; null keeps the renewal guide to Life Island's own checklist. */
-  anthropicApiKey: string | null;
-  /** The model of the renewal guide (AI tool people.renewal-guide). */
-  guideModel: string;
 }
-
-export const DEFAULT_GUIDE_MODEL = 'claude-sonnet-5-5';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): PeopleConfig {
   return {
@@ -28,8 +22,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PeopleConfig {
     homeUrl: (
       env['HOME_URL'] ?? `http://localhost:${numberEnv('HOME_PORT', 3005, env)}`
     ).replace(/\/+$/, ''),
-    anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
-    guideModel: env['PEOPLE_GUIDE_MODEL']?.trim() || DEFAULT_GUIDE_MODEL,
   };
 }
 

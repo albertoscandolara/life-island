@@ -160,9 +160,9 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 
 **Checks and details.** The tax code is checked against the person: its check character, then the last name, first name, birth date and sex it encodes (the birth place is a cadastral code and is not checked). A mismatch shows on the person and on a document waiting for review. Each version shows what only its type prints: CIE or paper, the CAN, height, "not valid for travel", passport type, the European health card (TEAM) on a health card's back, and a licence's categories and restriction codes explained (`LICENCE_CATEGORY_LABELS`, `RESTRICTION_CODE_LABELS` in `libs/contracts`). Tax codes and document numbers stay hidden until **Show numbers**.
 
-**Who has what** is the grid of everyone against the four document types. **Household** relates people (partner, parent, child, sibling) and records who a person is a fiscal dependent of, for the 730. A minor gets the rules that apply (shorter validity, parents' consent, travelling under 14) and a note before turning 18. **History** lists every document filed with the values taken, and your own edits and merges (`people.person_edits`).
+**Who has what** is the grid of everyone against the four document types. **Household** relates people (partner, parent, child, sibling) and records who a person is a fiscal dependent of, for the 730. A minor gets the rules that apply (shorter validity, parents' consent, travelling under 14) and a note before turning 18.
 
-**Renewing.** Every document has **How to renew it**, Life Island's own checklist (`RENEWAL_GUIDES`). The **Renewal guide** is an AI tool (`people.renewal-guide`, see [AI tools](ai-tools.md)): Claude searches the web for your town's office, booking, documents to bring and fees. It sends only the document type, the town and whether the person is a minor. It needs `ANTHROPIC_API_KEY` (model: `PEOPLE_GUIDE_MODEL`). The Cars area shows the driving licence of a car's holder and owner, read from `GET /people`.
+The Cars area shows the driving licence of a car's holder and owner, read from `GET /people`.
 
 | Endpoint (`/api/people/...`)                                        | Purpose                                                                                            |
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -174,7 +174,6 @@ Para's zone (`/people`, `mfe-people` and `svc-people`) keeps the identity docume
 | `DELETE /people/:id`, `POST /people/:id/merge`                      | Remove a person (documents back to review); merge `{from}`, a duplicate, into this person          |
 | `GET /attention`                                                    | Counts of expired, expiring and to review, for the island hub                                      |
 | `POST /people/:id/relations`, `DELETE /people/:id/relations/:other` | `{personId, kind}`: what the other person is to this one                                           |
-| `POST /people/:id/renewal-guides`, `DELETE .../:guideId`            | `{type, town}`: a renewal guide written by Claude (503 when the tool is off or there is no key)    |
 | `GET /houses`                                                       | The houses of Home, for Residence (`available: false` when svc-home cannot be reached)             |
 | `GET /documents/:uploadId/preview`                                  | The original file (from svc-ingestion)                                                             |
 

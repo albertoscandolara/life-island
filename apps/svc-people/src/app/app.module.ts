@@ -1,12 +1,10 @@
 import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
-  settingChangedHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
-import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type PeopleConfig } from './config.js';
 import {
   applyDocumentEvent,
@@ -18,7 +16,6 @@ import { HomeHouses } from './people/home-houses.js';
 import { HealthController } from './health.controller.js';
 import { PeopleController } from './people/people.controller.js';
 import { PeopleService } from './people/people.service.js';
-import { RenewalAdvisor } from './people/renewal-guide.js';
 
 const logger = new Logger('DocumentEvents');
 
@@ -39,7 +36,6 @@ export class AppModule {
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         PeopleService,
-        RenewalAdvisor,
         IngestionFiles,
         HomeHouses,
         ...(options.events === false
@@ -63,19 +59,6 @@ export class AppModule {
                         durableName: 'people-document-events',
                         eventTypes: DOCUMENT_EVENTS,
                         handle: applyDocumentEvent,
-                        onError: (error, subject) =>
-                          logger.error(
-                            `Failed to apply ${subject}: ${String(error)}`,
-                          ),
-                      });
-                      // The switch of the renewal guide (svc-settings).
-                      await startEventConsumer({
-                        pool: db.pool,
-                        nats,
-                        schema: db.schema,
-                        durableName: 'people-settings',
-                        eventTypes: [SETTING_CHANGED_EVENT],
-                        handle: settingChangedHandler(db.schema),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,

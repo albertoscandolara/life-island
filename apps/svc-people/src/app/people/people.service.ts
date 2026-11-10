@@ -18,12 +18,9 @@ import {
   type PeopleOverviewDto,
   type PendingReviewDto,
   type PersonDto,
-  type PersonHistoryEntryDto,
   type PersonSummaryDto,
   type PersonValues,
   type RelationDto,
-  type RenewalGuideDto,
-  type RenewalGuideRequest,
   type SetRelationRequest,
   type UpdatePersonRequest,
 } from '@life-island/contracts';
@@ -32,14 +29,11 @@ import { SERVICE_DB } from '../config.js';
 import {
   categoryTree,
   documents,
-  personEdits,
   persons,
   relations,
-  renewalGuides,
   reviews,
   type DecidedChange,
   type DocumentRow,
-  type EditedField,
   type PersonRow,
   type RelationRow,
 } from '../db/schema.js';
@@ -60,7 +54,6 @@ import {
   type NoticeDocument,
   type ParentOf,
 } from './id-documents.js';
-import { RenewalAdvisor } from './renewal-guide.js';
 import { checkTaxCode } from './tax-code.js';
 
 interface IdDocument {
@@ -120,22 +113,15 @@ function valuesOf(row: PersonRow): PersonValues {
  */
 @Injectable()
 export class PeopleService {
-  constructor(
-    @Inject(SERVICE_DB) private readonly svc: ServiceDb,
-    @Inject(RenewalAdvisor) private readonly advisor: RenewalAdvisor,
-  ) {}
+  constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
 
   async overview(today = todayIso()): Promise<PeopleOverviewDto> {
-    const [docs, people, decided, pairs, edits, guides, aiRenewalGuide] =
-      await Promise.all([
-        this.idDocuments(),
-        this.svc.db.select().from(persons),
-        this.svc.db.select().from(reviews),
-        this.svc.db.select().from(relations),
-        this.svc.db.select().from(personEdits),
-        this.svc.db.select().from(renewalGuides),
-        this.advisor.usesAi().catch(() => false),
-      ]);
+    const [docs, people, decided, pairs] = await Promise.all([
+      this.idDocuments(),
+      this.svc.db.select().from(persons),
+      this.svc.db.select().from(reviews),
+      this.svc.db.select().from(relations),
+    ]);
     const reviewOf = new Map(decided.map((r) => [r.uploadId, r]));
     const approvedOf = new Map<string, ApprovedIdDocument[]>();
     for (const doc of docs) {
@@ -190,11 +176,6 @@ export class PeopleService {
           relations: pairs.flatMap((row) => relationOf(row, person.id) ?? []),
           taxDependentOf: person.taxDependentOf,
           notices: personNotices(person, series, today),
-          history: historyOf(person, decided, edits, docOf),
-          guides: guides
-            .filter((g) => g.personId === person.id)
-            .map(guideDto)
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
         };
       })
       .sort((a, b) =>
@@ -242,7 +223,6 @@ export class PeopleService {
       .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
 
     return {
-      aiRenewalGuide,
       people: peopleDtos,
       reviews: pending,
       alerts: peopleDtos
@@ -330,52 +310,6 @@ export class PeopleService {
       .returning();
     if (!deleted.length)
       throw new NotFoundException('These two people are not related');
-  }
-
-  /**
-   * Writes a renewal guide for one of the person's documents with Claude and
-   * keeps it. Only the document type, the town and whether the person is a
-   * minor are sent.
-   */
-  async renewalGuide(
-    id: string,
-    request: RenewalGuideRequest,
-    today = todayIso(),
-  ): Promise<RenewalGuideDto> {
-    const person = (await this.overview(today)).people.find((p) => p.id === id);
-    if (!person) throw new NotFoundException('Person not found');
-    const town = request.town?.trim() || residenceTown(person.residenceAddress);
-    if (!town)
-      throw new UnprocessableEntityException(
-        'Type the town to renew it in: this person has no residence yet',
-      );
-    const latest = person.series.find((s) => s.type === request.type)
-      ?.versions[0];
-    const written = await this.advisor.write({
-      type: request.type,
-      town,
-      minor: person.age !== null && person.age < 18,
-      expiryDate: latest?.expiryDate ?? null,
-    });
-    const [row] = await this.svc.db
-      .insert(renewalGuides)
-      .values({
-        personId: id,
-        type: request.type,
-        town,
-        output: written.output,
-        model: written.model,
-      })
-      .returning();
-    return guideDto(row);
-  }
-
-  async removeGuide(id: string, guideId: string): Promise<void> {
-    const deleted = await this.svc.db
-      .delete(renewalGuides)
-      .where(and(eq(renewalGuides.id, guideId), eq(renewalGuides.personId, id)))
-      .returning();
-    if (!deleted.length) throw new NotFoundException('No such guide');
   }
 
   /**
@@ -535,18 +469,6 @@ export class PeopleService {
           .update(persons)
           .set({ ...request, ...residence, updatedAt: new Date() })
           .where(eq(persons.id, id));
-        const changes: EditedField[] = PERSON_FIELDS.filter(
-          (field) =>
-            field in request && (request[field] ?? null) !== before[field],
-        ).map((field) => ({
-          field,
-          previous: before[field],
-          value: request[field] ?? null,
-        }));
-        if (changes.length)
-          await tx
-            .insert(personEdits)
-            .values({ personId: id, kind: 'edit', changes });
       });
     } catch (error) {
       if (
@@ -600,11 +522,6 @@ export class PeopleService {
         .update(reviews)
         .set({ personId: id })
         .where(eq(reviews.personId, from.id));
-      for (const table of [renewalGuides, personEdits])
-        await tx
-          .update(table)
-          .set({ personId: id })
-          .where(eq(table.personId, from.id));
       // Whoever depended on the duplicate depends on this person now (never on themselves).
       await tx
         .update(persons)
@@ -642,15 +559,6 @@ export class PeopleService {
       }
       // The duplicate goes first: its tax code may move to the person kept.
       await tx.delete(persons).where(eq(persons.id, from.id));
-      await tx.insert(personEdits).values({
-        personId: id,
-        kind: 'merge',
-        changes: merged.taken.map((field) => ({
-          field,
-          previous: null,
-          value: merged.values[field],
-        })),
-      });
       if (merged.taken.length)
         await tx
           .update(persons)
@@ -701,70 +609,4 @@ function pairOf(a: string, b: string) {
     and(eq(relations.personId, a), eq(relations.relatedId, b)),
     and(eq(relations.personId, b), eq(relations.relatedId, a)),
   );
-}
-
-/** The town of a residence typed as "Street 1, 37039 Tregnago (VR)". */
-export function residenceTown(address: string | null): string | null {
-  if (!address) return null;
-  const last = address.split(',').pop()?.trim() ?? '';
-  const town = last
-    .replace(/^\d{5}\s*/, '')
-    .replace(/\s*\([A-Z]{2}\)$/i, '')
-    .trim();
-  return town || null;
-}
-
-function guideDto(row: typeof renewalGuides.$inferSelect): RenewalGuideDto {
-  return {
-    id: row.id,
-    personId: row.personId,
-    type: row.type,
-    town: row.town,
-    output: row.output,
-    model: row.model,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
-
-/**
- * A person's history, newest first: every document filed under them with
- * the printed values you took, and your own edits and merges.
- */
-export function historyOf(
-  person: Pick<PersonRow, 'id' | 'createdAt'>,
-  decided: readonly (typeof reviews.$inferSelect)[],
-  edits: readonly (typeof personEdits.$inferSelect)[],
-  docOf: ReadonlyMap<string, IdDocument>,
-): PersonHistoryEntryDto[] {
-  const entries: PersonHistoryEntryDto[] = [];
-  for (const review of decided) {
-    if (review.personId !== person.id || review.status !== 'approved') continue;
-    const doc = docOf.get(review.uploadId);
-    entries.push({
-      at: review.decidedAt.toISOString(),
-      kind: review.createdPerson ? 'created' : 'document',
-      uploadId: review.uploadId,
-      title: doc?.row.title ?? null,
-      type: doc?.type ?? null,
-      changes: review.changes
-        .filter((c) => c.decision === 'accepted')
-        .map((c) => ({
-          field: c.field,
-          previous: c.previous,
-          value: c.proposed,
-        })),
-    });
-  }
-  for (const edit of edits) {
-    if (edit.personId !== person.id) continue;
-    entries.push({
-      at: edit.at.toISOString(),
-      kind: edit.kind,
-      uploadId: null,
-      title: null,
-      type: null,
-      changes: edit.changes,
-    });
-  }
-  return entries.sort((a, b) => b.at.localeCompare(a.at));
 }

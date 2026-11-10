@@ -14,23 +14,18 @@ import {
   PERSON_FIELDS,
   RELATION_KINDS,
   RELATION_LABELS,
-  RENEWAL_GUIDES,
   type ChangeSuggestion,
   type IdDocumentStatus,
-  type IdDocumentType,
   type PendingReviewDto,
   type PeopleOverviewDto,
   type PersonDto,
   type PersonField,
-  type PersonHistoryEntryDto,
   type RelationKind,
   type ResidenceHouseDto,
   type TaxCodeCheckStatus,
   type UpdatePersonRequest,
 } from '@life-island/contracts';
 import {
-  UiAiPanel,
-  UiAiStatus,
   UiAlert,
   UiBadge,
   UiButton,
@@ -40,7 +35,6 @@ import {
   UiPageHeader,
   type UiTone,
 } from '@life-island/design-system';
-import { AiTool } from '@life-island/settings-ui';
 import type { Observable } from 'rxjs';
 import { PeopleApi } from '../api/people-api';
 import {
@@ -93,13 +87,6 @@ const TAX_CODE_BADGES: Record<
   unknown: null,
 };
 
-const HISTORY_TITLES: Record<PersonHistoryEntryDto['kind'], string> = {
-  created: 'Added from the',
-  document: 'Filed the',
-  edit: 'Edited by you',
-  merge: 'Merged a duplicate',
-};
-
 const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   accept: 'success',
   keep_current: 'neutral',
@@ -115,10 +102,7 @@ const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   selector: 'people-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    AiTool,
     DatePipe,
-    UiAiPanel,
-    UiAiStatus,
     UiAlert,
     UiBadge,
     UiButton,
@@ -157,19 +141,12 @@ export class PeoplePage {
     personId: string;
     kind: RelationKind;
   }>({ personId: '', kind: 'partner' });
-  /** The renewal guide being asked for: which document, which town. */
-  protected readonly guideType = signal<IdDocumentType | null>(null);
-  protected readonly guideTown = signal('');
-  protected readonly guiding = signal(false);
-  protected readonly guideError = signal<string | null>(null);
 
   protected readonly idTypes = ID_DOCUMENT_TYPES;
   protected readonly relationKinds = RELATION_KINDS;
   protected readonly relationLabels = RELATION_LABELS;
-  protected readonly renewalGuides = RENEWAL_GUIDES;
   protected readonly coverageTones = COVERAGE_TONES;
   protected readonly taxCodeBadges = TAX_CODE_BADGES;
-  protected readonly historyTitles = HISTORY_TITLES;
 
   protected readonly fields = PERSON_FIELDS;
   protected readonly fieldLabels = PERSON_FIELD_LABELS;
@@ -182,9 +159,6 @@ export class PeoplePage {
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
-  protected readonly aiRenewalGuide = computed(
-    () => this.overview()?.aiRenewalGuide ?? false,
-  );
   /** Everyone against the four document types: the coverage grid. */
   protected readonly coverageRows = computed(() =>
     this.people().map((person) => ({ person, cells: coverage(person) })),
@@ -296,56 +270,6 @@ export class PeoplePage {
     );
   }
 
-  // ---- renewal ------------------------------------------------------------
-
-  /** The document the guide is about: yours, else the most urgent one, else the first. */
-  protected guideTypeOf(person: PersonDto): IdDocumentType {
-    return (
-      this.guideType() ??
-      person.alerts.find((a) => a.type)?.type ??
-      person.series.find((s) => s.type)?.type ??
-      'IDENTITY_CARD'
-    );
-  }
-
-  protected guidesOf(person: PersonDto) {
-    const type = this.guideTypeOf(person);
-    return person.guides.filter((g) => g.type === type);
-  }
-
-  protected writeGuide(person: PersonDto): void {
-    this.guiding.set(true);
-    this.guideError.set(null);
-    this.api
-      .renewalGuide(person.id, {
-        type: this.guideTypeOf(person),
-        town: this.guideTown().trim() || null,
-      })
-      .subscribe({
-        next: () => {
-          this.guiding.set(false);
-          this.load();
-        },
-        error: (error: { error?: { message?: string } }) => {
-          this.guiding.set(false);
-          this.guideError.set(
-            error.error?.message ??
-              'The guide could not be written. Try again in a moment.',
-          );
-        },
-      });
-  }
-
-  protected removeGuide(person: PersonDto, guideId: string): void {
-    this.run(guideId, () => this.api.removeGuide(person.id, guideId));
-  }
-
-  protected euro(amount: number | null): string {
-    return amount === null
-      ? '—'
-      : amount.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-  }
-
   // ---- review -------------------------------------------------------------
 
   protected draft(review: PendingReviewDto): Draft {
@@ -435,8 +359,6 @@ export class PeoplePage {
     this.selectedId.set(personId);
     this.editing.set(null);
     this.action.set(null);
-    this.guideType.set(null);
-    this.guideError.set(null);
     this.relationDraft.set({ personId: '', kind: 'partner' });
   }
 
