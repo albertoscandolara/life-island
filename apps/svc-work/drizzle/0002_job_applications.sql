@@ -1,0 +1,22 @@
+CREATE TABLE "work"."job_applications" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"company" text NOT NULL,
+	"role" text NOT NULL,
+	"source" text,
+	"url" text,
+	"location" text,
+	"status" text DEFAULT 'applied' NOT NULL,
+	"applied_at" date,
+	"next_step" text,
+	"next_step_at" date,
+	"ral_min" numeric(12, 2),
+	"ral_max" numeric(12, 2),
+	"offer_ral" numeric(12, 2),
+	"offer_months" integer,
+	"offer_welfare" numeric(12, 2),
+	"offer_bonus" numeric(12, 2),
+	"notes" text,
+	"history" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);

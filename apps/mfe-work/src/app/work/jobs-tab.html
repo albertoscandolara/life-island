@@ -1,0 +1,375 @@
+@if (error()) {
+<p class="error" role="alert">{{ error() }}</p>
+} @if (stats().total) {
+<section class="tiles" aria-label="Your job search">
+  <div class="tile tile--lead">
+    <span class="tile__label">Open applications</span>
+    <strong class="tile__value">{{ stats().active }}</strong>
+    <span class="tile__hint">{{ stats().total }} on record</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Answer rate</span>
+    <strong class="tile__value">
+      @if (stats().responseRatePct !== null) { {{ stats().responseRatePct }}% }
+      @else { – }
+    </strong>
+    <span class="tile__hint"
+      >{{ stats().answered }} of {{ stats().sent }} sent @if
+      (stats().averageDaysToAnswer !== null) { · in {{
+      stats().averageDaysToAnswer }} days on average }</span
+    >
+  </div>
+  <div class="tile">
+    <span class="tile__label">Interviews</span>
+    <strong class="tile__value">{{ stats().interviews }}</strong>
+    <span class="tile__hint">Applications that reached an interview</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Offers</span>
+    <strong class="tile__value">{{ stats().offers }}</strong>
+    <span class="tile__hint">
+      @if (stats().stale) { {{ stats().stale }} with no news for {{ staleDays }}
+      days } @else { No application waiting too long }
+    </span>
+  </div>
+</section>
+}
+
+<ui-card heading="Applications" class="block">
+  <div uiCardActions class="actions">
+    @if (closed() || showClosed()) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="showClosed.set(!showClosed())"
+    >
+      {{ showClosed() ? 'Hide closed' : 'Show closed (' + closed() + ')' }}
+    </button>
+    }
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="start()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add one
+    </button>
+  </div>
+
+  @if (draft(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); save()">
+    <label>
+      <span>Company</span>
+      <input
+        class="ui-input"
+        required
+        [value]="d.company"
+        (input)="setDraft({ company: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Role</span>
+      <input
+        class="ui-input"
+        required
+        [value]="d.role"
+        (input)="setDraft({ role: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Status</span>
+      <select
+        class="ui-input"
+        (change)="setDraft({ status: $any($event.target).value })"
+      >
+        @for (s of statuses; track s) {
+        <option [value]="s" [selected]="d.status === s">
+          {{ statusLabels[s] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Applied on</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.appliedAt"
+        (input)="setDraft({ appliedAt: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Found on</span>
+      <input
+        class="ui-input"
+        placeholder="LinkedIn, a referral…"
+        [value]="d.source"
+        (input)="setDraft({ source: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Link to the job</span>
+      <input
+        class="ui-input"
+        type="url"
+        placeholder="https://"
+        [value]="d.url"
+        (input)="setDraft({ url: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Where</span>
+      <input
+        class="ui-input"
+        placeholder="City, remote, hybrid"
+        [value]="d.location"
+        (input)="setDraft({ location: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>RAL range, from</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        placeholder="35k"
+        [value]="d.ralMin"
+        (input)="setDraft({ ralMin: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>RAL range, to</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        placeholder="42k"
+        [value]="d.ralMax"
+        (input)="setDraft({ ralMax: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Next step</span>
+      <input
+        class="ui-input"
+        placeholder="Technical interview"
+        [value]="d.nextStep"
+        (input)="setDraft({ nextStep: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>On</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.nextStepAt"
+        (input)="setDraft({ nextStepAt: $any($event.target).value })"
+      />
+    </label>
+    @if (d.status === 'offer' || d.status === 'accepted' || d.offerRal) {
+    <label>
+      <span>Offer: RAL</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.offerRal"
+        (input)="setDraft({ offerRal: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Offer: paid over</span>
+      <select
+        class="ui-input"
+        (change)="setDraft({ offerMonths: $any($event.target).value })"
+      >
+        <option value="" [selected]="!d.offerMonths">Not said</option>
+        <option value="13" [selected]="d.offerMonths === '13'">
+          13 months
+        </option>
+        <option value="14" [selected]="d.offerMonths === '14'">
+          14 months
+        </option>
+      </select>
+    </label>
+    <label>
+      <span>Offer: welfare a year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.offerWelfare"
+        (input)="setDraft({ offerWelfare: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Offer: bonus a year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.offerBonus"
+        (input)="setDraft({ offerBonus: $any($event.target).value })"
+      />
+    </label>
+    }
+    <label class="form__wide">
+      <span>Notes</span>
+      <textarea
+        class="ui-input"
+        rows="3"
+        [value]="d.notes"
+        (input)="setDraft({ notes: $any($event.target).value })"
+      ></textarea>
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        type="submit"
+        size="sm"
+        [disabled]="!d.company.trim() || !d.role.trim() || busy() !== null"
+      >
+        {{ d.id ? 'Save' : 'Add the application' }}
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="draft.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (!applications().length && !draft()) {
+  <ui-empty-state heading="No applications yet" icon="search">
+    <p class="muted">
+      Keep track of the jobs you apply to: where each one stands, the next step,
+      the RAL they talk about. Offers go straight to the comparison in Tools.
+    </p>
+  </ui-empty-state>
+  } @else if (shown().length) {
+  <ul class="applications">
+    @for (a of shown(); track a.id) {
+    <li class="application">
+      <div class="row">
+        <div>
+          <strong>{{ a.role }}</strong>
+          <span class="muted"> at {{ a.company }}</span>
+          @if (a.location) {
+          <span class="muted small"> · {{ a.location }}</span>
+          }
+        </div>
+        <div class="application__badges">
+          @if (a.stale) {
+          <ui-badge tone="warning">No news for {{ a.idleDays }} days</ui-badge>
+          }
+          <ui-badge [tone]="statusTones[a.status]"
+            >{{ statusLabels[a.status] }}</ui-badge
+          >
+        </div>
+      </div>
+      <p class="application__facts small muted">
+        @if (a.appliedAt) { Applied {{ periodText(a.appliedAt) }} } @if
+        (a.source) { · via {{ a.source }} } @if (range(a); as r) { · RAL {{ r }}
+        } @if (a.offerRal) { · Offer {{ euro(a.offerRal) }}{{ a.offerMonths ? '
+        over ' + a.offerMonths : '' }} }
+      </p>
+      @if (a.nextStep || a.nextStepAt) {
+      <p class="small">
+        <ui-icon name="calendar" [size]="14" /> Next: {{ a.nextStep ?? 'a step'
+        }}@if (a.nextStepAt) { on {{ periodText(a.nextStepAt) }} }
+      </p>
+      } @if (a.notes) {
+      <p class="application__notes small">{{ a.notes }}</p>
+      }
+      <div class="application__actions">
+        <label class="small">
+          <span class="muted">Move to</span>
+          <select
+            class="ui-input application__status"
+            [disabled]="busy() === a.id"
+            (change)="setStatus(a, $any($event.target).value)"
+          >
+            @for (s of statuses; track s) {
+            <option [value]="s" [selected]="a.status === s">
+              {{ statusLabels[s] }}
+            </option>
+            }
+          </select>
+        </label>
+        @if (a.offerRal) {
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="compareOffer(a)"
+        >
+          <ui-icon name="chart" [size]="16" /> Compare this offer
+        </button>
+        } @if (a.url && safeUrl(a.url); as link) {
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="link"
+          target="_blank"
+          rel="noopener"
+          ><ui-icon name="external" [size]="16" /> The job</a
+        >
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="start(a)"
+        >
+          <ui-icon name="edit" [size]="16" /> Edit
+        </button>
+        @if (removing() === a.id) {
+        <button
+          uiButton
+          variant="danger"
+          size="sm"
+          type="button"
+          [disabled]="busy() === a.id"
+          (click)="remove(a)"
+        >
+          Delete it
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="removing.set(null)"
+        >
+          Keep
+        </button>
+        } @else {
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Delete ' + a.role + ' at ' + a.company"
+          (click)="removing.set(a.id)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+        }
+      </div>
+      @if (a.history.length > 1) {
+      <p class="application__history small muted">
+        @for (h of a.history; track $index; let last = $last) { {{
+        statusLabels[h.status] }} {{ h.at }}{{ last ? '' : ' → ' }} }
+      </p>
+      }
+    </li>
+    }
+  </ul>
+  } @else {
+  <p class="muted">Every application is closed.</p>
+  }
+</ui-card>

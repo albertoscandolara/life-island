@@ -18,6 +18,7 @@ import {
   careerFeedbackRequestSchema,
   createWorkplaceRequestSchema,
   goalStatusRequestSchema,
+  jobApplicationRequestSchema,
   marketCheckRequestSchema,
   hiringPlatformRequestSchema,
   updateWorkplaceRequestSchema,
@@ -151,6 +152,32 @@ export class WorkController {
   @HttpCode(204)
   removeMarketCheck(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.work.removeMarketCheck(id);
+  }
+
+  /** A job application you track. */
+  @Post('applications')
+  addApplication(@Body() body: unknown): Promise<{ id: string }> {
+    return this.work.addApplication(
+      parseOrThrow(jobApplicationRequestSchema, body),
+    );
+  }
+
+  @Put('applications/:id')
+  @HttpCode(204)
+  updateApplication(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.work.updateApplication(
+      id,
+      parseOrThrow(jobApplicationRequestSchema, body),
+    );
+  }
+
+  @Delete('applications/:id')
+  @HttpCode(204)
+  removeApplication(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.work.removeApplication(id);
   }
 
   @Delete('feedback/:id')

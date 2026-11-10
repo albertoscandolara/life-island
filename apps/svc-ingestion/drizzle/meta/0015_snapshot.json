@@ -255,14 +255,10 @@
         "document_categories_parent_id_document_categories_id_fk": {
           "name": "document_categories_parent_id_document_categories_id_fk",
           "tableFrom": "document_categories",
-          "columnsFrom": [
-            "parent_id"
-          ],
+          "columnsFrom": ["parent_id"],
           "tableTo": "document_categories",
           "schemaTo": "ingestion",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "restrict"
         }
@@ -468,14 +464,10 @@
         "parse_runs_upload_id_uploads_id_fk": {
           "name": "parse_runs_upload_id_uploads_id_fk",
           "tableFrom": "parse_runs",
-          "columnsFrom": [
-            "upload_id"
-          ],
+          "columnsFrom": ["upload_id"],
           "tableTo": "uploads",
           "schemaTo": "ingestion",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -990,24 +982,12 @@
     "ingestion.file_format": {
       "name": "file_format",
       "schema": "ingestion",
-      "values": [
-        "JPG",
-        "PNG",
-        "WEBP",
-        "PDF",
-        "XLSX",
-        "CSV",
-        "DOCX",
-        "TXT"
-      ]
+      "values": ["JPG", "PNG", "WEBP", "PDF", "XLSX", "CSV", "DOCX", "TXT"]
     },
     "ingestion.historical_status": {
       "name": "historical_status",
       "schema": "ingestion",
-      "values": [
-        "RECLASSIFYING",
-        "PENDING_REVIEW"
-      ]
+      "values": ["RECLASSIFYING", "PENDING_REVIEW"]
     },
     "ingestion.parse_queue_status": {
       "name": "parse_queue_status",
@@ -1023,22 +1003,12 @@
     "ingestion.reclassification_run_status": {
       "name": "reclassification_run_status",
       "schema": "ingestion",
-      "values": [
-        "RUNNING",
-        "COMPLETED",
-        "FAILED",
-        "INTERRUPTED",
-        "BLOCKED"
-      ]
+      "values": ["RUNNING", "COMPLETED", "FAILED", "INTERRUPTED", "BLOCKED"]
     },
     "ingestion.suggestion_status": {
       "name": "suggestion_status",
       "schema": "ingestion",
-      "values": [
-        "PENDING",
-        "APPROVED",
-        "REJECTED"
-      ]
+      "values": ["PENDING", "APPROVED", "REJECTED"]
     },
     "ingestion.upload_status": {
       "name": "upload_status",

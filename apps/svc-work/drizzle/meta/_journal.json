@@ -15,6 +15,13 @@
       "when": 1794266539893,
       "tag": "0001_goals_and_market_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794326435408,
+      "tag": "0002_job_applications",
+      "breakpoints": true
     }
   ]
 }

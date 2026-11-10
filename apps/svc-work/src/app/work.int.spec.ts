@@ -297,6 +297,52 @@ describe.skipIf(!configured)(
       );
     });
 
+    it('tracks a job application from sent to offer, and audits the payslips', async () => {
+      const created = await json<{ id: string }>(
+        await send('POST', '/applications', {
+          company: `Nuova ${run}`,
+          role: 'Process engineer',
+          status: 'applied',
+          appliedAt: '2026-10-01',
+          ralMin: 35000,
+          ralMax: 40000,
+        }),
+      );
+      const bad = await send('POST', '/applications', {
+        company: 'Nope',
+        role: 'Nope',
+        url: 'javascript:alert(1)',
+      });
+      expect(bad.status).toBe(400);
+      expect(
+        (
+          await send('PUT', `/applications/${created.id}`, {
+            company: `Nuova ${run}`,
+            role: 'Process engineer',
+            status: 'offer',
+            appliedAt: '2026-10-01',
+            offerRal: 38500,
+            offerMonths: 14,
+          })
+        ).status,
+      ).toBe(204);
+
+      const all = await overview();
+      const mine = all.applications.find((a) => a.id === created.id);
+      expect(mine).toMatchObject({ status: 'offer', offerRal: 38500 });
+      expect(mine?.history.map((h) => h.status)).toEqual(['applied', 'offer']);
+      expect(all.jobSearch.offers).toBeGreaterThanOrEqual(1);
+      expect(all.audit.checkedPayslips).toBeGreaterThan(0);
+      expect(all.tfr.years.length).toBeGreaterThan(0);
+
+      expect((await send('DELETE', `/applications/${created.id}`)).status).toBe(
+        204,
+      );
+      expect(
+        (await overview()).applications.some((a) => a.id === created.id),
+      ).toBe(false);
+    });
+
     it('writes and keeps a career feedback, offline without a key', async () => {
       const feedback = await json<CareerFeedbackDto>(
         await send('POST', '/feedback', {}),

@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -166,6 +167,8 @@ export class ToolsTab {
   readonly brief = input.required<NegotiationBriefDto>();
   readonly feedback = input<CareerFeedbackDto[]>([]);
   readonly aiFeedback = input(false);
+  /** An offer to compare, from the job search. */
+  readonly offerPrefill = input<OfferDraft | null>(null);
   /** Something was saved: the page reloads the overview. */
   readonly changed = output<void>();
 
@@ -193,6 +196,14 @@ export class ToolsTab {
     costs: '',
   });
   protected readonly year = new Date().getFullYear();
+
+  constructor() {
+    effect(() => {
+      const prefill = this.offerPrefill();
+      if (prefill) this.draft.set({ ...prefill });
+    });
+  }
+
   protected readonly comparison = computed(() =>
     compareOffer(this.baseline(), this.draft(), this.year),
   );

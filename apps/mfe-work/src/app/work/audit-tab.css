@@ -1,0 +1,93 @@
+/* Payslip audit: the findings, then each month's net change by its parts. */
+:host {
+  display: block;
+}
+
+.findings,
+.changes,
+.parts {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.findings,
+.changes {
+  gap: var(--space-4);
+}
+
+.finding,
+.change {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.finding:last-child,
+.change:last-child {
+  border-bottom: 0;
+}
+
+.finding__detail {
+  margin: var(--space-2) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.change__total {
+  display: inline-flex;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.parts {
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.part {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(4rem, 1fr) 7rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.part__label {
+  color: var(--text-secondary);
+}
+
+.part__bar {
+  display: block;
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.part__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--tone-success);
+}
+
+.part__fill--down {
+  background: var(--tone-danger);
+}
+
+.part__amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+  .part {
+    grid-template-columns: minmax(0, 1fr) 6rem;
+  }
+
+  .part__bar {
+    display: none;
+  }
+}

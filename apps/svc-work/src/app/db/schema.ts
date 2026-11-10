@@ -15,6 +15,7 @@ import type {
   CareerEventKind,
   CareerFeedbackOutput,
   GoalStatus,
+  JobApplicationStatus,
   MarketCheckOutput,
   PlatformStatus,
   WorkplaceField,
@@ -204,3 +205,50 @@ export const marketChecks = work.table('market_checks', {
 });
 
 export type MarketCheckRow = typeof marketChecks.$inferSelect;
+
+/**
+ * Your job applications: where you applied, how far it went (every status
+ * with its date in `history`) and the offer when there is one.
+ */
+export const jobApplications = work.table('job_applications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  company: text('company').notNull(),
+  role: text('role').notNull(),
+  source: text('source'),
+  url: text('url'),
+  location: text('location'),
+  status: text('status')
+    .$type<JobApplicationStatus>()
+    .notNull()
+    .default('applied'),
+  appliedAt: date('applied_at', { mode: 'string' }),
+  nextStep: text('next_step'),
+  nextStepAt: date('next_step_at', { mode: 'string' }),
+  ralMin: numeric('ral_min', { precision: 12, scale: 2, mode: 'number' }),
+  ralMax: numeric('ral_max', { precision: 12, scale: 2, mode: 'number' }),
+  offerRal: numeric('offer_ral', { precision: 12, scale: 2, mode: 'number' }),
+  offerMonths: integer('offer_months'),
+  offerWelfare: numeric('offer_welfare', {
+    precision: 12,
+    scale: 2,
+    mode: 'number',
+  }),
+  offerBonus: numeric('offer_bonus', {
+    precision: 12,
+    scale: 2,
+    mode: 'number',
+  }),
+  notes: text('notes'),
+  history: jsonb('history')
+    .$type<{ status: JobApplicationStatus; at: string }[]>()
+    .notNull()
+    .default([]),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type JobApplicationRow = typeof jobApplications.$inferSelect;

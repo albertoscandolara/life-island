@@ -241,6 +241,15 @@ export interface WorkDocumentReading {
   overtimePay: number | null;
   travelDays: number | null;
   travelAllowance: number | null;
+  /** A payslip's surtaxes, IRPEF adjustment and tax credits (see PAYSLIP_KEYS). */
+  regionalSurtax: number | null;
+  municipalSurtax: number | null;
+  taxAdjustment: number | null;
+  taxCredit: number | null;
+  /** Pension fund contributions and the TFR sent to the fund. */
+  pensionFundEmployee: number | null;
+  pensionFundEmployer: number | null;
+  tfrToFund: number | null;
   /** An evaluation's overall rating, with its scale. */
   rating: string | null;
   ratingScale: string | null;
@@ -484,6 +493,13 @@ export function readWorkDocument(
     overtimePay: null,
     travelDays: null,
     travelAllowance: null,
+    regionalSurtax: null,
+    municipalSurtax: null,
+    taxAdjustment: null,
+    taxCredit: null,
+    pensionFundEmployee: null,
+    pensionFundEmployer: null,
+    tfrToFund: null,
     rating: null,
     ratingScale: null,
     reviewer: null,
@@ -526,6 +542,13 @@ export function readWorkDocument(
       reading.overtimePay = num(PAYSLIP_KEYS.overtimePay);
       reading.travelDays = num(PAYSLIP_KEYS.travelDays);
       reading.travelAllowance = num(PAYSLIP_KEYS.travelAllowance);
+      reading.regionalSurtax = num(PAYSLIP_KEYS.regionalSurtax);
+      reading.municipalSurtax = num(PAYSLIP_KEYS.municipalSurtax);
+      reading.taxAdjustment = num(PAYSLIP_KEYS.taxAdjustment);
+      reading.taxCredit = num(PAYSLIP_KEYS.taxCredit);
+      reading.pensionFundEmployee = num(PAYSLIP_KEYS.pensionFundEmployee);
+      reading.pensionFundEmployer = num(PAYSLIP_KEYS.pensionFundEmployer);
+      reading.tfrToFund = num(PAYSLIP_KEYS.tfrToFund);
       reading.payslipKind = payslipKindOf(f[PAYSLIP_KEYS.kind]);
       fact('Month paid', reading.period);
       if (reading.payslipKind !== 'regular')
@@ -550,6 +573,13 @@ export function readWorkDocument(
         reading.overtimeHours === null ? null : `${reading.overtimeHours} h`,
       );
       amountFact('Travel allowances', reading.travelAllowance);
+      amountFact('Regional surtax', reading.regionalSurtax);
+      amountFact('Municipal surtax', reading.municipalSurtax);
+      amountFact('IRPEF adjustment', reading.taxAdjustment);
+      amountFact('Tax credits paid', reading.taxCredit);
+      amountFact('Pension fund, yours', reading.pensionFundEmployee);
+      amountFact('Pension fund, employer', reading.pensionFundEmployer);
+      amountFact('TFR to the pension fund', reading.tfrToFund);
       break;
     }
     case 'PERFORMANCE_REVIEW': {

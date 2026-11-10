@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import type {
+  JobApplicationDto,
+  JobSearchStatsDto,
+  NetChangeDto,
+  PayslipAuditDto,
+  TfrDto,
+} from './work-checks.js';
+import type {
   CareerInsightsDto,
   GoalDto,
   MarketCheckDto,
@@ -304,6 +311,13 @@ export const PAYSLIP_KEYS = {
   overtimePay: 'overtime_pay',
   travelDays: 'travel_days',
   travelAllowance: 'travel_allowance',
+  regionalSurtax: 'regional_surtax',
+  municipalSurtax: 'municipal_surtax',
+  taxAdjustment: 'tax_adjustment',
+  taxCredit: 'tax_credit',
+  pensionFundEmployee: 'pension_fund_employee',
+  pensionFundEmployer: 'pension_fund_employer',
+  tfrToFund: 'tfr_to_fund',
 } as const;
 
 /**
@@ -912,6 +926,14 @@ export interface WorkOverviewDto {
   /** Newest first. */
   marketChecks: MarketCheckDto[];
   brief: NegotiationBriefDto;
+  /** Your payslips checked against the CCNL rules and against each other. */
+  audit: PayslipAuditDto;
+  /** Why the net changed from each monthly payslip to the next, newest first. */
+  netChanges: NetChangeDto[];
+  tfr: TfrDto;
+  /** Your job applications, active first, newest first. */
+  applications: JobApplicationDto[];
+  jobSearch: JobSearchStatsDto;
 }
 
 /** Whether a document names an employer, so it can make a new workplace. */
