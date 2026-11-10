@@ -4,5 +4,6 @@
   "mfe-people": "http://localhost:4205/remoteEntry.json",
   "mfe-cars": "http://localhost:4206/remoteEntry.json",
   "mfe-work": "http://localhost:4207/remoteEntry.json",
-  "mfe-settings": "http://localhost:4208/remoteEntry.json"
+  "mfe-settings": "http://localhost:4208/remoteEntry.json",
+  "mfe-studies": "http://localhost:4209/remoteEntry.json"
 }

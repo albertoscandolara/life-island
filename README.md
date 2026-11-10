@@ -63,6 +63,7 @@ When the infrastructure is already up, `npm run dev` alone restarts the apps and
 | http://localhost:4200/people    | People & IDs: ID documents, versions, reviews, expiry    | `mfe-people` (4205) + `svc-people` (3006)                                     |
 | http://localhost:4200/cars      | Cars: registration codes, renewals, costs                | `mfe-cars` (4206) + `svc-cars` (3007)                                         |
 | http://localhost:4200/work      | Work: workplaces, career timeline, AI feedback           | `mfe-work` (4207) + `svc-work` (3008)                                         |
+| http://localhost:4200/studies   | Studies: learning paths, courses, exams, study coach     | `mfe-studies` (4209) + `svc-studies` (3010)                                   |
 | http://localhost:4200/settings  | Settings: app settings, AI tools with costs and switches | `mfe-settings` (4208) + `svc-settings` (3009)                                 |
 | http://localhost:4201           | Documents: upload, review inbox, Parse now               | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |
 | —                               | Groceries service (no page yet)                          | `svc-groceries` (3003)                                                        |

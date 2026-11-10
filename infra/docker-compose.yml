@@ -98,6 +98,7 @@ services:
       CARS_DATABASE_URL: postgres://cars_svc:dev_cars@postgres:5432/life_island
       WORK_DATABASE_URL: postgres://work_svc:dev_work@postgres:5432/life_island
       SETTINGS_DATABASE_URL: postgres://settings_svc:dev_settings@postgres:5432/life_island
+      STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -227,6 +228,17 @@ services:
       args: { SERVICE: svc-settings }
     environment:
       <<: *service-env
+    depends_on: *service-deps
+
+  svc-studies:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-studies }
+    environment:
+      <<: *service-env
+      # The study coach uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
 volumes:

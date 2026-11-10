@@ -52,6 +52,10 @@
 		import protected
 		reverse_proxy svc-settings:3000
 	}
+	handle_path /api/studies/* {
+		import protected
+		reverse_proxy svc-studies:3000
+	}
 
 	handle {
 		import protected

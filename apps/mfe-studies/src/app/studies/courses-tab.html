@@ -1,0 +1,488 @@
+<!-- ================================================================ courses -->
+<ui-card heading="Courses" class="block">
+  <div uiCardActions>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="startCourse()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add a course
+    </button>
+  </div>
+  <p class="muted intro">
+    The courses you take, on a platform or anywhere else. Tie one to a path step
+    and its time counts there too; its cost counts in what you spend this year.
+  </p>
+
+  @if (course(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); saveCourse()">
+    <label class="form__wide">
+      <span>Title</span>
+      <input
+        class="ui-input"
+        required
+        maxlength="200"
+        [value]="d.title"
+        (input)="setCourse({ title: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Platform</span>
+      <select
+        class="ui-input"
+        (change)="setCourse({ platformId: $any($event.target).value })"
+      >
+        <option value="" [selected]="!d.platformId">None</option>
+        @for (p of data().platforms; track p.id) {
+        <option [value]="p.id" [selected]="d.platformId === p.id">
+          {{ p.name }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Link</span>
+      <input
+        class="ui-input"
+        type="url"
+        maxlength="500"
+        pattern="https?://.+"
+        [value]="d.url"
+        (input)="setCourse({ url: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Topic</span>
+      <select
+        class="ui-input"
+        (change)="setCourse({ topic: $any($event.target).value })"
+      >
+        @for (t of topics; track t) {
+        <option [value]="t" [selected]="d.topic === t">
+          {{ topicLabels[t] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Covers the path step</span>
+      <select
+        class="ui-input"
+        (change)="setCourse({ stepId: $any($event.target).value })"
+      >
+        <option value="" [selected]="!d.stepId">None</option>
+        @for (p of paths; track p.id) {
+        <optgroup [label]="p.name">
+          @for (stage of p.stages; track stage.id) { @for (s of stage.steps;
+          track s.id) {
+          <option [value]="s.id" [selected]="d.stepId === s.id">
+            {{ s.title }}
+          </option>
+          } }
+        </optgroup>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Status</span>
+      <select
+        class="ui-input"
+        (change)="setCourse({ status: $any($event.target).value })"
+      >
+        @for (s of courseStatuses; track s) {
+        <option [value]="s" [selected]="d.status === s">
+          {{ courseStatusLabels[s] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Progress (%)</span>
+      <input
+        class="ui-input"
+        type="number"
+        min="0"
+        max="100"
+        step="5"
+        [value]="d.progress"
+        (input)="setCourse({ progress: +$any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Length (hours)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.hours"
+        (input)="setCourse({ hours: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Cost (€)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.cost"
+        (input)="setCourse({ cost: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Started</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.startedOn"
+        (input)="setCourse({ startedOn: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Completed</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.completedOn"
+        (input)="setCourse({ completedOn: $any($event.target).value })"
+      />
+    </label>
+    <label class="form__wide">
+      <span>Certificate of completion (link)</span>
+      <input
+        class="ui-input"
+        type="url"
+        maxlength="500"
+        pattern="https?://.+"
+        [value]="d.certificateUrl"
+        (input)="setCourse({ certificateUrl: $any($event.target).value })"
+      />
+    </label>
+    <label class="form__wide">
+      <span>Notes</span>
+      <textarea
+        class="ui-input"
+        rows="2"
+        maxlength="2000"
+        [value]="d.notes"
+        (input)="setCourse({ notes: $any($event.target).value })"
+      ></textarea>
+    </label>
+    <div class="form__buttons">
+      <button uiButton type="submit" [loading]="busy() === (d.id ?? 'course')">
+        {{ d.id ? 'Save' : 'Add' }}
+      </button>
+      <button uiButton variant="ghost" type="button" (click)="course.set(null)">
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (!data().courses.length && !course()) {
+  <ui-empty-state heading="No course yet" icon="file">
+    <p class="muted">
+      Add the course you are taking, or the next one: the path steps suggest
+      free ones to start with.
+    </p>
+  </ui-empty-state>
+  } @for (group of groups(); track group.label) { @if (group.label) {
+  <h3 class="sub">{{ group.label }}</h3>
+  }
+  <ul class="cards">
+    @for (c of group.courses; track c.id) {
+    <li class="item" [class.item--off]="c.status === 'dropped'">
+      <div class="item__head">
+        <span class="item__mark" aria-hidden="true"
+          >{{ c.title.slice(0, 1) }}</span
+        >
+        <div>
+          <strong>{{ c.title }}</strong>
+          <span class="muted small block-line"
+            >{{ c.platformName ?? topicLabels[c.topic] }} @if (c.hours) { · {{
+            c.hours }} h } @if (c.cost !== null) { · {{ euro(c.cost) }} }</span
+          >
+        </div>
+        <ui-badge [tone]="courseTones[c.status]"
+          >{{ courseStatusLabels[c.status] }}</ui-badge
+        >
+      </div>
+      @if (c.status === 'in_progress' || c.status === 'planned') {
+      <ui-progress-bar [value]="c.progress" [label]="c.title + ' progress'" />
+      }
+      <p class="small">
+        {{ c.progress }}% @if (c.hoursLogged) { · {{ c.hoursLogged }} h logged }
+        @if (c.completedOn) { · completed {{ dateText(c.completedOn) }} } @if
+        (!c.completedOn && c.startedOn) { · started {{ dateText(c.startedOn) }}
+        }
+      </p>
+      @if (c.stepId && pathStep(c.stepId); as step) {
+      <p class="small muted">Covers: {{ step.title }}</p>
+      } @if (c.notes) {
+      <p class="small muted">{{ c.notes }}</p>
+      }
+      <div class="item__buttons">
+        @if (safeUrl(c.url); as url) {
+        <a
+          uiButton
+          size="sm"
+          [href]="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><ui-icon name="external" [size]="16" /> Open</a
+        >
+        } @if (safeUrl(c.certificateUrl); as url) {
+        <a
+          uiButton
+          variant="secondary"
+          size="sm"
+          [href]="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Certificate</a
+        >
+        } @if (c.status === 'in_progress' || c.status === 'planned') {
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [disabled]="busy() === c.id"
+          (click)="bump(c, 10)"
+        >
+          +10%
+        </button>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit"
+          (click)="startCourse(c)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Remove"
+          (click)="removeCourse(c)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+
+<!-- ========================================================= certifications -->
+<ui-card heading="Exams and certifications" class="block">
+  <div uiCardActions>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="startCertification()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add one
+    </button>
+  </div>
+  <p class="muted intro">
+    The exams you plan or booked, and the certifications you hold. You get a
+    reminder before an exam and before a certification expires; the windows are
+    in Settings → Reminders.
+  </p>
+  <div class="chips" role="group" aria-label="Add a common certification">
+    @for (p of presets; track p.name) { @if (!hasCertification(p.name)) {
+    <button
+      type="button"
+      class="chip"
+      (click)="startCertification(undefined, p)"
+    >
+      <ui-icon name="plus" [size]="14" /> {{ p.name.split(',')[0] }}
+    </button>
+    } }
+  </div>
+
+  @if (certification(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); saveCertification()">
+    <label class="form__wide">
+      <span>Name</span>
+      <input
+        class="ui-input"
+        required
+        maxlength="200"
+        [value]="d.name"
+        (input)="setCertification({ name: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Provider</span>
+      <input
+        class="ui-input"
+        maxlength="120"
+        [value]="d.provider"
+        (input)="setCertification({ provider: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Topic</span>
+      <select
+        class="ui-input"
+        (change)="setCertification({ topic: $any($event.target).value })"
+      >
+        @for (t of topics; track t) {
+        <option [value]="t" [selected]="d.topic === t">
+          {{ topicLabels[t] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Status</span>
+      <select
+        class="ui-input"
+        (change)="setCertification({ status: $any($event.target).value })"
+      >
+        @for (s of certificationStatuses; track s) {
+        <option [value]="s" [selected]="d.status === s">
+          {{ certificationStatusLabels[s] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Exam date</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.examOn"
+        (input)="setCertification({ examOn: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Cost (€)</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.cost"
+        (input)="setCertification({ cost: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Obtained</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.obtainedOn"
+        (input)="obtained($any($event.target).value)"
+      />
+    </label>
+    <label>
+      <span>Expires</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.expiresOn"
+        (input)="setCertification({ expiresOn: $any($event.target).value })"
+      />
+    </label>
+    <label class="form__wide">
+      <span>Credential (link)</span>
+      <input
+        class="ui-input"
+        type="url"
+        maxlength="500"
+        pattern="https?://.+"
+        [value]="d.credentialUrl"
+        (input)="setCertification({ credentialUrl: $any($event.target).value })"
+      />
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        type="submit"
+        [loading]="busy() === (d.id ?? 'certification')"
+      >
+        {{ d.id ? 'Save' : 'Add' }}
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        (click)="certification.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (!data().certifications.length && !certification()) {
+  <ui-empty-state heading="No exam planned" icon="calendar">
+    <p class="muted">
+      A date on the calendar helps you study. The infrastructure path ends with
+      the KCNA, then the CKAD.
+    </p>
+  </ui-empty-state>
+  }
+  <ul class="cards">
+    @for (c of data().certifications; track c.id) {
+    <li class="item">
+      <div class="item__head">
+        <span class="item__mark" aria-hidden="true">🎓</span>
+        <div>
+          <strong>{{ c.name }}</strong>
+          <span class="muted small block-line"
+            >{{ c.provider ?? topicLabels[c.topic] }} @if (c.cost !== null) { ·
+            {{ euro(c.cost) }} }</span
+          >
+        </div>
+        <ui-badge [tone]="certificationTones[c.status]"
+          >{{ certificationStatusLabels[c.status] }}</ui-badge
+        >
+      </div>
+      <p class="small">
+        @if (c.examOn && c.status !== 'passed') { Exam {{ dateText(c.examOn) }}
+        } @if (c.obtainedOn) { Obtained {{ dateText(c.obtainedOn) }} } @if
+        (c.expiresOn) { · expires {{ dateText(c.expiresOn) }} } @if (!c.examOn
+        && !c.obtainedOn) { No date yet }
+      </p>
+      <div class="item__buttons">
+        @if (safeUrl(c.credentialUrl); as url) {
+        <a
+          uiButton
+          variant="secondary"
+          size="sm"
+          [href]="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Credential</a
+        >
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit"
+          (click)="startCertification(c)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Remove"
+          (click)="removeCertification(c)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+</ui-card>

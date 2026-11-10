@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { RENEWAL_WARNING_DAYS, type RenewableKind } from './cars.js';
 import { EXPIRY_WARNING_DAYS, type IdDocumentType } from './people.js';
+import {
+  STUDY_IDLE_DAYS_SETTING,
+  STUDY_REMINDER_DEFAULTS,
+  STUDY_WEEKLY_GOAL_SETTING,
+  studyReminderSettingKey,
+} from './studies.js';
 
 /*
  * Settings (svc-settings, mfe-settings): every setting of the platform in one
@@ -97,6 +103,13 @@ export const AI_TOOL_MODULES = [
     emblem: '🚗',
     character: 'velo',
     service: 'svc-cars',
+  },
+  {
+    id: 'studies',
+    name: 'Studies',
+    emblem: '📚',
+    character: 'iggy',
+    service: 'svc-studies',
   },
 ] as const;
 export type AiToolModuleId = (typeof AI_TOOL_MODULES)[number]['id'];
@@ -393,6 +406,32 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
       },
     ],
   },
+  {
+    id: 'studies.study-coach',
+    module: 'studies',
+    name: 'Study coach',
+    description:
+      'Plans your study week from the paths you follow, the steps in progress, the time you logged against your weekly goal, your courses and the exams ahead, or answers your own question about what to study.',
+    unit: 'plan',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/studies', label: 'Studies · Coach' },
+    whenOff:
+      "The plan is written by Life Island's own rules: the next steps of the paths you follow, sized to your weekly goal.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'plan',
+        label: 'Plan the week',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 8000,
+        tools: [],
+        estimate: { inputTokens: 5000, outputTokens: 2000 },
+        always: true,
+      },
+    ],
+  },
 ];
 
 export function aiTool(id: string): AiToolDefinition | undefined {
@@ -663,7 +702,7 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     type: 'boolean',
     default: true,
     scope: 'server',
-    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars'],
+    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars', 'svc-studies'],
   },
   {
     key: AI_BUDGET_SETTING,
@@ -688,7 +727,7 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     type: 'boolean',
     default: false,
     scope: 'server',
-    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars'],
+    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars', 'svc-studies'],
   },
   {
     key: 'documents.auto-approve-categories',
@@ -749,6 +788,57 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
       RENEWAL_WARNING_DAYS[kind],
       'svc-cars',
     ),
+  ),
+  {
+    key: STUDY_WEEKLY_GOAL_SETTING,
+    group: 'Studies',
+    label: 'Weekly study goal',
+    description:
+      'The hours you want to study each week. Studies measures your weeks and streak against it, and the study coach plans within it.',
+    type: 'number',
+    min: 1,
+    max: 40,
+    unit: 'hours',
+    default: 5,
+    scope: 'server',
+    usedBy: ['svc-studies'],
+  },
+  {
+    key: STUDY_IDLE_DAYS_SETTING,
+    group: 'Reminders',
+    label: 'Studies: no study time logged',
+    description: `How many days without a study session before Studies nudges you (${STUDY_REMINDER_DEFAULTS.idle} unless you change it).`,
+    type: 'number',
+    min: 1,
+    max: 60,
+    unit: 'days',
+    default: STUDY_REMINDER_DEFAULTS.idle,
+    scope: 'server',
+    usedBy: ['svc-studies'],
+  },
+  {
+    ...reminder(
+      studyReminderSettingKey('subscription'),
+      'Study subscription renewal',
+      STUDY_REMINDER_DEFAULTS.subscription,
+      'svc-studies',
+    ),
+    description: `How many days before a training platform's subscription renews the warning starts (${STUDY_REMINDER_DEFAULTS.subscription} unless you change it).`,
+  },
+  {
+    ...reminder(
+      studyReminderSettingKey('exam'),
+      'Exam date',
+      STUDY_REMINDER_DEFAULTS.exam,
+      'svc-studies',
+    ),
+    description: `How many days before a booked or planned exam the warning starts (${STUDY_REMINDER_DEFAULTS.exam} unless you change it).`,
+  },
+  reminder(
+    studyReminderSettingKey('certification'),
+    'Certification',
+    STUDY_REMINDER_DEFAULTS.certification,
+    'svc-studies',
   ),
 ];
 

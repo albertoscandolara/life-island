@@ -19,6 +19,7 @@ You drop any document (receipt photo, PDF, spreadsheet, email) onto the island. 
 | Para (parasaurolophus)     | People & IDs      | ID documents of everyone at home, versions, person review, expiry warnings                                                                                                                                                                                      | Live          |
 | Velo (velociraptor)        | Cars              | Cars read from the registration certificate with every code explained, insurance, road tax, revisione, fuel and mechanic costs, renewal warnings, km and fuel analysis, insurance history, fines with their deadlines, tyre sets, AI insurance quote comparison | Live          |
 | Pachy (pachycephalosaurus) | Work              | Workplaces as entities read from payslips, evaluations and contracts, a career timeline with promotions and rises, pay stats, AI career feedback, hiring platforms                                                                                              | Live          |
+| Iggy (iguanodon)           | Studies           | Learning paths (AI coding, other frameworks, Docker and Kubernetes, team leadership, 3D) with your progress step by step, courses, exams and certifications, training platforms and their cost, study time against a weekly goal, reminders, an AI study coach  | Live          |
 | More to come               | Sport, travel     | Each a new module following the same checklist                                                                                                                                                                                                                  | Later         |
 
 Goals: a project you use every day, practice with modern Angular, micro-frontends, microservices, AI agent workflows, and a portfolio piece with a real wow moment.
@@ -107,7 +108,9 @@ life-island/
 │   ├── svc-home/              # Nest: properties, bills read from documents, works
 │   ├── svc-people/            # Nest: people, ID documents read from documents, reviews of person data
 │   ├── svc-cars/              # Nest: cars, car documents read from documents, renewals and costs
-│   └── svc-work/              # Nest: workplaces, work documents read from documents, career events, AI feedback, hiring platforms
+│   ├── svc-work/              # Nest: workplaces, work documents read from documents, career events, AI feedback, hiring platforms
+│   ├── mfe-studies/           # Angular remote of the shell — Iggy (Studies)
+│   └── svc-studies/           # Nest: learning paths progress, courses, exams, platforms, study time, study coach
 ├── libs/
 │   ├── design-system/         # tokens (CSS vars) + Angular components + Storybook
 │   ├── contracts/             # Zod: events, target schemas, DTOs

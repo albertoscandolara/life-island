@@ -1,0 +1,128 @@
+<ui-ai-panel
+  heading="Study coach"
+  class="block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!data().aiCoach"
+>
+  <li-ai-tool uiAiPanelActions toolId="studies.study-coach" />
+  <p class="muted intro">
+    @if (data().aiCoach) { Claude reads what you recorded here (the paths you
+    follow and each step's status, courses, exams ahead, your weeks against the
+    goal) and plans your week, or answers your question. Your accounts and notes
+    are never sent. } @else { Without a Claude API key, or with the tool off in
+    Settings → AI tools, the plan comes from Life Island's own rules: an exam
+    first, then the steps you are studying, then the next step of each path,
+    sized to your weekly goal. }
+  </p>
+  <form class="ask" (submit)="$event.preventDefault(); ask()">
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “I have a busy week, what matters most?” or “Should I start Kubernetes before finishing Docker?”"
+      [value]="question()"
+      (input)="question.set($any($event.target).value)"
+    ></textarea>
+    <div class="ask__row">
+      <label class="ask__hours">
+        <span>Hours this week</span>
+        <input
+          class="ui-input"
+          inputmode="decimal"
+          [placeholder]="data().stats.weeklyGoalHours + ' (your goal)'"
+          [value]="hours()"
+          (input)="hours.set($any($event.target).value)"
+        />
+      </label>
+      <button uiButton type="submit" [loading]="asking()">
+        <ui-icon name="sparkles" [size]="16" /> Plan my week
+      </button>
+      @if (asking()) {
+      <ui-ai-status state="working">Reading your studies…</ui-ai-status>
+      } @else if (status() === 'done') {
+      <ui-ai-status state="done">Done</ui-ai-status>
+      } @else if (status() === 'error') {
+      <ui-ai-status state="error">The plan could not be written</ui-ai-status>
+      }
+    </div>
+  </form>
+</ui-ai-panel>
+
+@if (shown(); as plan) {
+<ui-ai-panel
+  [heading]="plan.question ? plan.question : 'Your week'"
+  kind="result"
+  [offline]="plan.source !== 'claude'"
+  class="block"
+>
+  <div uiAiPanelActions class="actions">
+    <span class="muted small"
+      >{{ dateText(plan.createdAt) }} · {{ duration(totalMinutes(plan)) }}</span
+    >
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this plan"
+      (click)="remove(plan)"
+    >
+      <ui-icon name="trash" [size]="16" />
+    </button>
+  </div>
+  <p>{{ plan.output.summary }}</p>
+  @if (plan.output.focus.length) {
+  <h3 class="sub">Focus</h3>
+  <ol class="focus">
+    @for (f of plan.output.focus; track $index) {
+    <li>
+      <div class="row">
+        <strong>{{ f.title }}</strong>
+        <span class="muted small">{{ f.hours }} h</span>
+      </div>
+      <p class="muted small">{{ f.why }}</p>
+      @if (pathOf(f.stepId); as path) {
+      <button type="button" class="link small" (click)="openPath.emit(path)">
+        Open the step
+      </button>
+      }
+    </li>
+    }
+  </ol>
+  } @if (plan.output.schedule.length) {
+  <h3 class="sub">Your week</h3>
+  <ul class="week">
+    @for (s of plan.output.schedule; track $index) {
+    <li class="day">
+      <span class="day__name">{{ s.day }}</span>
+      <span class="day__time">{{ duration(s.minutes) }}</span>
+      <span class="small">{{ s.what }}</span>
+    </li>
+    }
+  </ul>
+  } @if (plan.output.tips.length) {
+  <h3 class="sub">Tips</h3>
+  <ul class="tips">
+    @for (t of plan.output.tips; track $index) {
+    <li>{{ t }}</li>
+    }
+  </ul>
+  }
+</ui-ai-panel>
+} @if (data().plans.length > 1) {
+<ui-card heading="Earlier plans" class="block">
+  <ul class="plain">
+    @for (p of data().plans; track p.id) {
+    <li class="row">
+      <button type="button" class="link" (click)="shownId.set(p.id)">
+        {{ p.question ?? 'Your week' }}
+      </button>
+      <span class="muted small"
+        >{{ dateText(p.createdAt) }} · {{ p.source === 'claude' ? 'AI' : 'Life
+        Island rules' }}</span
+      >
+    </li>
+    }
+  </ul>
+</ui-card>
+}

@@ -80,6 +80,10 @@ export const appRoutes: Route[] = [
     loadChildren: remote('mfe-work', './routes', 'WORK_ROUTES'),
   },
   {
+    path: 'studies',
+    loadChildren: remote('mfe-studies', './routes', 'STUDIES_ROUTES'),
+  },
+  {
     path: 'settings',
     loadChildren: remote('mfe-settings', './routes', 'SETTINGS_ROUTES'),
   },

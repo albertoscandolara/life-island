@@ -15,8 +15,9 @@ create role people_svc login password 'dev_people';
 create role cars_svc login password 'dev_cars';
 create role work_svc login password 'dev_work';
 create role settings_svc login password 'dev_settings';
+create role studies_svc login password 'dev_studies';
 
-grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc, work_svc, settings_svc;
+grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc, work_svc, settings_svc, studies_svc;
 
 create schema ingestion authorization ingestion_svc;
 create schema review authorization review_svc;
@@ -27,6 +28,7 @@ create schema people authorization people_svc;
 create schema cars authorization cars_svc;
 create schema work authorization work_svc;
 create schema settings authorization settings_svc;
+create schema studies authorization studies_svc;
 
 alter role ingestion_svc set search_path = ingestion;
 alter role review_svc set search_path = review;
@@ -37,3 +39,4 @@ alter role people_svc set search_path = people;
 alter role cars_svc set search_path = cars;
 alter role work_svc set search_path = work;
 alter role settings_svc set search_path = settings;
+alter role studies_svc set search_path = studies;

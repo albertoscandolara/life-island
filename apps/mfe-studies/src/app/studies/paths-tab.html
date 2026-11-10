@@ -1,0 +1,206 @@
+<ul class="path-cards" aria-label="Learning paths">
+  @for (p of paths; track p.id) { @let pr = progressOf().get(p.id);
+  <li>
+    <button
+      type="button"
+      class="path-card"
+      [class.path-card--on]="selected().id === p.id"
+      [attr.aria-pressed]="selected().id === p.id"
+      (click)="selectPath.emit(p.id)"
+    >
+      <span class="path-card__emblem" aria-hidden="true">{{ p.emblem }}</span>
+      <strong>{{ p.name }}</strong>
+      <span class="muted small">
+        @if (pr?.status === 'following') { Following · } @else if (pr?.status
+        === 'paused') { Paused · } {{ percent(p.id) }}% · {{ pr?.hoursTotal }} h
+      </span>
+      <ui-progress-bar [value]="percent(p.id)" [label]="p.name + ' progress'" />
+    </button>
+  </li>
+  }
+</ul>
+
+@let path = selected(); @let pr = progress();
+<ui-card class="block">
+  <div class="path-head">
+    <span class="path-head__emblem" aria-hidden="true">{{ path.emblem }}</span>
+    <div>
+      <h2 class="path-head__title">{{ path.name }}</h2>
+      <p class="muted">{{ path.summary }}</p>
+    </div>
+    <div class="actions">
+      @if (pr.status !== 'following') {
+      <button
+        uiButton
+        type="button"
+        [loading]="busy() === 'path'"
+        (click)="follow('following')"
+      >
+        {{ pr.status === 'paused' ? 'Resume' : 'Follow this path' }}
+      </button>
+      } @else {
+      <button
+        uiButton
+        variant="secondary"
+        type="button"
+        [loading]="busy() === 'path'"
+        (click)="follow('paused')"
+      >
+        Pause
+      </button>
+      } @if (pr.status) {
+      <button uiButton variant="ghost" type="button" (click)="follow(null)">
+        Stop following
+      </button>
+      }
+    </div>
+  </div>
+
+  <div class="path-facts">
+    <div>
+      <span class="label">Why this path</span>
+      <p>{{ path.why }}</p>
+    </div>
+    <div>
+      <span class="label">Capstone project</span>
+      <p>{{ path.capstone }}</p>
+    </div>
+    @if (path.certifications.length) {
+    <div>
+      <span class="label">Certifications that fit</span>
+      <ul class="bullets">
+        @for (c of path.certifications; track c) {
+        <li>{{ c }}</li>
+        }
+      </ul>
+    </div>
+    }
+  </div>
+
+  <div class="path-progress">
+    <ui-progress-bar
+      [value]="(pr.hoursDone / pr.hoursTotal) * 100"
+      [label]="path.name + ' progress'"
+    />
+    <p class="small">
+      {{ pr.doneSteps }} of {{ pr.totalSteps }} steps · {{ pr.hoursDone }} of {{
+      pr.hoursTotal }} h · {{ duration(pr.minutesLogged) }} logged @if
+      (pr.projectedOn) { · at your pace, done by
+      <strong>{{ dateText(pr.projectedOn) }}</strong> } @if (pr.behind) {
+      <span class="warn">· behind your target</span> }
+    </p>
+    <label class="target">
+      <span>Finish by</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="pr.targetOn ?? ''"
+        (change)="setTarget($any($event.target).value)"
+      />
+    </label>
+  </div>
+</ui-card>
+
+@for (stage of path.stages; track stage.id; let i = $index) {
+<section class="stage block" [attr.aria-label]="stage.title">
+  <header class="stage__head">
+    <span class="stage__number">{{ i + 1 }}</span>
+    <div>
+      <h3 class="stage__title">{{ stage.title }}</h3>
+      <p class="muted small">{{ stage.goal }}</p>
+    </div>
+    <ui-badge
+      [tone]="stageDone(stage.steps) === stage.steps.length ? 'success' : 'neutral'"
+      >{{ stageDone(stage.steps) }}/{{ stage.steps.length }}</ui-badge
+    >
+  </header>
+  <ol class="steps">
+    @for (step of stage.steps; track step.id) { @let sp = stepOf().get(step.id);
+    <li
+      class="step"
+      [class.step--doing]="sp?.status === 'doing'"
+      [class.step--done]="sp?.status === 'done'"
+    >
+      <div class="step__head">
+        <div>
+          <strong class="step__title">{{ step.title }}</strong>
+          <span class="muted small step__meta"
+            >{{ kindLabels[step.kind] }} · about {{ step.hours }} h @if
+            (sp?.minutes) { · {{ duration(sp!.minutes) }} logged } @if
+            (sp?.doneOn) { · done {{ dateText(sp!.doneOn) }} }</span
+          >
+        </div>
+        <div
+          class="segmented"
+          role="group"
+          [attr.aria-label]="step.title + ' status'"
+        >
+          @for (st of statuses; track st) {
+          <button
+            type="button"
+            [class.segmented--on]="(sp?.status ?? 'todo') === st"
+            [attr.aria-pressed]="(sp?.status ?? 'todo') === st"
+            [disabled]="busy() === step.id"
+            (click)="setStatus(step.id, st)"
+          >
+            {{ statusLabels[st] }}
+          </button>
+          }
+        </div>
+      </div>
+      <p class="step__detail">{{ step.detail }}</p>
+      <p class="step__outcome">
+        <span class="label">You will</span> {{ step.outcome }}
+      </p>
+      @if (step.resources.length) {
+      <ul class="resources">
+        @for (r of step.resources; track r.label) {
+        <li>
+          @if (safeUrl(r.url); as url) {
+          <a [href]="url" target="_blank" rel="noopener noreferrer"
+            >{{ r.label }} <ui-icon name="external" [size]="12"
+          /></a>
+          } @else { {{ r.label }} } @if (!r.free) {
+          <ui-badge tone="neutral">Paid</ui-badge> }
+        </li>
+        }
+      </ul>
+      }
+      <div class="step__foot">
+        <span class="muted small">Log today:</span>
+        @for (m of quick; track m) {
+        <button
+          type="button"
+          class="chip chip--sm"
+          [disabled]="busy() === step.id"
+          (click)="logTime(step.id, m)"
+        >
+          {{ duration(m) }}
+        </button>
+        }
+        <button
+          type="button"
+          class="link small"
+          (click)="notesOpen.set(notesOpen() === step.id ? null : step.id)"
+        >
+          {{ sp?.notes ? 'Your notes' : 'Add notes' }}
+        </button>
+      </div>
+      @if (notesOpen() === step.id || sp?.notes) { @if (notesOpen() === step.id)
+      {
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        placeholder="What you learned, links, what to revisit"
+        [value]="sp?.notes ?? ''"
+        (blur)="saveNotes(step.id, $any($event.target).value)"
+      ></textarea>
+      } @else {
+      <p class="muted small notes">{{ sp?.notes }}</p>
+      } }
+    </li>
+    }
+  </ol>
+</section>
+}
