@@ -392,9 +392,8 @@ describe.skipIf(!configured)(
       });
 
       expect(
-        (
-          await send('DELETE', `/people/${personId}/relations/${child.id}`)
-        ).status,
+        (await send('DELETE', `/people/${personId}/relations/${child.id}`))
+          .status,
       ).toBe(204);
       expect((await person(child.id)).relations).toEqual([]);
       await send('DELETE', `/people/${child.id}`);
