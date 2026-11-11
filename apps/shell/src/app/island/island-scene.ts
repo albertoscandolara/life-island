@@ -23,6 +23,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { IslandModule } from '../hub/modules';
+import { islandLayout, type IslandLayout } from './island-layout';
 
 /** The colours the scene is painted with, resolved from the design system's tokens. */
 export interface IslandPalette {
@@ -47,10 +48,6 @@ export interface ZoneLabel {
   facing: number;
 }
 
-const ISLAND_RADIUS = 5.4;
-const ZONE_RADIUS = 3.9;
-/** The zones shrink as the island fills up, so neighbours never overlap. */
-const zoneScale = (count: number) => Math.min(1, 9.6 / Math.max(count, 1));
 const TOP = 0.55;
 const CAMERA_HOME = new Vector3(0, 8.5, 12.5);
 const LOOK_AT = new Vector3(0, 0.6, 0);
@@ -59,7 +56,6 @@ interface Zone {
   module: IslandModule;
   group: Group;
   hover: number;
-  scale: number;
 }
 
 /**
@@ -91,6 +87,10 @@ export class IslandScene {
   private width = 1;
   private height = 1;
   private look = LOOK_AT.clone();
+  /** Where the zones stand and how big the island is, from how many there are. */
+  private readonly layout: IslandLayout;
+  /** The camera's resting place, pulled back as the island grows. */
+  private readonly home: Vector3;
 
   /** Called every frame with where each zone's label goes, in CSS pixels. */
   onFrame: (labels: ZoneLabel[]) => void = () => undefined;
@@ -103,7 +103,10 @@ export class IslandScene {
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.camera.position.copy(CAMERA_HOME);
+    this.layout = islandLayout(modules.length);
+    this.home = CAMERA_HOME.clone().multiplyScalar(this.layout.scale);
+    this.camera.far = 100 * this.layout.scale;
+    this.camera.position.copy(this.home);
     this.camera.lookAt(LOOK_AT);
     this.scene.add(this.island);
     // Start with the first area (730) facing you.
@@ -131,7 +134,11 @@ export class IslandScene {
   }
 
   setPalette(palette: IslandPalette): void {
-    this.scene.fog = new Fog(new Color(palette.fog), 18, 42);
+    this.scene.fog = new Fog(
+      new Color(palette.fog),
+      18 * this.layout.scale,
+      42 * this.layout.scale,
+    );
     const set = (name: keyof IslandPalette, value: string) =>
       this.material(name).color.set(value);
     for (const key of [
@@ -235,7 +242,7 @@ export class IslandScene {
     for (const zone of this.zones) {
       const on = zone.module.id === this.hovered ? 1 : 0;
       zone.hover += (on - zone.hover) * (this.motion ? 0.15 : 1);
-      const scale = zone.scale * (1 + zone.hover * 0.12);
+      const scale = 1 + zone.hover * 0.12;
       zone.group.scale.setScalar(scale);
       zone.group.position.y = TOP + zone.hover * 0.25;
       this.material(`zone:${zone.module.id}`).emissiveIntensity =
@@ -251,7 +258,7 @@ export class IslandScene {
     return this.zones.map((zone) => {
       const world = zone.group.getWorldPosition(new Vector3());
       const facing = world.clone().setY(0).normalize().dot(toCamera);
-      const anchor = world.clone().setY(world.y + 1.9 * zone.scale);
+      const anchor = world.clone().setY(world.y + 1.9);
       anchor.project(this.camera);
       return {
         id: zone.module.id,
@@ -292,8 +299,10 @@ export class IslandScene {
     const water = this.mesh(new CylinderGeometry(40, 40, 0.2, 48), 'water');
     water.position.y = -0.35;
     this.scene.add(water);
+    const radius = this.layout.islandRadius;
+    const sides = Math.max(14, Math.round(radius * 2.6));
     const foam = this.mesh(
-      new RingGeometry(ISLAND_RADIUS + 0.2, ISLAND_RADIUS + 0.9, 28),
+      new RingGeometry(radius + 0.2, radius + 0.9, sides * 2),
       'foam',
     );
     foam.rotation.x = -Math.PI / 2;
@@ -301,13 +310,13 @@ export class IslandScene {
     this.island.add(foam);
 
     const shore = this.mesh(
-      new CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS + 0.5, 0.6, 14),
+      new CylinderGeometry(radius, radius + 0.5, 0.6, sides),
       'sand',
     );
     shore.position.y = -0.05;
     this.island.add(shore);
     const plateau = this.mesh(
-      new CylinderGeometry(ISLAND_RADIUS - 0.6, ISLAND_RADIUS - 0.2, 0.35, 14),
+      new CylinderGeometry(radius - 0.6, radius - 0.2, 0.35, sides),
       'grass',
     );
     plateau.position.y = 0.35;
@@ -320,9 +329,13 @@ export class IslandScene {
     cap.position.y = 2.4;
     this.island.add(cap);
 
-    for (const angle of [0, 60, 120, 180, 240, 300])
-      this.palm(angle + 30, ISLAND_RADIUS - 0.3);
-    for (const module of this.modules) this.zone(module);
+    // Palms on the shore, in the gaps between zones (at most eight).
+    const angles = this.layout.angles;
+    const gaps = angles.length || 6;
+    const every = Math.max(1, Math.ceil(gaps / 8));
+    for (let i = 0; i < gaps; i += every)
+      this.palm((angles[i] ?? i * 60) - 180 / gaps, radius - 0.3);
+    this.modules.forEach((module, i) => this.zone(module, angles[i] ?? 0));
   }
 
   private palm(angle: number, radius: number): void {
@@ -339,7 +352,7 @@ export class IslandScene {
     this.island.add(palm);
   }
 
-  private zone(module: IslandModule): void {
+  private zone(module: IslandModule, angle: number): void {
     const group = new Group();
     group.userData['zone'] = module.id;
     const tint = `zone:${module.id}`;
@@ -563,16 +576,11 @@ export class IslandScene {
       }
     }
 
-    const rad = (module.angle * Math.PI) / 180;
-    group.position.set(
-      Math.cos(rad) * ZONE_RADIUS,
-      TOP,
-      -Math.sin(rad) * ZONE_RADIUS,
-    );
+    const rad = (angle * Math.PI) / 180;
+    const ring = this.layout.ringRadius;
+    group.position.set(Math.cos(rad) * ring, TOP, -Math.sin(rad) * ring);
     group.rotation.y = rad + Math.PI / 2;
-    const scale = zoneScale(this.modules.length);
-    group.scale.setScalar(scale);
     this.island.add(group);
-    this.zones.push({ module, group, hover: 0, scale });
+    this.zones.push({ module, group, hover: 0 });
   }
 }

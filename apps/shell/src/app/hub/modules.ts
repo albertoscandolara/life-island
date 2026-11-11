@@ -31,8 +31,6 @@ export interface IslandModule {
    * shown as a badge on its card; the gateway serves it under /api.
    */
   attentionUrl?: string;
-  /** Where its zone sits on the island, as an angle around the centre (degrees). */
-  angle: number;
   /** What its zone's landmark looks like in 3D. */
   landmark:
     | 'vault'
@@ -53,7 +51,9 @@ export interface IslandModule {
 }
 
 /**
- * Every area of life the island will handle. Each one is its own service and
+ * Every area of life the island will handle. The order is the order of the
+ * cards and of the zones around the island (island-layout.ts): the first one
+ * faces you, the others follow clockwise, evenly spaced. Each one is its own service and
  * front-end module; an area without a path is planned and shows as "coming soon".
  */
 export const ISLAND_MODULES: readonly IslandModule[] = [
@@ -66,7 +66,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Every date of the island in one place: what is late, this week and the year ahead from every area, your own reminders, and a week brief.',
     path: '/agenda',
     attentionUrl: '/api/agenda/attention',
-    angle: 112.5,
     landmark: 'clock',
   },
   {
@@ -77,7 +76,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every document of your 730, year by year: deductible expenses, invoices, payment proofs and the folder for the commercialista.',
     path: '/taxes/730',
-    angle: 90,
     landmark: 'vault',
   },
   {
@@ -88,7 +86,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'A shopping list that learns from your receipts, price history by shop, and spending by category.',
     path: '/groceries',
-    angle: 22.5,
     landmark: 'market',
   },
   {
@@ -100,7 +97,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Check-ups by age, visits, medicines with refills, test results with their trend, vaccinations, and an explainer for your results.',
     path: '/health',
     attentionUrl: '/api/health/attention',
-    angle: 0,
     landmark: 'clinic',
   },
   {
@@ -111,7 +107,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every workplace you have had, read from payslips, evaluations and contracts: a timeline of promotions and rises, your pay year by year, an AI feedback on your career, and the hiring platforms you signed up to.',
     path: '/work',
-    angle: 292.5,
     landmark: 'office',
   },
   {
@@ -122,7 +117,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas and water bills.',
     path: '/home',
-    angle: 225,
     landmark: 'house',
   },
   {
@@ -134,7 +128,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Learning paths for AI coding, other frameworks, Docker and Kubernetes, team leadership and 3D, with your progress step by step; courses, exams and the training platforms you use, what they cost, your study time against a weekly goal, and a coach that plans your week.',
     path: '/studies',
     attentionUrl: '/api/studies/attention',
-    angle: 157.5,
     landmark: 'library',
   },
   {
@@ -146,7 +139,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Identity cards, passports, health cards and licences of everyone at home: every version kept, a review before personal data changes, and a warning before one expires.',
     path: '/people',
     attentionUrl: '/api/people/attention',
-    angle: 135,
     landmark: 'gate',
   },
   {
@@ -157,7 +149,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every car you have, read from its registration certificate with every code explained: insurance, road tax and revisione with a warning before they expire, and what each car costs, from fuel to the mechanic.',
     path: '/cars',
-    angle: 202.5,
     landmark: 'garage',
   },
   {
@@ -169,7 +160,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Accounts and movements (from your bank CSV), monthly budgets, the recurring charges you pay, and a review of where the money goes.',
     path: '/money',
     attentionUrl: '/api/money/attention',
-    angle: 67.5,
     landmark: 'coins',
   },
   {
@@ -181,7 +171,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Every contract and subscription: what it costs a year, when it renews, the date to cancel by, its price history, and an advisor for renewals.',
     path: '/subscriptions',
     attentionUrl: '/api/subscriptions/attention',
-    angle: 45,
     landmark: 'antenna',
   },
   {
@@ -193,7 +182,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Workouts as active minutes against a weekly goal, weight and sleep, the races ahead, and a training plan for the next weeks.',
     path: '/fitness',
     attentionUrl: '/api/fitness/attention',
-    angle: 337.5,
     landmark: 'track',
   },
   {
@@ -205,7 +193,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Where you want to go and the next step to get there, daily habits with streaks, a weekly review, and a coach for when you are stuck.',
     path: '/goals',
     attentionUrl: '/api/goals/attention',
-    angle: 315,
     landmark: 'flag',
   },
   {
@@ -217,7 +204,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Trips with their bookings, a checklist and packing list, what each trip costs, and a planner that drafts the days and what to bring.',
     path: '/travel',
     attentionUrl: '/api/travel/attention',
-    angle: 180,
     landmark: 'boat',
   },
   {
@@ -228,7 +214,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every setting of the island in one place, and every tool that uses AI, module by module: what one use costs, the request it sends, and a switch to turn it off.',
     path: '/settings',
-    angle: 270,
     landmark: 'lighthouse',
   },
 ];
