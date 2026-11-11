@@ -64,10 +64,6 @@
 		import protected
 		reverse_proxy svc-travel:3000
 	}
-	handle_path /api/mailbox/* {
-		import protected
-		reverse_proxy svc-mailbox:3000
-	}
 	handle_path /api/subscriptions/* {
 		import protected
 		reverse_proxy svc-subscriptions:3000

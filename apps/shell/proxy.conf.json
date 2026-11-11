@@ -83,13 +83,6 @@
     },
     "changeOrigin": true
   },
-  "/api/mailbox": {
-    "target": "http://localhost:3016",
-    "pathRewrite": {
-      "^/api/mailbox": ""
-    },
-    "changeOrigin": true
-  },
   "/api/travel": {
     "target": "http://localhost:3017",
     "pathRewrite": {

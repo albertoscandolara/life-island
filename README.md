@@ -69,7 +69,6 @@ When the infrastructure is already up, `npm run dev` alone restarts the apps and
 | http://localhost:4200/goals         | Goals & habits: next steps, streaks, weekly review       | `mfe-goals` (4212) + `svc-goals` (3013)                                       |
 | http://localhost:4200/health        | Health: check-ups, visits, medicines, results            | `mfe-health` (4213) + `svc-health` (3014)                                     |
 | http://localhost:4200/subscriptions | Contracts & subscriptions: renewals, cancel-by dates     | `mfe-subscriptions` (4214) + `svc-subscriptions` (3015)                       |
-| http://localhost:4200/mailbox       | Admin mailbox: official letters and the date to act by   | `mfe-mailbox` (4215) + `svc-mailbox` (3016)                                   |
 | http://localhost:4200/travel        | Travel: trips, bookings, checklist, packing, costs       | `mfe-travel` (4216) + `svc-travel` (3017)                                     |
 | http://localhost:4200/fitness       | Fitness: active minutes, body and sleep, events, plan    | `mfe-fitness` (4217) + `svc-fitness` (3018)                                   |
 | http://localhost:4200/groceries     | Groceries: shopping list, prices, spending               | `mfe-groceries` (4202) + `svc-groceries` (3003)                               |

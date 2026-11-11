@@ -16,7 +16,6 @@ The Life Island app is where you use your data. It is a Native Federation **host
 | Goals & habits            | `mfe-goals`         | `svc-goals`         | Live   |
 | Health                    | `mfe-health`        | `svc-health`        | Live   |
 | Contracts & subscriptions | `mfe-subscriptions` | `svc-subscriptions` | Live   |
-| Admin mailbox             | `mfe-mailbox`       | `svc-mailbox`       | Live   |
 | Travel                    | `mfe-travel`        | `svc-travel`        | Live   |
 | Fitness                   | `mfe-fitness`       | `svc-fitness`       | Live   |
 
@@ -47,7 +46,6 @@ npx nx serve svc-money        # accounts, movements, budgets (port 3012); mfe-mo
 npx nx serve svc-goals        # goals, habits, weekly review (port 3013); mfe-goals on 4212
 npx nx serve svc-health       # check-ups, visits, medicines, results (port 3014); mfe-health on 4213
 npx nx serve svc-subscriptions # contracts and renewals (port 3015); mfe-subscriptions on 4214
-npx nx serve svc-mailbox      # official letters (port 3016); mfe-mailbox on 4215
 npx nx serve svc-travel       # trips (port 3017); mfe-travel on 4216
 npx nx serve svc-fitness      # workouts, body, events (port 3018); mfe-fitness on 4217
 npx nx serve svc-groceries    # receipts and the shopping list (port 3003); mfe-groceries on 4202
@@ -308,7 +306,7 @@ A database created before this area existed gets its schema and role from svc-st
 
 ## The new areas: one way of working
 
-Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Admin mailbox, Travel, Fitness and the Groceries page all follow the same pattern, so once you know one you know them all.
+Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Travel, Fitness and the Groceries page all follow the same pattern, so once you know one you know them all.
 
 - **One page, a few tabs.** Each page opens with a header and a row of tiles that say what matters now (what is late, this week's total, the next step), then tabs for the details. Everything you type goes through the same dialog (`li-record-dialog`), with the same Save and Remove buttons.
 - **Its own AI tool, with an offline fallback.** Every area has one AI tool (registered in `AI_TOOLS`, with its Settings switch, request and costs in Settings → AI tools). The panel says what is sent to Claude and what is not. With AI turned off, or without a key, the same button gives an answer from Life Island's own rules, marked "offline". The last ten answers are kept.
@@ -324,7 +322,6 @@ Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Admin mailbox,
 | Goals & habits | goal and step due dates                                                                                                                    | coach                      |
 | Health         | check-ups due, follow-up visits, medicine refills, vaccine boosters                                                                        | results explainer          |
 | Contracts      | renewals and the date to cancel by                                                                                                         | renewal advisor            |
-| Admin mailbox  | the date to act by on each letter                                                                                                          | letter explainer           |
 | Travel         | departures, check-ins, booking deadlines                                                                                                   | trip planner               |
 | Fitness        | races and events                                                                                                                           | training plan              |
 | Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                 |

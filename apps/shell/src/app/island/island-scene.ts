@@ -530,23 +530,6 @@ export class IslandScene {
         ).rotation.x = -0.8;
         break;
       }
-      case 'postbox': {
-        // The mailbox: a post box on a pole with a letter.
-        add(
-          this.mesh(new CylinderGeometry(0.05, 0.05, 0.6, 6), 'rock'),
-          0,
-          0.45,
-          0,
-        );
-        add(this.mesh(new BoxGeometry(0.55, 0.38, 0.38), tint), 0, 0.92, 0);
-        add(
-          this.mesh(new BoxGeometry(0.36, 0.22, 0.02), 'foam'),
-          0.05,
-          1.15,
-          0.05,
-        ).rotation.z = 0.3;
-        break;
-      }
       case 'boat': {
         // Travel: a boat with its sail.
         add(this.mesh(new BoxGeometry(0.95, 0.22, 0.42), tint), 0, 0.35, 0);

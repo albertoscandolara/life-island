@@ -151,22 +151,6 @@
   --accent-2: var(--sun-600);
 }
 
-[data-character='diplo'] {
-  /* admin mailbox: official letters and what they ask */
-  --accent: color-mix(in srgb, var(--sun-700) 60%, var(--ink-700));
-  --accent-hover: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--sun-700) 60%, var(--ink-700)) 82%,
-    var(--ink-900)
-  );
-  --accent-soft: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--sun-700) 60%, var(--ink-700)) 10%,
-    var(--ink-0)
-  );
-  --accent-2: var(--lagoon-600);
-}
-
 [data-character='quetzal'] {
   /* travel: trips, bookings and checklists */
   --accent: color-mix(in srgb, var(--sky-600) 60%, var(--lagoon-600));
@@ -293,15 +277,6 @@
   --accent-hover: color-mix(
     in srgb,
     color-mix(in srgb, var(--sky-400) 50%, var(--leaf-400)) 82%,
-    var(--ink-0)
-  );
-}
-
-:root[data-theme='dark'] [data-character='diplo'] {
-  --accent: color-mix(in srgb, var(--sun-400) 70%, var(--ink-200));
-  --accent-hover: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--sun-400) 70%, var(--ink-200)) 82%,
     var(--ink-0)
   );
 }

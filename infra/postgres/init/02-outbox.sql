@@ -35,7 +35,6 @@ call pg_temp.create_outbox_tables('settings', 'settings_svc');
 call pg_temp.create_outbox_tables('studies', 'studies_svc');
 call pg_temp.create_outbox_tables('fitness', 'fitness_svc');
 call pg_temp.create_outbox_tables('travel', 'travel_svc');
-call pg_temp.create_outbox_tables('mailbox', 'mailbox_svc');
 call pg_temp.create_outbox_tables('subscriptions', 'subscriptions_svc');
 call pg_temp.create_outbox_tables('health', 'health_svc');
 call pg_temp.create_outbox_tables('goals', 'goals_svc');

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /*
  * Field schemas the record-keeping modules share (Agenda, Money, Goals,
- * Health, Subscriptions, Mailbox, Travel, Fitness), so a date, an amount or a
+ * Health, Subscriptions, Travel, Fitness), so a date, an amount or a
  * note is checked the same way in every one of them.
  */
 

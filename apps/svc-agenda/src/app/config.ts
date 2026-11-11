@@ -51,7 +51,6 @@ export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {
   goals: 'http://localhost:3013',
   health: 'http://localhost:3014',
   subscriptions: 'http://localhost:3015',
-  mailbox: 'http://localhost:3016',
   travel: 'http://localhost:3017',
   fitness: 'http://localhost:3018',
 };

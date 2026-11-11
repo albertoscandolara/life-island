@@ -4,8 +4,8 @@
 
 do $$
 declare
-  roles   text[] := array['ingestion_svc', 'review_svc', 'grocery_svc', 'tax730_svc', 'home_svc', 'people_svc', 'cars_svc', 'work_svc', 'settings_svc', 'studies_svc', 'agenda_svc', 'money_svc', 'goals_svc', 'health_svc', 'subscriptions_svc', 'mailbox_svc', 'travel_svc', 'fitness_svc'];
-  schemas text[] := array['ingestion', 'review', 'grocery', 'tax730', 'home', 'people', 'cars', 'work', 'settings', 'studies', 'agenda', 'money', 'goals', 'health', 'subscriptions', 'mailbox', 'travel', 'fitness'];
+  roles   text[] := array['ingestion_svc', 'review_svc', 'grocery_svc', 'tax730_svc', 'home_svc', 'people_svc', 'cars_svc', 'work_svc', 'settings_svc', 'studies_svc', 'agenda_svc', 'money_svc', 'goals_svc', 'health_svc', 'subscriptions_svc', 'travel_svc', 'fitness_svc'];
+  schemas text[] := array['ingestion', 'review', 'grocery', 'tax730', 'home', 'people', 'cars', 'work', 'settings', 'studies', 'agenda', 'money', 'goals', 'health', 'subscriptions', 'travel', 'fitness'];
   i int;
   j int;
 begin
