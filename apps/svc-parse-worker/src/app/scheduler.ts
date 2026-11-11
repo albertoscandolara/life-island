@@ -267,7 +267,9 @@ export class ParseScheduler
     this.current ??= (async () => {
       const started = Date.now();
       try {
-        const summary = await this.parse.runOnce();
+        const summary = await this.parse.runOnce(
+          reason.startsWith('parse now'),
+        );
         const counts = Object.entries(summary)
           .filter(([, count]) => count > 0)
           .map(([outcome, count]) => `${count} ${outcome}`)

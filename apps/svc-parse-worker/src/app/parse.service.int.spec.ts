@@ -243,6 +243,37 @@ describe.skipIf(!configured)(
 
     const ENEL = `ENEL ENERGIA - Bolletta luce\nEmessa il 12/10/2026\nTOTALE EUR 84,20 ${randomUUID()}`;
 
+    it('takes a document waiting for its retry at once when you press Parse now', async () => {
+      const id = await seed(ENEL);
+      await db()
+        .update(uploads)
+        .set({ nextAttemptAt: new Date(Date.now() + 60 * 60_000) })
+        .where(eq(uploads.id, id));
+      const service = new ParseService(
+        svc,
+        storage,
+        new ScriptedAnalyzer(),
+        config,
+      );
+      const claimAll = async (now: boolean) => {
+        const ids: string[] = [];
+        for (let i = 0; i < 50; i++) {
+          const next = await service.claimNext(now);
+          if (!next) break;
+          ids.push(next.id);
+        }
+        return ids;
+      };
+      // The scheduled run leaves it to its retry time...
+      expect(await claimAll(false)).not.toContain(id);
+      // ...Parse now does not.
+      expect(await claimAll(true)).toContain(id);
+      await db()
+        .update(uploads)
+        .set({ status: 'FAILED', lockToken: null, lockedUntil: null })
+        .where(eq(uploads.id, id));
+    });
+
     it('classifies, extracts and discovers, then hands the document to review', async () => {
       const id = await seed(ENEL);
       const analyzer = new ScriptedAnalyzer();

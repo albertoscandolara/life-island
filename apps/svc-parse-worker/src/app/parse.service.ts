@@ -122,8 +122,12 @@ export class ParseService {
    * recovered documents go first. `skip locked` keeps two workers off the same
    * row; the fresh `lock_token` makes every later write conditional on still
    * holding it.
+   *
+   * With `now` (Parse now was pressed), a document waiting for its retry after
+   * an error is taken at once: you asked for it, so it does not wait out its
+   * delay. A queue pause (quota, rate limit) still holds.
    */
-  async claimNext(): Promise<UploadRow | undefined> {
+  async claimNext(now = false): Promise<UploadRow | undefined> {
     return withTransaction(this.svc.pool, async (client) => {
       const { rows } = await client.query<{ id: string; attempts: number }>(
         `update ingestion.uploads
@@ -135,7 +139,8 @@ export class ParseService {
                 updated_at = now()
           where id = (
             select id from ingestion.uploads
-             where (status in ('TO_BE_PARSED', 'PAUSED_QUOTA', 'PAUSED_RATE_LIMIT')
+             where (status = 'TO_BE_PARSED' and ($2 or next_attempt_at <= now()))
+                or (status in ('PAUSED_QUOTA', 'PAUSED_RATE_LIMIT')
                     and next_attempt_at <= now())
                 or (status = 'PARSING' and locked_until < now())
              order by (status <> 'TO_BE_PARSED') desc, created_at
@@ -143,7 +148,7 @@ export class ParseService {
              for update skip locked
           )
           returning id, attempts`,
-        [this.config.leaseMinutes],
+        [this.config.leaseMinutes, now],
       );
       const claimed = rows[0];
       if (!claimed) return undefined;
@@ -167,9 +172,10 @@ export class ParseService {
   /**
    * Processes documents one by one until none are ready, the queue pauses
    * (quota, rate limit, refused credentials) or shutdown is requested. A
-   * failing document does not stop the run.
+   * failing document does not stop the run. A run from Parse now
+   * (`now`) also takes documents waiting for a retry (see `claimNext`).
    */
-  async runOnce(): Promise<RunSummary> {
+  async runOnce(now = false): Promise<RunSummary> {
     const summary: RunSummary = {
       parsed: 0,
       retried: 0,
@@ -192,7 +198,7 @@ export class ParseService {
     }
     try {
       while (!this.stopRequested && (await this.queue.canProceed())) {
-        const upload = await this.claimNext();
+        const upload = await this.claimNext(now);
         if (!upload) break;
         const outcome = await this.process(upload);
         summary[outcome]++;
