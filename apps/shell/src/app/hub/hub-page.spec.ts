@@ -5,7 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { attentionBadge, HubPage } from './hub-page';
+import { attentionBadge, HubPage, whenText } from './hub-page';
 import { ISLAND_MODULES } from './modules';
 
 describe('HubPage', () => {
@@ -47,6 +47,56 @@ describe('HubPage', () => {
     expect(
       element.querySelector('.module__attention')?.textContent?.trim(),
     ).toBe('1 expired · 2 expiring');
+  });
+
+  it('shows the next dates from every area under "Coming up"', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    const fixture = TestBed.createComponent(HubPage);
+    TestBed.inject(HttpTestingController)
+      .expectOne((request) => request.url === '/api/agenda/upcoming')
+      .flush({
+        today: '2026-11-11',
+        entries: [
+          {
+            key: 'module:cars:insurance:1',
+            source: 'module',
+            module: 'cars',
+            kind: 'insurance',
+            title: 'Insurance of the Panda',
+            detail: null,
+            date: '2026-11-09',
+            time: null,
+            amount: 420,
+            path: '/cars',
+            daysLeft: -2,
+            urgency: 'overdue',
+            handled: false,
+            itemId: null,
+            category: null,
+          },
+        ],
+      });
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.coming__title')?.textContent?.trim()).toBe(
+      'Insurance of the Panda',
+    );
+    expect(element.querySelector('.coming__when')?.textContent?.trim()).toBe(
+      '2 days late',
+    );
+  });
+
+  it('says when a date falls', () => {
+    expect(whenText(0)).toBe('Today');
+    expect(whenText(1)).toBe('Tomorrow');
+    expect(whenText(-1)).toBe('1 day late');
+    expect(whenText(9)).toBe('In 9 days');
   });
 
   it('says nothing when all is fine', () => {
