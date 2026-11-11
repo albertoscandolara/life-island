@@ -1,0 +1,123 @@
+{
+  "name": "mfe-fitness",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "fitness",
+  "sourceRoot": "apps/mfe-fitness/src",
+  "tags": ["type:app", "scope:fitness"],
+  "targets": {
+    "build": {
+      "executor": "@angular-architects/native-federation:build",
+      "defaultConfiguration": "production",
+      "options": {
+        "cacheExternalArtifacts": true,
+        "tsConfig": "apps/mfe-fitness/tsconfig.federation.json"
+      },
+      "configurations": {
+        "production": {
+          "target": "mfe-fitness:esbuild:production"
+        },
+        "development": {
+          "target": "mfe-fitness:esbuild:development",
+          "dev": true
+        }
+      }
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation:build",
+      "options": {
+        "target": "mfe-fitness:serve-original:development",
+        "tsConfig": "apps/mfe-fitness/tsconfig.federation.json",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      },
+      "continuous": true
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"],
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "mfe-fitness:build",
+        "port": 4217,
+        "staticFilePath": "dist/apps/mfe-fitness/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/mfe-fitness",
+        "browser": "apps/mfe-fitness/src/main.ts",
+        "tsConfig": "apps/mfe-fitness/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/mfe-fitness/public"
+          }
+        ],
+        "styles": [
+          "libs/design-system/src/styles/index.css",
+          "apps/mfe-fitness/src/styles.css"
+        ],
+        "polyfills": ["es-module-shims"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "12kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve-original": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4217,
+        "proxyConfig": "apps/mfe-fitness/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "mfe-fitness:esbuild:production"
+        },
+        "development": {
+          "buildTarget": "mfe-fitness:esbuild:development"
+        }
+      }
+    }
+  }
+}

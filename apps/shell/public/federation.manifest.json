@@ -5,5 +5,13 @@
   "mfe-cars": "http://localhost:4206/remoteEntry.json",
   "mfe-work": "http://localhost:4207/remoteEntry.json",
   "mfe-settings": "http://localhost:4208/remoteEntry.json",
-  "mfe-studies": "http://localhost:4209/remoteEntry.json"
+  "mfe-studies": "http://localhost:4209/remoteEntry.json",
+  "mfe-agenda": "http://localhost:4210/remoteEntry.json",
+  "mfe-money": "http://localhost:4211/remoteEntry.json",
+  "mfe-goals": "http://localhost:4212/remoteEntry.json",
+  "mfe-health": "http://localhost:4213/remoteEntry.json",
+  "mfe-subscriptions": "http://localhost:4214/remoteEntry.json",
+  "mfe-mailbox": "http://localhost:4215/remoteEntry.json",
+  "mfe-travel": "http://localhost:4216/remoteEntry.json",
+  "mfe-fitness": "http://localhost:4217/remoteEntry.json"
 }

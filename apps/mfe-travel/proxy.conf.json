@@ -1,0 +1,12 @@
+{
+  "/api/travel": {
+    "target": "http://localhost:3017",
+    "pathRewrite": { "^/api/travel": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

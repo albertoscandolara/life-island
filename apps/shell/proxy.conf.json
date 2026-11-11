@@ -47,5 +47,61 @@
       "^/api/settings": ""
     },
     "changeOrigin": true
+  },
+  "/api/agenda": {
+    "target": "http://localhost:3011",
+    "pathRewrite": {
+      "^/api/agenda": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/money": {
+    "target": "http://localhost:3012",
+    "pathRewrite": {
+      "^/api/money": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/goals": {
+    "target": "http://localhost:3013",
+    "pathRewrite": {
+      "^/api/goals": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/health": {
+    "target": "http://localhost:3014",
+    "pathRewrite": {
+      "^/api/health": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/subscriptions": {
+    "target": "http://localhost:3015",
+    "pathRewrite": {
+      "^/api/subscriptions": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/mailbox": {
+    "target": "http://localhost:3016",
+    "pathRewrite": {
+      "^/api/mailbox": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/travel": {
+    "target": "http://localhost:3017",
+    "pathRewrite": {
+      "^/api/travel": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/fitness": {
+    "target": "http://localhost:3018",
+    "pathRewrite": {
+      "^/api/fitness": ""
+    },
+    "changeOrigin": true
   }
 }

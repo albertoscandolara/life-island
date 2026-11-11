@@ -99,6 +99,14 @@ services:
       WORK_DATABASE_URL: postgres://work_svc:dev_work@postgres:5432/life_island
       SETTINGS_DATABASE_URL: postgres://settings_svc:dev_settings@postgres:5432/life_island
       STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@postgres:5432/life_island
+      FITNESS_DATABASE_URL: postgres://fitness_svc:dev_fitness@postgres:5432/life_island
+      TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@postgres:5432/life_island
+      MAILBOX_DATABASE_URL: postgres://mailbox_svc:dev_mailbox@postgres:5432/life_island
+      SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@postgres:5432/life_island
+      HEALTH_DATABASE_URL: postgres://health_svc:dev_health@postgres:5432/life_island
+      GOALS_DATABASE_URL: postgres://goals_svc:dev_goals@postgres:5432/life_island
+      MONEY_DATABASE_URL: postgres://money_svc:dev_money@postgres:5432/life_island
+      AGENDA_DATABASE_URL: postgres://agenda_svc:dev_agenda@postgres:5432/life_island
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
@@ -206,6 +214,95 @@ services:
       PEOPLE_URL: http://svc-people:3000
       # The insurance quote comparison uses the Claude API; without the key it is unavailable.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-fitness:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-fitness }
+    environment:
+      <<: *service-env
+      # The training plan uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-travel:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-travel }
+    environment:
+      <<: *service-env
+      # The trip planner uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-mailbox:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-mailbox }
+    environment:
+      <<: *service-env
+      # The letter explainer uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-subscriptions:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-subscriptions }
+    environment:
+      <<: *service-env
+      # The renewal advisor uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-health:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-health }
+    environment:
+      <<: *service-env
+      # The test results explainer uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-goals:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-goals }
+    environment:
+      <<: *service-env
+      # The goals coach uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-money:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-money }
+    environment:
+      <<: *service-env
+      # The spending review uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: *service-deps
+
+  svc-agenda:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-agenda }
+    environment:
+      <<: *service-env
+      # The week brief uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,mailbox=http://svc-mailbox:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000
     depends_on: *service-deps
 
   svc-work:

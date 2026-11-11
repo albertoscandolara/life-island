@@ -1,0 +1,12 @@
+{
+  "/api/money": {
+    "target": "http://localhost:3012",
+    "pathRewrite": { "^/api/money": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

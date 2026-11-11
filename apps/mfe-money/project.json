@@ -1,0 +1,123 @@
+{
+  "name": "mfe-money",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "money",
+  "sourceRoot": "apps/mfe-money/src",
+  "tags": ["type:app", "scope:money"],
+  "targets": {
+    "build": {
+      "executor": "@angular-architects/native-federation:build",
+      "defaultConfiguration": "production",
+      "options": {
+        "cacheExternalArtifacts": true,
+        "tsConfig": "apps/mfe-money/tsconfig.federation.json"
+      },
+      "configurations": {
+        "production": {
+          "target": "mfe-money:esbuild:production"
+        },
+        "development": {
+          "target": "mfe-money:esbuild:development",
+          "dev": true
+        }
+      }
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation:build",
+      "options": {
+        "target": "mfe-money:serve-original:development",
+        "tsConfig": "apps/mfe-money/tsconfig.federation.json",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      },
+      "continuous": true
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"],
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "mfe-money:build",
+        "port": 4211,
+        "staticFilePath": "dist/apps/mfe-money/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/mfe-money",
+        "browser": "apps/mfe-money/src/main.ts",
+        "tsConfig": "apps/mfe-money/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/mfe-money/public"
+          }
+        ],
+        "styles": [
+          "libs/design-system/src/styles/index.css",
+          "apps/mfe-money/src/styles.css"
+        ],
+        "polyfills": ["es-module-shims"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "12kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve-original": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4211,
+        "proxyConfig": "apps/mfe-money/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "mfe-money:esbuild:production"
+        },
+        "development": {
+          "buildTarget": "mfe-money:esbuild:development"
+        }
+      }
+    }
+  }
+}

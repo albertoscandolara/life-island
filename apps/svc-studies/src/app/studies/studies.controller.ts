@@ -9,10 +9,13 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   certificationRequestSchema,
+  deadlinesQuerySchema,
+  type DeadlineDto,
   courseRequestSchema,
   pathProgressRequestSchema,
   stepProgressRequestSchema,
@@ -41,6 +44,12 @@ export class StudiesController {
   @Get('attention')
   attention(): Promise<StudiesAttentionDto> {
     return this.studies.attention();
+  }
+
+  /** Renewals, exams and targets, for the Agenda. */
+  @Get('deadlines')
+  deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
+    return this.studies.deadlines(parseOrThrow(deadlinesQuerySchema, query));
   }
 
   // ---- platforms

@@ -47,6 +47,30 @@
     },
     {
       "path": "./apps/svc-studies"
+    },
+    {
+      "path": "./apps/svc-subscriptions"
+    },
+    {
+      "path": "./apps/svc-fitness"
+    },
+    {
+      "path": "./apps/svc-mailbox"
+    },
+    {
+      "path": "./apps/svc-agenda"
+    },
+    {
+      "path": "./apps/svc-health"
+    },
+    {
+      "path": "./apps/svc-travel"
+    },
+    {
+      "path": "./apps/svc-goals"
+    },
+    {
+      "path": "./apps/svc-money"
     }
   ],
   "compilerOptions": {}

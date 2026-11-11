@@ -27,6 +27,10 @@ import {
   type StudyTopic,
   type TrainingPlatformDto,
   type TrainingPlatformRequest,
+  deadlineWindow,
+  inDeadlineWindow,
+  type DeadlineDto,
+  type DeadlinesQuery,
 } from '@life-island/contracts';
 import { desc, eq, gte, sql } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -224,6 +228,70 @@ export class StudiesService {
   }
 
   /** The island's badge: renewals and exams within their window, and what is past. */
+  /** Subscription renewals, exams, certification expiries and path targets, for the Agenda (`GET /deadlines`). */
+  async deadlines(
+    query: DeadlinesQuery,
+    today = localToday(),
+  ): Promise<DeadlineDto[]> {
+    const window = deadlineWindow(query, today);
+    const [platformRows, certificationRows, pathRows] = await Promise.all([
+      this.db.select().from(trainingPlatforms),
+      this.db.select().from(certifications),
+      this.db.select().from(pathProgress),
+    ]);
+    const found: DeadlineDto[] = [];
+    const add = (d: Omit<DeadlineDto, 'module' | 'path'>) =>
+      found.push({ ...d, module: 'studies', path: '/studies' });
+    for (const p of platformRows)
+      if (
+        p.status === 'active' &&
+        p.plan !== 'free' &&
+        inDeadlineWindow(p.renewsOn, window)
+      )
+        add({
+          id: `platform:${p.id}:${p.renewsOn}`,
+          kind: 'subscription',
+          title: `${p.name} subscription renews`,
+          detail: 'Cancel before it renews if you no longer use it.',
+          date: p.renewsOn,
+          amount: p.price,
+        });
+    for (const c of certificationRows) {
+      if (
+        (c.status === 'planned' || c.status === 'booked') &&
+        inDeadlineWindow(c.examOn, window)
+      )
+        add({
+          id: `exam:${c.id}:${c.examOn}`,
+          kind: 'exam',
+          title: `Exam: ${c.name}`,
+          detail: c.status === 'planned' ? 'Not booked yet.' : null,
+          date: c.examOn,
+          amount: c.cost,
+        });
+      if (c.status === 'passed' && inDeadlineWindow(c.expiresOn, window))
+        add({
+          id: `certification:${c.id}:${c.expiresOn}`,
+          kind: 'certification',
+          title: `${c.name} expires`,
+          detail: 'Renew it or plan the new exam.',
+          date: c.expiresOn,
+          amount: null,
+        });
+    }
+    for (const p of pathRows)
+      if (p.status === 'following' && inDeadlineWindow(p.targetOn, window))
+        add({
+          id: `path:${p.pathId}:${p.targetOn}`,
+          kind: 'path-target',
+          title: `Target date: ${learningPath(p.pathId)?.name ?? p.pathId}`,
+          detail: null,
+          date: p.targetOn,
+          amount: null,
+        });
+    return found;
+  }
+
   async attention(today = localToday()): Promise<StudiesAttentionDto> {
     const { reminders } = await this.overview(today);
     const dated = reminders.filter(

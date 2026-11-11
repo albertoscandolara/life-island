@@ -25,6 +25,7 @@
         "./libs/contracts/src/lib/constants.ts"
       ],
       "@life-island/design-system": ["./libs/design-system/src/index.ts"],
+      "@life-island/records-ui": ["./libs/records-ui/src/index.ts"],
       "@life-island/settings-ui": ["./libs/settings-ui/src/index.ts"]
     }
   }

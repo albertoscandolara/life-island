@@ -35,6 +35,8 @@ import {
   updateVehicleRequestSchema,
   type CarsOverviewDto,
   type CarsPeopleDto,
+  deadlinesQuerySchema,
+  type DeadlineDto,
 } from '@life-island/contracts';
 import { CarModels } from './car-models.js';
 import { CarPeople } from './car-people.js';
@@ -65,6 +67,12 @@ export class CarsController {
   @Get('overview')
   async overview(): Promise<CarsOverviewDto> {
     return this.cars.overview(undefined, await this.quotes.usesAi());
+  }
+
+  /** Every renewal date of the cars in use, for the Agenda. */
+  @Get('deadlines')
+  deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
+    return this.cars.deadlines(parseOrThrow(deadlinesQuerySchema, query));
   }
 
   /** What you add to a fine by hand: when it reached you, when you paid, who drove. */

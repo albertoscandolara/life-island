@@ -1,0 +1,40 @@
+{
+  "name": "@life-island/svc-money",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The Money area: accounts, income and spending, monthly budgets per category, recurring charges and an AI spending review",
+  "type": "module",
+  "main": "./dist/main.js",
+  "nx": {
+    "name": "svc-money",
+    "tags": [
+      "type:app",
+      "scope:money"
+    ],
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": [
+          "build"
+        ],
+        "command": "node --enable-source-maps --env-file-if-exists=../../.env dist/main.js",
+        "options": {
+          "cwd": "{projectRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.2.0",
+    "@life-island/be-common": "*",
+    "@life-island/be-nest": "*",
+    "@life-island/contracts": "*",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "tslib": "^2.3.0"
+  }
+}
