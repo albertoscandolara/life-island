@@ -13,7 +13,34 @@
 <app-island-view class="island" [modules]="modules()" (open)="open($event)" />
 } @placeholder {
 <div class="island island--placeholder" aria-hidden="true"></div>
-} }
+} } @if (comingUp().length) {
+<section class="coming" data-character="compy" aria-labelledby="coming-title">
+  <div class="coming__head">
+    <h2 class="section-title" id="coming-title">Coming up</h2>
+    <a class="coming__all" routerLink="/agenda"
+      >Open the agenda <ui-icon name="chevron-right" [size]="16"
+    /></a>
+  </div>
+  <ul class="coming__list" role="list">
+    @for (entry of comingUp(); track entry.key) {
+    <li>
+      <a class="coming__item" [routerLink]="entry.path ?? '/agenda'">
+        <span class="coming__emblem" aria-hidden="true"
+          >{{ emblem(entry.module) }}</span
+        >
+        <span class="coming__title">{{ entry.title }}</span>
+        <span
+          class="coming__when"
+          [class.coming__when--late]="entry.daysLeft < 0"
+          [class.coming__when--soon]="entry.daysLeft >= 0 && entry.daysLeft <= 2"
+          >{{ when(entry) }}</span
+        >
+      </a>
+    </li>
+    }
+  </ul>
+</section>
+}
 
 <h2 class="section-title">All areas</h2>
 <ul class="modules" role="list">

@@ -1,0 +1,12 @@
+{
+  "/api/goals": {
+    "target": "http://localhost:3013",
+    "pathRewrite": { "^/api/goals": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

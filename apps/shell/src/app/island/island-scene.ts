@@ -48,7 +48,9 @@ export interface ZoneLabel {
 }
 
 const ISLAND_RADIUS = 5.4;
-const ZONE_RADIUS = 3.55;
+const ZONE_RADIUS = 3.9;
+/** The zones shrink as the island fills up, so neighbours never overlap. */
+const zoneScale = (count: number) => Math.min(1, 9.6 / Math.max(count, 1));
 const TOP = 0.55;
 const CAMERA_HOME = new Vector3(0, 8.5, 12.5);
 const LOOK_AT = new Vector3(0, 0.6, 0);
@@ -57,6 +59,7 @@ interface Zone {
   module: IslandModule;
   group: Group;
   hover: number;
+  scale: number;
 }
 
 /**
@@ -232,7 +235,7 @@ export class IslandScene {
     for (const zone of this.zones) {
       const on = zone.module.id === this.hovered ? 1 : 0;
       zone.hover += (on - zone.hover) * (this.motion ? 0.15 : 1);
-      const scale = 1 + zone.hover * 0.12;
+      const scale = zone.scale * (1 + zone.hover * 0.12);
       zone.group.scale.setScalar(scale);
       zone.group.position.y = TOP + zone.hover * 0.25;
       this.material(`zone:${zone.module.id}`).emissiveIntensity =
@@ -248,7 +251,7 @@ export class IslandScene {
     return this.zones.map((zone) => {
       const world = zone.group.getWorldPosition(new Vector3());
       const facing = world.clone().setY(0).normalize().dot(toCamera);
-      const anchor = world.clone().setY(world.y + 1.9);
+      const anchor = world.clone().setY(world.y + 1.9 * zone.scale);
       anchor.project(this.camera);
       return {
         id: zone.module.id,
@@ -461,6 +464,120 @@ export class IslandScene {
             ).rotation.x = Math.PI / 2;
         break;
       }
+      case 'clock': {
+        // The agenda: a small tower with a clock face.
+        add(this.mesh(new BoxGeometry(0.5, 1.2, 0.5), 'foam'), 0, 0.75, 0);
+        add(
+          this.mesh(new ConeGeometry(0.42, 0.4, 4), tint),
+          0,
+          1.55,
+          0,
+        ).rotation.y = Math.PI / 4;
+        add(
+          this.mesh(new CylinderGeometry(0.2, 0.2, 0.06, 16), tint),
+          0,
+          1.05,
+          0.27,
+        ).rotation.x = Math.PI / 2;
+        break;
+      }
+      case 'coins': {
+        // Money: three stacks of coins.
+        const stacks: [number, number][] = [
+          [-0.3, 4],
+          [0.05, 6],
+          [0.38, 3],
+        ];
+        for (const [x, count] of stacks)
+          for (let i = 0; i < count; i++)
+            add(
+              this.mesh(new CylinderGeometry(0.17, 0.17, 0.08, 12), tint),
+              x,
+              0.22 + i * 0.09,
+              x * 0.4,
+            );
+        break;
+      }
+      case 'flag': {
+        // Goals: a flag on a summit.
+        add(this.mesh(new ConeGeometry(0.55, 0.6, 5), 'rock'), 0, 0.45, 0);
+        add(
+          this.mesh(new CylinderGeometry(0.03, 0.03, 1.1, 6), 'foam'),
+          0,
+          1.15,
+          0,
+        );
+        add(this.mesh(new BoxGeometry(0.42, 0.26, 0.03), tint), 0.22, 1.55, 0);
+        break;
+      }
+      case 'antenna': {
+        // Subscriptions: a kiosk with a dish on the roof.
+        add(this.mesh(new BoxGeometry(0.7, 0.55, 0.6), 'foam'), 0, 0.42, 0);
+        add(
+          this.mesh(new CylinderGeometry(0.04, 0.04, 0.4, 6), 'rock'),
+          0.15,
+          0.9,
+          0,
+        );
+        add(
+          this.mesh(
+            new SphereGeometry(0.25, 10, 6, 0, Math.PI * 2, 0, 1.1),
+            tint,
+          ),
+          0.15,
+          1.0,
+          0,
+        ).rotation.x = -0.8;
+        break;
+      }
+      case 'postbox': {
+        // The mailbox: a post box on a pole with a letter.
+        add(
+          this.mesh(new CylinderGeometry(0.05, 0.05, 0.6, 6), 'rock'),
+          0,
+          0.45,
+          0,
+        );
+        add(this.mesh(new BoxGeometry(0.55, 0.38, 0.38), tint), 0, 0.92, 0);
+        add(
+          this.mesh(new BoxGeometry(0.36, 0.22, 0.02), 'foam'),
+          0.05,
+          1.15,
+          0.05,
+        ).rotation.z = 0.3;
+        break;
+      }
+      case 'boat': {
+        // Travel: a boat with its sail.
+        add(this.mesh(new BoxGeometry(0.95, 0.22, 0.42), tint), 0, 0.35, 0);
+        add(
+          this.mesh(new CylinderGeometry(0.03, 0.03, 0.9, 6), 'trunk'),
+          0,
+          0.9,
+          0,
+        );
+        add(
+          this.mesh(new ConeGeometry(0.32, 0.7, 3), 'foam'),
+          0.12,
+          0.95,
+          0,
+        ).scale.set(1, 1, 0.15);
+        break;
+      }
+      case 'track': {
+        // Fitness: a running track round a field.
+        const track = add(
+          this.mesh(new RingGeometry(0.45, 0.72, 20), tint),
+          0,
+          0.2,
+          0,
+        );
+        track.rotation.x = -Math.PI / 2;
+        add(this.mesh(new BoxGeometry(0.06, 0.6, 0.06), 'foam'), -0.22, 0.5, 0);
+        add(this.mesh(new BoxGeometry(0.06, 0.6, 0.06), 'foam'), 0.22, 0.5, 0);
+        add(this.mesh(new BoxGeometry(0.5, 0.05, 0.05), tint), 0, 0.78, 0);
+        break;
+      }
     }
 
     const rad = (module.angle * Math.PI) / 180;
@@ -470,7 +587,9 @@ export class IslandScene {
       -Math.sin(rad) * ZONE_RADIUS,
     );
     group.rotation.y = rad + Math.PI / 2;
+    const scale = zoneScale(this.modules.length);
+    group.scale.setScalar(scale);
     this.island.add(group);
-    this.zones.push({ module, group, hover: 0 });
+    this.zones.push({ module, group, hover: 0, scale });
   }
 }

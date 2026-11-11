@@ -93,6 +93,9 @@ A setting has a `type`:
 | Reminder windows `people.warn-days.*`                    | svc-people (it has a replica for them)                                             |
 | Reminder windows `cars.warn-days.*`                      | svc-cars                                                                           |
 | Weekly goal and reminders `studies.*`                    | svc-studies                                                                        |
+| Italian calendar dates `agenda.italian-calendar`         | svc-agenda                                                                         |
+| Renewal warning window `subscriptions.warn-days`         | svc-subscriptions                                                                  |
+| Weekly active minutes goal `fitness.weekly-minutes`      | svc-fitness                                                                        |
 | Daily reading switch, time and startup run `documents.*` | the parse worker, which checks them every 15 seconds, so a change needs no restart |
 
 To add a server setting:

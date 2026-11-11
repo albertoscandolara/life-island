@@ -7,6 +7,15 @@ import {
   STUDY_WEEKLY_GOAL_SETTING,
   studyReminderSettingKey,
 } from './studies.js';
+import { AGENDA_CALENDAR_SETTING } from './agenda.js';
+import {
+  FITNESS_WEEKLY_MINUTES_DEFAULT,
+  FITNESS_WEEKLY_MINUTES_SETTING,
+} from './fitness.js';
+import {
+  SUBSCRIPTIONS_WARN_DAYS_DEFAULT,
+  SUBSCRIPTIONS_WARN_DAYS_SETTING,
+} from './subscriptions.js';
 
 /*
  * Settings (svc-settings, mfe-settings): every setting of the platform in one
@@ -110,6 +119,69 @@ export const AI_TOOL_MODULES = [
     emblem: '📚',
     character: 'iggy',
     service: 'svc-studies',
+  },
+  {
+    id: 'agenda',
+    name: 'Agenda',
+    emblem: '🗓️',
+    character: 'compy',
+    service: 'svc-agenda',
+  },
+  {
+    id: 'money',
+    name: 'Money',
+    emblem: '💶',
+    character: 'spino',
+    service: 'svc-money',
+  },
+  {
+    id: 'goals',
+    name: 'Goals & habits',
+    emblem: '🎯',
+    character: 'rex',
+    service: 'svc-goals',
+  },
+  {
+    id: 'health',
+    name: 'Health',
+    emblem: '🩺',
+    character: 'maia',
+    service: 'svc-health',
+  },
+  {
+    id: 'groceries',
+    name: 'Groceries',
+    emblem: '🦕',
+    character: 'trice',
+    service: 'svc-groceries',
+  },
+  {
+    id: 'subscriptions',
+    name: 'Contracts & subscriptions',
+    emblem: '📑',
+    character: 'allo',
+    service: 'svc-subscriptions',
+  },
+  {
+    id: 'mailbox',
+    name: 'Admin mailbox',
+    emblem: '📬',
+    character: 'diplo',
+    service: 'svc-mailbox',
+  },
+  {
+    id: 'travel',
+    name: 'Travel',
+    emblem: '✈️',
+    character: 'quetzal',
+    service: 'svc-travel',
+  },
+  {
+    id: 'fitness',
+    name: 'Fitness',
+    emblem: '🏃',
+    character: 'galli',
+    service: 'svc-fitness',
   },
 ] as const;
 export type AiToolModuleId = (typeof AI_TOOL_MODULES)[number]['id'];
@@ -432,6 +504,248 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
       },
     ],
   },
+  {
+    id: 'agenda.week-brief',
+    module: 'agenda',
+    name: 'Week brief',
+    description:
+      'Reads every date of the island for the next weeks (renewals, expiries, exams, trips, bills, your own items) and says what to do first, what can wait, and when.',
+    unit: 'brief',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/agenda', label: 'Agenda · Week brief' },
+    whenOff:
+      "The brief is written by Life Island's own rules: the overdue dates first, then this week's, by date.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'brief',
+        label: 'Write the brief',
+        modelEnv: 'AGENDA_AI_MODEL',
+        defaultModel: 'claude-haiku-5-5',
+        effort: 'low',
+        maxTokens: 6000,
+        tools: [],
+        estimate: { inputTokens: 5000, outputTokens: 1200 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'money.spending-review',
+    module: 'money',
+    name: 'Spending review',
+    description:
+      'Reads your last months of income and spending by category, your budgets and the charges that come back every month, and finds where you can save, what to watch and what is going well.',
+    unit: 'review',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/money', label: 'Money · Review' },
+    whenOff:
+      "The review is written by Life Island's own rules: overspent budgets, categories above their average and recurring charges.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'review',
+        label: 'Review the spending',
+        modelEnv: 'MONEY_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 8000,
+        tools: [],
+        estimate: { inputTokens: 6000, outputTokens: 2000 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'goals.coach',
+    module: 'goals',
+    name: 'Goals coach',
+    description:
+      'Looks at your goals, their steps and dates, your habits and your weekly reviews, finds where you are stuck and why, and names one small next step for each.',
+    unit: 'session',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/goals', label: 'Goals · Coach' },
+    whenOff:
+      "The advice is written by Life Island's own rules: goals with no step done for two weeks, overdue steps and habits below target.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'coach',
+        label: 'Coach the week',
+        modelEnv: 'GOALS_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        maxTokens: 8000,
+        tools: [],
+        estimate: { inputTokens: 5000, outputTokens: 2000 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'health.results-explainer',
+    module: 'health',
+    name: 'Test results explainer',
+    description:
+      'Explains your test results in plain words: what each test measures, what the values and their trend suggest, and what to ask your doctor. It never gives a diagnosis.',
+    unit: 'explanation',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/health', label: 'Health · Results' },
+    whenOff:
+      "The explanation is written by Life Island's own rules: which values are out of range and how they moved.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'explain',
+        label: 'Explain the results',
+        modelEnv: 'HEALTH_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 6000,
+        tools: [],
+        estimate: { inputTokens: 4000, outputTokens: 2500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'groceries.shopping-list',
+    module: 'groceries',
+    name: 'Shopping list',
+    description:
+      'Suggests your next shopping list from what you usually buy and how often, and points out items whose price went up.',
+    unit: 'list',
+    trigger: 'on-demand',
+    where: {
+      app: 'island',
+      path: '/groceries',
+      label: 'Groceries · Shopping list',
+    },
+    whenOff:
+      "The list is suggested by Life Island's own rules: the items you buy regularly that are due again.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'list',
+        label: 'Suggest the list',
+        modelEnv: 'GROCERIES_AI_MODEL',
+        defaultModel: 'claude-haiku-5-5',
+        effort: 'low',
+        maxTokens: 4000,
+        tools: [],
+        estimate: { inputTokens: 6000, outputTokens: 1500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'subscriptions.renewal-advisor',
+    module: 'subscriptions',
+    name: 'Renewal advisor',
+    description:
+      'Looks at each contract and subscription (cost, price changes, how much you use it, renewal and cancel-by dates) and says what to keep, renegotiate, switch or cancel, with what to tell the provider.',
+    unit: 'review',
+    trigger: 'on-demand',
+    where: {
+      app: 'island',
+      path: '/subscriptions',
+      label: 'Contracts · Advisor',
+    },
+    whenOff:
+      "The advice comes from Life Island's own rules: what you rarely use, prices that went up and renewals coming soon.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'advise',
+        label: 'Advise on renewals',
+        modelEnv: 'SUBSCRIPTIONS_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 8000,
+        tools: [],
+        estimate: { inputTokens: 4000, outputTokens: 2500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'mailbox.letter-explainer',
+    module: 'mailbox',
+    name: 'Letter explainer',
+    description:
+      'Reads an official letter you pasted (taxes, INPS, a fine, the bank, the condo) and explains it in plain words: what it asks, how much, by when, and the steps to take.',
+    unit: 'letter',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/mailbox', label: 'Mailbox · Letters' },
+    whenOff:
+      "The letter is read by Life Island's own rules: its kind from keywords, and the first date and amount it prints.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'explain',
+        label: 'Explain the letter',
+        modelEnv: 'MAILBOX_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 6000,
+        tools: [],
+        estimate: { inputTokens: 5000, outputTokens: 1500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'travel.trip-planner',
+    module: 'travel',
+    name: 'Trip planner',
+    description:
+      'Writes a checklist with dates, a packing list and a loose day-by-day plan for a trip, from its destination, dates, travellers, budget and bookings.',
+    unit: 'plan',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/travel', label: 'Travel · Planner' },
+    whenOff:
+      "The checklist and packing list come from Life Island's own template, sized to the trip's length and whether it goes abroad.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'plan',
+        label: 'Plan the trip',
+        modelEnv: 'TRAVEL_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 10000,
+        tools: [],
+        estimate: { inputTokens: 2500, outputTokens: 3500 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'fitness.training-plan',
+    module: 'fitness',
+    name: 'Training plan',
+    description:
+      'Writes your training week from the workouts you logged, your weekly target, your sleep and the events ahead, with a safe build-up.',
+    unit: 'plan',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/fitness', label: 'Fitness · Plan' },
+    whenOff:
+      "The week is planned by Life Island's own rules: your target spread over the week, with an easy day after a hard one.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'plan',
+        label: 'Plan the week',
+        modelEnv: 'FITNESS_AI_MODEL',
+        defaultModel: 'claude-haiku-5-5',
+        effort: 'low',
+        maxTokens: 6000,
+        tools: [],
+        estimate: { inputTokens: 3500, outputTokens: 1500 },
+        always: true,
+      },
+    ],
+  },
 ];
 
 export function aiTool(id: string): AiToolDefinition | undefined {
@@ -584,6 +898,13 @@ export const ISLAND_AREAS = [
   { id: 'studies', emblem: '📚', name: 'Studies' },
   { id: 'people', emblem: '🪪', name: 'People & IDs' },
   { id: 'cars', emblem: '🚗', name: 'Cars' },
+  { id: 'agenda', emblem: '🗓️', name: 'Agenda' },
+  { id: 'money', emblem: '💶', name: 'Money' },
+  { id: 'goals', emblem: '🎯', name: 'Goals & habits' },
+  { id: 'subscriptions', emblem: '📑', name: 'Contracts & subscriptions' },
+  { id: 'mailbox', emblem: '📬', name: 'Admin mailbox' },
+  { id: 'travel', emblem: '✈️', name: 'Travel' },
+  { id: 'fitness', emblem: '🏃', name: 'Fitness' },
 ] as const;
 
 /** The reminder windows: how many days before a renewal its warning starts. */
@@ -635,6 +956,23 @@ function reminder(
     usedBy: [usedBy],
   };
 }
+
+/** Every service that runs an AI tool, for the AI settings' "used by" line. */
+const AI_SERVICES = [
+  'svc-parse-worker',
+  'svc-work',
+  'svc-cars',
+  'svc-studies',
+  'svc-agenda',
+  'svc-money',
+  'svc-goals',
+  'svc-health',
+  'svc-groceries',
+  'svc-subscriptions',
+  'svc-mailbox',
+  'svc-travel',
+  'svc-fitness',
+] as const;
 
 export const APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
@@ -702,7 +1040,7 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     type: 'boolean',
     default: true,
     scope: 'server',
-    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars', 'svc-studies'],
+    usedBy: AI_SERVICES,
   },
   {
     key: AI_BUDGET_SETTING,
@@ -727,7 +1065,7 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     type: 'boolean',
     default: false,
     scope: 'server',
-    usedBy: ['svc-parse-worker', 'svc-work', 'svc-cars', 'svc-studies'],
+    usedBy: AI_SERVICES,
   },
   {
     key: 'documents.auto-approve-categories',
@@ -840,6 +1178,40 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     STUDY_REMINDER_DEFAULTS.certification,
     'svc-studies',
   ),
+  {
+    key: AGENDA_CALENDAR_SETTING,
+    group: 'Agenda',
+    label: 'Italian household calendar',
+    description:
+      'Adds the dates that come round every year in Italy (730, IMU, ISEE, the Certificazione Unica, winter tyres) to the Agenda.',
+    type: 'boolean',
+    default: true,
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
+    ...reminder(
+      SUBSCRIPTIONS_WARN_DAYS_SETTING,
+      'Contract cancel-by date',
+      SUBSCRIPTIONS_WARN_DAYS_DEFAULT,
+      'svc-subscriptions',
+    ),
+    description: `How many days before the last day to cancel a contract the warning starts (${SUBSCRIPTIONS_WARN_DAYS_DEFAULT} unless you change it).`,
+  },
+  {
+    key: FITNESS_WEEKLY_MINUTES_SETTING,
+    group: 'Fitness',
+    label: 'Weekly active minutes',
+    description:
+      'The active minutes you aim for each week (the WHO suggests at least 150 moderate ones). Fitness measures your weeks and streak against it, and the training plan works within it.',
+    type: 'number',
+    min: 30,
+    max: 1500,
+    unit: 'minutes',
+    default: FITNESS_WEEKLY_MINUTES_DEFAULT,
+    scope: 'server',
+    usedBy: ['svc-fitness'],
+  },
 ];
 
 export function appSetting(key: string): AppSettingDefinition | undefined {

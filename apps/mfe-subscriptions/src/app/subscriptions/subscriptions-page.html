@@ -1,0 +1,299 @@
+<ui-page-header
+  emblem="🦖"
+  heading="Contracts & subscriptions"
+  subtitle="Everything that renews on its own: phone, internet, streaming, gym, insurance. What it costs a year, the last day to cancel before it renews, and what is worth keeping."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
+</ui-alert>
+} @if (!data() && !error()) {
+<p class="li-muted">Loading your contracts…</p>
+} @if (data(); as d) {
+<div class="li-tiles li-block">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">A year</span>
+    <span class="li-tile__value">{{ euro(d.totals.yearly, false) }}</span>
+    <span class="li-tile__hint"
+      >{{ euro(d.totals.monthly) }} a month · {{ d.totals.active }}
+      contracts</span
+    >
+  </div>
+  <div class="li-tile" [class.li-tile--warning]="cancelSoon().length">
+    <span class="li-tile__label">To decide within 30 days</span>
+    <span class="li-tile__value">{{ cancelSoon().length }}</span>
+    <span class="li-tile__hint">before they renew</span>
+  </div>
+  <div class="li-tile" [class.li-tile--danger]="d.totals.unused > 0">
+    <span class="li-tile__label">Barely used</span>
+    <span class="li-tile__value">{{ euro(d.totals.unused, false) }}</span>
+    <span class="li-tile__hint">a year, on what you use rarely or never</span>
+  </div>
+</div>
+
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Contracts & subscriptions"
+/>
+
+@switch (tab()) { @case ('contracts') {
+<div class="li-toolbar li-block">
+  <p class="li-muted li-small grow">
+    The last day to cancel is the renewal minus the notice in the contract. Each
+    one is in the Agenda, with a warning in time.
+  </p>
+  <button uiButton type="button" (click)="add()">
+    <ui-icon name="plus" [size]="16" /> Add a contract
+  </button>
+</div>
+
+@if (!live().length) {
+<ui-empty-state icon="file" heading="No contracts yet">
+  Start with the ones you pay every month: phone, internet, streaming. Then the
+  yearly ones: insurance, gym, memberships.
+</ui-empty-state>
+}
+
+<div class="li-cards li-block">
+  @for (i of live(); track i.id) {
+  <article
+    class="li-item"
+    [class.li-item--warning]="i.daysToCancelBy !== null && i.daysToCancelBy >= 0 && i.daysToCancelBy <= 14"
+    [class.li-item--off]="i.status === 'cancelling'"
+  >
+    <div class="li-item__head">
+      <span class="li-item__title">{{ i.name }}</span>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="'Edit ' + i.name"
+        (click)="items.edit(i)"
+      >
+        <ui-icon name="edit" [size]="16" />
+      </button>
+    </div>
+    <span class="price"
+      >{{ euro(i.cost) }}
+      <span class="li-muted li-small"
+        >{{ cycle(i) }} · {{ euro(i.yearly, false) }} a year</span
+      ></span
+    >
+    <span class="li-meta">
+      <span>{{ kind(i.kind) }}</span>
+      @if (i.provider) { <span>{{ i.provider }}</span> } @if (i.status !==
+      'active') { <span>{{ status(i) }}</span> } @if (usage(i); as u) {
+      <span [class.li-warn]="i.usage === 'rarely' || i.usage === 'never'"
+        >Used: {{ u.toLowerCase() }}</span
+      >
+      } @for (p of i.priceChanges.slice(-1); track p.date) {
+      <span [class.li-bad]="p.to > p.from"
+        >{{ p.to > p.from ? '▲' : '▼' }} from {{ euro(p.from) }} on {{
+        dateText(p.date) }}</span
+      >
+      }
+    </span>
+    <dl class="dates">
+      @if (i.nextRenewal) {
+      <div>
+        <dt>{{ i.status === 'trial' ? 'Trial ends' : 'Renews' }}</dt>
+        <dd>{{ dateText(i.nextRenewal) }}</dd>
+      </div>
+      } @if (i.cancelBy) {
+      <div>
+        <dt>Cancel by</dt>
+        <dd><li-due [days]="i.daysToCancelBy" [warnDays]="14" /></dd>
+      </div>
+      } @if (i.lockedUntil && i.lockedUntil >= d.today) {
+      <div>
+        <dt>Locked until</dt>
+        <dd>{{ dateText(i.lockedUntil) }}</dd>
+      </div>
+      }
+    </dl>
+    <div class="li-actions">
+      @if (i.cancelUrl) {
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="i.cancelUrl"
+        target="_blank"
+        rel="noopener"
+        ><ui-icon name="external" [size]="16" /> Where to cancel</a
+      >
+      } @if (i.status === 'active' || i.status === 'trial') {
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="setStatus(i, 'cancelling')"
+      >
+        Cancellation sent
+      </button>
+      } @else if (i.status === 'cancelling') {
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="setStatus(i, 'cancelled')"
+      >
+        Confirmed cancelled
+      </button>
+      }
+    </div>
+  </article>
+  }
+</div>
+
+@if (d.byKind.length > 1) {
+<ui-card heading="Where it goes, a year" class="li-block">
+  <ul class="li-list">
+    @for (k of d.byKind; track k.kind) {
+    <li class="kind">
+      <span>{{ kind(k.kind) }}</span>
+      <span class="kind__bar"
+        ><span [style.width.%]="(k.yearly / maxKind()) * 100"></span
+      ></span>
+      <span class="li-num">{{ euro(k.yearly, false) }}</span>
+    </li>
+    }
+  </ul>
+</ui-card>
+} @if (ended().length) {
+<button type="button" class="li-link" (click)="showEnded.set(!showEnded())">
+  {{ showEnded() ? 'Hide' : 'Show' }} cancelled ({{ ended().length }})
+</button>
+@if (showEnded()) {
+<ul class="li-list li-block">
+  @for (i of ended(); track i.id) {
+  <li class="li-row">
+    <span class="li-muted"
+      >{{ i.name }} · {{ euro(i.yearly, false) }} a year saved</span
+    >
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      [attr.aria-label]="'Edit ' + i.name"
+      (click)="items.edit(i)"
+    >
+      <ui-icon name="edit" [size]="14" />
+    </button>
+  </li>
+  }
+</ul>
+} } } @case ('advisor') {
+<ui-ai-panel
+  heading="Renewal advisor"
+  class="li-block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!d.aiAdvisor"
+>
+  <li-ai-tool uiAiPanelActions toolId="subscriptions.renewal-advisor" />
+  <p class="li-muted li-intro">
+    @if (d.aiAdvisor) { Claude reads your contracts (kind, provider, cost,
+    dates, how often you use them, price changes) and says what to keep,
+    renegotiate, switch or cancel, with what to tell the provider. Payment
+    details and notes are never sent. } @else { Without a Claude API key, or
+    with the tool off in Settings → AI tools, the advice comes from Life
+    Island's own rules: what you rarely use, what went up in price, and phone or
+    internet above the usual offers. }
+  </p>
+  <form class="ask" (submit)="$event.preventDefault(); advise()">
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “I want to cut €300 a year, where?”"
+      [value]="question()"
+      (input)="question.set($any($event.target).value)"
+    ></textarea>
+    <div class="ask__row">
+      <button uiButton type="submit" [loading]="asking()">
+        <ui-icon name="sparkles" [size]="16" /> Advise me
+      </button>
+      @if (asking()) {
+      <ui-ai-status state="working">Reading your contracts…</ui-ai-status>
+      } @else if (adviceStatus() === 'done') {
+      <ui-ai-status state="done">Done</ui-ai-status>
+      } @else if (adviceStatus() === 'error') {
+      <ui-ai-status state="error">The advisor could not answer</ui-ai-status>
+      }
+    </div>
+  </form>
+</ui-ai-panel>
+
+@if (advice(); as a) {
+<ui-ai-panel
+  [heading]="a.question ? a.question : 'What to keep'"
+  kind="result"
+  [offline]="a.source !== 'claude'"
+  class="li-block"
+>
+  <div uiAiPanelActions class="li-actions">
+    <span class="li-muted li-small">{{ dateText(a.createdAt) }}</span>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this advice"
+      (click)="removeAdvice(a.id)"
+    >
+      <ui-icon name="trash" [size]="16" />
+    </button>
+  </div>
+  <p>{{ a.output.summary }}</p>
+  @for (v of a.output.verdicts; track $index) {
+  <div class="verdict">
+    <div class="li-row">
+      <strong>{{ v.name }}</strong>
+      <span class="badge" [class]="'badge badge--' + v.verdict"
+        >{{ verdictLabel[v.verdict] }}@if (v.yearlySaving) { · {{
+        euro(v.yearlySaving, false) }}/year }</span
+      >
+    </div>
+    <p class="li-muted li-small">{{ v.why }}</p>
+    @if (v.script) {
+    <blockquote>{{ v.script }}</blockquote>
+    }
+  </div>
+  } @if (a.output.beforeYouCancel.length) {
+  <h3 class="li-sub">Before you cancel</h3>
+  <ul class="plain">
+    @for (b of a.output.beforeYouCancel; track $index) {
+    <li>{{ b }}</li>
+    }
+  </ul>
+  }
+</ui-ai-panel>
+} } } }
+
+<li-record-dialog
+  heading="Contract"
+  size="lg"
+  [fields]="fields"
+  [(open)]="items.open"
+  [value]="items.value()"
+  [saving]="items.saving()"
+  [error]="items.error()"
+  (save)="items.save($event)"
+  (remove)="items.remove()"
+/>

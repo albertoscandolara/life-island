@@ -31,7 +31,8 @@
         "apps/documents/**/*",
         "apps/shell/**/*",
         "libs/design-system/**/*",
-        "libs/settings-ui/**/*"
+        "libs/settings-ui/**/*",
+        "libs/records-ui/**/*"
       ]
     },
     {

@@ -12,6 +12,14 @@ export interface IslandModule {
     | 'pachy'
     | 'archie'
     | 'iggy'
+    | 'compy'
+    | 'spino'
+    | 'rex'
+    | 'maia'
+    | 'allo'
+    | 'diplo'
+    | 'quetzal'
+    | 'galli'
     | null;
   emblem: string;
   name: string;
@@ -35,7 +43,14 @@ export interface IslandModule {
     | 'library'
     | 'house'
     | 'gate'
-    | 'garage';
+    | 'garage'
+    | 'clock'
+    | 'coins'
+    | 'flag'
+    | 'antenna'
+    | 'postbox'
+    | 'boat'
+    | 'track';
 }
 
 /**
@@ -43,6 +58,18 @@ export interface IslandModule {
  * front-end module; an area without a path is planned and shows as "coming soon".
  */
 export const ISLAND_MODULES: readonly IslandModule[] = [
+  {
+    id: 'agenda',
+    character: 'compy',
+    emblem: '🗓️',
+    name: 'Agenda',
+    mission:
+      'Every date of the island in one place: what is late, this week and the year ahead from every area, your own reminders, and a week brief.',
+    path: '/agenda',
+    attentionUrl: '/api/agenda/attention',
+    angle: 112.5,
+    landmark: 'clock',
+  },
   {
     id: 'taxes',
     character: 'ankylo',
@@ -60,18 +87,20 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     emblem: '🦕',
     name: 'Groceries',
     mission:
-      'Receipts, items and shops: spending by category and price history.',
-    path: null,
-    angle: 45,
+      'A shopping list that learns from your receipts, price history by shop, and spending by category.',
+    path: '/groceries',
+    angle: 22.5,
     landmark: 'market',
   },
   {
     id: 'health',
-    character: null,
+    character: 'maia',
     emblem: '🩺',
     name: 'Health',
-    mission: 'Visits, prescriptions, test results and medical expenses.',
-    path: null,
+    mission:
+      'Check-ups by age, visits, medicines with refills, test results with their trend, vaccinations, and an explainer for your results.',
+    path: '/health',
+    attentionUrl: '/api/health/attention',
     angle: 0,
     landmark: 'clinic',
   },
@@ -83,7 +112,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every workplace you have had, read from payslips, evaluations and contracts: a timeline of promotions and rises, your pay year by year, an AI feedback on your career, and the hiring platforms you signed up to.',
     path: '/work',
-    angle: 315,
+    angle: 292.5,
     landmark: 'office',
   },
   {
@@ -94,7 +123,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas and water bills.',
     path: '/home',
-    angle: 250,
+    angle: 225,
     landmark: 'house',
   },
   {
@@ -106,7 +135,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
       'Learning paths for AI coding, other frameworks, Docker and Kubernetes, team leadership and 3D, with your progress step by step; courses, exams and the training platforms you use, what they cost, your study time against a weekly goal, and a coach that plans your week.',
     path: '/studies',
     attentionUrl: '/api/studies/attention',
-    angle: 180,
+    angle: 157.5,
     landmark: 'library',
   },
   {
@@ -129,8 +158,80 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every car you have, read from its registration certificate with every code explained: insurance, road tax and revisione with a warning before they expire, and what each car costs, from fuel to the mechanic.',
     path: '/cars',
-    angle: 215,
+    angle: 202.5,
     landmark: 'garage',
+  },
+  {
+    id: 'money',
+    character: 'spino',
+    emblem: '💶',
+    name: 'Money',
+    mission:
+      'Accounts and movements (from your bank CSV), monthly budgets, the recurring charges you pay, and a review of where the money goes.',
+    path: '/money',
+    attentionUrl: '/api/money/attention',
+    angle: 67.5,
+    landmark: 'coins',
+  },
+  {
+    id: 'subscriptions',
+    character: 'allo',
+    emblem: '📑',
+    name: 'Contracts & subscriptions',
+    mission:
+      'Every contract and subscription: what it costs a year, when it renews, the date to cancel by, its price history, and an advisor for renewals.',
+    path: '/subscriptions',
+    attentionUrl: '/api/subscriptions/attention',
+    angle: 45,
+    landmark: 'antenna',
+  },
+  {
+    id: 'fitness',
+    character: 'galli',
+    emblem: '🏃',
+    name: 'Fitness',
+    mission:
+      'Workouts as active minutes against a weekly goal, weight and sleep, the races ahead, and a training plan for the next weeks.',
+    path: '/fitness',
+    attentionUrl: '/api/fitness/attention',
+    angle: 337.5,
+    landmark: 'track',
+  },
+  {
+    id: 'goals',
+    character: 'rex',
+    emblem: '🎯',
+    name: 'Goals & habits',
+    mission:
+      'Where you want to go and the next step to get there, daily habits with streaks, a weekly review, and a coach for when you are stuck.',
+    path: '/goals',
+    attentionUrl: '/api/goals/attention',
+    angle: 315,
+    landmark: 'flag',
+  },
+  {
+    id: 'mailbox',
+    character: 'diplo',
+    emblem: '📬',
+    name: 'Admin mailbox',
+    mission:
+      'Official letters (INPS, Agenzia delle Entrate, the comune, fines): what each one asks, the date to act by, and an explainer in plain words.',
+    path: '/mailbox',
+    attentionUrl: '/api/mailbox/attention',
+    angle: 247.5,
+    landmark: 'postbox',
+  },
+  {
+    id: 'travel',
+    character: 'quetzal',
+    emblem: '✈️',
+    name: 'Travel',
+    mission:
+      'Trips with their bookings, a checklist and packing list, what each trip costs, and a planner that drafts the days and what to bring.',
+    path: '/travel',
+    attentionUrl: '/api/travel/attention',
+    angle: 180,
+    landmark: 'boat',
   },
   {
     id: 'settings',
@@ -140,7 +241,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every setting of the island in one place, and every tool that uses AI, module by module: what one use costs, the request it sends, and a switch to turn it off.',
     path: '/settings',
-    angle: 285,
+    angle: 270,
     landmark: 'lighthouse',
   },
 ];

@@ -1,0 +1,153 @@
+:host {
+  display: block;
+}
+
+.grow {
+  flex: 1;
+  margin: 0;
+}
+
+.goal {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.progress {
+  height: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+}
+
+.progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-gradient);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.why {
+  margin: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps .li-check {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.habits .day {
+  text-align: center;
+}
+
+.day--today {
+  color: var(--accent);
+}
+
+.off {
+  opacity: 0.55;
+}
+
+.tick {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--accent-contrast);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.tick:hover {
+  border-color: var(--accent);
+}
+
+.tick--on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.review {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.moods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.moods legend {
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.mood {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  font-size: var(--text-xl);
+  cursor: pointer;
+}
+
+.mood--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.past p {
+  margin: var(--space-1) 0 0;
+}
+
+.ask {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ask__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.plain {
+  display: grid;
+  gap: var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.plain p {
+  margin: var(--space-1) 0 0;
+}
+
+.encouragement {
+  margin-top: var(--space-4);
+  font-weight: 600;
+}

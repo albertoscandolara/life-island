@@ -33,6 +33,11 @@ import {
   type VehiclePartyField,
   type VehicleValue,
   VEHICLE_PARTY_FIELDS,
+  deadlineWindow,
+  inDeadlineWindow,
+  type DeadlineDto,
+  type DeadlinesQuery,
+  RENEWABLE_LABELS,
 } from '@life-island/contracts';
 import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -131,6 +136,36 @@ export class CarsService {
     } catch {
       return { ...RENEWAL_WARNING_DAYS };
     }
+  }
+
+  /** Every renewal date of the cars in use inside the window, for the Agenda (`GET /deadlines`). */
+  async deadlines(
+    query: DeadlinesQuery,
+    today = todayIso(),
+  ): Promise<DeadlineDto[]> {
+    const window = deadlineWindow(query, today);
+    const { vehicles: cars } = await this.overview(today);
+    return cars
+      .filter((car) => car.status === 'active')
+      .flatMap((car) =>
+        car.renewals.flatMap((renewal): DeadlineDto[] => {
+          if (!inDeadlineWindow(renewal.dueDate, window)) return [];
+          const name = vehicleName(car);
+          const what = renewal.subject ?? RENEWABLE_LABELS[renewal.kind];
+          return [
+            {
+              id: `${car.id}:${renewal.kind}:${renewal.subject ?? ''}:${renewal.dueDate}`,
+              module: 'cars',
+              kind: renewal.kind,
+              title: `${what} · ${name}`,
+              detail: renewal.basis || null,
+              date: renewal.dueDate,
+              amount: null,
+              path: '/cars',
+            },
+          ];
+        }),
+      );
   }
 
   async overview(

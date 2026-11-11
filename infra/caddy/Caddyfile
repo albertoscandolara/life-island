@@ -56,6 +56,38 @@
 		import protected
 		reverse_proxy svc-studies:3000
 	}
+	handle_path /api/fitness/* {
+		import protected
+		reverse_proxy svc-fitness:3000
+	}
+	handle_path /api/travel/* {
+		import protected
+		reverse_proxy svc-travel:3000
+	}
+	handle_path /api/mailbox/* {
+		import protected
+		reverse_proxy svc-mailbox:3000
+	}
+	handle_path /api/subscriptions/* {
+		import protected
+		reverse_proxy svc-subscriptions:3000
+	}
+	handle_path /api/health/* {
+		import protected
+		reverse_proxy svc-health:3000
+	}
+	handle_path /api/goals/* {
+		import protected
+		reverse_proxy svc-goals:3000
+	}
+	handle_path /api/money/* {
+		import protected
+		reverse_proxy svc-money:3000
+	}
+	handle_path /api/agenda/* {
+		import protected
+		reverse_proxy svc-agenda:3000
+	}
 
 	handle {
 		import protected

@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -9,6 +10,11 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+
+import type {
+  GroceryItemCategory,
+  ShoppingListOutput,
+} from '@life-island/contracts';
 
 export const grocery = pgSchema('grocery');
 
@@ -94,3 +100,39 @@ export const receiptItems = grocery.table(
 export type ReceiptRow = typeof receipts.$inferSelect;
 export type ReceiptItemRow = typeof receiptItems.$inferSelect;
 export type MerchantRow = typeof merchants.$inferSelect;
+
+/** Your shopping list: what to buy next time. */
+export const shoppingItems = grocery.table('shopping_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  quantity: text('quantity'),
+  category: text('category')
+    .$type<GroceryItemCategory>()
+    .notNull()
+    .default('other'),
+  done: boolean('done').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export type ShoppingItemRow = typeof shoppingItems.$inferSelect;
+
+/** The lists the shopping-list tool suggested, newest kept. */
+export const shoppingSuggestions = grocery.table('shopping_suggestions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  question: text('question'),
+  output: jsonb('output').$type<ShoppingListOutput>().notNull(),
+  source: text('source').$type<'claude' | 'offline'>().notNull(),
+  model: text('model'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export type ShoppingSuggestionRow = typeof shoppingSuggestions.$inferSelect;
+
+/** svc-groceries' copy of the settings it reads (the AI switches), kept by its settings.changed@1 consumer. */
+export const settingsReplica = grocery.table('settings_replica', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+});

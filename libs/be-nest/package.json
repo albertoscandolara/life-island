@@ -28,6 +28,9 @@
     "zod": "^4.6.7",
     "@nestjs/common": "^12.2.0",
     "@nats-io/transport-node": "^3.4.0",
-    "@life-island/be-common": "*"
+    "@life-island/be-common": "*",
+    "@anthropic-ai/sdk": "^1.2.0",
+    "drizzle-orm": "^0.45.4",
+    "@life-island/contracts": "*"
   }
 }

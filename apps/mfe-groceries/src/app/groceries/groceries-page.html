@@ -1,0 +1,362 @@
+<ui-page-header
+  emblem="🦏"
+  heading="Groceries"
+  subtitle="Your shopping list, what you buy and how its price moves, where the money goes month by month, and a list suggested from your receipts."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
+</ui-alert>
+} @if (!data() && !error()) {
+<p class="li-muted">Loading your groceries…</p>
+} @if (data(); as d) {
+<div class="li-tiles li-block">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">This month</span>
+    <span class="li-tile__value">{{ euro(d.totals.thisMonth, false) }}</span>
+    <span class="li-tile__hint"
+      >usually {{ euro(d.totals.averageMonth, false) }}</span
+    >
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Last month</span>
+    <span class="li-tile__value">{{ euro(d.totals.lastMonth, false) }}</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Receipts in a year</span>
+    <span class="li-tile__value">{{ d.totals.receipts }}</span>
+    <span class="li-tile__hint">upload them in Documents</span>
+  </div>
+</div>
+
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Groceries"
+/>
+
+@switch (tab()) { @case ('list') {
+<div class="li-grid li-block">
+  <ui-card heading="Shopping list">
+    <form class="add" (submit)="$event.preventDefault(); quickAdd()">
+      <input
+        class="ui-input"
+        placeholder="Add an item and press Enter"
+        aria-label="New item"
+        maxlength="120"
+        list="known-items"
+        [value]="newItem()"
+        (input)="newItem.set($any($event.target).value)"
+      />
+      <datalist id="known-items">
+        @for (i of d.items.slice(0, 200); track i.name) {
+        <option [value]="i.name"></option>
+        }
+      </datalist>
+      <button uiButton type="submit" [disabled]="!newItem().trim()">
+        <ui-icon name="plus" [size]="16" /> Add
+      </button>
+    </form>
+    @if (!d.list.length) {
+    <p class="li-muted">
+      The list is empty. Add items here, or ask for a suggested list from what
+      you usually buy.
+    </p>
+    } @for (a of aisles(); track a.category) {
+    <h3 class="li-sub">{{ category(a.category) }}</h3>
+    <ul class="list">
+      @for (i of a.items; track i.id) {
+      <li class="li-check" [class.li-check--done]="i.done">
+        <input
+          type="checkbox"
+          [checked]="i.done"
+          (change)="toggle(i)"
+          [attr.aria-label]="i.name"
+        />
+        <span
+          >{{ i.name }}@if (i.quantity) {
+          <span class="li-muted"> · {{ i.quantity }}</span> }</span
+        >
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Edit ' + i.name"
+          (click)="list.edit(i)"
+        >
+          <ui-icon name="edit" [size]="14" />
+        </button>
+      </li>
+      }
+    </ul>
+    } @if (doneCount()) {
+    <div class="li-actions">
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="clearDone()"
+      >
+        <ui-icon name="trash" [size]="16" /> Clear {{ doneCount() }} bought
+      </button>
+    </div>
+    }
+  </ui-card>
+
+  <div>
+    <ui-ai-panel
+      heading="Suggest my list"
+      [state]="asking() ? 'working' : 'idle'"
+      [offline]="!d.aiList"
+    >
+      <li-ai-tool uiAiPanelActions toolId="groceries.shopping-list" />
+      <p class="li-muted li-intro">
+        @if (d.aiList) { Claude reads the items on your confirmed receipts (how
+        often, last price, shop) and what is on the list, then suggests what to
+        buy now and how to spend less. Receipts and shops' addresses are not
+        sent. } @else { Without a Claude API key, or with the tool off in
+        Settings → AI tools, Life Island suggests the items you buy regularly
+        that are about due, and the ones whose price went up. }
+      </p>
+      <form class="ask" (submit)="$event.preventDefault(); suggest()">
+        <textarea
+          class="ui-input"
+          rows="2"
+          maxlength="1000"
+          placeholder="Optional: “Dinner for six on Saturday”"
+          [value]="question()"
+          (input)="question.set($any($event.target).value)"
+        ></textarea>
+        <div class="ask__row">
+          <button uiButton type="submit" [loading]="asking()">
+            <ui-icon name="sparkles" [size]="16" /> Suggest
+          </button>
+          @if (asking()) {
+          <ui-ai-status state="working">Reading your receipts…</ui-ai-status>
+          } @else if (suggestStatus() === 'done') {
+          <ui-ai-status state="done">Done</ui-ai-status>
+          } @else if (suggestStatus() === 'error') {
+          <ui-ai-status state="error"
+            >The list could not be suggested</ui-ai-status
+          >
+          }
+        </div>
+      </form>
+    </ui-ai-panel>
+
+    @if (suggestion(); as s) {
+    <ui-ai-panel
+      [heading]="s.question ? s.question : 'Suggested list'"
+      kind="result"
+      [offline]="s.source !== 'claude'"
+      class="suggestion"
+    >
+      <div uiAiPanelActions class="li-actions">
+        <span class="li-muted li-small">{{ dateText(s.createdAt) }}</span>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Remove this suggestion"
+          (click)="removeSuggestion(s.id)"
+        >
+          <ui-icon name="trash" [size]="16" />
+        </button>
+      </div>
+      <p>{{ s.output.summary }}</p>
+      @if (s.output.items.length) {
+      <ul class="li-list">
+        @for (i of s.output.items; track $index) {
+        <li class="li-row">
+          <span class="stack"
+            ><strong>{{ i.name }}</strong
+            ><span class="li-muted li-small">{{ i.why }}</span></span
+          >
+          @if (onList().has(i.name.toLowerCase())) {
+          <span class="li-good li-small">On the list</span>
+          } @else {
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Add ' + i.name"
+            (click)="apply(s, [i.name])"
+          >
+            <ui-icon name="plus" [size]="16" />
+          </button>
+          }
+        </li>
+        }
+      </ul>
+      <div class="li-actions">
+        <button uiButton type="button" (click)="apply(s)">
+          <ui-icon name="plus" [size]="16" /> Add all to the list
+        </button>
+        @if (applied(); as message) {
+        <span class="li-good li-small">{{ message }}</span> }
+      </div>
+      } @if (s.output.tips.length) {
+      <h3 class="li-sub">To spend less</h3>
+      <ul class="plain">
+        @for (t of s.output.tips; track $index) {
+        <li>{{ t }}</li>
+        }
+      </ul>
+      }
+    </ui-ai-panel>
+    }
+  </div>
+</div>
+} @case ('prices') { @if (!d.items.length) {
+<ui-empty-state icon="layers" heading="No receipts yet">
+  Upload your supermarket receipts in Documents and confirm them in Review:
+  every item you buy shows here with its price over time.
+</ui-empty-state>
+} @else {
+<div class="li-toolbar li-block">
+  <input
+    class="ui-input"
+    type="search"
+    placeholder="Search an item"
+    aria-label="Search an item"
+    [value]="search()"
+    (input)="search.set($any($event.target).value)"
+  />
+</div>
+<div class="li-table-wrap li-block">
+  <table class="li-table">
+    <thead>
+      <tr>
+        <th scope="col">Item</th>
+        <th scope="col" class="li-num">Bought</th>
+        <th scope="col" class="li-num">About every</th>
+        <th scope="col">Last time</th>
+        <th scope="col" class="li-num">Last price</th>
+        <th scope="col" class="li-num">Since first</th>
+        <th scope="col">Cheapest seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (i of items(); track i.name) {
+      <tr>
+        <th scope="row">
+          {{ i.name }}
+          <span class="li-muted li-small">· {{ category(i.category) }}</span>
+        </th>
+        <td class="li-num">{{ i.purchases }}×</td>
+        <td class="li-num">{{ i.everyDays ? i.everyDays + ' days' : '—' }}</td>
+        <td>{{ dateText(i.lastBought) }}</td>
+        <td class="li-num">
+          {{ i.lastPrice === null ? '—' : euro(i.lastPrice) }}
+        </td>
+        <td
+          class="li-num"
+          [class.li-bad]="(i.priceChange ?? 0) >= 0.1"
+          [class.li-good]="(i.priceChange ?? 0) < 0"
+        >
+          {{ i.priceChange === null ? '—' : (i.priceChange > 0 ? '+' : '') +
+          percent(i.priceChange) }}
+        </td>
+        <td class="li-small li-muted">
+          @if (i.prices.length) { @let cheapest = i.prices.slice().sort((a, b)
+          => a.price - b.price)[0]; {{ euro(cheapest.price) }} at {{
+          cheapest.merchant }} }
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+} } @case ('spending') {
+<div class="li-grid li-block">
+  <ui-card heading="The last 12 months">
+    <li-bars [bars]="monthBars()" caption="Grocery spending per month" />
+  </ui-card>
+  <ui-card heading="By aisle">
+    @if (!d.categories.length) {
+    <p class="li-muted">No receipts in the last months.</p>
+    } @else {
+    <ul class="li-list">
+      @for (c of d.categories; track c.category) {
+      <li class="li-row">
+        <span>{{ category(c.category) }}</span>
+        <span class="li-num"
+          ><strong>{{ euro(c.thisMonth, false) }}</strong
+          ><span class="li-muted li-small">
+            · usually {{ euro(c.average, false) }}</span
+          ></span
+        >
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+</div>
+<div class="li-grid li-block">
+  <ui-card heading="Shops">
+    @if (!d.merchants.length) {
+    <p class="li-muted">No shops yet.</p>
+    } @else {
+    <ul class="li-list">
+      @for (m of d.merchants; track m.id) {
+      <li class="li-row">
+        <span class="stack"
+          ><strong>{{ m.name }}</strong
+          ><span class="li-muted li-small"
+            >{{ m.receipts }} receipts · last {{ dateText(m.lastVisit) }}</span
+          ></span
+        >
+        <span class="li-num">{{ euro(m.total, false) }}</span>
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+  <ui-card heading="Latest receipts">
+    @if (!d.recent.length) {
+    <p class="li-muted">No receipts yet.</p>
+    } @else {
+    <ul class="li-list">
+      @for (r of d.recent; track r.id) {
+      <li class="li-row">
+        <span class="stack"
+          ><strong>{{ r.merchant.name }}</strong
+          ><span class="li-muted li-small"
+            >{{ dateText(r.purchasedAt) }} · {{ r.itemCount }} items</span
+          ></span
+        >
+        <span class="li-num">{{ euro(r.total) }}</span>
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+</div>
+} } }
+
+<li-record-dialog
+  heading="Item"
+  size="sm"
+  [fields]="itemFields"
+  [(open)]="list.open"
+  [value]="list.value()"
+  [saving]="list.saving()"
+  [error]="list.error()"
+  (save)="list.save($event)"
+  (remove)="list.remove()"
+/>

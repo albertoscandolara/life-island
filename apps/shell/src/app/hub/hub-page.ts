@@ -8,8 +8,11 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
+  DEADLINE_SOURCES,
   HIDDEN_AREAS_SETTING,
   ISLAND_VIEW_SETTING,
+  type AgendaEntryDto,
+  type AgendaUpcomingDto,
   type PeopleAttentionDto,
 } from '@life-island/contracts';
 import { BrowserSettings, hiddenAreas } from '@life-island/settings-ui';
@@ -42,7 +45,19 @@ export class HubPage {
     Record<string, { text: string; tone: UiTone }>
   >({});
 
+  /** The next dates from every area (the Agenda), for the "Coming up" strip. */
+  protected readonly upcoming = signal<readonly AgendaEntryDto[]>([]);
+
   constructor() {
+    this.http
+      .get<AgendaUpcomingDto>('/api/agenda/upcoming', {
+        params: { days: 14 },
+      })
+      .subscribe({
+        next: (data) => this.upcoming.set(data.entries.slice(0, 6)),
+        // Without the Agenda the strip simply does not show.
+        error: () => undefined,
+      });
     for (const module of ISLAND_MODULES)
       if (module.attentionUrl)
         this.http.get<PeopleAttentionDto>(module.attentionUrl).subscribe({
@@ -74,6 +89,24 @@ export class HubPage {
     () => this.motion && this.settings.value(ISLAND_VIEW_SETTING) !== 'cards',
   );
 
+  /** The strip shows while the Agenda is one of your areas. */
+  protected readonly comingUp = computed(() =>
+    this.modules().some((module) => module.id === 'agenda')
+      ? this.upcoming()
+      : [],
+  );
+
+  protected emblem(module: string): string {
+    return (
+      DEADLINE_SOURCES.find((source) => source.module === module)?.emblem ??
+      (module === 'agenda' ? '🗓️' : '📌')
+    );
+  }
+
+  protected when(entry: AgendaEntryDto): string {
+    return whenText(entry.daysLeft);
+  }
+
   protected open(module: IslandModule): void {
     if (module.path) void this.router.navigateByUrl(module.path);
   }
@@ -93,4 +126,13 @@ export function attentionBadge(
     text: parts.join(' · '),
     tone: counts.expired ? 'danger' : counts.expiring ? 'warning' : 'info',
   };
+}
+
+/** "3 days late", "Today", "Tomorrow", "In 5 days". */
+export function whenText(daysLeft: number): string {
+  if (daysLeft < -1) return `${-daysLeft} days late`;
+  if (daysLeft === -1) return '1 day late';
+  if (daysLeft === 0) return 'Today';
+  if (daysLeft === 1) return 'Tomorrow';
+  return `In ${daysLeft} days`;
 }

@@ -1,0 +1,12 @@
+{
+  "/api/health": {
+    "target": "http://localhost:3014",
+    "pathRewrite": { "^/api/health": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

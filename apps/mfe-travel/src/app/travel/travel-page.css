@@ -1,0 +1,149 @@
+:host {
+  display: block;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) 3fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.trips {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.trip {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trip:hover,
+.trip--on {
+  border-color: var(--accent);
+}
+
+.trip--on {
+  box-shadow: var(--accent-glow);
+}
+
+.trip--past {
+  opacity: 0.65;
+}
+
+.add-trip {
+  width: 100%;
+}
+
+.detail {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.countdown {
+  margin: var(--space-3) 0 0;
+}
+
+.budget {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.meter {
+  height: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.meter span.over {
+  background: var(--tone-danger);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.add {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.add .ui-input {
+  flex: 1;
+}
+
+.checks {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks .li-check {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.ask {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ask__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.plain {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-5);
+}
+
+.days {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.days dt {
+  font-weight: 600;
+}
+
+.days dd {
+  margin: 0;
+}
+
+@media (max-width: 48rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

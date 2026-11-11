@@ -79,6 +79,126 @@
   --accent-2: var(--sun-600);
 }
 
+[data-character='compy'] {
+  /* agenda: every date of the island in one timeline */
+  --accent: var(--abyss-700);
+  --accent-hover: color-mix(in srgb, var(--abyss-700) 82%, var(--ink-900));
+  --accent-soft: color-mix(in srgb, var(--abyss-700) 10%, var(--ink-0));
+  --accent-2: var(--lava-500);
+}
+
+[data-character='spino'] {
+  /* money: accounts, spending, budgets */
+  --accent: color-mix(in srgb, var(--jungle-600) 70%, var(--lagoon-700));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--jungle-600) 70%, var(--lagoon-700)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--jungle-600) 70%, var(--lagoon-700)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sun-600);
+}
+
+[data-character='rex'] {
+  /* goals and habits: steps, streaks, weekly reviews */
+  --accent: color-mix(in srgb, var(--lava-500) 55%, var(--sun-600));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--lava-500) 55%, var(--sun-600)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--lava-500) 55%, var(--sun-600)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--lagoon-600);
+}
+
+[data-character='maia'] {
+  /* health: visits, medicines, test results, checkups */
+  --accent: color-mix(in srgb, var(--coral-400) 70%, var(--lava-600));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--coral-400) 70%, var(--lava-600)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--coral-400) 70%, var(--lava-600)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--lagoon-600);
+}
+
+[data-character='allo'] {
+  /* contracts and subscriptions: renewals and cancel-by dates */
+  --accent: color-mix(in srgb, var(--sky-600) 50%, var(--jungle-500));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-600) 50%, var(--jungle-500)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-600) 50%, var(--jungle-500)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sun-600);
+}
+
+[data-character='diplo'] {
+  /* admin mailbox: official letters and what they ask */
+  --accent: color-mix(in srgb, var(--sun-700) 60%, var(--ink-700));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sun-700) 60%, var(--ink-700)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sun-700) 60%, var(--ink-700)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--lagoon-600);
+}
+
+[data-character='quetzal'] {
+  /* travel: trips, bookings and checklists */
+  --accent: color-mix(in srgb, var(--sky-600) 60%, var(--lagoon-600));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-600) 60%, var(--lagoon-600)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-600) 60%, var(--lagoon-600)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sun-600);
+}
+
+[data-character='galli'] {
+  /* fitness: workouts, body stats and events */
+  --accent: color-mix(in srgb, var(--leaf-400) 55%, var(--jungle-600));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--leaf-400) 55%, var(--jungle-600)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--leaf-400) 55%, var(--jungle-600)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sky-600);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -138,6 +258,66 @@
   --accent: var(--sky-300);
   --accent-hover: var(--sky-400);
   --accent-2: var(--sun-400);
+}
+
+:root[data-theme='dark'] [data-character='compy'] {
+  --accent: var(--abyss-300);
+  --accent-hover: color-mix(in srgb, var(--abyss-300) 82%, var(--ink-0));
+}
+
+:root[data-theme='dark'] [data-character='spino'] {
+  --accent: color-mix(in srgb, var(--jungle-500) 60%, var(--ink-0));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--jungle-500) 60%, var(--ink-0)) 82%,
+    var(--ink-0)
+  );
+}
+
+:root[data-theme='dark'] [data-character='rex'] {
+  --accent: color-mix(in srgb, var(--lava-400) 55%, var(--sun-400));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--lava-400) 55%, var(--sun-400)) 82%,
+    var(--ink-0)
+  );
+}
+
+:root[data-theme='dark'] [data-character='maia'] {
+  --accent: var(--coral-400);
+  --accent-hover: color-mix(in srgb, var(--coral-400) 82%, var(--ink-0));
+}
+
+:root[data-theme='dark'] [data-character='allo'] {
+  --accent: color-mix(in srgb, var(--sky-400) 50%, var(--leaf-400));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-400) 50%, var(--leaf-400)) 82%,
+    var(--ink-0)
+  );
+}
+
+:root[data-theme='dark'] [data-character='diplo'] {
+  --accent: color-mix(in srgb, var(--sun-400) 70%, var(--ink-200));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sun-400) 70%, var(--ink-200)) 82%,
+    var(--ink-0)
+  );
+}
+
+:root[data-theme='dark'] [data-character='quetzal'] {
+  --accent: color-mix(in srgb, var(--sky-400) 60%, var(--lagoon-300));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sky-400) 60%, var(--lagoon-300)) 82%,
+    var(--ink-0)
+  );
+}
+
+:root[data-theme='dark'] [data-character='galli'] {
+  --accent: var(--leaf-400);
+  --accent-hover: color-mix(in srgb, var(--leaf-400) 82%, var(--ink-0));
 }
 
 :root[data-theme='dark'] [data-character] {

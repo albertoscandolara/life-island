@@ -26,6 +26,11 @@ import {
   EXPIRY_WARNING_DAYS,
   ID_DOCUMENT_TYPES,
   idReminderSettingKey,
+  deadlineWindow,
+  inDeadlineWindow,
+  type DeadlineDto,
+  type DeadlinesQuery,
+  ID_DOCUMENT_TYPE_LABELS,
 } from '@life-island/contracts';
 import { and, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -300,6 +305,46 @@ export class PeopleService {
         windows,
       ),
     }));
+  }
+
+  /** Each ID document's expiry inside the window, for the Agenda (`GET /deadlines`). */
+  async deadlines(
+    query: DeadlinesQuery,
+    today = todayIso(),
+  ): Promise<DeadlineDto[]> {
+    const window = deadlineWindow(query, today);
+    const { people } = await this.overview(today);
+    return people.flatMap((person) =>
+      person.series.flatMap((series): DeadlineDto[] => {
+        const latest = series.versions[0];
+        if (
+          !latest ||
+          (latest.status !== 'current' && latest.status !== 'expired') ||
+          !inDeadlineWindow(latest.expiryDate, window)
+        )
+          return [];
+        const label = series.type
+          ? ID_DOCUMENT_TYPE_LABELS[series.type]
+          : 'ID document';
+        const name =
+          [person.firstName, person.lastName].filter(Boolean).join(' ') ||
+          'someone at home';
+        return [
+          {
+            id: `${latest.uploadId}:${latest.expiryDate}`,
+            module: 'people',
+            kind: 'id-expiry',
+            title: `${label} of ${name} expires`,
+            detail: latest.documentNumber
+              ? `Number ${latest.documentNumber}. Book the renewal early: appointments can take weeks.`
+              : 'Book the renewal early: appointments can take weeks.',
+            date: latest.expiryDate,
+            amount: null,
+            path: '/people',
+          },
+        ];
+      }),
+    );
   }
 
   /** What needs you, for the island hub's People card. */

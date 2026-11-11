@@ -1,0 +1,12 @@
+{
+  "/api/subscriptions": {
+    "target": "http://localhost:3015",
+    "pathRewrite": { "^/api/subscriptions": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

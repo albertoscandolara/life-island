@@ -9,10 +9,13 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveReviewRequestSchema,
+  deadlinesQuerySchema,
+  type DeadlineDto,
   markDocumentRequestSchema,
   mergePeopleRequestSchema,
   setRelationRequestSchema,
@@ -48,6 +51,12 @@ export class PeopleController {
   @Get('attention')
   attention(): Promise<PeopleAttentionDto> {
     return this.people.attention();
+  }
+
+  /** Each ID document's expiry, for the Agenda. */
+  @Get('deadlines')
+  deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
+    return this.people.deadlines(parseOrThrow(deadlinesQuerySchema, query));
   }
 
   /** Everyone in short, with their driving licence, for the Houses and Cars areas. */

@@ -2,16 +2,26 @@ import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
   recordApprovedHandler,
+  settingChangedHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
-import { RECORD_APPROVED_EVENT } from '@life-island/contracts';
+import {
+  RECORD_APPROVED_EVENT,
+  SETTING_CHANGED_EVENT,
+} from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type GroceriesConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { receiptLoader } from './receipts/receipt-loader.js';
 import { ReceiptsController } from './receipts/receipts.controller.js';
 import { ReceiptsService } from './receipts/receipts.service.js';
+import {
+  LIST_RECORDS,
+  listCollections,
+  ShoppingController,
+} from './shopping/shopping.controller.js';
+import { ShoppingService } from './shopping/shopping.service.js';
 
 const logger = new Logger('RecordApproved');
 
@@ -27,11 +37,17 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, ReceiptsController],
+      controllers: [HealthController, ReceiptsController, ShoppingController],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         ReceiptsService,
+        ShoppingService,
+        {
+          provide: LIST_RECORDS,
+          useFactory: (db: ServiceDb) => listCollections(db.db),
+          inject: [SERVICE_DB],
+        },
         ...(options.events === false
           ? []
           : [
@@ -54,6 +70,19 @@ export class AppModule {
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to load ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The AI switches (svc-settings), for the shopping list.
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'grocery-settings',
+                        eventTypes: [SETTING_CHANGED_EVENT],
+                        handle: settingChangedHandler(db.schema),
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
                           ),
                       });
                     },

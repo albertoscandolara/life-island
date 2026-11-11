@@ -144,7 +144,7 @@ Week 1 of the [roadmap](architecture.md#roadmap) is complete:
 | Angular design system: tokens, character themes, base components                                            | `libs/design-system`                                             | `libs/design-system/README.md`                                               |
 | Target catalog: `grocery.receipt@1`, `tax730.expense@1`, `general.document@1`                               | `libs/contracts/src/lib/targets/`                                | [Documents loader](guides/documents-loader.md#categories-and-target-schemas) |
 
-Not built yet: the front end of the groceries module and the other areas on the island (health, work, bills, studies), single sign-on (OIDC) at the gateway, bulk approve, and evals.
+Not built yet: single sign-on (OIDC) at the gateway, bulk approve, evals, and reading documents (lab results, bank statements, official letters) straight into the new areas: for now you type or import them there.
 
 ## Repository map
 

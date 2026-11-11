@@ -26,7 +26,7 @@ function nextDay(date: string): Date {
   return day;
 }
 
-function toReceiptDto(
+export function toReceiptDto(
   row: ReceiptRow,
   merchant: MerchantRow,
   itemCount: number,
