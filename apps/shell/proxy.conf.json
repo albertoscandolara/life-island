@@ -103,5 +103,12 @@
       "^/api/fitness": ""
     },
     "changeOrigin": true
+  },
+  "/api/groceries": {
+    "target": "http://localhost:3003",
+    "pathRewrite": {
+      "^/api/groceries": ""
+    },
+    "changeOrigin": true
   }
 }

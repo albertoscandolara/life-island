@@ -84,6 +84,42 @@ export const appRoutes: Route[] = [
     loadChildren: remote('mfe-studies', './routes', 'STUDIES_ROUTES'),
   },
   {
+    path: 'groceries',
+    loadChildren: remote('mfe-groceries', './routes', 'GROCERIES_ROUTES'),
+  },
+  {
+    path: 'agenda',
+    loadChildren: remote('mfe-agenda', './routes', 'AGENDA_ROUTES'),
+  },
+  {
+    path: 'money',
+    loadChildren: remote('mfe-money', './routes', 'MONEY_ROUTES'),
+  },
+  {
+    path: 'goals',
+    loadChildren: remote('mfe-goals', './routes', 'GOALS_ROUTES'),
+  },
+  {
+    path: 'health',
+    loadChildren: remote('mfe-health', './routes', 'HEALTH_ROUTES'),
+  },
+  {
+    path: 'subscriptions',
+    loadChildren: remote('mfe-subscriptions', './routes', 'SUBSCRIPTIONS_ROUTES'),
+  },
+  {
+    path: 'mailbox',
+    loadChildren: remote('mfe-mailbox', './routes', 'MAILBOX_ROUTES'),
+  },
+  {
+    path: 'travel',
+    loadChildren: remote('mfe-travel', './routes', 'TRAVEL_ROUTES'),
+  },
+  {
+    path: 'fitness',
+    loadChildren: remote('mfe-fitness', './routes', 'FITNESS_ROUTES'),
+  },
+  {
     path: 'settings',
     loadChildren: remote('mfe-settings', './routes', 'SETTINGS_ROUTES'),
   },

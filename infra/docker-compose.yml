@@ -163,7 +163,10 @@ services:
     build:
       <<: *service-build
       args: { SERVICE: svc-groceries }
-    environment: *service-env
+    environment:
+      <<: *service-env
+      # The shopping list uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
   svc-tax730:
