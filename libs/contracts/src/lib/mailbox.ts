@@ -155,3 +155,10 @@ export const LETTER_KIND_KEYWORDS: readonly [RegExp, LetterKind][] = [
   [/asl|ats|azienda sanitaria|ticket/i, 'health'],
   [/scuola|istituto comprensivo|iscrizion/i, 'school'],
 ];
+
+/** The kind of a letter from its words, `other` when nothing matches. */
+export function guessLetterKind(text: string): LetterKind {
+  for (const [pattern, kind] of LETTER_KIND_KEYWORDS)
+    if (pattern.test(text)) return kind;
+  return 'other';
+}
