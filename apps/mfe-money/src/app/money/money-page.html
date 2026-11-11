@@ -1,0 +1,419 @@
+<ui-page-header
+  emblem="🦕"
+  heading="Money"
+  subtitle="Your accounts and what goes in and out of them, a monthly budget per category, the charges that come back every month, and a review of your spending."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+</ui-alert>
+}
+
+@if (!data() && !error()) {
+<p class="li-muted">Loading your money…</p>
+}
+
+@if (data(); as d) {
+<div class="li-tiles li-block">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Balance</span>
+    <span class="li-tile__value">{{ euro(d.totals.balance) }}</span>
+    <span class="li-tile__hint">{{ d.accounts.length }} account{{ d.accounts.length === 1 ? '' : 's' }}</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">In this month</span>
+    <span class="li-tile__value li-good">{{ euro(d.totals.incomeThisMonth, false) }}</span>
+  </div>
+  <div class="li-tile" [class.li-tile--warning]="d.totals.spendingThisMonth > d.totals.incomeThisMonth && d.totals.incomeThisMonth > 0">
+    <span class="li-tile__label">Out this month</span>
+    <span class="li-tile__value">{{ euro(d.totals.spendingThisMonth, false) }}</span>
+  </div>
+  <div class="li-tile" [class.li-tile--danger]="d.totals.savingsRate !== null && d.totals.savingsRate < 0">
+    <span class="li-tile__label">Savings rate</span>
+    <span class="li-tile__value">{{ d.totals.savingsRate === null ? '—' : percent(d.totals.savingsRate) }}</span>
+    <span class="li-tile__hint">last three full months</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Recurring a year</span>
+    <span class="li-tile__value">{{ euro(d.totals.recurringYearly, false) }}</span>
+    <span class="li-tile__hint">{{ d.recurring.length }} charges</span>
+  </div>
+</div>
+
+<li-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="setTab($event)" label="Money" />
+
+@switch (tab()) {
+@case ('overview') {
+@if (!d.accounts.length) {
+<ui-empty-state icon="folder" heading="Start with an account">
+  Add your current account, a card or your cash, then import a few months from your bank's CSV export.
+  <button uiButton type="button" (click)="addAccount()"><ui-icon name="plus" [size]="16" /> Add an account</button>
+</ui-empty-state>
+} @else {
+<ui-card heading="Accounts" class="li-block">
+  <div uiCardActions class="li-actions">
+    <button uiButton variant="secondary" size="sm" type="button" (click)="addAccount()"><ui-icon name="plus" [size]="16" /> Add</button>
+  </div>
+  <div class="li-cards">
+    @for (a of d.accounts; track a.id) {
+    <article class="li-item" [class.li-item--off]="a.archived">
+      <div class="li-item__head">
+        <span class="li-item__title">{{ a.name }}</span>
+        <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + a.name" (click)="accounts.edit(a)">
+          <ui-icon name="edit" [size]="16" />
+        </button>
+      </div>
+      <span class="balance" [class.li-bad]="a.balance < 0">{{ euro(a.balance) }}</span>
+      <span class="li-meta">
+        <span>{{ kind(a) }}</span>
+        @if (a.institution) { <span>{{ a.institution }}</span> }
+        <span>{{ a.movements }} movements</span>
+        @if (a.archived) { <span>Closed</span> }
+      </span>
+    </article>
+    }
+  </div>
+</ui-card>
+
+<div class="li-grid li-block">
+  <ui-card heading="The last 12 months">
+    <p class="li-muted li-small">Bars are what went out; the dashed box behind is what came in.</p>
+    <li-bars [bars]="monthBars()" caption="Spending and income per month" />
+  </ui-card>
+  <ui-card heading="Where it goes this month">
+    @if (!topCategories().length) {
+    <p class="li-muted">No spending yet this month.</p>
+    } @else {
+    <ul class="li-list">
+      @for (c of topCategories(); track c.category) {
+      <li class="li-row">
+        <span>{{ category(c.category) }}</span>
+        <span class="li-num">
+          <strong>{{ euro(c.thisMonth, false) }}</strong>
+          <span class="li-muted li-small"> · usually {{ euro(c.average, false) }}</span>
+          @if (c.average > 20 && c.thisMonth > c.average * 1.3) { <span class="li-warn li-small"> ▲</span> }
+        </span>
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+</div>
+}
+}
+
+@case ('movements') {
+<div class="li-toolbar li-block">
+  <select class="ui-input" aria-label="Account" (change)="accountFilter.set($any($event.target).value || null); shown.set(pageSize)">
+    <option value="">All accounts</option>
+    @for (a of d.accounts; track a.id) {
+    <option [value]="a.id" [selected]="accountFilter() === a.id">{{ a.name }}</option>
+    }
+  </select>
+  <select class="ui-input" aria-label="Category" (change)="categoryFilter.set($any($event.target).value || null); shown.set(pageSize)">
+    <option value="">All categories</option>
+    @for (c of categoryOptions; track c.value) {
+    <option [value]="c.value" [selected]="categoryFilter() === c.value">{{ c.label }}</option>
+    }
+  </select>
+  <input class="ui-input" type="search" placeholder="Search a description" aria-label="Search" [value]="search()" (input)="search.set($any($event.target).value)" />
+  <span class="spacer"></span>
+  <button uiButton variant="secondary" type="button" [disabled]="!d.accounts.length" (click)="openImport()"><ui-icon name="upload" [size]="16" /> Import CSV</button>
+  <button uiButton type="button" [disabled]="!d.accounts.length" (click)="addMovement()"><ui-icon name="plus" [size]="16" /> Add</button>
+</div>
+
+@if (!d.accounts.length) {
+<ui-empty-state icon="folder" heading="No account yet">
+  Movements belong to an account: add one first in the Overview.
+</ui-empty-state>
+} @else if (!filtered().length) {
+<ui-empty-state icon="inbox" heading="No movements">
+  Import your bank's CSV export, or add a movement by hand. The last 13 months are shown.
+</ui-empty-state>
+} @else {
+<p class="li-muted li-small">{{ filtered().length }} movements · total {{ euro(filteredTotal()) }}</p>
+<div class="li-table-wrap li-block">
+  <table class="li-table">
+    <thead>
+      <tr>
+        <th scope="col">Date</th>
+        <th scope="col">Description</th>
+        <th scope="col">Category</th>
+        <th scope="col">Account</th>
+        <th scope="col" class="li-num">Amount</th>
+        <th scope="col"><span class="ui-visually-hidden">Edit</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of filtered().slice(0, shown()); track t.id) {
+      <tr>
+        <td class="nowrap">{{ dateText(t.date) }}</td>
+        <td>{{ t.description }}</td>
+        <td class="li-muted">{{ category(t.category) }}</td>
+        <td class="li-muted">{{ accountName()(t.accountId) }}</td>
+        <td class="li-num" [class.li-good]="t.amount > 0">{{ euro(t.amount) }}</td>
+        <td>
+          <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the movement" (click)="editMovement(t)">
+            <ui-icon name="edit" [size]="16" />
+          </button>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+@if (filtered().length > shown()) {
+<button uiButton variant="ghost" type="button" (click)="shown.set(shown() + pageSize)">Show more</button>
+}
+}
+}
+
+@case ('budgets') {
+<ui-card heading="Monthly budgets" class="li-block">
+  <div uiCardActions class="li-actions">
+    <button uiButton size="sm" type="button" (click)="addBudget()"><ui-icon name="plus" [size]="16" /> Add</button>
+  </div>
+  <p class="li-intro li-muted">A limit per category for each month. The bar fills as the month goes; it turns orange past 85% and red when you go over.</p>
+  @if (!d.budgets.length) {
+  <ui-empty-state icon="sliders" heading="No budgets yet">
+    Pick the two or three categories you want to keep an eye on, eating out or shopping for example.
+  </ui-empty-state>
+  } @else {
+  <ul class="li-list">
+    @for (b of d.budgets; track b.id) {
+    <li class="budget">
+      <div class="li-row">
+        <strong>{{ category(b.category) }}</strong>
+        <span class="li-num">
+          <span [class.li-bad]="b.share > 1" [class.li-warn]="b.share > 0.85 && b.share <= 1">{{ euro(b.spent, false) }}</span>
+          <span class="li-muted"> of {{ euro(b.monthlyLimit, false) }}</span>
+          <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit the budget for ' + category(b.category)" (click)="budgets.edit(b)">
+            <ui-icon name="edit" [size]="16" />
+          </button>
+        </span>
+      </div>
+      <div class="meter" role="meter" [attr.aria-valuenow]="b.spent" aria-valuemin="0" [attr.aria-valuemax]="b.monthlyLimit" [attr.aria-label]="category(b.category)">
+        <span [class]="'meter__fill meter__fill--' + budgetTone(b.share)" [style.width.%]="b.share * 100 > 100 ? 100 : b.share * 100"></span>
+      </div>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+@if (d.categories.length) {
+<ui-card heading="Suggested from your spending" class="li-block">
+  <p class="li-muted li-small">Your biggest categories over the last three months. A budget a little under the usual is a good start.</p>
+  <div class="li-chips">
+    @for (c of d.categories.slice(0, 6); track c.category) {
+    <button type="button" class="li-chip" (click)="budgets.add({ category: c.category, monthlyLimit: c.average > 0 ? (c.average * 0.9).toFixed(0) : null })">
+      {{ category(c.category) }} · {{ euro(c.average, false) }}
+    </button>
+    }
+  </div>
+</ui-card>
+}
+}
+
+@case ('recurring') {
+<ui-card heading="Charges that come back" class="li-block">
+  <p class="li-intro li-muted">
+    Found in your movements: the same charge at a similar amount in at least three of the last six months. Each next date is in the
+    Agenda too.
+  </p>
+  @if (!d.recurring.length) {
+  <ui-empty-state icon="refresh" heading="Nothing found yet">
+    Import at least three months of movements and the subscriptions, bills and rent show here.
+  </ui-empty-state>
+  } @else {
+  <div class="li-table-wrap">
+    <table class="li-table">
+      <thead>
+        <tr>
+          <th scope="col">Charge</th>
+          <th scope="col">Category</th>
+          <th scope="col" class="li-num">Each time</th>
+          <th scope="col" class="li-num">A year</th>
+          <th scope="col">Next</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of d.recurring; track r.description) {
+        <tr>
+          <td>{{ r.description }} <span class="li-muted li-small">· {{ r.months }} months</span></td>
+          <td class="li-muted">{{ category(r.category) }}</td>
+          <td class="li-num">{{ euro(r.amount) }}</td>
+          <td class="li-num"><strong>{{ euro(r.yearly, false) }}</strong></td>
+          <td class="nowrap">{{ dateText(r.nextDate) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</ui-card>
+}
+
+@case ('review') {
+<ui-ai-panel heading="Spending review" class="li-block" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiReview">
+  <li-ai-tool uiAiPanelActions toolId="money.spending-review" />
+  <p class="li-muted li-intro">
+    @if (d.aiReview) {
+    Claude reads your totals only (months in and out, spending per category, budgets, recurring charges) and suggests where to save.
+    Single movements, account names and banks are never sent.
+    } @else {
+    Without a Claude API key, or with the tool off in Settings → AI tools, the review comes from Life Island's own rules: subscriptions
+    first, then your biggest categories, budgets over and categories that grew.
+    }
+  </p>
+  <form class="ask" (submit)="$event.preventDefault(); ask()">
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “How can I put aside €200 a month?”"
+      [value]="question()"
+      (input)="question.set($any($event.target).value)"
+    ></textarea>
+    <div class="ask__row">
+      <button uiButton type="submit" [loading]="asking()"><ui-icon name="sparkles" [size]="16" /> Review my spending</button>
+      @if (asking()) {
+      <ui-ai-status state="working">Reading your months…</ui-ai-status>
+      } @else if (reviewStatus() === 'done') {
+      <ui-ai-status state="done">Done</ui-ai-status>
+      } @else if (reviewStatus() === 'error') {
+      <ui-ai-status state="error">The review could not be written</ui-ai-status>
+      }
+    </div>
+  </form>
+</ui-ai-panel>
+
+@if (review(); as r) {
+<ui-ai-panel [heading]="r.question ? r.question : 'Your spending'" kind="result" [offline]="r.source !== 'claude'" class="li-block">
+  <div uiAiPanelActions class="li-actions">
+    <span class="li-muted li-small">{{ dateText(r.createdAt) }}</span>
+    <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this review" (click)="removeReview(r.id)">
+      <ui-icon name="trash" [size]="16" />
+    </button>
+  </div>
+  <p>{{ r.output.summary }}</p>
+  @if (r.output.savings.length) {
+  <h3 class="li-sub">Where to save</h3>
+  <ol class="numbered">
+    @for (s of r.output.savings; track $index) {
+    <li>
+      <strong>{{ s.title }}</strong>
+      @if (s.monthly) { <span class="li-good li-small"> · about {{ euro(s.monthly, false) }} a month</span> }
+      <p class="li-muted li-small">{{ s.how }}</p>
+    </li>
+    }
+  </ol>
+  }
+  @if (r.output.warnings.length) {
+  <h3 class="li-sub">To watch</h3>
+  <ul class="plain">
+    @for (w of r.output.warnings; track $index) { <li class="li-warn">{{ w }}</li> }
+  </ul>
+  }
+  @if (r.output.goodHabits.length) {
+  <h3 class="li-sub">Going well</h3>
+  <ul class="plain">
+    @for (g of r.output.goodHabits; track $index) { <li>{{ g }}</li> }
+  </ul>
+  }
+</ui-ai-panel>
+}
+@if (d.reviews.length > 1) {
+<ui-card heading="Earlier reviews" class="li-block">
+  <ul class="li-list">
+    @for (r of d.reviews; track r.id) {
+    <li class="li-row">
+      <button type="button" class="li-link" (click)="shownReview.set(r.id)">{{ r.question ?? 'Your spending' }}</button>
+      <span class="li-muted li-small">{{ dateText(r.createdAt) }} · {{ r.source === 'claude' ? 'AI' : 'Life Island rules' }}</span>
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+}
+}
+
+<ui-dialog [(open)]="importOpen" heading="Import from your bank">
+  <p class="li-muted">
+    Download the movements from your home banking as CSV (sometimes called “Excel/CSV” or “export”), then choose the file. Italian
+    and English exports both work. Movements already here are skipped, so importing the same months twice is safe.
+  </p>
+  <label class="field">
+    <span>Into the account</span>
+    <select class="ui-input" (change)="importAccount.set($any($event.target).value)">
+      @for (a of d.accounts; track a.id) {
+      @if (!a.archived) {
+      <option [value]="a.id" [selected]="importAccount() === a.id">{{ a.name }}</option>
+      }
+      }
+    </select>
+  </label>
+  <label class="field">
+    <span>The CSV file</span>
+    <input class="ui-input" type="file" accept=".csv,text/csv,.txt" (change)="readFile($event)" />
+  </label>
+  @if (csv(); as c) {
+  @if (c.error) {
+  <ui-alert tone="danger">{{ c.error }}</ui-alert>
+  } @else {
+  <ui-alert tone="info">
+    {{ c.rows.length }} movements read ({{ c.columns }}){{ c.skipped ? ', ' + c.skipped + ' lines skipped' : '' }}. From
+    {{ dateText(c.rows[c.rows.length - 1].date) }} to {{ dateText(c.rows[0].date) }}: check the first ones below.
+  </ui-alert>
+  <ul class="li-list preview">
+    @for (r of c.rows.slice(0, 4); track $index) {
+    <li class="li-row li-small"><span>{{ dateText(r.date) }} · {{ r.description }}</span><strong>{{ euro(r.amount) }}</strong></li>
+    }
+  </ul>
+  }
+  }
+  @if (importResult(); as result) {
+  <ui-alert tone="success">{{ result }}</ui-alert>
+  }
+  <div uiDialogFooter class="li-actions">
+    <button uiButton variant="ghost" type="button" (click)="importOpen.set(false)">Close</button>
+    <button uiButton type="button" [loading]="importing()" [disabled]="!csv()?.rows?.length || !importAccount()" (click)="runImport()">
+      Import
+    </button>
+  </div>
+</ui-dialog>
+}
+
+<li-record-dialog
+  heading="Account"
+  [fields]="accountFields"
+  [(open)]="accounts.open"
+  [value]="accounts.value()"
+  [saving]="accounts.saving()"
+  [error]="accounts.error()"
+  (save)="accounts.save($event)"
+  (remove)="accounts.remove()"
+  intro="Deleting an account deletes its movements too."
+/>
+<li-record-dialog
+  heading="Movement"
+  [fields]="movementFields()"
+  [(open)]="movements.open"
+  [value]="movements.value()"
+  [saving]="movements.saving()"
+  [error]="movements.error()"
+  (save)="movements.save($event)"
+  (remove)="movements.remove()"
+/>
+<li-record-dialog
+  heading="Budget"
+  size="sm"
+  [fields]="budgetFields"
+  [(open)]="budgets.open"
+  [value]="budgets.value()"
+  [saving]="budgets.saving()"
+  [error]="budgets.error()"
+  (save)="budgets.save($event)"
+  (remove)="budgets.remove()"
+/>

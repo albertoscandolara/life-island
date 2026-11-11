@@ -25,7 +25,6 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.2.0",
     "@life-island/be-common": "*",
     "@life-island/be-nest": "*",
     "@life-island/contracts": "*",
@@ -35,6 +34,7 @@
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
   }
 }
