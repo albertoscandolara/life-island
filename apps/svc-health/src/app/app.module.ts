@@ -10,7 +10,7 @@ import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { RecordsController } from './records.controller.js';
-import { HealthController } from './health/health.controller.js';
+import { HealthAreaController } from './health/health.controller.js';
 import { HealthService } from './health/health.service.js';
 import { collections, RECORDS } from './health/collections.js';
 
@@ -29,7 +29,7 @@ export class AppModule {
     return {
       module: AppModule,
       // Health's own routes first: the records' `/:collection` routes match anything.
-      controllers: [HealthController, HealthController, RecordsController],
+      controllers: [HealthController, HealthAreaController, RecordsController],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },

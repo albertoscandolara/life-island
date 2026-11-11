@@ -1,0 +1,305 @@
+<ui-page-header
+  emblem="🦕"
+  heading="Health"
+  subtitle="Visits, medicines, test results over time, vaccinations and the checkups to repeat, for you and your family. Life Island keeps the dates; your doctor decides."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+</ui-alert>
+}
+
+@if (!data() && !error()) {
+<p class="li-muted">Loading your health records…</p>
+}
+
+@if (data(); as d) {
+<div class="li-tiles li-block">
+  <div class="li-tile" [class.li-tile--danger]="tabs()[0].count">
+    <span class="li-tile__label">Checkups due</span>
+    <span class="li-tile__value">{{ tabs()[0].count ?? 0 }}</span>
+    <span class="li-tile__hint">of {{ d.checkups.length }} you keep</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Medicines now</span>
+    <span class="li-tile__value">{{ activeMedicines() }}</span>
+  </div>
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Health costs {{ d.costs.year }}</span>
+    <span class="li-tile__value">{{ euro(d.costs.total, false) }}</span>
+    <span class="li-tile__hint">{{ euro(d.costs.deductible, false) }} deductible in the 730</span>
+  </div>
+</div>
+
+<li-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="setTab($event)" label="Health" />
+
+@if (d.people.length > 1 && tab() !== 'explain') {
+<div class="li-chips li-block" role="group" aria-label="Show the records of">
+  <button type="button" class="li-chip" [class.li-chip--on]="!person()" (click)="person.set(null)">Everyone</button>
+  @for (p of d.people; track p) {
+  <button type="button" class="li-chip" [class.li-chip--on]="person() === p" (click)="person.set(person() === p ? null : p)">{{ p }}</button>
+  }
+</div>
+}
+
+@switch (tab()) {
+@case ('checkups') {
+<ui-card heading="Checkups to repeat" class="li-block">
+  <div uiCardActions class="li-actions">
+    <button uiButton size="sm" type="button" (click)="checkups.add({ person: who(), everyMonths: 12 })"><ui-icon name="plus" [size]="16" /> Add</button>
+  </div>
+  <p class="li-intro li-muted">Each checkup is due its interval after the last time. Press Done today when you go; the next date moves on and shows in the Agenda.</p>
+  @if (!shownCheckups().length) {
+  <ui-empty-state icon="calendar" heading="No checkups yet">Start from the suggestions below, then adjust the interval to what your doctor says.</ui-empty-state>
+  } @else {
+  <ul class="li-list">
+    @for (c of shownCheckups(); track c.id) {
+    <li class="li-row">
+      <span class="stack">
+        <strong>{{ c.name }}</strong>
+        <span class="li-meta">
+          <span>{{ c.person }}</span>
+          <span>every {{ c.everyMonths }} months</span>
+          <span>{{ c.lastDoneOn ? 'last ' + dateText(c.lastDoneOn) : 'never recorded' }}</span>
+        </span>
+      </span>
+      <span class="li-actions">
+        <li-due [days]="days(c.nextDueOn)" [warnDays]="30" />
+        <button uiButton variant="secondary" size="sm" type="button" (click)="markDone(c)"><ui-icon name="check" [size]="16" /> Done today</button>
+        <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + c.name" (click)="checkups.edit(c)"><ui-icon name="edit" [size]="16" /></button>
+      </span>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+<ui-card heading="Common screenings" class="li-block">
+  <p class="li-muted li-small">General guidance for adults in Italy (many are free with the regional screening programmes). Your doctor may suggest otherwise.</p>
+  <div class="li-chips">
+    @for (s of suggested; track s.name) {
+    <button type="button" class="li-chip" [title]="s.note" (click)="addSuggested(s.name, s.everyMonths)">+ {{ s.name }} <span class="li-muted">· {{ s.note }}</span></button>
+    }
+  </div>
+</ui-card>
+}
+
+@case ('visits') {
+<div class="li-toolbar li-block">
+  <span class="grow"></span>
+  <button uiButton type="button" (click)="visits.add({ person: who(), date: d.today, kind: 'gp', deductible: true })"><ui-icon name="plus" [size]="16" /> Add a visit</button>
+</div>
+@if (!shownVisits().length) {
+<ui-empty-state icon="file" heading="No visits yet">Write down each visit with what the doctor said: next time you will not have to remember.</ui-empty-state>
+} @else {
+<div class="li-cards li-block">
+  @for (v of shownVisits(); track v.id) {
+  <article class="li-item">
+    <div class="li-item__head">
+      <span class="li-item__title">{{ v.doctor ?? kind(v.kind) }}</span>
+      <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the visit" (click)="visits.edit(v)"><ui-icon name="edit" [size]="16" /></button>
+    </div>
+    <span class="li-meta">
+      <span>{{ dateText(v.date) }}</span>
+      <span>{{ v.person }}</span>
+      <span>{{ kind(v.kind) }}</span>
+      @if (v.cost) { <span>{{ euro(v.cost) }}{{ v.deductible ? ' · deductible' : '' }}</span> }
+    </span>
+    @if (v.reason) { <p><strong>Why:</strong> {{ v.reason }}</p> }
+    @if (v.outcome) { <p class="li-muted">{{ v.outcome }}</p> }
+    @if (v.followUpOn) { <span class="li-small">Follow-up: <li-due [days]="days(v.followUpOn)" [warnDays]="14" /></span> }
+  </article>
+  }
+</div>
+}
+}
+
+@case ('medicines') {
+<div class="li-toolbar li-block">
+  <span class="grow"></span>
+  <button uiButton type="button" (click)="medicines.add({ person: who(), active: true })"><ui-icon name="plus" [size]="16" /> Add a medicine</button>
+</div>
+@if (!shownMedicines().length) {
+<ui-empty-state icon="droplet" heading="No medicines">Add what you take regularly and when the box runs out: the Agenda reminds you a week before.</ui-empty-state>
+} @else {
+<div class="li-cards li-block">
+  @for (m of shownMedicines(); track m.id) {
+  <article class="li-item" [class.li-item--off]="!m.active">
+    <div class="li-item__head">
+      <span class="li-item__title">💊 {{ m.name }}</span>
+      <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + m.name" (click)="medicines.edit(m)"><ui-icon name="edit" [size]="16" /></button>
+    </div>
+    <span class="li-meta">
+      <span>{{ m.person }}</span>
+      @if (m.dose) { <span>{{ m.dose }}</span> }
+      @if (m.schedule) { <span>{{ m.schedule }}</span> }
+      @if (!m.active) { <span>Not taking it now</span> }
+    </span>
+    @if (m.active && m.refillOn) { <span class="li-small">Runs out: <li-due [days]="days(m.refillOn)" [warnDays]="7" /></span> }
+    @if (m.endOn) { <span class="li-small li-muted">Until {{ dateText(m.endOn) }}</span> }
+  </article>
+  }
+</div>
+}
+}
+
+@case ('results') {
+<div class="li-toolbar li-block">
+  <p class="li-muted li-small grow">Copy the values from your blood test report, with the range printed next to each one. The same test of the same person forms a series.</p>
+  <button uiButton type="button" (click)="results.add({ person: who(), date: d.today })"><ui-icon name="plus" [size]="16" /> Add a result</button>
+</div>
+@if (!shownSeries().length) {
+<ui-empty-state icon="chart" heading="No results yet">Add the values of your last tests to see them over time and get them explained.</ui-empty-state>
+} @else {
+<div class="li-table-wrap li-block">
+  <table class="li-table">
+    <thead>
+      <tr>
+        <th scope="col">Test</th>
+        <th scope="col">Who</th>
+        <th scope="col" class="li-num">Last</th>
+        <th scope="col">Range</th>
+        <th scope="col">Over time</th>
+        <th scope="col"><span class="ui-visually-hidden">Add</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (s of shownSeries(); track s.person + s.test) {
+      @let last = s.points[s.points.length - 1];
+      <tr>
+        <th scope="row">{{ s.test }}</th>
+        <td class="li-muted">{{ s.person }}</td>
+        <td class="li-num">
+          <strong [class.li-bad]="last.flag === 'high' || last.flag === 'low'">{{ last.value }}</strong>
+          <span class="li-muted li-small"> {{ s.unit }}</span>
+          @if (last.flag === 'high') { <span class="li-bad li-small"> ↑ high</span> }
+          @if (last.flag === 'low') { <span class="li-bad li-small"> ↓ low</span> }
+        </td>
+        <td class="li-muted">{{ range(s) }}</td>
+        <td>
+          <span class="points">
+            @for (p of s.points.slice(-6); track p.date) {
+            <span class="point" [class.point--out]="p.flag === 'high' || p.flag === 'low'" [title]="dateText(p.date)">{{ p.value }}</span>
+            }
+            @if (s.trend === 'up') { <span aria-label="going up">↗</span> }
+            @if (s.trend === 'down') { <span aria-label="going down">↘</span> }
+          </span>
+        </td>
+        <td><button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Add a new ' + s.test + ' value'" (click)="addResultLike(s)"><ui-icon name="plus" [size]="16" /></button></td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<details class="li-block">
+  <summary class="li-link">Every single value ({{ d.results.length }})</summary>
+  <ul class="li-list">
+    @for (r of d.results; track r.id) {
+    @if (!person() || r.person === person()) {
+    <li class="li-row li-small">
+      <span>{{ dateText(r.date) }} · {{ r.person }} · {{ r.test }}: <strong>{{ r.value }}</strong> {{ r.unit }}</span>
+      <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the value" (click)="results.edit(r)"><ui-icon name="edit" [size]="14" /></button>
+    </li>
+    }
+    }
+  </ul>
+</details>
+}
+}
+
+@case ('vaccinations') {
+<div class="li-toolbar li-block">
+  <span class="grow"></span>
+  <button uiButton type="button" (click)="vaccinations.add({ person: who(), date: d.today })"><ui-icon name="plus" [size]="16" /> Add a vaccination</button>
+</div>
+@if (!shownVaccinations().length) {
+<ui-empty-state icon="check" heading="No vaccinations">Your vaccination certificate is in the Fascicolo Sanitario Elettronico; copy the ones with a booster here.</ui-empty-state>
+} @else {
+<ul class="li-list li-block">
+  @for (v of shownVaccinations(); track v.id) {
+  <li class="li-row">
+    <span class="stack">
+      <strong>{{ v.name }}</strong>
+      <span class="li-meta"><span>{{ v.person }}</span><span>given {{ dateText(v.date) }}</span></span>
+    </span>
+    <span class="li-actions">
+      @if (v.nextDueOn) { <li-due [days]="days(v.nextDueOn)" [warnDays]="60" prefix="Next" /> }
+      <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + v.name" (click)="vaccinations.edit(v)"><ui-icon name="edit" [size]="16" /></button>
+    </span>
+  </li>
+  }
+</ul>
+}
+}
+
+@case ('explain') {
+<ui-ai-panel heading="Results explainer" class="li-block" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiExplainer">
+  <li-ai-tool uiAiPanelActions toolId="health.results-explainer" />
+  <p class="li-muted li-intro">
+    @if (d.aiExplainer) {
+    Claude reads the test values of the person you choose (name, value, unit, range, date; not the name of the person) and explains
+    them in plain words, with questions to ask your doctor. It never diagnoses: your doctor decides.
+    } @else {
+    Without a Claude API key, or with the tool off in Settings → AI tools, Life Island lists what is out of range and what changed,
+    with questions for your doctor.
+    }
+  </p>
+  <form class="ask" (submit)="$event.preventDefault(); explain()">
+    @if (d.people.length > 1) {
+    <label class="field">
+      <span>Whose results</span>
+      <select class="ui-input" (change)="explainFor.set($any($event.target).value || null)">
+        <option value="">Everyone</option>
+        @for (p of d.people; track p) { <option [value]="p" [selected]="explainFor() === p">{{ p }}</option> }
+      </select>
+    </label>
+    }
+    <textarea class="ui-input" rows="2" maxlength="1000" placeholder="Optional: “Should I worry about my cholesterol?”" [value]="question()" (input)="question.set($any($event.target).value)"></textarea>
+    <div class="ask__row">
+      <button uiButton type="submit" [loading]="asking()" [disabled]="!d.results.length"><ui-icon name="sparkles" [size]="16" /> Explain my results</button>
+      @if (asking()) {
+      <ui-ai-status state="working">Reading the values…</ui-ai-status>
+      } @else if (explainStatus() === 'done') {
+      <ui-ai-status state="done">Done</ui-ai-status>
+      } @else if (explainStatus() === 'error') {
+      <ui-ai-status state="error">The results could not be explained</ui-ai-status>
+      }
+    </div>
+  </form>
+</ui-ai-panel>
+
+@if (explanation(); as e) {
+<ui-ai-panel [heading]="e.question ? e.question : (e.person ? 'Results of ' + e.person : 'Your results')" kind="result" [offline]="e.source !== 'claude'" class="li-block">
+  <div uiAiPanelActions class="li-actions">
+    <span class="li-muted li-small">{{ dateText(e.createdAt) }}</span>
+    <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this explanation" (click)="removeExplanation(e.id)"><ui-icon name="trash" [size]="16" /></button>
+  </div>
+  <p>{{ e.output.summary }}</p>
+  @if (e.output.items.length) {
+  <ul class="plain">
+    @for (i of e.output.items; track $index) {
+    <li><strong>{{ i.test }}</strong><p>{{ i.meaning }}</p>@if (i.trend) { <p class="li-muted li-small">{{ i.trend }}</p> }</li>
+    }
+  </ul>
+  }
+  @if (e.output.askTheDoctor.length) {
+  <h3 class="li-sub">Ask your doctor</h3>
+  <ul class="plain">@for (q of e.output.askTheDoctor; track $index) { <li>{{ q }}</li> }</ul>
+  }
+  @if (e.output.lifestyle.length) {
+  <h3 class="li-sub">Good habits</h3>
+  <ul class="plain">@for (l of e.output.lifestyle; track $index) { <li>{{ l }}</li> }</ul>
+  }
+  <p class="li-muted li-small">This explains; it does not diagnose. Talk to your doctor before changing anything.</p>
+</ui-ai-panel>
+}
+}
+}
+}
+
+<li-record-dialog heading="Visit" [fields]="visitFields" [(open)]="visits.open" [value]="visits.value()" [saving]="visits.saving()" [error]="visits.error()" (save)="visits.save($event)" (remove)="visits.remove()" />
+<li-record-dialog heading="Medicine" [fields]="medicineFields" [(open)]="medicines.open" [value]="medicines.value()" [saving]="medicines.saving()" [error]="medicines.error()" (save)="medicines.save($event)" (remove)="medicines.remove()" />
+<li-record-dialog heading="Result" [fields]="resultFields" [(open)]="results.open" [value]="results.value()" [saving]="results.saving()" [error]="results.error()" (save)="results.save($event)" (remove)="results.remove()" />
+<li-record-dialog heading="Vaccination" [fields]="vaccinationFields" [(open)]="vaccinations.open" [value]="vaccinations.value()" [saving]="vaccinations.saving()" [error]="vaccinations.error()" (save)="vaccinations.save($event)" (remove)="vaccinations.remove()" />
+<li-record-dialog heading="Checkup" size="sm" [fields]="checkupFields" [(open)]="checkups.open" [value]="checkups.value()" [saving]="checkups.saving()" [error]="checkups.error()" (save)="checkups.save($event)" (remove)="checkups.remove()" />
