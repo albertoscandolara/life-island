@@ -1,0 +1,233 @@
+<ui-page-header
+  emblem="🦅"
+  heading="Travel"
+  subtitle="Every trip with its bookings and booking codes, what to do before leaving, what to pack and what you spend, and a planner that prepares it with you."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+</ui-alert>
+}
+
+@if (!data() && !error()) {
+<p class="li-muted">Loading your trips…</p>
+}
+
+@if (data(); as d) {
+<div class="li-tiles li-block">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Trips ahead</span>
+    <span class="li-tile__value">{{ d.totals.upcoming }}</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Spent this year</span>
+    <span class="li-tile__value">{{ euro(d.totals.spentThisYear, false) }}</span>
+  </div>
+  <div class="li-tile">
+    <span class="li-tile__label">Nights away this year</span>
+    <span class="li-tile__value">{{ d.totals.nightsThisYear }}</span>
+  </div>
+</div>
+
+@if (!d.trips.length) {
+<ui-empty-state icon="calendar" heading="No trips yet">
+  Add a trip, even just an idea: its bookings, checklist and packing list live here, and the important dates go in the Agenda.
+  <button uiButton type="button" (click)="addTrip()"><ui-icon name="plus" [size]="16" /> Add a trip</button>
+</ui-empty-state>
+} @else {
+<div class="layout li-block">
+  <div>
+    <ul class="trips" aria-label="Trips">
+      @for (t of d.trips; track t.id) {
+      <li>
+        <button type="button" class="trip" [class.trip--on]="selected()?.id === t.id" [class.trip--past]="t.status === 'done' || t.status === 'cancelled'" (click)="selectedId.set(t.id)">
+          <strong>{{ t.title }}</strong>
+          <span class="li-meta">
+            <span>{{ t.destination }}</span>
+            @if (t.startOn) { <span>{{ dateText(t.startOn) }}</span> }
+            <span>{{ status(t) }}</span>
+          </span>
+        </button>
+      </li>
+      }
+    </ul>
+    <button uiButton variant="secondary" type="button" class="add-trip" (click)="addTrip()"><ui-icon name="plus" [size]="16" /> Add a trip</button>
+  </div>
+
+  @if (selected(); as t) {
+  <section class="detail" [attr.aria-label]="t.title">
+    <ui-card [heading]="t.title">
+      <div uiCardActions class="li-actions">
+        <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the trip" (click)="trips.edit(t)"><ui-icon name="edit" [size]="16" /></button>
+      </div>
+      <span class="li-meta">
+        <span>{{ t.destination }}</span>
+        @if (t.startOn) { <span>{{ dateText(t.startOn) }}{{ t.endOn ? ' – ' + dateText(t.endOn) : '' }}</span> }
+        @if (t.nights !== null) { <span>{{ t.nights }} nights</span> }
+        <span>{{ t.travellers }} traveller{{ t.travellers === 1 ? '' : 's' }}</span>
+        @if (t.abroad) { <span class="li-warn">Outside Schengen</span> }
+      </span>
+      @if (t.daysToGo !== null && t.daysToGo >= 0 && t.status !== 'done' && t.status !== 'cancelled') {
+      <p class="countdown"><li-due [days]="t.daysToGo" [warnDays]="7" prefix="Leaving" [happy]="true" /></p>
+      }
+      @if (t.budget) {
+      <div class="budget">
+        <span class="li-small">{{ euro(t.spent, false) }} of {{ euro(t.budget, false) }}</span>
+        <div class="meter"><span [class.over]="t.spent > t.budget" [style.width.%]="t.spent > t.budget ? 100 : (t.spent / t.budget) * 100"></span></div>
+      </div>
+      } @else {
+      <p class="li-small li-muted">Spent so far: {{ euro(t.spent, false) }}</p>
+      }
+    </ui-card>
+
+    <ui-card heading="Bookings">
+      <div uiCardActions class="li-actions">
+        <button uiButton variant="ghost" size="sm" type="button" (click)="bookings.add({ tripId: t.id, kind: 'stay', paid: false })"><ui-icon name="plus" [size]="16" /> Add</button>
+      </div>
+      @if (!t.bookings.length) {
+      <p class="li-muted li-small">Flights, trains, stays, tickets: keep the booking codes and the last day to cancel for free here.</p>
+      }
+      <ul class="li-list">
+        @for (b of t.bookings; track b.id) {
+        <li class="li-row">
+          <span class="stack">
+            <strong>{{ icons[b.kind] }} {{ b.title }}</strong>
+            <span class="li-meta">
+              @if (b.date) { <span>{{ dateText(b.date) }}{{ b.time ? ' · ' + b.time : '' }}</span> }
+              @if (b.provider) { <span>{{ b.provider }}</span> }
+              @if (b.reference) { <span>Code <strong>{{ b.reference }}</strong></span> }
+              @if (b.cost) { <span>{{ euro(b.cost) }}{{ b.paid ? '' : ' · to pay' }}</span> }
+              @if (b.cancelBy && b.cancelBy >= d.today) { <span>Free cancel until {{ dateText(b.cancelBy) }}</span> }
+            </span>
+          </span>
+          <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + b.title" (click)="bookings.edit(b)"><ui-icon name="edit" [size]="16" /></button>
+        </li>
+        }
+      </ul>
+    </ui-card>
+
+    <div class="li-grid">
+      <ui-card heading="Before leaving">
+        <form class="add" (submit)="$event.preventDefault(); quickAdd(t, false)">
+          <input class="ui-input" placeholder="Add a thing to do" aria-label="New thing to do" [value]="newTask()" (input)="newTask.set($any($event.target).value)" />
+          <button uiButton size="sm" type="submit" [disabled]="!newTask().trim()" aria-label="Add"><ui-icon name="plus" [size]="16" /></button>
+        </form>
+        <ul class="checks">
+          @for (c of todo(); track c.id) {
+          <li class="li-check" [class.li-check--done]="c.done">
+            <input type="checkbox" [checked]="c.done" (change)="toggle(c)" [attr.aria-label]="c.text" />
+            <span>{{ c.text }}@if (c.dueOn && !c.done) { <span class="li-muted li-small" [class.li-bad]="c.dueOn < d.today"> · by {{ dateText(c.dueOn) }}</span> }</span>
+            <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit" (click)="checklist.edit(c)"><ui-icon name="edit" [size]="14" /></button>
+          </li>
+          }
+        </ul>
+      </ui-card>
+      <ui-card heading="To pack">
+        <form class="add" (submit)="$event.preventDefault(); quickAdd(t, true)">
+          <input class="ui-input" placeholder="Add a thing to pack" aria-label="New thing to pack" [value]="newPack()" (input)="newPack.set($any($event.target).value)" />
+          <button uiButton size="sm" type="submit" [disabled]="!newPack().trim()" aria-label="Add"><ui-icon name="plus" [size]="16" /></button>
+        </form>
+        <ul class="checks">
+          @for (c of packing(); track c.id) {
+          <li class="li-check" [class.li-check--done]="c.done">
+            <input type="checkbox" [checked]="c.done" (change)="toggle(c)" [attr.aria-label]="c.text" />
+            <span>{{ c.text }}</span>
+            <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit" (click)="checklist.edit(c)"><ui-icon name="edit" [size]="14" /></button>
+          </li>
+          }
+        </ul>
+      </ui-card>
+    </div>
+
+    <ui-card heading="Expenses">
+      <div uiCardActions class="li-actions">
+        <button uiButton variant="ghost" size="sm" type="button" (click)="addExpense(t)"><ui-icon name="plus" [size]="16" /> Add</button>
+      </div>
+      @if (!t.expenses.length) {
+      <p class="li-muted li-small">What you spend there: meals, tickets, taxis. Bookings count on their own.</p>
+      }
+      <ul class="li-list">
+        @for (e of t.expenses; track e.id) {
+        <li class="li-row">
+          <span>{{ dateText(e.date) }} · {{ expenseLabel(e.category) }}@if (e.note) { <span class="li-muted"> · {{ e.note }}</span> }</span>
+          <span class="li-num">{{ euro(e.amount) }}
+            <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the expense" (click)="expenses.edit(e)"><ui-icon name="edit" [size]="14" /></button>
+          </span>
+        </li>
+        }
+      </ul>
+    </ui-card>
+
+    <ui-ai-panel heading="Trip planner" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiPlanner">
+      <li-ai-tool uiAiPanelActions toolId="travel.trip-planner" />
+      <p class="li-muted li-intro">
+        @if (d.aiPlanner) {
+        Claude reads this trip (destination, dates, travellers, budget, what is booked and on the checklist) and prepares the
+        checklist, the packing list and a loose plan per day. Booking codes, providers and notes are never sent.
+        } @else {
+        Without a Claude API key, or with the tool off in Settings → AI tools, the plan comes from Life Island's own rules: documents,
+        bookings still missing, the usual packing list.
+        }
+      </p>
+      <form class="ask" (submit)="$event.preventDefault(); ask(t)">
+        <textarea class="ui-input" rows="2" maxlength="1000" placeholder="Optional: “We travel with a 2-year-old”" [value]="question()" (input)="question.set($any($event.target).value)"></textarea>
+        <div class="ask__row">
+          <button uiButton type="submit" [loading]="asking()"><ui-icon name="sparkles" [size]="16" /> Prepare this trip</button>
+          @if (asking()) {
+          <ui-ai-status state="working">Preparing the trip…</ui-ai-status>
+          } @else if (planStatus() === 'done') {
+          <ui-ai-status state="done">Done</ui-ai-status>
+          } @else if (planStatus() === 'error') {
+          <ui-ai-status state="error">The trip could not be planned</ui-ai-status>
+          }
+        </div>
+      </form>
+    </ui-ai-panel>
+
+    @if (plan(); as p) {
+    <ui-ai-panel [heading]="p.question ? p.question : 'The plan'" kind="result" [offline]="p.source !== 'claude'">
+      <div uiAiPanelActions class="li-actions">
+        <span class="li-muted li-small">{{ dateText(p.createdAt) }}</span>
+        <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this plan" (click)="removePlan(p.id)"><ui-icon name="trash" [size]="16" /></button>
+      </div>
+      <p>{{ p.output.summary }}</p>
+      <div class="li-grid">
+        <div>
+          <h3 class="li-sub">Before leaving</h3>
+          <ul class="plain">
+            @for (c of p.output.checklist; track $index) { <li>{{ c.text }} <span class="li-muted li-small">· {{ c.daysBefore }} days before</span></li> }
+          </ul>
+        </div>
+        <div>
+          <h3 class="li-sub">To pack</h3>
+          <ul class="plain">@for (x of p.output.packing; track $index) { <li>{{ x }}</li> }</ul>
+        </div>
+      </div>
+      <div class="li-actions">
+        <button uiButton type="button" (click)="apply(p, true, true)"><ui-icon name="plus" [size]="16" /> Add both lists to the trip</button>
+        @if (applied(); as message) { <span class="li-good li-small">{{ message }}</span> }
+      </div>
+      @if (p.output.days.length) {
+      <h3 class="li-sub">Day by day</h3>
+      <dl class="days">
+        @for (x of p.output.days; track $index) { <div><dt>{{ x.day }}</dt><dd>{{ x.plan }}</dd></div> }
+      </dl>
+      }
+      @if (p.output.budgetTips.length) {
+      <h3 class="li-sub">To spend less</h3>
+      <ul class="plain">@for (x of p.output.budgetTips; track $index) { <li>{{ x }}</li> }</ul>
+      }
+    </ui-ai-panel>
+    }
+  </section>
+  }
+</div>
+}
+}
+
+<li-record-dialog heading="Trip" [fields]="tripFields" [(open)]="trips.open" [value]="trips.value()" [saving]="trips.saving()" [error]="trips.error()" (save)="trips.save($event)" (remove)="trips.remove()" intro="Deleting a trip deletes its bookings, checklist and expenses too." />
+<li-record-dialog heading="Booking" [fields]="bookingFields" [(open)]="bookings.open" [value]="bookings.value()" [saving]="bookings.saving()" [error]="bookings.error()" (save)="bookings.save($event)" (remove)="bookings.remove()" />
+<li-record-dialog heading="Checklist item" size="sm" [fields]="checkFields" [(open)]="checklist.open" [value]="checklist.value()" [saving]="checklist.saving()" [error]="checklist.error()" (save)="checklist.save($event)" (remove)="checklist.remove()" />
+<li-record-dialog heading="Expense" size="sm" [fields]="expenseFields" [(open)]="expenses.open" [value]="expenses.value()" [saving]="expenses.saving()" [error]="expenses.error()" (save)="expenses.save($event)" (remove)="expenses.remove()" />
