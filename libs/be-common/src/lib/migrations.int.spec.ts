@@ -93,6 +93,37 @@ describe.skipIf(!databaseUrl)('migrateServiceSchema', () => {
     expect(rows).toEqual([{ name: 'x' }]);
   });
 
+  it('applies a migration whose journal date is older than one already applied', async () => {
+    // Merged from another branch: dated before 0001_b, which already ran.
+    writeMigrations(folder, [
+      {
+        tag: '0000_a',
+        when: 1000,
+        sql: 'create table grocery.int_migration_test (id int);',
+      },
+      {
+        tag: '0001_b',
+        when: 2000,
+        sql: "alter table grocery.int_migration_test add column name text;\n--> statement-breakpoint\ninsert into grocery.int_migration_test values (1, 'x');",
+      },
+      {
+        tag: '0002_late',
+        when: 1500,
+        sql: 'alter table grocery.int_migration_test add column late text;',
+      },
+    ]);
+    expect(await migrateServiceSchema(svc.pool, 'grocery', folder, TABLE)).toBe(
+      1,
+    );
+    expect(await migrateServiceSchema(svc.pool, 'grocery', folder, TABLE)).toBe(
+      0,
+    );
+    const { rows } = await svc.pool.query(
+      'select late from grocery.int_migration_test',
+    );
+    expect(rows).toEqual([{ late: null }]);
+  });
+
   it('rolls back a failing migration completely', async () => {
     writeMigrations(folder, [
       { tag: '0000_a', when: 1000, sql: 'select 1;' },

@@ -123,11 +123,14 @@ export class ParseService {
    * row; the fresh `lock_token` makes every later write conditional on still
    * holding it.
    *
-   * With `now` (Parse now was pressed), a document waiting for its retry after
-   * an error is taken at once: you asked for it, so it does not wait out its
-   * delay. A queue pause (quota, rate limit) still holds.
+   * With `since` (a run from Parse now, started at that time), a document
+   * waiting for its retry after an error is taken at once: you asked for it,
+   * so it does not wait out its delay. Only once per run, though: a document
+   * this run already tried waits for its retry like any other, so one run
+   * never spends all its attempts in a row. A queue pause (quota, rate limit)
+   * still holds.
    */
-  async claimNext(now = false): Promise<UploadRow | undefined> {
+  async claimNext(since: Date | null = null): Promise<UploadRow | undefined> {
     return withTransaction(this.svc.pool, async (client) => {
       const { rows } = await client.query<{ id: string; attempts: number }>(
         `update ingestion.uploads
@@ -139,7 +142,10 @@ export class ParseService {
                 updated_at = now()
           where id = (
             select id from ingestion.uploads
-             where (status = 'TO_BE_PARSED' and ($2 or next_attempt_at <= now()))
+             where (status = 'TO_BE_PARSED'
+                    and (next_attempt_at <= now()
+                         or ($2::timestamptz is not null
+                             and (last_attempt_at is null or last_attempt_at < $2::timestamptz))))
                 or (status in ('PAUSED_QUOTA', 'PAUSED_RATE_LIMIT')
                     and next_attempt_at <= now())
                 or (status = 'PARSING' and locked_until < now())
@@ -148,7 +154,7 @@ export class ParseService {
              for update skip locked
           )
           returning id, attempts`,
-        [this.config.leaseMinutes, now],
+        [this.config.leaseMinutes, since],
       );
       const claimed = rows[0];
       if (!claimed) return undefined;
@@ -196,9 +202,14 @@ export class ParseService {
       );
       return summary;
     }
+    // The database's clock, the one that stamps last_attempt_at.
+    const since = now
+      ? (await this.svc.pool.query<{ now: Date }>('select now() as now'))
+          .rows[0].now
+      : null;
     try {
       while (!this.stopRequested && (await this.queue.canProceed())) {
-        const upload = await this.claimNext(now);
+        const upload = await this.claimNext(since);
         if (!upload) break;
         const outcome = await this.process(upload);
         summary[outcome]++;
