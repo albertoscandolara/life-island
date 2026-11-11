@@ -43,26 +43,70 @@ import { TravelApi } from '../api/travel-api';
 const SERVICE = 'svc-travel';
 
 const TRIP_FIELDS: readonly LiField[] = [
-  { key: 'title', label: 'Trip', type: 'text', required: true, placeholder: 'Summer in Puglia, Lisbon weekend…' },
+  {
+    key: 'title',
+    label: 'Trip',
+    type: 'text',
+    required: true,
+    placeholder: 'Summer in Puglia, Lisbon weekend…',
+  },
   { key: 'destination', label: 'Where', type: 'text', required: true },
   { key: 'startOn', label: 'From', type: 'date' },
   { key: 'endOn', label: 'To', type: 'date' },
   { key: 'travellers', label: 'Travellers', type: 'number', min: 1, max: 50 },
   { key: 'budget', label: 'Budget', type: 'money' },
-  { key: 'status', label: 'Status', type: 'select', required: true, options: liOptions(TRIP_STATUS_LABELS) },
-  { key: 'abroad', label: 'Outside the Schengen area (passport, visa)', type: 'checkbox', wide: true },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: liOptions(TRIP_STATUS_LABELS),
+  },
+  {
+    key: 'abroad',
+    label: 'Outside the Schengen area (passport, visa)',
+    type: 'checkbox',
+    wide: true,
+  },
   { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
 ];
 
 const BOOKING_FIELDS: readonly LiField[] = [
-  { key: 'kind', label: 'Kind', type: 'select', required: true, options: liOptions(BOOKING_KIND_LABELS) },
-  { key: 'title', label: 'What', type: 'text', required: true, placeholder: 'Flight MXP → LIS, Hotel Alfama…' },
-  { key: 'provider', label: 'With', type: 'text', placeholder: 'Ryanair, Booking.com…' },
+  {
+    key: 'kind',
+    label: 'Kind',
+    type: 'select',
+    required: true,
+    options: liOptions(BOOKING_KIND_LABELS),
+  },
+  {
+    key: 'title',
+    label: 'What',
+    type: 'text',
+    required: true,
+    placeholder: 'Flight MXP → LIS, Hotel Alfama…',
+  },
+  {
+    key: 'provider',
+    label: 'With',
+    type: 'text',
+    placeholder: 'Ryanair, Booking.com…',
+  },
   { key: 'reference', label: 'Booking code', type: 'text' },
   { key: 'date', label: 'Date', type: 'date' },
-  { key: 'time', label: 'Time', type: 'text', placeholder: '08:40, check-in from 15:00' },
+  {
+    key: 'time',
+    label: 'Time',
+    type: 'text',
+    placeholder: '08:40, check-in from 15:00',
+  },
   { key: 'cost', label: 'Cost', type: 'money' },
-  { key: 'cancelBy', label: 'Free cancellation until', type: 'date', hint: 'It shows in the Agenda' },
+  {
+    key: 'cancelBy',
+    label: 'Free cancellation until',
+    type: 'date',
+    hint: 'It shows in the Agenda',
+  },
   { key: 'paid', label: 'Paid', type: 'checkbox' },
   { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
 ];
@@ -77,7 +121,13 @@ const CHECK_FIELDS: readonly LiField[] = [
 const EXPENSE_FIELDS: readonly LiField[] = [
   { key: 'date', label: 'Date', type: 'date', required: true },
   { key: 'amount', label: 'Amount', type: 'money', required: true },
-  { key: 'category', label: 'For', type: 'select', required: true, options: liOptions(TRAVEL_EXPENSE_LABELS) },
+  {
+    key: 'category',
+    label: 'For',
+    type: 'select',
+    required: true,
+    options: liOptions(TRAVEL_EXPENSE_LABELS),
+  },
   { key: 'note', label: 'Note', type: 'text' },
 ];
 
@@ -131,10 +181,33 @@ export class TravelPage {
   protected readonly checkFields = CHECK_FIELDS;
   protected readonly expenseFields = EXPENSE_FIELDS;
 
-  protected readonly trips = new RecordEditor(this.api, 'trips', () => this.load(), SERVICE);
-  protected readonly bookings = new RecordEditor(this.api, 'bookings', () => this.load(), SERVICE, ['tripId']);
-  protected readonly checklist = new RecordEditor(this.api, 'checklist', () => this.load(), SERVICE, ['tripId']);
-  protected readonly expenses = new RecordEditor(this.api, 'expenses', () => this.load(), SERVICE, ['tripId']);
+  protected readonly trips = new RecordEditor(
+    this.api,
+    'trips',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly bookings = new RecordEditor(
+    this.api,
+    'bookings',
+    () => this.load(),
+    SERVICE,
+    ['tripId'],
+  );
+  protected readonly checklist = new RecordEditor(
+    this.api,
+    'checklist',
+    () => this.load(),
+    SERVICE,
+    ['tripId'],
+  );
+  protected readonly expenses = new RecordEditor(
+    this.api,
+    'expenses',
+    () => this.load(),
+    SERVICE,
+    ['tripId'],
+  );
 
   protected readonly newTask = signal('');
   protected readonly newPack = signal('');
@@ -148,12 +221,18 @@ export class TravelPage {
     return all.find((t) => t.id === this.selectedId()) ?? all[0] ?? null;
   });
 
-  protected readonly todo = computed(() => (this.selected()?.checklist ?? []).filter((c) => !c.packing));
-  protected readonly packing = computed(() => (this.selected()?.checklist ?? []).filter((c) => c.packing));
+  protected readonly todo = computed(() =>
+    (this.selected()?.checklist ?? []).filter((c) => !c.packing),
+  );
+  protected readonly packing = computed(() =>
+    (this.selected()?.checklist ?? []).filter((c) => c.packing),
+  );
 
   protected readonly plan = computed<TripPlanDto | null>(() => {
     const trip = this.selected();
-    return trip ? ((this.data()?.plans ?? []).find((p) => p.tripId === trip.id) ?? null) : null;
+    return trip
+      ? ((this.data()?.plans ?? []).find((p) => p.tripId === trip.id) ?? null)
+      : null;
   });
 
   constructor() {
@@ -166,7 +245,8 @@ export class TravelPage {
         this.data.set(data);
         this.error.set(null);
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not load your trips.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not load your trips.', SERVICE)),
     });
   }
 
@@ -188,7 +268,8 @@ export class TravelPage {
     (packing ? this.newPack : this.newTask).set('');
     this.api.create('checklist', { tripId: trip.id, text, packing }).subscribe({
       next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not add it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not add it.', SERVICE)),
     });
   }
 
@@ -199,7 +280,12 @@ export class TravelPage {
             ...d,
             trips: d.trips.map((t) =>
               t.id === item.tripId
-                ? { ...t, checklist: t.checklist.map((c) => (c.id === item.id ? { ...c, done: !c.done } : c)) }
+                ? {
+                    ...t,
+                    checklist: t.checklist.map((c) =>
+                      c.id === item.id ? { ...c, done: !c.done } : c,
+                    ),
+                  }
                 : t,
             ),
           }
@@ -214,42 +300,58 @@ export class TravelPage {
   }
 
   protected addExpense(trip: TripDto): void {
-    this.expenses.add({ tripId: trip.id, date: localToday(), category: 'food' });
+    this.expenses.add({
+      tripId: trip.id,
+      date: localToday(),
+      category: 'food',
+    });
   }
 
   protected ask(trip: TripDto): void {
     this.asking.set(true);
     this.planStatus.set('idle');
     this.applied.set(null);
-    this.api.plan(trip.id, { question: this.question().trim() || null }).subscribe({
-      next: () => {
-        this.asking.set(false);
-        this.planStatus.set('done');
-        this.question.set('');
-        this.load();
-      },
-      error: (error: unknown) => {
-        this.asking.set(false);
-        this.planStatus.set('error');
-        this.error.set(errorText(error, 'Could not plan the trip.', SERVICE));
-      },
-    });
+    this.api
+      .plan(trip.id, { question: this.question().trim() || null })
+      .subscribe({
+        next: () => {
+          this.asking.set(false);
+          this.planStatus.set('done');
+          this.question.set('');
+          this.load();
+        },
+        error: (error: unknown) => {
+          this.asking.set(false);
+          this.planStatus.set('error');
+          this.error.set(errorText(error, 'Could not plan the trip.', SERVICE));
+        },
+      });
   }
 
-  protected apply(plan: TripPlanDto, checklist: boolean, packing: boolean): void {
+  protected apply(
+    plan: TripPlanDto,
+    checklist: boolean,
+    packing: boolean,
+  ): void {
     this.api.applyPlan(plan.id, { checklist, packing }).subscribe({
       next: ({ added }) => {
-        this.applied.set(added ? `${added} item${added === 1 ? '' : 's'} added to the trip.` : 'They are all on the trip already.');
+        this.applied.set(
+          added
+            ? `${added} item${added === 1 ? '' : 's'} added to the trip.`
+            : 'They are all on the trip already.',
+        );
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not add them.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not add them.', SERVICE)),
     });
   }
 
   protected removePlan(id: string): void {
     this.api.removePlan(id).subscribe({
       next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
     });
   }
 }

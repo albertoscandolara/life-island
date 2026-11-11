@@ -37,13 +37,18 @@ export const contracts = subscriptionsSchema.table('contracts', {
   autoRenew: boolean('auto_renew').notNull().default(true),
   noticeDays: integer('notice_days').notNull().default(0),
   lockedUntil: date('locked_until'),
-  status: text('status').$type<SubscriptionStatus>().notNull().default('active'),
+  status: text('status')
+    .$type<SubscriptionStatus>()
+    .notNull()
+    .default('active'),
   usage: text('usage').$type<UsageLevel>(),
   paidWith: text('paid_with'),
   cancelUrl: text('cancel_url'),
   notes: text('notes'),
   createdAt: createdAt(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 export type ContractRow = typeof contracts.$inferSelect;
 

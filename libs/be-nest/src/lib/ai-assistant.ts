@@ -150,9 +150,7 @@ export class AiAssistant {
         ],
         messages: [{ role: 'user', content: request.user }],
       });
-      steps.push(
-        stepUsage(request.step.stepId, message, Date.now() - started),
-      );
+      steps.push(stepUsage(request.step.stepId, message, Date.now() - started));
       if (message.stop_reason === 'refusal')
         throw new AiAnswerError(
           'Claude declined to answer this. Try rephrasing your request.',

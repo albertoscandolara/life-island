@@ -168,14 +168,30 @@ export const SUGGESTED_CHECKUPS: readonly {
   everyMonths: number;
   note: string;
 }[] = [
-  { name: 'Dental check and cleaning', everyMonths: 6, note: 'Every 6–12 months' },
-  { name: 'Blood tests', everyMonths: 12, note: 'Yearly, or as your doctor says' },
+  {
+    name: 'Dental check and cleaning',
+    everyMonths: 6,
+    note: 'Every 6–12 months',
+  },
+  {
+    name: 'Blood tests',
+    everyMonths: 12,
+    note: 'Yearly, or as your doctor says',
+  },
   { name: 'Eye exam', everyMonths: 24, note: 'Every 1–2 years' },
   { name: 'Blood pressure', everyMonths: 12, note: 'At least yearly after 40' },
   { name: 'Skin check (moles)', everyMonths: 12, note: 'Yearly' },
-  { name: 'Pap test / HPV test', everyMonths: 36, note: 'Every 3–5 years (25–64)' },
+  {
+    name: 'Pap test / HPV test',
+    everyMonths: 36,
+    note: 'Every 3–5 years (25–64)',
+  },
   { name: 'Mammography', everyMonths: 24, note: 'Every 2 years (50–69)' },
-  { name: 'Colon screening (FOBT)', everyMonths: 24, note: 'Every 2 years (50–69)' },
+  {
+    name: 'Colon screening (FOBT)',
+    everyMonths: 24,
+    note: 'Every 2 years (50–69)',
+  },
 ];
 
 export const resultsExplainerOutputSchema = z.object({
@@ -188,13 +204,17 @@ export const resultsExplainerOutputSchema = z.object({
         test: z.string().describe('The test name, as written'),
         meaning: z
           .string()
-          .describe('What this test measures and what this value suggests, in plain words'),
+          .describe(
+            'What this test measures and what this value suggests, in plain words',
+          ),
         trend: z
           .string()
           .describe('How it moved over time, or empty with one reading'),
       }),
     )
-    .describe('One entry per test that is out of range or changing, at most eight'),
+    .describe(
+      'One entry per test that is out of range or changing, at most eight',
+    ),
   askTheDoctor: z
     .array(z.string())
     .describe('Up to five questions worth asking the doctor'),

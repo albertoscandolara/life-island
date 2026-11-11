@@ -57,7 +57,9 @@ export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {
 };
 
 /** `people=http://svc-people:3000,cars=…`; the local ports when unset. */
-export function parseSources(value: string | undefined): Record<string, string> {
+export function parseSources(
+  value: string | undefined,
+): Record<string, string> {
   if (!value?.trim()) return { ...LOCAL_AGENDA_SOURCES };
   const sources: Record<string, string> = {};
   for (const part of value.split(',')) {

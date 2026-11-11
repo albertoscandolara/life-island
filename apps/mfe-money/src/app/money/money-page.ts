@@ -48,17 +48,51 @@ import { MoneyApi } from '../api/money-api';
 import { parseBankCsv, type BankCsv } from './bank-csv';
 
 type MoneyTab = 'overview' | 'movements' | 'budgets' | 'recurring' | 'review';
-const TABS: readonly MoneyTab[] = ['overview', 'movements', 'budgets', 'recurring', 'review'];
+const TABS: readonly MoneyTab[] = [
+  'overview',
+  'movements',
+  'budgets',
+  'recurring',
+  'review',
+];
 const SERVICE = 'svc-money';
 const PAGE = 50;
 
 const ACCOUNT_FIELDS: readonly LiField[] = [
-  { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Fineco current account' },
+  {
+    key: 'name',
+    label: 'Name',
+    type: 'text',
+    required: true,
+    placeholder: 'Fineco current account',
+  },
   { key: 'institution', label: 'Bank', type: 'text' },
-  { key: 'kind', label: 'Kind', type: 'select', required: true, options: liOptions(ACCOUNT_KIND_LABELS) },
-  { key: 'openingBalance', label: 'Balance on the start date', type: 'money', hint: 'Negative for a debt' },
-  { key: 'openingDate', label: 'Start date', type: 'date', required: true, hint: 'Movements from this day on add up to the balance' },
-  { key: 'archived', label: 'Closed: keep its history, leave it out of the total', type: 'checkbox', wide: true },
+  {
+    key: 'kind',
+    label: 'Kind',
+    type: 'select',
+    required: true,
+    options: liOptions(ACCOUNT_KIND_LABELS),
+  },
+  {
+    key: 'openingBalance',
+    label: 'Balance on the start date',
+    type: 'money',
+    hint: 'Negative for a debt',
+  },
+  {
+    key: 'openingDate',
+    label: 'Start date',
+    type: 'date',
+    required: true,
+    hint: 'Movements from this day on add up to the balance',
+  },
+  {
+    key: 'archived',
+    label: 'Closed: keep its history, leave it out of the total',
+    type: 'checkbox',
+    wide: true,
+  },
   { key: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
@@ -69,9 +103,16 @@ const BUDGET_FIELDS: readonly LiField[] = [
     type: 'select',
     required: true,
     fixedOnEdit: true,
-    options: liOptions(MONEY_CATEGORY_LABELS).filter((o) => !['salary', 'other-income', 'savings'].includes(o.value)),
+    options: liOptions(MONEY_CATEGORY_LABELS).filter(
+      (o) => !['salary', 'other-income', 'savings'].includes(o.value),
+    ),
   },
-  { key: 'monthlyLimit', label: 'Monthly limit', type: 'money', required: true },
+  {
+    key: 'monthlyLimit',
+    label: 'Monthly limit',
+    type: 'money',
+    required: true,
+  },
 ];
 
 /**
@@ -85,7 +126,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
   imports: [
     AiTool,
     LiBars,
-      LiRecordDialog,
+    LiRecordDialog,
     LiTabs,
     UiAiPanel,
     UiAiStatus,
@@ -117,9 +158,24 @@ export class MoneyPage {
   protected readonly budgetFields = BUDGET_FIELDS;
   protected readonly categoryOptions = liOptions(MONEY_CATEGORY_LABELS);
 
-  protected readonly accounts = new RecordEditor(this.api, 'accounts', () => this.load(), SERVICE);
-  protected readonly budgets = new RecordEditor(this.api, 'budgets', () => this.load(), SERVICE);
-  protected readonly movements = new RecordEditor(this.api, 'transactions', () => this.load(), SERVICE);
+  protected readonly accounts = new RecordEditor(
+    this.api,
+    'accounts',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly budgets = new RecordEditor(
+    this.api,
+    'budgets',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly movements = new RecordEditor(
+    this.api,
+    'transactions',
+    () => this.load(),
+    SERVICE,
+  );
 
   // Movements: filters and paging
   protected readonly accountFilter = signal<string | null>(null);
@@ -145,14 +201,21 @@ export class MoneyPage {
     return [
       { id: 'overview', label: 'Overview', icon: 'chart' },
       { id: 'movements', label: 'Movements', icon: 'layers' },
-      { id: 'budgets', label: 'Budgets', icon: 'sliders', count: d?.budgets.filter((b) => b.share > 1).length },
+      {
+        id: 'budgets',
+        label: 'Budgets',
+        icon: 'sliders',
+        count: d?.budgets.filter((b) => b.share > 1).length,
+      },
       { id: 'recurring', label: 'Recurring', icon: 'refresh' },
       { id: 'review', label: 'Review', icon: 'sparkles' },
     ];
   });
 
   protected readonly accountName = computed(() => {
-    const names = new Map((this.data()?.accounts ?? []).map((a) => [a.id, a.name]));
+    const names = new Map(
+      (this.data()?.accounts ?? []).map((a) => [a.id, a.name]),
+    );
     return (id: string) => names.get(id) ?? '—';
   });
 
@@ -163,12 +226,32 @@ export class MoneyPage {
       label: 'Account',
       type: 'select',
       required: true,
-      options: (this.data()?.accounts ?? []).filter((a) => !a.archived).map((a) => ({ value: a.id, label: a.name })),
+      options: (this.data()?.accounts ?? [])
+        .filter((a) => !a.archived)
+        .map((a) => ({ value: a.id, label: a.name })),
     },
     { key: 'date', label: 'Date', type: 'date', required: true },
-    { key: 'amount', label: 'Amount', type: 'money', required: true, hint: 'Negative for money out, e.g. -45.90' },
-    { key: 'description', label: 'Description', type: 'text', required: true, wide: true },
-    { key: 'category', label: 'Category', type: 'select', options: this.categoryOptions, emptyLabel: 'Guess from the description' },
+    {
+      key: 'amount',
+      label: 'Amount',
+      type: 'money',
+      required: true,
+      hint: 'Negative for money out, e.g. -45.90',
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      type: 'text',
+      required: true,
+      wide: true,
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      type: 'select',
+      options: this.categoryOptions,
+      emptyLabel: 'Guess from the description',
+    },
     { key: 'notes', label: 'Notes', type: 'textarea' },
   ]);
 
@@ -206,7 +289,9 @@ export class MoneyPage {
 
   protected readonly review = computed<SpendingReviewDto | null>(() => {
     const reviews = this.data()?.reviews ?? [];
-    return reviews.find((r) => r.id === this.shownReview()) ?? reviews[0] ?? null;
+    return (
+      reviews.find((r) => r.id === this.shownReview()) ?? reviews[0] ?? null
+    );
   });
 
   constructor() {
@@ -248,11 +333,17 @@ export class MoneyPage {
   }
 
   protected addAccount(): void {
-    this.accounts.add({ kind: 'current', openingBalance: 0, openingDate: localToday() });
+    this.accounts.add({
+      kind: 'current',
+      openingBalance: 0,
+      openingDate: localToday(),
+    });
   }
 
   protected addMovement(): void {
-    const first = this.accountFilter() ?? this.data()?.accounts.find((a) => !a.archived)?.id;
+    const first =
+      this.accountFilter() ??
+      this.data()?.accounts.find((a) => !a.archived)?.id;
     this.movements.add({ accountId: first, date: localToday() });
   }
 
@@ -271,7 +362,11 @@ export class MoneyPage {
   // CSV import
 
   protected openImport(): void {
-    this.importAccount.set(this.accountFilter() ?? this.data()?.accounts.find((a) => !a.archived)?.id ?? null);
+    this.importAccount.set(
+      this.accountFilter() ??
+        this.data()?.accounts.find((a) => !a.archived)?.id ??
+        null,
+    );
     this.csv.set(null);
     this.importResult.set(null);
     this.importOpen.set(true);
@@ -283,7 +378,8 @@ export class MoneyPage {
     const buffer = await file.arrayBuffer();
     // Most Italian banks still export in Windows-1252.
     let text = new TextDecoder('utf-8').decode(buffer);
-    if (text.includes('�')) text = new TextDecoder('windows-1252').decode(buffer);
+    if (text.includes('�'))
+      text = new TextDecoder('windows-1252').decode(buffer);
     this.csv.set(parseBankCsv(text));
   }
 
@@ -304,7 +400,9 @@ export class MoneyPage {
       },
       error: (error: unknown) => {
         this.importing.set(false);
-        this.importResult.set(errorText(error, 'Could not import the file.', SERVICE));
+        this.importResult.set(
+          errorText(error, 'Could not import the file.', SERVICE),
+        );
       },
     });
   }
@@ -314,20 +412,24 @@ export class MoneyPage {
   protected ask(): void {
     this.asking.set(true);
     this.reviewStatus.set('idle');
-    this.api.writeReview({ question: this.question().trim() || null }).subscribe({
-      next: (review) => {
-        this.asking.set(false);
-        this.reviewStatus.set('done');
-        this.shownReview.set(review.id);
-        this.question.set('');
-        this.load();
-      },
-      error: (error: unknown) => {
-        this.asking.set(false);
-        this.reviewStatus.set('error');
-        this.error.set(errorText(error, 'Could not write the review.', SERVICE));
-      },
-    });
+    this.api
+      .writeReview({ question: this.question().trim() || null })
+      .subscribe({
+        next: (review) => {
+          this.asking.set(false);
+          this.reviewStatus.set('done');
+          this.shownReview.set(review.id);
+          this.question.set('');
+          this.load();
+        },
+        error: (error: unknown) => {
+          this.asking.set(false);
+          this.reviewStatus.set('error');
+          this.error.set(
+            errorText(error, 'Could not write the review.', SERVICE),
+          );
+        },
+      });
   }
 
   protected removeReview(id: string): void {

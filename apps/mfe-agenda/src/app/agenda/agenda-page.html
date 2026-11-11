@@ -7,24 +7,29 @@
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
   {{ message }}
-  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
     Dismiss
   </button>
 </ui-alert>
-}
-
-@if (!data() && !error()) {
+} @if (!data() && !error()) {
 <p class="li-muted">Loading your agenda…</p>
-}
-
-@if (data(); as d) {
+} @if (data(); as d) {
 <div class="li-tiles li-block">
   <div class="li-tile" [class.li-tile--danger]="counts().overdue > 0">
     <span class="li-tile__label">Overdue</span>
     <span class="li-tile__value">{{ counts().overdue }}</span>
     <span class="li-tile__hint">dates that have passed</span>
   </div>
-  <div class="li-tile li-tile--lead" [class.li-tile--warning]="counts().week > 0">
+  <div
+    class="li-tile li-tile--lead"
+    [class.li-tile--warning]="counts().week > 0"
+  >
     <span class="li-tile__label">Next 7 days</span>
     <span class="li-tile__value">{{ counts().week }}</span>
     <span class="li-tile__hint">today included</span>
@@ -41,12 +46,22 @@
   </div>
 </div>
 
-<li-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="setTab($event)" label="Agenda" />
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Agenda"
+/>
 
 @if (tab() === 'now' || tab() === 'ahead') {
 <div class="li-toolbar li-block">
   <div class="li-chips" role="group" aria-label="Show the dates of">
-    <button type="button" class="li-chip" [class.li-chip--on]="!areaFilter()" (click)="areaFilter.set(null)">
+    <button
+      type="button"
+      class="li-chip"
+      [class.li-chip--on]="!areaFilter()"
+      (click)="areaFilter.set(null)"
+    >
       All areas
     </button>
     @for (a of areas(); track a.module) {
@@ -61,79 +76,103 @@
     }
   </div>
   <label class="li-check">
-    <input type="checkbox" [checked]="showHandled()" (change)="showHandled.set($any($event.target).checked)" />
+    <input
+      type="checkbox"
+      [checked]="showHandled()"
+      (change)="showHandled.set($any($event.target).checked)"
+    />
     <span>Show handled</span>
   </label>
 </div>
 
 @if (unreachable().length) {
 <ui-alert tone="warning" class="li-block">
-  Could not read the dates of
-  @for (s of unreachable(); track s.module; let last = $last) {
-  <strong>{{ area(s.module).name }}</strong>{{ last ? '' : ', ' }}
-  }
-  right now, so they are missing here. The rest is up to date.
+  Could not read the dates of @for (s of unreachable(); track s.module; let last
+  = $last) {
+  <strong>{{ area(s.module).name }}</strong>{{ last ? '' : ', ' }} } right now,
+  so they are missing here. The rest is up to date.
 </ui-alert>
-}
-}
-
-@switch (tab()) {
-@case ('now') {
-@if (!overdue().length && !todayEntries().length && !week().length && !month().length) {
+} } @switch (tab()) { @case ('now') { @if (!overdue().length &&
+!todayEntries().length && !week().length && !month().length) {
 <ui-empty-state icon="check" heading="Nothing in the next month">
-  No date needs you in the next 31 days. Look at the year ahead, or add your own reminder.
-  <button uiButton type="button" (click)="addItem()"><ui-icon name="plus" [size]="16" /> Add a reminder</button>
+  No date needs you in the next 31 days. Look at the year ahead, or add your own
+  reminder.
+  <button uiButton type="button" (click)="addItem()">
+    <ui-icon name="plus" [size]="16" /> Add a reminder
+  </button>
 </ui-empty-state>
-}
-@if (overdue().length) {
+} @if (overdue().length) {
 <section class="group group--late li-block" aria-labelledby="g-late">
-  <h2 id="g-late" class="li-sub">Late <span class="li-muted">· {{ overdue().length }}</span></h2>
-  <p class="li-muted li-small">These dates have passed. Mark each one done once it is handled, so it stops showing.</p>
-  <agenda-entry-list [entries]="overdue()" (toggle)="toggle($event)" (edit)="editEntry($event)" />
+  <h2 id="g-late" class="li-sub">
+    Late <span class="li-muted">· {{ overdue().length }}</span>
+  </h2>
+  <p class="li-muted li-small">
+    These dates have passed. Mark each one done once it is handled, so it stops
+    showing.
+  </p>
+  <agenda-entry-list
+    [entries]="overdue()"
+    (toggleDone)="toggle($event)"
+    (edit)="editEntry($event)"
+  />
 </section>
-}
-@if (todayEntries().length) {
+} @if (todayEntries().length) {
 <section class="group li-block" aria-labelledby="g-today">
   <h2 id="g-today" class="li-sub">Today</h2>
-  <agenda-entry-list [entries]="todayEntries()" (toggle)="toggle($event)" (edit)="editEntry($event)" />
+  <agenda-entry-list
+    [entries]="todayEntries()"
+    (toggleDone)="toggle($event)"
+    (edit)="editEntry($event)"
+  />
 </section>
-}
-@if (week().length) {
+} @if (week().length) {
 <section class="group li-block" aria-labelledby="g-week">
   <h2 id="g-week" class="li-sub">This week</h2>
-  <agenda-entry-list [entries]="week()" (toggle)="toggle($event)" (edit)="editEntry($event)" />
+  <agenda-entry-list
+    [entries]="week()"
+    (toggleDone)="toggle($event)"
+    (edit)="editEntry($event)"
+  />
 </section>
-}
-@if (month().length) {
+} @if (month().length) {
 <section class="group li-block" aria-labelledby="g-month">
   <h2 id="g-month" class="li-sub">Later this month</h2>
-  <agenda-entry-list [entries]="month()" [showDetail]="false" (toggle)="toggle($event)" (edit)="editEntry($event)" />
+  <agenda-entry-list
+    [entries]="month()"
+    [showDetail]="false"
+    (toggleDone)="toggle($event)"
+    (edit)="editEntry($event)"
+  />
 </section>
-}
-}
-
-@case ('ahead') {
-@if (!months().length) {
+} } @case ('ahead') { @if (!months().length) {
 <ui-empty-state icon="calendar" heading="No dates ahead">
-  When your areas have renewals, expiries or bills ahead, or you add a reminder, they show here month by month.
+  When your areas have renewals, expiries or bills ahead, or you add a reminder,
+  they show here month by month.
 </ui-empty-state>
-}
-@for (m of months(); track m.month) {
+} @for (m of months(); track m.month) {
 <section class="group li-block" [attr.aria-label]="monthText(m.month)">
-  <h2 class="li-sub month">{{ monthText(m.month) }} <span class="li-muted">· {{ m.entries.length }}</span></h2>
-  <agenda-entry-list [entries]="m.entries" [showDetail]="false" (toggle)="toggle($event)" (edit)="editEntry($event)" />
+  <h2 class="li-sub month">
+    {{ monthText(m.month) }}
+    <span class="li-muted">· {{ m.entries.length }}</span>
+  </h2>
+  <agenda-entry-list
+    [entries]="m.entries"
+    [showDetail]="false"
+    (toggleDone)="toggle($event)"
+    (edit)="editEntry($event)"
+  />
 </section>
-}
-}
-
-@case ('items') {
+} } @case ('items') {
 <ui-card heading="My reminders" class="li-block">
   <div uiCardActions class="li-actions">
-    <button uiButton type="button" (click)="addItem()"><ui-icon name="plus" [size]="16" /> Add</button>
+    <button uiButton type="button" (click)="addItem()">
+      <ui-icon name="plus" [size]="16" /> Add
+    </button>
   </div>
   <p class="li-intro li-muted">
-    Dates that belong to no area: a birthday, the plumber, a monthly rent. A repeating one shows once for each date in the year ahead,
-    and each date is marked done on its own.
+    Dates that belong to no area: a birthday, the plumber, a monthly rent. A
+    repeating one shows once for each date in the year ahead, and each date is
+    marked done on its own.
   </p>
   @if (!d.items.length) {
   <ui-empty-state icon="calendar" heading="No reminders yet">
@@ -152,7 +191,14 @@
           @if (i.done) { <span class="li-good">Done</span> }
         </span>
       </span>
-      <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + i.title" (click)="items.edit(i)">
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="'Edit ' + i.title"
+        (click)="items.edit(i)"
+      >
         <ui-icon name="edit" [size]="16" />
       </button>
     </li>
@@ -163,27 +209,27 @@
 
 <ui-card heading="The Italian calendar" class="li-block">
   <p class="li-muted li-small">
-    @if (d.italianCalendar) {
-    The yearly dates everyone in Italy has (ISEE, CU, 730, IMU, tyre changes) are shown with yours. You can turn them off in
-    Settings → App.
-    } @else {
-    The yearly Italian dates (ISEE, CU, 730, IMU, tyre changes) are hidden. Turn them on in Settings → App.
-    }
+    @if (d.italianCalendar) { The yearly dates everyone in Italy has (ISEE, CU,
+    730, IMU, tyre changes) are shown with yours. You can turn them off in
+    Settings → App. } @else { The yearly Italian dates (ISEE, CU, 730, IMU, tyre
+    changes) are hidden. Turn them on in Settings → App. }
   </p>
 </ui-card>
-}
-
-@case ('brief') {
-<ui-ai-panel heading="Week brief" class="li-block" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiBrief">
+} @case ('brief') {
+<ui-ai-panel
+  heading="Week brief"
+  class="li-block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!d.aiBrief"
+>
   <li-ai-tool uiAiPanelActions toolId="agenda.week-brief" />
   <p class="li-muted li-intro">
-    @if (d.aiBrief) {
-    Claude reads the open dates of the next 45 days (date, area, title, amount) and tells you what to do first, what can wait, and
-    how to make the week lighter. Nothing else is sent.
-    } @else {
-    Without a Claude API key, or with the tool off in Settings → AI tools, the brief comes from Life Island's own rules: late dates
-    first, then this week by date, then what can wait.
-    }
+    @if (d.aiBrief) { Claude reads the open dates of the next 45 days (date,
+    area, title, amount) and tells you what to do first, what can wait, and how
+    to make the week lighter. Nothing else is sent. } @else { Without a Claude
+    API key, or with the tool off in Settings → AI tools, the brief comes from
+    Life Island's own rules: late dates first, then this week by date, then what
+    can wait. }
   </p>
   <form class="ask" (submit)="$event.preventDefault(); ask()">
     <textarea
@@ -210,10 +256,22 @@
 </ui-ai-panel>
 
 @if (brief(); as b) {
-<ui-ai-panel [heading]="b.question ? b.question : 'Your week'" kind="result" [offline]="b.source !== 'claude'" class="li-block">
+<ui-ai-panel
+  [heading]="b.question ? b.question : 'Your week'"
+  kind="result"
+  [offline]="b.source !== 'claude'"
+  class="li-block"
+>
   <div uiAiPanelActions class="li-actions">
     <span class="li-muted li-small">{{ dateText(b.createdAt) }}</span>
-    <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this brief" (click)="removeBrief(b.id)">
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this brief"
+      (click)="removeBrief(b.id)"
+    >
       <ui-icon name="trash" [size]="16" />
     </button>
   </div>
@@ -223,21 +281,20 @@
   <ol class="priorities">
     @for (p of b.output.priorities; track $index) {
     <li>
-      <strong>{{ p.title }}</strong> <span class="li-muted li-small">· {{ p.when }}</span>
+      <strong>{{ p.title }}</strong>
+      <span class="li-muted li-small">· {{ p.when }}</span>
       <p class="li-muted li-small">{{ p.why }}</p>
     </li>
     }
   </ol>
-  }
-  @if (b.output.canWait.length) {
+  } @if (b.output.canWait.length) {
   <h3 class="li-sub">Can wait</h3>
   <ul class="plain">
     @for (c of b.output.canWait; track $index) {
     <li>{{ c }}</li>
     }
   </ul>
-  }
-  @if (b.output.tips.length) {
+  } @if (b.output.tips.length) {
   <h3 class="li-sub">Tips</h3>
   <ul class="plain">
     @for (t of b.output.tips; track $index) {
@@ -246,23 +303,23 @@
   </ul>
   }
 </ui-ai-panel>
-}
-
-@if (d.briefs.length > 1) {
+} @if (d.briefs.length > 1) {
 <ui-card heading="Earlier briefs" class="li-block">
   <ul class="li-list">
     @for (b of d.briefs; track b.id) {
     <li class="li-row">
-      <button type="button" class="li-link" (click)="shownBrief.set(b.id)">{{ b.question ?? 'Your week' }}</button>
-      <span class="li-muted li-small">{{ dateText(b.createdAt) }} · {{ b.source === 'claude' ? 'AI' : 'Life Island rules' }}</span>
+      <button type="button" class="li-link" (click)="shownBrief.set(b.id)">
+        {{ b.question ?? 'Your week' }}
+      </button>
+      <span class="li-muted li-small"
+        >{{ dateText(b.createdAt) }} · {{ b.source === 'claude' ? 'AI' : 'Life
+        Island rules' }}</span
+      >
     </li>
     }
   </ul>
 </ui-card>
-}
-}
-}
-}
+} } } }
 
 <li-record-dialog
   heading="Reminder"

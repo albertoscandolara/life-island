@@ -26,7 +26,12 @@ export const LIST_RECORDS = Symbol('ShoppingListRecords');
 
 export function listCollections(db: NodePgDatabase): RecordCollections {
   return new RecordCollections(db, [
-    { name: 'list', label: 'Item', table: shoppingItems, request: shoppingItemRequestSchema },
+    {
+      name: 'list',
+      label: 'Item',
+      table: shoppingItems,
+      request: shoppingItemRequestSchema,
+    },
   ]);
 }
 
@@ -57,7 +62,10 @@ export class ShoppingController {
 
   @Put('list/:id')
   @HttpCode(204)
-  change(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<void> {
+  change(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
     return this.records.update('list', id, body);
   }
 
@@ -70,12 +78,20 @@ export class ShoppingController {
   /** The shopping-list tool (Claude, or Life Island's own rules). */
   @Post('suggestions')
   suggest(@Body() body: unknown): Promise<ShoppingSuggestionDto> {
-    return this.shopping.suggest(parseOrThrow(lifeQuestionRequestSchema, body ?? {}));
+    return this.shopping.suggest(
+      parseOrThrow(lifeQuestionRequestSchema, body ?? {}),
+    );
   }
 
   @Post('suggestions/:id/apply')
-  apply(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<{ added: number }> {
-    return this.shopping.apply(id, parseOrThrow(applySuggestionRequestSchema, body ?? {}));
+  apply(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<{ added: number }> {
+    return this.shopping.apply(
+      id,
+      parseOrThrow(applySuggestionRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('suggestions/:id')

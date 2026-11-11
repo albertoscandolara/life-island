@@ -9,7 +9,12 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { UiAlert, UiButton, UiDialog, UiIcon } from '@life-island/design-system';
+import {
+  UiAlert,
+  UiButton,
+  UiDialog,
+  UiIcon,
+} from '@life-island/design-system';
 import { numberOrNull } from './format';
 
 export type LiFieldType =
@@ -106,15 +111,18 @@ type Draft = Record<string, string | boolean>;
               }
             </label>
           } @else {
+            <!-- The control is inside the label, in the @switch below. -->
+            <!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
             <label
               class="field"
               [class.wide]="field.wide || field.type === 'textarea'"
             >
               <span class="label"
-                >{{ field.label }}@if (field.required) {
+                >{{ field.label }}
+                @if (field.required) {
                   <span aria-hidden="true"> *</span>
-                }</span
-              >
+                }
+              </span>
               @switch (field.type) {
                 @case ('textarea') {
                   <textarea

@@ -112,12 +112,8 @@
           "tableFrom": "goal_steps",
           "tableTo": "goals",
           "schemaTo": "goals",
-          "columnsFrom": [
-            "goal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["goal_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -224,12 +220,8 @@
           "tableFrom": "habit_checks",
           "tableTo": "habits",
           "schemaTo": "goals",
-          "columnsFrom": [
-            "habit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["habit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -237,10 +229,7 @@
       "compositePrimaryKeys": {
         "habit_checks_habit_id_date_pk": {
           "name": "habit_checks_habit_id_date_pk",
-          "columns": [
-            "habit_id",
-            "date"
-          ]
+          "columns": ["habit_id", "date"]
         }
       },
       "uniqueConstraints": {},
@@ -300,12 +289,8 @@
           "tableFrom": "habits",
           "tableTo": "goals",
           "schemaTo": "goals",
-          "columnsFrom": [
-            "goal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["goal_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -403,9 +388,7 @@
         "weekly_reviews_week_start_unique": {
           "name": "weekly_reviews_week_start_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "week_start"
-          ]
+          "columns": ["week_start"]
         }
       },
       "policies": {},

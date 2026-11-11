@@ -1,6 +1,10 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { RecordCollection } from '@life-island/be-nest';
-import { guessLetterKind, letterRequestSchema, type LetterRequest } from '@life-island/contracts';
+import {
+  guessLetterKind,
+  letterRequestSchema,
+  type LetterRequest,
+} from '@life-island/contracts';
 import { letters } from '../db/schema.js';
 
 export const RECORDS = Symbol('MailboxRecords');
@@ -18,7 +22,9 @@ export function collections(_db: NodePgDatabase): RecordCollection[] {
           ? request
           : {
               ...request,
-              kind: guessLetterKind(`${request.sender ?? ''} ${request.subject} ${request.text ?? ''}`),
+              kind: guessLetterKind(
+                `${request.sender ?? ''} ${request.subject} ${request.text ?? ''}`,
+              ),
             },
     },
   ];

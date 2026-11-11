@@ -49,9 +49,29 @@ const SERVICE = 'svc-fitness';
 
 const WORKOUT_FIELDS: readonly LiField[] = [
   { key: 'date', label: 'Date', type: 'date', required: true },
-  { key: 'kind', label: 'What', type: 'select', required: true, options: liOptions(WORKOUT_KIND_LABELS) },
-  { key: 'minutes', label: 'Minutes', type: 'number', required: true, min: 1, max: 1440 },
-  { key: 'intensity', label: 'How hard', type: 'select', required: true, options: liOptions(INTENSITY_LABELS), hint: 'Moderate: you can talk, not sing. Hard: only a few words.' },
+  {
+    key: 'kind',
+    label: 'What',
+    type: 'select',
+    required: true,
+    options: liOptions(WORKOUT_KIND_LABELS),
+  },
+  {
+    key: 'minutes',
+    label: 'Minutes',
+    type: 'number',
+    required: true,
+    min: 1,
+    max: 1440,
+  },
+  {
+    key: 'intensity',
+    label: 'How hard',
+    type: 'select',
+    required: true,
+    options: liOptions(INTENSITY_LABELS),
+    hint: 'Moderate: you can talk, not sing. Hard: only a few words.',
+  },
   { key: 'distanceKm', label: 'Distance (km)', type: 'number', min: 0 },
   { key: 'notes', label: 'Notes', type: 'textarea' },
 ];
@@ -60,15 +80,38 @@ const MEASUREMENT_FIELDS: readonly LiField[] = [
   { key: 'date', label: 'Date', type: 'date', required: true },
   { key: 'weightKg', label: 'Weight (kg)', type: 'number', min: 1, max: 400 },
   { key: 'waistCm', label: 'Waist (cm)', type: 'number', min: 10, max: 300 },
-  { key: 'restingHr', label: 'Resting heart rate', type: 'number', min: 20, max: 220 },
-  { key: 'sleepHours', label: 'Sleep (hours)', type: 'number', min: 0, max: 24 },
+  {
+    key: 'restingHr',
+    label: 'Resting heart rate',
+    type: 'number',
+    min: 20,
+    max: 220,
+  },
+  {
+    key: 'sleepHours',
+    label: 'Sleep (hours)',
+    type: 'number',
+    min: 0,
+    max: 24,
+  },
   { key: 'steps', label: 'Steps', type: 'number', min: 0 },
 ];
 
 const EVENT_FIELDS: readonly LiField[] = [
-  { key: 'name', label: 'Event', type: 'text', required: true, placeholder: 'Milano 10 km, a hike, a padel tournament' },
+  {
+    key: 'name',
+    label: 'Event',
+    type: 'text',
+    required: true,
+    placeholder: 'Milano 10 km, a hike, a padel tournament',
+  },
   { key: 'date', label: 'Date', type: 'date', required: true },
-  { key: 'target', label: 'Target', type: 'text', placeholder: 'Finish, under 55 minutes…' },
+  {
+    key: 'target',
+    label: 'Target',
+    type: 'text',
+    placeholder: 'Finish, under 55 minutes…',
+  },
   { key: 'done', label: 'Done', type: 'checkbox' },
   { key: 'result', label: 'Result', type: 'text' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
@@ -129,9 +172,24 @@ export class FitnessPage {
   protected readonly measurementFields = MEASUREMENT_FIELDS;
   protected readonly eventFields = EVENT_FIELDS;
 
-  protected readonly workouts = new RecordEditor(this.api, 'workouts', () => this.load(), SERVICE);
-  protected readonly measurements = new RecordEditor(this.api, 'measurements', () => this.load(), SERVICE);
-  protected readonly events = new RecordEditor(this.api, 'events', () => this.load(), SERVICE);
+  protected readonly workouts = new RecordEditor(
+    this.api,
+    'workouts',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly measurements = new RecordEditor(
+    this.api,
+    'measurements',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly events = new RecordEditor(
+    this.api,
+    'events',
+    () => this.load(),
+    SERVICE,
+  );
 
   protected readonly question = signal('');
   protected readonly asking = signal(false);
@@ -149,7 +207,10 @@ export class FitnessPage {
     (this.data()?.weeks ?? []).map((w) => ({
       label: w.weekStart.slice(8) + '/' + w.weekStart.slice(5, 7),
       value: w.activeMinutes,
-      tone: w.activeMinutes >= (this.data()?.goalMinutes ?? 150) ? 'accent' : 'muted',
+      tone:
+        w.activeMinutes >= (this.data()?.goalMinutes ?? 150)
+          ? 'accent'
+          : 'muted',
       title: `Week of ${dateText(w.weekStart)}: ${w.activeMinutes} active minutes in ${w.workouts} workouts`,
     })),
   );
@@ -161,7 +222,9 @@ export class FitnessPage {
 
   protected readonly progress = computed(() => {
     const d = this.data();
-    return d ? Math.min(100, Math.round((d.stats.thisWeek / d.goalMinutes) * 100)) : 0;
+    return d
+      ? Math.min(100, Math.round((d.stats.thisWeek / d.goalMinutes) * 100))
+      : 0;
   });
 
   protected readonly weightBars = computed<LiBar[]>(() =>
@@ -169,7 +232,11 @@ export class FitnessPage {
       .filter((m) => m.weightKg !== null)
       .slice(0, 12)
       .reverse()
-      .map((m) => ({ label: m.date.slice(8) + '/' + m.date.slice(5, 7), value: m.weightKg!, title: `${dateText(m.date)}: ${m.weightKg} kg` })),
+      .map((m) => ({
+        label: m.date.slice(8) + '/' + m.date.slice(5, 7),
+        value: m.weightKg!,
+        title: `${dateText(m.date)}: ${m.weightKg} kg`,
+      })),
   );
 
   protected readonly plan = computed<TrainingPlanDto | null>(() => {
@@ -182,7 +249,9 @@ export class FitnessPage {
   }
 
   private initialTab(): FitnessTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab') as FitnessTab | null;
+    const tab = this.route.snapshot.queryParamMap.get(
+      'tab',
+    ) as FitnessTab | null;
     return tab && TABS.includes(tab) ? tab : 'week';
   }
 
@@ -202,7 +271,10 @@ export class FitnessPage {
         this.data.set(data);
         this.error.set(null);
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not load your fitness.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(
+          errorText(error, 'Could not load your fitness.', SERVICE),
+        ),
     });
   }
 
@@ -215,7 +287,12 @@ export class FitnessPage {
   }
 
   protected addWorkout(kind: WorkoutKind = 'walk'): void {
-    this.workouts.add({ date: localToday(), kind, intensity: 'moderate', minutes: 30 });
+    this.workouts.add({
+      date: localToday(),
+      kind,
+      intensity: 'moderate',
+      minutes: 30,
+    });
   }
 
   protected ask(): void {
@@ -243,9 +320,17 @@ export class FitnessPage {
         this.shownPlan.set(null);
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
     });
   }
 
-  protected readonly quickKinds: WorkoutKind[] = ['walk', 'run', 'cycle', 'gym', 'yoga', 'swim'];
+  protected readonly quickKinds: WorkoutKind[] = [
+    'walk',
+    'run',
+    'cycle',
+    'gym',
+    'yoga',
+    'swim',
+  ];
 }

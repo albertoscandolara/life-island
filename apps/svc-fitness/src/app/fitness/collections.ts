@@ -12,8 +12,23 @@ export const RECORDS = Symbol('FitnessRecords');
 /** Fitness' plain records. */
 export function collections(_db: NodePgDatabase): RecordCollection[] {
   return [
-    { name: 'workouts', label: 'Workout', table: workouts, request: workoutRequestSchema },
-    { name: 'measurements', label: 'Measurement', table: measurements, request: measurementRequestSchema },
-    { name: 'events', label: 'Event', table: fitnessEvents, request: fitnessEventRequestSchema },
+    {
+      name: 'workouts',
+      label: 'Workout',
+      table: workouts,
+      request: workoutRequestSchema,
+    },
+    {
+      name: 'measurements',
+      label: 'Measurement',
+      table: measurements,
+      request: measurementRequestSchema,
+    },
+    {
+      name: 'events',
+      label: 'Event',
+      table: fitnessEvents,
+      request: fitnessEventRequestSchema,
+    },
   ];
 }

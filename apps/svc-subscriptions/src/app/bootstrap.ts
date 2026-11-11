@@ -5,7 +5,10 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { AppModule } from './app.module.js';
-import { LOCAL_SUBSCRIPTIONS_DATABASE_URL, type ServiceConfig } from './config.js';
+import {
+  LOCAL_SUBSCRIPTIONS_DATABASE_URL,
+  type ServiceConfig,
+} from './config.js';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../../drizzle', import.meta.url),
@@ -64,7 +67,9 @@ export async function ensureLocalSchema(
     const sql = await readFile(SCHEMA_UPGRADE, 'utf8');
     await admin.connect();
     await admin.query(sql);
-    logger.log('Added the subscriptions schema and role to your local database');
+    logger.log(
+      'Added the subscriptions schema and role to your local database',
+    );
     return true;
   } catch (error) {
     logger.error(

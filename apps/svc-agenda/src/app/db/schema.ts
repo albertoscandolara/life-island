@@ -25,7 +25,10 @@ export const agendaItems = agenda.table('agenda_items', {
   date: date('date').notNull(),
   time: text('time'),
   repeat: text('repeat').$type<AgendaRepeat>().notNull().default('none'),
-  category: text('category').$type<AgendaCategory>().notNull().default('personal'),
+  category: text('category')
+    .$type<AgendaCategory>()
+    .notNull()
+    .default('personal'),
   notes: text('notes'),
   done: boolean('done').notNull().default(false),
   createdAt: createdAt(),

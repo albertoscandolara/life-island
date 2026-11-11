@@ -1,4 +1,8 @@
-import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import { AiAssistant, requireRow } from '@life-island/be-nest';
 import {
@@ -82,16 +86,21 @@ export class GoalsService implements OnApplicationBootstrap {
   }
 
   private async state(day: string) {
-    const [goalRows, stepRows, habitRows, checkRows, reviewRows] = await Promise.all([
-      this.db.select().from(goals).orderBy(desc(goals.createdAt)),
-      this.db.select().from(goalSteps),
-      this.db.select().from(habits).orderBy(habits.createdAt),
-      this.db
-        .select()
-        .from(habitChecks)
-        .where(gte(habitChecks.date, isoAddDays(day, -7 * 26))),
-      this.db.select().from(weeklyReviews).orderBy(desc(weeklyReviews.weekStart)).limit(12),
-    ]);
+    const [goalRows, stepRows, habitRows, checkRows, reviewRows] =
+      await Promise.all([
+        this.db.select().from(goals).orderBy(desc(goals.createdAt)),
+        this.db.select().from(goalSteps),
+        this.db.select().from(habits).orderBy(habits.createdAt),
+        this.db
+          .select()
+          .from(habitChecks)
+          .where(gte(habitChecks.date, isoAddDays(day, -7 * 26))),
+        this.db
+          .select()
+          .from(weeklyReviews)
+          .orderBy(desc(weeklyReviews.weekStart))
+          .limit(12),
+      ]);
     const steps = stepRows.map((s) => ({ ...s, createdAt: iso(s.createdAt) }));
     const order = { active: 0, paused: 1, done: 2, dropped: 3 };
     return {
@@ -114,7 +123,11 @@ export class GoalsService implements OnApplicationBootstrap {
   async overview(day = today()): Promise<GoalsOverviewDto> {
     const [state, adviceRows, aiCoach] = await Promise.all([
       this.state(day),
-      this.db.select().from(coachAnswers).orderBy(desc(coachAnswers.createdAt)).limit(5),
+      this.db
+        .select()
+        .from(coachAnswers)
+        .orderBy(desc(coachAnswers.createdAt))
+        .limit(5),
       this.ai.active(),
     ]);
     const weekStart = isoWeekStart(day);
@@ -129,7 +142,10 @@ export class GoalsService implements OnApplicationBootstrap {
   }
 
   /** The target dates of active goals and the due dates of their open steps. */
-  async deadlines(query: DeadlinesQuery, day = today()): Promise<DeadlineDto[]> {
+  async deadlines(
+    query: DeadlinesQuery,
+    day = today(),
+  ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, day);
     const { goals: all } = await this.state(day);
     const out: DeadlineDto[] = [];
@@ -140,12 +156,17 @@ export class GoalsService implements OnApplicationBootstrap {
           module: 'goals',
           kind: 'goal',
           title: `Goal: ${g.title}`,
-          detail: g.progress === null ? 'No steps yet.' : `${g.progress}% of the steps done.`,
+          detail:
+            g.progress === null
+              ? 'No steps yet.'
+              : `${g.progress}% of the steps done.`,
           date: g.targetDate,
           amount: null,
           path: '/goals',
         });
-      for (const s of g.steps.filter((s) => !s.done && s.dueDate && inDeadlineWindow(s.dueDate, window)))
+      for (const s of g.steps.filter(
+        (s) => !s.done && s.dueDate && inDeadlineWindow(s.dueDate, window),
+      ))
         out.push({
           id: `step:${s.id}:${s.dueDate}`,
           module: 'goals',
@@ -173,11 +194,16 @@ export class GoalsService implements OnApplicationBootstrap {
   async checkHabit(id: string, request: HabitCheckRequest): Promise<void> {
     await requireRow(this.db, habits, id, 'Habit');
     if (request.done)
-      await this.db.insert(habitChecks).values({ habitId: id, date: request.date }).onConflictDoNothing();
+      await this.db
+        .insert(habitChecks)
+        .values({ habitId: id, date: request.date })
+        .onConflictDoNothing();
     else
       await this.db
         .delete(habitChecks)
-        .where(and(eq(habitChecks.habitId, id), eq(habitChecks.date, request.date)));
+        .where(
+          and(eq(habitChecks.habitId, id), eq(habitChecks.date, request.date)),
+        );
   }
 
   /** Writes the review of a week, replacing what was there. */
@@ -189,7 +215,10 @@ export class GoalsService implements OnApplicationBootstrap {
       .onConflictDoUpdate({ target: weeklyReviews.weekStart, set: values });
   }
 
-  async coach(request: LifeQuestionRequest, day = today()): Promise<GoalsCoachDto> {
+  async coach(
+    request: LifeQuestionRequest,
+    day = today(),
+  ): Promise<GoalsCoachDto> {
     const state = await this.state(day);
     const question = request.question?.trim() || null;
     let row: Omit<CoachAnswerRow, 'id' | 'createdAt'>;
@@ -199,9 +228,19 @@ export class GoalsService implements OnApplicationBootstrap {
         output: goalsCoachOutputSchema,
         user: `${coachDossier(day, state.goals, state.habits, state.reviews)}\n\n${question ? `My question: ${question}` : 'Help me move forward.'}`,
       });
-      row = { question, output: answer.output, source: 'claude', model: answer.model };
+      row = {
+        question,
+        output: answer.output,
+        source: 'claude',
+        model: answer.model,
+      };
     } else
-      row = { question, output: offlineCoach(state.goals, state.habits), source: 'offline', model: null };
+      row = {
+        question,
+        output: offlineCoach(state.goals, state.habits),
+        source: 'offline',
+        model: null,
+      };
     const [saved] = await this.db.insert(coachAnswers).values(row).returning();
     const old = await this.db
       .select({ id: coachAnswers.id })
@@ -209,7 +248,12 @@ export class GoalsService implements OnApplicationBootstrap {
       .orderBy(desc(coachAnswers.createdAt))
       .offset(10);
     if (old.length)
-      await this.db.delete(coachAnswers).where(inArray(coachAnswers.id, old.map((o) => o.id)));
+      await this.db.delete(coachAnswers).where(
+        inArray(
+          coachAnswers.id,
+          old.map((o) => o.id),
+        ),
+      );
     return toAdviceDto(saved);
   }
 

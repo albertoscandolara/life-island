@@ -115,9 +115,7 @@
         "budgets_category_unique": {
           "name": "budgets_category_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "category"
-          ]
+          "columns": ["category"]
         }
       },
       "policies": {},
@@ -285,12 +283,8 @@
           "tableFrom": "transactions",
           "tableTo": "accounts",
           "schemaTo": "money",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

@@ -24,11 +24,20 @@ export class GroceriesApi extends RecordsApi {
   }
 
   suggest(request: LifeQuestionRequest): Observable<ShoppingSuggestionDto> {
-    return this.http.post<ShoppingSuggestionDto>(`${this.base}/suggestions`, request);
+    return this.http.post<ShoppingSuggestionDto>(
+      `${this.base}/suggestions`,
+      request,
+    );
   }
 
-  apply(id: string, request: ApplySuggestionRequest): Observable<{ added: number }> {
-    return this.http.post<{ added: number }>(`${this.base}/suggestions/${id}/apply`, request);
+  apply(
+    id: string,
+    request: ApplySuggestionRequest,
+  ): Observable<{ added: number }> {
+    return this.http.post<{ added: number }>(
+      `${this.base}/suggestions/${id}/apply`,
+      request,
+    );
   }
 
   removeSuggestion(id: string): Observable<void> {

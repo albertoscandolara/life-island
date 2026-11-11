@@ -13,9 +13,7 @@
 <app-island-view class="island" [modules]="modules()" (open)="open($event)" />
 } @placeholder {
 <div class="island island--placeholder" aria-hidden="true"></div>
-} }
-
-@if (comingUp().length) {
+} } @if (comingUp().length) {
 <section class="coming" data-character="compy" aria-labelledby="coming-title">
   <div class="coming__head">
     <h2 class="section-title" id="coming-title">Coming up</h2>

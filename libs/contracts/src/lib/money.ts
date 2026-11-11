@@ -95,7 +95,10 @@ export const transactionRequestSchema = z.object({
   accountId: z.uuid(),
   date: lifeDate,
   /** Money in is positive, money out negative. */
-  amount: lifeSignedAmount.refine((v) => v !== 0, 'An amount of 0 is not a movement'),
+  amount: lifeSignedAmount.refine(
+    (v) => v !== 0,
+    'An amount of 0 is not a movement',
+  ),
   description: lifeName(200),
   category: z.enum(MONEY_CATEGORIES).optional(),
   notes: lifeNote(500),
@@ -244,12 +247,27 @@ export function guessMoneyCategory(
   const rules: [RegExp, MoneyCategory][] = [
     [/stipend|salary|retribuz|emolument|busta paga/, 'salary'],
     [/affitto|rent|mutuo|mortgage|condomin/, 'housing'],
-    [/enel|eni plenitude|a2a|hera|iren|edison|acea|bolletta|gas|luce|acqua|tim |vodafone|wind|iliad|fastweb/, 'bills'],
-    [/esselunga|coop|conad|carrefour|lidl|eurospin|pam |despar|iper|supermerc|aldi|penny/, 'groceries'],
-    [/benzin|carbur|q8|tamoil|ip |esso|autostrad|telepass|trenitalia|italo|atm |metro|parchegg|taxi|uber/, 'transport'],
+    [
+      /enel|eni plenitude|a2a|hera|iren|edison|acea|bolletta|gas|luce|acqua|tim |vodafone|wind|iliad|fastweb/,
+      'bills',
+    ],
+    [
+      /esselunga|coop|conad|carrefour|lidl|eurospin|pam |despar|iper|supermerc|aldi|penny/,
+      'groceries',
+    ],
+    [
+      /benzin|carbur|q8|tamoil|ip |esso|autostrad|telepass|trenitalia|italo|atm |metro|parchegg|taxi|uber/,
+      'transport',
+    ],
     [/farmac|medic|dentist|ospedal|asl|ticket sanit/, 'health'],
-    [/netflix|spotify|disney|prime video|amazon prime|apple\.com|icloud|google storage|youtube|dazn|now tv|chatgpt|claude/, 'subscriptions'],
-    [/ristorant|pizzer|bar |caffe|trattor|osteria|mcdonald|burger|sushi|deliveroo|glovo|just eat/, 'eating-out'],
+    [
+      /netflix|spotify|disney|prime video|amazon prime|apple\.com|icloud|google storage|youtube|dazn|now tv|chatgpt|claude/,
+      'subscriptions',
+    ],
+    [
+      /ristorant|pizzer|bar |caffe|trattor|osteria|mcdonald|burger|sushi|deliveroo|glovo|just eat/,
+      'eating-out',
+    ],
     [/amazon|zalando|ikea|decathlon|mediaworld|unieuro|shein/, 'shopping'],
     [/ryanair|easyjet|ita airways|booking|airbnb|hotel|expedia/, 'travel'],
     [/f24|agenzia entrate|tribut|imu|tari|bollo|pagopa/, 'taxes'],

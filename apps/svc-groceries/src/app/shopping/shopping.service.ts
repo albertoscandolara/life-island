@@ -110,37 +110,78 @@ export class ShoppingService implements OnApplicationBootstrap {
 
   async overview(day = today()): Promise<GroceriesOverviewDto> {
     const since = isoAddMonths(`${day.slice(0, 7)}-01`, -12);
-    const [lines, receiptRows, list, suggestionRows, aiList] = await Promise.all([
-      this.lines(day),
-      this.svc.pool.query<{ id: string; date: string; total: string; merchant_id: string; merchant: string }>(
-        `select r.id, (r.purchased_at at time zone $2)::date::text as date, r.total,
+    const [lines, receiptRows, list, suggestionRows, aiList] =
+      await Promise.all([
+        this.lines(day),
+        this.svc.pool.query<{
+          id: string;
+          date: string;
+          total: string;
+          merchant_id: string;
+          merchant: string;
+        }>(
+          `select r.id, (r.purchased_at at time zone $2)::date::text as date, r.total,
                 m.id as merchant_id, m.name as merchant
            from ${this.svc.schema}.receipts r join ${this.svc.schema}.merchants m on m.id = r.merchant_id
           where r.purchased_at >= $1::date`,
-        [since, TZ()],
-      ),
-      this.db.select().from(shoppingItems).orderBy(shoppingItems.done, shoppingItems.category, shoppingItems.createdAt),
-      this.db.select().from(shoppingSuggestions).orderBy(desc(shoppingSuggestions.createdAt)).limit(5),
-      this.ai.active(),
-    ]);
+          [since, TZ()],
+        ),
+        this.db
+          .select()
+          .from(shoppingItems)
+          .orderBy(
+            shoppingItems.done,
+            shoppingItems.category,
+            shoppingItems.createdAt,
+          ),
+        this.db
+          .select()
+          .from(shoppingSuggestions)
+          .orderBy(desc(shoppingSuggestions.createdAt))
+          .limit(5),
+        this.ai.active(),
+      ]);
     const recentRows = await this.db
       .select({ receipt: receipts, merchant: merchants })
       .from(receipts)
       .innerJoin(merchants, eq(merchants.id, receipts.merchantId))
       .orderBy(desc(receipts.purchasedAt))
       .limit(10);
-    const itemCounts = await this.svc.pool.query<{ receipt_id: string; n: string }>(
+    const itemCounts = await this.svc.pool.query<{
+      receipt_id: string;
+      n: string;
+    }>(
       `select receipt_id, count(*) as n from ${this.svc.schema}.receipt_items
         where receipt_id = any($1::uuid[]) group by receipt_id`,
       [recentRows.map((r) => r.receipt.id)],
     );
-    const nItems = new Map(itemCounts.rows.map((r) => [r.receipt_id, Number(r.n)]));
-    const receiptList = receiptRows.rows.map((r) => ({ ...r, total: Number(r.total) }));
+    const nItems = new Map(
+      itemCounts.rows.map((r) => [r.receipt_id, Number(r.n)]),
+    );
+    const receiptList = receiptRows.rows.map((r) => ({
+      ...r,
+      total: Number(r.total),
+    }));
     const monthList = months(receiptList, day);
     const full = monthList.slice(0, -1).filter((m) => m.receipts);
-    const merchantStats = new Map<string, { id: string; name: string; receipts: number; total: number; lastVisit: string }>();
+    const merchantStats = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        receipts: number;
+        total: number;
+        lastVisit: string;
+      }
+    >();
     for (const r of receiptList) {
-      const m = merchantStats.get(r.merchant_id) ?? { id: r.merchant_id, name: r.merchant, receipts: 0, total: 0, lastVisit: r.date };
+      const m = merchantStats.get(r.merchant_id) ?? {
+        id: r.merchant_id,
+        name: r.merchant,
+        receipts: 0,
+        total: 0,
+        lastVisit: r.date,
+      };
       m.receipts++;
       m.total = Math.round((m.total + r.total) * 100) / 100;
       if (r.date > m.lastVisit) m.lastVisit = r.date;
@@ -152,12 +193,16 @@ export class ShoppingService implements OnApplicationBootstrap {
       categories: categorySpend(lines, day),
       items: itemStats(lines),
       merchants: [...merchantStats.values()].sort((a, b) => b.total - a.total),
-      recent: recentRows.map((r) => toReceiptDto(r.receipt, r.merchant, nItems.get(r.receipt.id) ?? 0)),
+      recent: recentRows.map((r) =>
+        toReceiptDto(r.receipt, r.merchant, nItems.get(r.receipt.id) ?? 0),
+      ),
       totals: {
         thisMonth: monthList[11].total,
         lastMonth: monthList[10].total,
         averageMonth: full.length
-          ? Math.round((full.reduce((s, m) => s + m.total, 0) / full.length) * 100) / 100
+          ? Math.round(
+              (full.reduce((s, m) => s + m.total, 0) / full.length) * 100,
+            ) / 100
           : 0,
         receipts: receiptList.length,
       },
@@ -172,10 +217,16 @@ export class ShoppingService implements OnApplicationBootstrap {
     await this.db.delete(shoppingItems).where(eq(shoppingItems.done, true));
   }
 
-  async suggest(request: LifeQuestionRequest, day = today()): Promise<ShoppingSuggestionDto> {
+  async suggest(
+    request: LifeQuestionRequest,
+    day = today(),
+  ): Promise<ShoppingSuggestionDto> {
     const [items, list] = await Promise.all([
       this.lines(day).then(itemStats),
-      this.db.select({ name: shoppingItems.name }).from(shoppingItems).where(eq(shoppingItems.done, false)),
+      this.db
+        .select({ name: shoppingItems.name })
+        .from(shoppingItems)
+        .where(eq(shoppingItems.done, false)),
     ]);
     const onList = list.map((i) => i.name);
     const question = request.question?.trim() || null;
@@ -186,27 +237,47 @@ export class ShoppingService implements OnApplicationBootstrap {
         output: shoppingListOutputSchema,
         user: `${listDossier(items, day, onList)}\n\n${question ? `My request: ${question}` : 'Suggest my shopping list.'}`,
       });
-      row = { question, output: answer.output, source: 'claude', model: answer.model };
+      row = {
+        question,
+        output: answer.output,
+        source: 'claude',
+        model: answer.model,
+      };
     } else
       row = {
         question,
-        output: offlineList(items, day, new Set(onList.map((n) => n.toLowerCase()))),
+        output: offlineList(
+          items,
+          day,
+          new Set(onList.map((n) => n.toLowerCase())),
+        ),
         source: 'offline',
         model: null,
       };
-    const [saved] = await this.db.insert(shoppingSuggestions).values(row).returning();
+    const [saved] = await this.db
+      .insert(shoppingSuggestions)
+      .values(row)
+      .returning();
     const old = await this.db
       .select({ id: shoppingSuggestions.id })
       .from(shoppingSuggestions)
       .orderBy(desc(shoppingSuggestions.createdAt))
       .offset(10);
     if (old.length)
-      await this.db.delete(shoppingSuggestions).where(inArray(shoppingSuggestions.id, old.map((o) => o.id)));
+      await this.db.delete(shoppingSuggestions).where(
+        inArray(
+          shoppingSuggestions.id,
+          old.map((o) => o.id),
+        ),
+      );
     return toSuggestionDto(saved);
   }
 
   /** Puts a suggestion's items (or the ones picked) on the list, skipping what is there. */
-  async apply(id: string, request: ApplySuggestionRequest): Promise<{ added: number }> {
+  async apply(
+    id: string,
+    request: ApplySuggestionRequest,
+  ): Promise<{ added: number }> {
     const [suggestion] = await this.db
       .select()
       .from(shoppingSuggestions)
@@ -214,23 +285,38 @@ export class ShoppingService implements OnApplicationBootstrap {
       .catch(() => []);
     if (!suggestion) throw new NotFoundException('Suggestion not found');
     const there = new Set(
-      (await this.db.select({ name: shoppingItems.name }).from(shoppingItems).where(eq(shoppingItems.done, false))).map(
-        (i) => i.name.toLowerCase(),
-      ),
+      (
+        await this.db
+          .select({ name: shoppingItems.name })
+          .from(shoppingItems)
+          .where(eq(shoppingItems.done, false))
+      ).map((i) => i.name.toLowerCase()),
     );
-    const wanted = request.names ? new Set(request.names.map((n) => n.toLowerCase())) : null;
+    const wanted = request.names
+      ? new Set(request.names.map((n) => n.toLowerCase()))
+      : null;
     const rows = suggestion.output.items
-      .filter((i) => (!wanted || wanted.has(i.name.toLowerCase())) && !there.has(i.name.toLowerCase()))
+      .filter(
+        (i) =>
+          (!wanted || wanted.has(i.name.toLowerCase())) &&
+          !there.has(i.name.toLowerCase()),
+      )
       .map((i) => ({
         name: i.name.slice(0, 120),
-        category: ((GROCERY_ITEM_CATEGORIES as readonly string[]).includes(i.category) ? i.category : 'other') as GroceryItemCategory,
+        category: ((GROCERY_ITEM_CATEGORIES as readonly string[]).includes(
+          i.category,
+        )
+          ? i.category
+          : 'other') as GroceryItemCategory,
       }));
     if (rows.length) await this.db.insert(shoppingItems).values(rows);
     return { added: rows.length };
   }
 
   async removeSuggestion(id: string): Promise<void> {
-    await this.db.delete(shoppingSuggestions).where(eq(shoppingSuggestions.id, id));
+    await this.db
+      .delete(shoppingSuggestions)
+      .where(eq(shoppingSuggestions.id, id));
   }
 }
 

@@ -21,7 +21,8 @@ import {
 const round = (value: number) => Math.round(value * 100) / 100;
 
 /** A transfer to savings is neither spending nor income. */
-const counts = (t: Pick<TransactionDto, 'category'>) => t.category !== 'savings';
+const counts = (t: Pick<TransactionDto, 'category'>) =>
+  t.category !== 'savings';
 const isSpending = (t: TransactionDto) => t.amount < 0 && counts(t);
 const isIncome = (t: TransactionDto) => t.amount > 0 && counts(t);
 
@@ -71,7 +72,10 @@ function spentIn(
   category: MoneyCategory,
 ): number {
   return -transactions
-    .filter((t) => t.category === category && t.date.startsWith(month) && t.amount < 0)
+    .filter(
+      (t) =>
+        t.category === category && t.date.startsWith(month) && t.amount < 0,
+    )
     .reduce((s, t) => s + t.amount, 0);
 }
 
@@ -90,7 +94,10 @@ export function categorySpend(
       category,
       thisMonth: round(spentIn(transactions, now, category)),
       average: round(
-        [m1, m2, m3].reduce((s, m) => s + spentIn(transactions, m, category), 0) / 3,
+        [m1, m2, m3].reduce(
+          (s, m) => s + spentIn(transactions, m, category),
+          0,
+        ) / 3,
       ),
     }))
     .filter((c) => c.thisMonth > 0 || c.average > 0)
@@ -119,7 +126,19 @@ export function chargeKey(description: string): string {
     .toLowerCase()
     .replace(/[^a-zà-ù ]+/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 1 && !['pagamento', 'carta', 'pos', 'addebito', 'sdd', 'del', 'presso'].includes(w))
+    .filter(
+      (w) =>
+        w.length > 1 &&
+        ![
+          'pagamento',
+          'carta',
+          'pos',
+          'addebito',
+          'sdd',
+          'del',
+          'presso',
+        ].includes(w),
+    )
     .slice(0, 3)
     .join(' ');
 }
@@ -192,7 +211,8 @@ export function offlineReview(input: {
       warnings: [],
       goodHabits: [],
     };
-  const avgSpending = recent.reduce((s, m) => s + m.spending, 0) / recent.length;
+  const avgSpending =
+    recent.reduce((s, m) => s + m.spending, 0) / recent.length;
   const rising = categories.filter(
     (c) => c.average > 20 && c.thisMonth > c.average * 1.3,
   );
@@ -202,10 +222,13 @@ export function offlineReview(input: {
   if (subscriptions.length)
     savings.push({
       title: 'Check your subscriptions',
-      monthly: Math.round(
-        subscriptions.reduce((s, r) => s + r.amount, 0) / 3,
-      ),
-      how: `You pay ${subscriptions.length} subscription${subscriptions.length === 1 ? '' : 's'} every month (${subscriptions.map((s) => s.description).slice(0, 3).join(', ')}). Cancelling the ones you rarely use often saves about a third.`,
+      monthly: Math.round(subscriptions.reduce((s, r) => s + r.amount, 0) / 3),
+      how: `You pay ${subscriptions.length} subscription${subscriptions.length === 1 ? '' : 's'} every month (${subscriptions
+        .map((s) => s.description)
+        .slice(0, 3)
+        .join(
+          ', ',
+        )}). Cancelling the ones you rarely use often saves about a third.`,
     });
   for (const c of categories.filter((c) => c.average > 50).slice(0, 3))
     savings.push({
@@ -224,17 +247,21 @@ export function offlineReview(input: {
     savings: savings.slice(0, 5),
     warnings: [
       ...over.map(
-        (b) => `${label(b.category)} is over its budget: ${eur(b.spent)} of ${eur(b.monthlyLimit)}.`,
+        (b) =>
+          `${label(b.category)} is over its budget: ${eur(b.spent)} of ${eur(b.monthlyLimit)}.`,
       ),
       ...rising.map(
-        (c) => `${label(c.category)} is up this month: ${eur(c.thisMonth)} against ${eur(c.average)} usually.`,
+        (c) =>
+          `${label(c.category)} is up this month: ${eur(c.thisMonth)} against ${eur(c.average)} usually.`,
       ),
     ].slice(0, 3),
     goodHabits: [
       ...(rate !== null && rate >= 0.1
         ? [`You save ${Math.round(rate * 100)}% of your income: keep it up.`]
         : []),
-      ...(budgets.length && !over.length ? ['Every budget is within its limit.'] : []),
+      ...(budgets.length && !over.length
+        ? ['Every budget is within its limit.']
+        : []),
     ],
   };
 }
@@ -263,21 +290,33 @@ export function reviewDossier(input: {
     '<months>',
     ...months
       .slice(-6)
-      .map((m) => `- ${m.month}: in ${eur(m.income)}, out ${eur(m.spending)}, net ${eur(m.net)}`),
+      .map(
+        (m) =>
+          `- ${m.month}: in ${eur(m.income)}, out ${eur(m.spending)}, net ${eur(m.net)}`,
+      ),
     '</months>',
     `Savings rate over the last three full months: ${rate === null ? 'unknown' : `${Math.round(rate * 100)}%`}`,
     '<categories>',
     ...categories
       .slice(0, 15)
-      .map((c) => `- ${label(c.category)}: this month ${eur(c.thisMonth)}, usually ${eur(c.average)}`),
+      .map(
+        (c) =>
+          `- ${label(c.category)}: this month ${eur(c.thisMonth)}, usually ${eur(c.average)}`,
+      ),
     '</categories>',
     '<budgets>',
-    ...budgets.map((b) => `- ${label(b.category)}: ${eur(b.spent)} of ${eur(b.monthlyLimit)}`),
+    ...budgets.map(
+      (b) =>
+        `- ${label(b.category)}: ${eur(b.spent)} of ${eur(b.monthlyLimit)}`,
+    ),
     '</budgets>',
     '<recurring>',
     ...recurring
       .slice(0, 25)
-      .map((r) => `- ${r.description} (${label(r.category)}): ${eur(r.amount)} a month, seen in ${r.months} months`),
+      .map(
+        (r) =>
+          `- ${r.description} (${label(r.category)}): ${eur(r.amount)} a month, seen in ${r.months} months`,
+      ),
     '</recurring>',
   ].join('\n');
 }

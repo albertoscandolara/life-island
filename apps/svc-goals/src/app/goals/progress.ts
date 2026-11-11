@@ -19,7 +19,16 @@ import {
 export const STUCK_DAYS = 14;
 
 export function withProgress(
-  goal: Omit<LifeGoalDto, 'steps' | 'progress' | 'nextStep' | 'overdueSteps' | 'idleDays' | 'stuck' | 'daysLeft'>,
+  goal: Omit<
+    LifeGoalDto,
+    | 'steps'
+    | 'progress'
+    | 'nextStep'
+    | 'overdueSteps'
+    | 'idleDays'
+    | 'stuck'
+    | 'daysLeft'
+  >,
   steps: readonly GoalStepDto[],
   today: string,
 ): LifeGoalDto {
@@ -62,7 +71,11 @@ export function withChecks(
     checks.filter((d) => d >= start && d <= isoAddDays(start, 6)).length;
   const thisWeek = inWeek(week);
   let streak = thisWeek >= habit.perWeek ? 1 : 0;
-  for (let start = isoAddDays(week, -7); inWeek(start) >= habit.perWeek; start = isoAddDays(start, -7))
+  for (
+    let start = isoAddDays(week, -7);
+    inWeek(start) >= habit.perWeek;
+    start = isoAddDays(start, -7)
+  )
     streak++;
   return {
     ...habit,
@@ -81,16 +94,25 @@ export function offlineCoach(
   const moving = active.filter((g) => !g.stuck);
   if (!active.length)
     return {
-      summary: 'There is no active goal yet. Pick one thing that would make the next months better, and write why it matters.',
+      summary:
+        'There is no active goal yet. Pick one thing that would make the next months better, and write why it matters.',
       unstuck: [],
-      focus: [{ title: 'Write one goal and its first small step', why: 'A goal with a first step gets started; one without stays a wish.' }],
-      encouragement: 'Starting is the hardest part, and you are already looking at it.',
+      focus: [
+        {
+          title: 'Write one goal and its first small step',
+          why: 'A goal with a first step gets started; one without stays a wish.',
+        },
+      ],
+      encouragement:
+        'Starting is the hardest part, and you are already looking at it.',
     };
   const reached = habits.filter((h) => h.active && h.thisWeek >= h.perWeek);
   return {
     summary:
       `${active.length} active goal${active.length === 1 ? '' : 's'}: ${moving.length} moving, ${stuck.length} stuck.` +
-      (stuck.length ? ' Unblock one stuck goal this week, not all of them.' : ' Keep the pace.'),
+      (stuck.length
+        ? ' Unblock one stuck goal this week, not all of them.'
+        : ' Keep the pace.'),
     unstuck: stuck.slice(0, 3).map((g) => ({
       goal: g.title,
       whyStuck: !g.nextStep
@@ -102,7 +124,11 @@ export function offlineCoach(
     })),
     focus: [...active]
       .filter((g) => g.nextStep)
-      .sort((a, b) => (a.nextStep?.dueDate ?? '9999').localeCompare(b.nextStep?.dueDate ?? '9999'))
+      .sort((a, b) =>
+        (a.nextStep?.dueDate ?? '9999').localeCompare(
+          b.nextStep?.dueDate ?? '9999',
+        ),
+      )
       .slice(0, 3)
       .map((g) => ({
         title: g.nextStep!.title,
@@ -133,22 +159,31 @@ export function coachDossier(
   reviews: readonly WeeklyReviewDto[],
 ): string {
   const lines = [`Today is ${today}.`, '<goals>'];
-  for (const g of goals.filter((g) => g.status === 'active' || g.status === 'paused')) {
+  for (const g of goals.filter(
+    (g) => g.status === 'active' || g.status === 'paused',
+  )) {
     lines.push(
       `- ${g.title} (${GOAL_AREA_LABELS[g.area]}, ${g.status}${g.targetDate ? `, target ${g.targetDate}` : ''}; ${g.idleDays} days since the last step${g.stuck ? '; STUCK' : ''})`,
     );
     if (g.why) lines.push(`  Why: ${g.why.slice(0, 300)}`);
     if (g.measure) lines.push(`  Reached when: ${g.measure.slice(0, 200)}`);
     for (const s of g.steps.slice(0, 12))
-      lines.push(`  [${s.done ? 'x' : ' '}] ${s.title}${s.dueDate ? ` (due ${s.dueDate})` : ''}`);
+      lines.push(
+        `  [${s.done ? 'x' : ' '}] ${s.title}${s.dueDate ? ` (due ${s.dueDate})` : ''}`,
+      );
   }
   lines.push('</goals>', '<habits>');
   for (const h of habits.filter((h) => h.active))
-    lines.push(`- ${h.title}: ${h.thisWeek} of ${h.perWeek} days this week, streak ${h.streak} weeks`);
+    lines.push(
+      `- ${h.title}: ${h.thisWeek} of ${h.perWeek} days this week, streak ${h.streak} weeks`,
+    );
   lines.push('</habits>', '<reviews>');
   for (const r of reviews.slice(0, 3))
     lines.push(
-      `- Week of ${r.weekStart}${r.mood ? `, mood ${r.mood}/5` : ''}: wins: ${r.wins ?? '—'}; stuck: ${r.stuck ?? '—'}; next: ${r.next ?? '—'}`.slice(0, 800),
+      `- Week of ${r.weekStart}${r.mood ? `, mood ${r.mood}/5` : ''}: wins: ${r.wins ?? '—'}; stuck: ${r.stuck ?? '—'}; next: ${r.next ?? '—'}`.slice(
+        0,
+        800,
+      ),
     );
   lines.push('</reviews>');
   return lines.join('\n');

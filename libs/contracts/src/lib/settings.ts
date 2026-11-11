@@ -616,7 +616,11 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
       'Suggests your next shopping list from what you usually buy and how often, and points out items whose price went up.',
     unit: 'list',
     trigger: 'on-demand',
-    where: { app: 'island', path: '/groceries', label: 'Groceries · Shopping list' },
+    where: {
+      app: 'island',
+      path: '/groceries',
+      label: 'Groceries · Shopping list',
+    },
     whenOff:
       "The list is suggested by Life Island's own rules: the items you buy regularly that are due again.",
     defaultEnabled: true,
@@ -642,7 +646,11 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
       'Looks at each contract and subscription (cost, price changes, how much you use it, renewal and cancel-by dates) and says what to keep, renegotiate, switch or cancel, with what to tell the provider.',
     unit: 'review',
     trigger: 'on-demand',
-    where: { app: 'island', path: '/subscriptions', label: 'Contracts · Advisor' },
+    where: {
+      app: 'island',
+      path: '/subscriptions',
+      label: 'Contracts · Advisor',
+    },
     whenOff:
       "The advice comes from Life Island's own rules: what you rarely use, prices that went up and renewals coming soon.",
     defaultEnabled: true,

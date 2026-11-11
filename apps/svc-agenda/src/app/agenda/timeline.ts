@@ -22,12 +22,14 @@ export interface Window {
   to: string;
 }
 
-const REPEAT_MONTHS: Record<Exclude<AgendaRepeat, 'none' | 'weekly'>, number> =
-  {
-    monthly: 1,
-    quarterly: 3,
-    yearly: 12,
-  };
+const REPEAT_MONTHS: Record<
+  Exclude<AgendaRepeat, 'none' | 'weekly'>,
+  number
+> = {
+  monthly: 1,
+  quarterly: 3,
+  yearly: 12,
+};
 
 /** The dates an item falls on inside the window. */
 export function itemOccurrences(
@@ -217,7 +219,9 @@ export function offlineBrief(
     tips: [
       'Mark a date as handled once it is done, so the agenda shows only what is left.',
       ...(overdue.length > 3
-        ? ['Block 30 minutes today for the overdue ones: most take less than that.']
+        ? [
+            'Block 30 minutes today for the overdue ones: most take less than that.',
+          ]
         : []),
     ],
   };
@@ -249,9 +253,11 @@ export function briefDossier(
   names: Readonly<Record<string, string>>,
 ): string {
   const open = entries.filter((e) => !e.handled && e.daysLeft <= 45);
-  if (!open.length) return `Today is ${today}. Nothing is open in the next 45 days.`;
+  if (!open.length)
+    return `Today is ${today}. Nothing is open in the next 45 days.`;
   const lines = open.slice(0, 80).map((e) => {
-    const area = e.module === 'agenda' ? 'Own item' : (names[e.module] ?? e.module);
+    const area =
+      e.module === 'agenda' ? 'Own item' : (names[e.module] ?? e.module);
     const when =
       e.daysLeft < 0 ? `${-e.daysLeft} days overdue` : `in ${e.daysLeft} days`;
     return `- ${e.date} (${when}) · ${area} · ${e.title}${e.amount ? ` · €${e.amount}` : ''}${e.detail ? ` — ${e.detail.slice(0, 160)}` : ''}`;

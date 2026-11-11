@@ -5,8 +5,7 @@ export const MONEY_ROUTES: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () =>
-      import('./money/money-page').then((m) => m.MoneyPage),
+    loadComponent: () => import('./money/money-page').then((m) => m.MoneyPage),
     title: 'Money · Life Island',
   },
 ];

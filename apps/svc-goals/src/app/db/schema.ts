@@ -30,7 +30,9 @@ export const goals = goalsSchema.table('goals', {
   targetDate: date('target_date'),
   status: text('status').$type<LifeGoalStatus>().notNull().default('active'),
   createdAt: createdAt(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 export type GoalRow = typeof goals.$inferSelect;
 

@@ -20,7 +20,10 @@ import {
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
-export function weeks(workouts: readonly WorkoutDto[], today: string): FitnessWeekDto[] {
+export function weeks(
+  workouts: readonly WorkoutDto[],
+  today: string,
+): FitnessWeekDto[] {
   const current = isoWeekStart(today);
   return Array.from({ length: 12 }, (_, i) => {
     const weekStart = isoAddDays(current, (i - 11) * 7);
@@ -45,20 +48,32 @@ export function stats(
 ): FitnessOverviewDto['stats'] {
   const thisWeek = list[list.length - 1]?.activeMinutes ?? 0;
   let streak = 0;
-  for (let i = list.length - 2; i >= 0 && list[i].activeMinutes >= goal; i--) streak++;
+  for (let i = list.length - 2; i >= 0 && list[i].activeMinutes >= goal; i--)
+    streak++;
   if (thisWeek >= goal) streak++;
   const full = list.slice(-5, -1);
-  const weights = measurements.filter((m) => m.weightKg !== null).sort((a, b) => a.date.localeCompare(b.date));
+  const weights = measurements
+    .filter((m) => m.weightKg !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
   const latest = weights[weights.length - 1] ?? null;
-  const monthAgo = [...weights].reverse().find((m) => m.date <= isoAddDays(today, -30)) ?? null;
-  const sleep = measurements.filter((m) => m.sleepHours !== null && m.date > isoAddDays(today, -7));
+  const monthAgo =
+    [...weights].reverse().find((m) => m.date <= isoAddDays(today, -30)) ??
+    null;
+  const sleep = measurements.filter(
+    (m) => m.sleepHours !== null && m.date > isoAddDays(today, -7),
+  );
   return {
     thisWeek,
     streak,
-    averageLast4: full.length ? Math.round(full.reduce((s, w) => s + w.activeMinutes, 0) / full.length) : 0,
+    averageLast4: full.length
+      ? Math.round(full.reduce((s, w) => s + w.activeMinutes, 0) / full.length)
+      : 0,
     latestWeight: latest?.weightKg ?? null,
-    weightChange30: latest && monthAgo ? round1(latest.weightKg! - monthAgo.weightKg!) : null,
-    averageSleep7: sleep.length ? round1(sleep.reduce((s, m) => s + m.sleepHours!, 0) / sleep.length) : null,
+    weightChange30:
+      latest && monthAgo ? round1(latest.weightKg! - monthAgo.weightKg!) : null,
+    averageSleep7: sleep.length
+      ? round1(sleep.reduce((s, m) => s + m.sleepHours!, 0) / sleep.length)
+      : null,
   };
 }
 
@@ -66,7 +81,15 @@ export function withActive(w: Omit<WorkoutDto, 'activeMinutes'>): WorkoutDto {
   return { ...w, activeMinutes: activeMinutes(w.minutes, w.intensity) };
 }
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 /** A simple week towards the goal: alternate moving days and rest, a longer one at the weekend. */
 export function offlinePlan(
@@ -76,29 +99,54 @@ export function offlinePlan(
   nextEvent: FitnessEventDto | null,
 ): TrainingPlanOutput {
   // Build up gently: at most 20% more than the last weeks' average.
-  const target = Math.max(60, Math.min(goal, Math.round((s.averageLast4 || 60) * 1.2)));
-  const main = favourite ? WORKOUT_KIND_LABELS[favourite].toLowerCase() : 'brisk walk';
+  const target = Math.max(
+    60,
+    Math.min(goal, Math.round((s.averageLast4 || 60) * 1.2)),
+  );
+  const main = favourite
+    ? WORKOUT_KIND_LABELS[favourite].toLowerCase()
+    : 'brisk walk';
   const sessions = Math.max(3, Math.min(5, Math.round(target / 40)));
   const moving = [0, 2, 4, 5, 6].slice(0, sessions);
   const each = Math.round(target / sessions / 5) * 5;
   return {
     summary:
       `This week you have ${s.thisWeek} active minutes of ${goal}. ` +
-      (s.streak ? `${s.streak} week${s.streak === 1 ? '' : 's'} in a row at goal: keep it going.` : `Aim for ${target} this week, then build up.`),
+      (s.streak
+        ? `${s.streak} week${s.streak === 1 ? '' : 's'} in a row at goal: keep it going.`
+        : `Aim for ${target} this week, then build up.`),
     days: DAYS.map((day, i) => {
       const on = moving.includes(i);
       const long = i === 5 && on;
       return {
         day,
-        session: on ? (i === 2 ? 'Strength or mobility, at home or at the gym' : long ? `Longer ${main}` : main[0].toUpperCase() + main.slice(1)) : 'Rest, or a relaxed walk',
+        session: on
+          ? i === 2
+            ? 'Strength or mobility, at home or at the gym'
+            : long
+              ? `Longer ${main}`
+              : main[0].toUpperCase() + main.slice(1)
+          : 'Rest, or a relaxed walk',
         minutes: on ? (long ? each + 15 : each) : 0,
-        intensity: on ? (i === 2 ? 'moderate' : long ? 'easy' : 'moderate') : 'easy',
+        intensity: on
+          ? i === 2
+            ? 'moderate'
+            : long
+              ? 'easy'
+              : 'moderate'
+          : 'easy',
       };
     }),
     tips: [
       'Increase by no more than 10–20% a week.',
-      ...(s.averageSleep7 !== null && s.averageSleep7 < 7 ? ['You sleep under 7 hours: rest helps more than an extra session.'] : []),
-      ...(nextEvent ? [`${nextEvent.name} is in ${nextEvent.daysToGo} days: keep the last week lighter.`] : []),
+      ...(s.averageSleep7 !== null && s.averageSleep7 < 7
+        ? ['You sleep under 7 hours: rest helps more than an extra session.']
+        : []),
+      ...(nextEvent
+        ? [
+            `${nextEvent.name} is in ${nextEvent.daysToGo} days: keep the last week lighter.`,
+          ]
+        : []),
     ].slice(0, 3),
   };
 }
@@ -124,11 +172,22 @@ export function coachDossier(
     'Last weeks (active minutes, workouts, minutes by kind):',
     ...list.slice(-6).map(
       (w) =>
-        `- week of ${w.weekStart}: ${w.activeMinutes} min, ${w.workouts} workouts${Object.keys(w.byKind).length ? ` (${Object.entries(w.byKind).map(([k, m]) => `${k} ${m}`).join(', ')})` : ''}`,
+        `- week of ${w.weekStart}: ${w.activeMinutes} min, ${w.workouts} workouts${
+          Object.keys(w.byKind).length
+            ? ` (${Object.entries(w.byKind)
+                .map(([k, m]) => `${k} ${m}`)
+                .join(', ')})`
+            : ''
+        }`,
     ),
     `Streak at goal: ${s.streak} weeks. Average of the last 4 full weeks: ${s.averageLast4} min.`,
     `Weight: ${s.latestWeight ?? 'unknown'} kg${s.weightChange30 !== null ? ` (${s.weightChange30 > 0 ? '+' : ''}${s.weightChange30} kg in 30 days)` : ''}. Sleep, last 7 days: ${s.averageSleep7 ?? 'unknown'} h.`,
     'Events ahead:',
-    ...events.filter((e) => !e.done && e.daysToGo >= 0).map((e) => `- ${e.name} in ${e.daysToGo} days${e.target ? `, target: ${e.target}` : ''}`),
+    ...events
+      .filter((e) => !e.done && e.daysToGo >= 0)
+      .map(
+        (e) =>
+          `- ${e.name} in ${e.daysToGo} days${e.target ? `, target: ${e.target}` : ''}`,
+      ),
   ].join('\n');
 }

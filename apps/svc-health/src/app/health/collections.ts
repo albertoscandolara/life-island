@@ -20,10 +20,35 @@ export const RECORDS = Symbol('HealthRecords');
 /** Health's plain records. */
 export function collections(_db: NodePgDatabase): RecordCollection[] {
   return [
-    { name: 'visits', label: 'Visit', table: visits, request: visitRequestSchema },
-    { name: 'medicines', label: 'Medicine', table: medicines, request: medicineRequestSchema },
-    { name: 'results', label: 'Result', table: testResults, request: testResultRequestSchema },
-    { name: 'vaccinations', label: 'Vaccination', table: vaccinations, request: vaccinationRequestSchema },
-    { name: 'checkups', label: 'Checkup', table: checkups, request: checkupRequestSchema },
+    {
+      name: 'visits',
+      label: 'Visit',
+      table: visits,
+      request: visitRequestSchema,
+    },
+    {
+      name: 'medicines',
+      label: 'Medicine',
+      table: medicines,
+      request: medicineRequestSchema,
+    },
+    {
+      name: 'results',
+      label: 'Result',
+      table: testResults,
+      request: testResultRequestSchema,
+    },
+    {
+      name: 'vaccinations',
+      label: 'Vaccination',
+      table: vaccinations,
+      request: vaccinationRequestSchema,
+    },
+    {
+      name: 'checkups',
+      label: 'Checkup',
+      table: checkups,
+      request: checkupRequestSchema,
+    },
   ];
 }

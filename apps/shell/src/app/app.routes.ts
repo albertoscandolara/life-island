@@ -105,7 +105,11 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'subscriptions',
-    loadChildren: remote('mfe-subscriptions', './routes', 'SUBSCRIPTIONS_ROUTES'),
+    loadChildren: remote(
+      'mfe-subscriptions',
+      './routes',
+      'SUBSCRIPTIONS_ROUTES',
+    ),
   },
   {
     path: 'mailbox',

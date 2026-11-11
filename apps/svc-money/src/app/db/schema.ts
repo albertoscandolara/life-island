@@ -47,7 +47,10 @@ export const transactions = money.table(
     date: date('date').notNull(),
     amount: euro('amount').notNull(),
     description: text('description').notNull(),
-    category: text('category').$type<MoneyCategory>().notNull().default('other'),
+    category: text('category')
+      .$type<MoneyCategory>()
+      .notNull()
+      .default('other'),
     notes: text('notes'),
     createdAt: createdAt(),
   },

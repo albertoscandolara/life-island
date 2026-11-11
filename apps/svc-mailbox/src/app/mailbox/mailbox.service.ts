@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import { AiAssistant } from '@life-island/be-nest';
 import {
@@ -31,13 +36,15 @@ const EXPLAIN_STEP = {
   stepId: 'explain',
   label: 'Explain the letter',
   system: EXPLAINER_INSTRUCTIONS,
-  userTemplate: 'Today is {today}.\nFrom: {sender}\nSubject: {subject}\n<letter>\n{the text, up to 20,000 characters}\n</letter>',
+  userTemplate:
+    'Today is {today}.\nFrom: {sender}\nSubject: {subject}\n<letter>\n{the text, up to 20,000 characters}\n</letter>',
   outputFormat: 'letterExplainerOutput',
   effort: 'medium' as const,
   maxTokens: 8000,
 };
 
-const isOpen = (l: Pick<LetterDto, 'status'>) => l.status === 'todo' || l.status === 'waiting';
+const isOpen = (l: Pick<LetterDto, 'status'>) =>
+  l.status === 'todo' || l.status === 'waiting';
 
 @Injectable()
 export class MailboxService implements OnApplicationBootstrap {
@@ -65,12 +72,18 @@ export class MailboxService implements OnApplicationBootstrap {
   }
 
   private async letters(day: string): Promise<LetterDto[]> {
-    const rows = await this.db.select().from(letters).orderBy(desc(letters.receivedOn), desc(letters.createdAt));
+    const rows = await this.db
+      .select()
+      .from(letters)
+      .orderBy(desc(letters.receivedOn), desc(letters.createdAt));
     return rows.map((r) => toLetterDto(r, day));
   }
 
   async overview(day = today()): Promise<MailboxOverviewDto> {
-    const [all, aiExplainer] = await Promise.all([this.letters(day), this.ai.active()]);
+    const [all, aiExplainer] = await Promise.all([
+      this.letters(day),
+      this.ai.active(),
+    ]);
     const open = all.filter(isOpen);
     return {
       today: day,
@@ -82,15 +95,22 @@ export class MailboxService implements OnApplicationBootstrap {
       ),
       totals: {
         open: open.length,
-        overdue: open.filter((l) => l.daysLeft !== null && l.daysLeft < 0).length,
-        dueSoon: open.filter((l) => l.daysLeft !== null && l.daysLeft >= 0 && l.daysLeft <= 14).length,
-        toPay: Math.round(open.reduce((s, l) => s + (l.amount ?? 0), 0) * 100) / 100,
+        overdue: open.filter((l) => l.daysLeft !== null && l.daysLeft < 0)
+          .length,
+        dueSoon: open.filter(
+          (l) => l.daysLeft !== null && l.daysLeft >= 0 && l.daysLeft <= 14,
+        ).length,
+        toPay:
+          Math.round(open.reduce((s, l) => s + (l.amount ?? 0), 0) * 100) / 100,
       },
       aiExplainer,
     };
   }
 
-  async deadlines(query: DeadlinesQuery, day = today()): Promise<DeadlineDto[]> {
+  async deadlines(
+    query: DeadlinesQuery,
+    day = today(),
+  ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, day);
     return (await this.letters(day))
       .filter((l) => isOpen(l) && l.dueOn && inDeadlineWindow(l.dueOn, window))
@@ -110,13 +130,19 @@ export class MailboxService implements OnApplicationBootstrap {
     const open = (await this.letters(day)).filter(isOpen);
     return {
       expired: open.filter((l) => l.daysLeft !== null && l.daysLeft < 0).length,
-      expiring: open.filter((l) => l.daysLeft !== null && l.daysLeft >= 0 && l.daysLeft <= 7).length,
+      expiring: open.filter(
+        (l) => l.daysLeft !== null && l.daysLeft >= 0 && l.daysLeft <= 7,
+      ).length,
       toReview: open.filter((l) => !l.dueOn && !l.action).length,
     };
   }
 
   private async row(id: string): Promise<LetterRow> {
-    const [row] = await this.db.select().from(letters).where(eq(letters.id, id)).catch(() => []);
+    const [row] = await this.db
+      .select()
+      .from(letters)
+      .where(eq(letters.id, id))
+      .catch(() => []);
     if (!row) throw new NotFoundException('Letter not found');
     return row;
   }
@@ -131,9 +157,19 @@ export class MailboxService implements OnApplicationBootstrap {
         output: letterExplainerOutputSchema,
         user: `Today is ${day}.\nFrom: ${letter.sender}\nSubject: ${letter.subject}\n<letter>\n${letter.text.slice(0, 20000)}\n</letter>`,
       });
-      explanation = { output: answer.output, source: 'claude', model: answer.model, createdAt: new Date().toISOString() };
+      explanation = {
+        output: answer.output,
+        source: 'claude',
+        model: answer.model,
+        createdAt: new Date().toISOString(),
+      };
     } else
-      explanation = { output: offlineReading(letter, day), source: 'offline', model: null, createdAt: new Date().toISOString() };
+      explanation = {
+        output: offlineReading(letter, day),
+        source: 'offline',
+        model: null,
+        createdAt: new Date().toISOString(),
+      };
     const [saved] = await this.db
       .update(letters)
       .set({ explanation, updatedAt: new Date() })
@@ -153,7 +189,13 @@ export class MailboxService implements OnApplicationBootstrap {
         kind: letter.kind === 'other' ? out.kind : letter.kind,
         amount: letter.amount ?? (out.amount > 0 ? out.amount : null),
         dueOn: letter.dueOn ?? (isLifeIsoDate(out.dueOn) ? out.dueOn : null),
-        action: letter.action ?? (out.actions.map((a) => a.what).join('; ').slice(0, 1000) || null),
+        action:
+          letter.action ??
+          (out.actions
+            .map((a) => a.what)
+            .join('; ')
+            .slice(0, 1000) ||
+            null),
         updatedAt: new Date(),
       })
       .where(eq(letters.id, id));
@@ -168,4 +210,3 @@ function toLetterDto(row: LetterRow, day: string): LetterDto {
     daysLeft: row.dueOn ? isoDaysBetween(day, row.dueOn) : null,
   };
 }
-

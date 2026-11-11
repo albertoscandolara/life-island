@@ -77,7 +77,10 @@ export const expenses = travel.table('expenses', {
   tripId: tripId(),
   date: date('date').notNull(),
   amount: euro('amount').notNull(),
-  category: text('category').$type<TravelExpenseCategory>().notNull().default('other'),
+  category: text('category')
+    .$type<TravelExpenseCategory>()
+    .notNull()
+    .default('other'),
   note: text('note'),
   createdAt: createdAt(),
 });

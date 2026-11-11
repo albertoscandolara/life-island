@@ -13,7 +13,6 @@ import {
   isoAddDays,
   isoToday,
   type AgendaBriefDto,
-
   type AgendaItemDto,
   type AgendaOverviewDto,
   type AgendaUpcomingDto,
@@ -259,4 +258,3 @@ export function toItemDto(row: AgendaItemRow): AgendaItemDto {
 function toBriefDto(row: WeekBriefRow): AgendaBriefDto {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
-

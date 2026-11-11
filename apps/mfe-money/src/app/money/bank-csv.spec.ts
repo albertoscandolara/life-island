@@ -18,7 +18,9 @@ describe('parseBankCsv', () => {
   });
 
   it('reads an English export with one signed amount', () => {
-    const read = parseBankCsv('Date,Description,Amount\n2026-03-01,Coffee,-1.20\n2026-03-02,Refund,"1,000.50"');
+    const read = parseBankCsv(
+      'Date,Description,Amount\n2026-03-01,Coffee,-1.20\n2026-03-02,Refund,"1,000.50"',
+    );
     expect(read.rows.map((r) => r.amount)).toEqual([-1.2, 1000.5]);
   });
 

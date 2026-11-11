@@ -49,7 +49,11 @@ export const INTENSITY_LABELS: Record<Intensity, string> = {
 export const workoutRequestSchema = z.object({
   date: lifeDate,
   kind: z.enum(WORKOUT_KINDS).optional(),
-  minutes: z.number().int().min(1).max(24 * 60),
+  minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60),
   distanceKm: z.number().min(0).max(1000).nullable().optional(),
   intensity: z.enum(INTENSITIES).optional(),
   notes: lifeNote(500),

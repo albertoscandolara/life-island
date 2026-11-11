@@ -19,7 +19,10 @@ export class HealthApi extends RecordsApi {
   }
 
   explain(request: ResultsExplainRequest): Observable<ResultsExplanationDto> {
-    return this.http.post<ResultsExplanationDto>(`${this.base}/explanations`, request);
+    return this.http.post<ResultsExplanationDto>(
+      `${this.base}/explanations`,
+      request,
+    );
   }
 
   removeExplanation(id: string): Observable<void> {

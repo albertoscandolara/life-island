@@ -20,11 +20,14 @@ export interface BankCsv {
   error: string | null;
 }
 
-const DATE = /^(data|date|data operazione|data contabile|booking date|transaction date|data valuta)$/;
-const AMOUNT = /^(importo|amount|importo eur|ammontare|valore|importo \(eur\))$/;
+const DATE =
+  /^(data|date|data operazione|data contabile|booking date|transaction date|data valuta)$/;
+const AMOUNT =
+  /^(importo|amount|importo eur|ammontare|valore|importo \(eur\))$/;
 const OUT = /^(dare|uscite|addebiti|debit|money out|addebito)$/;
 const IN = /^(avere|entrate|accrediti|credit|money in|accredito)$/;
-const TEXT = /^(descrizione|description|causale|descrizione operazione|dettagli|details|payee|beneficiario|operazione)$/;
+const TEXT =
+  /^(descrizione|description|causale|descrizione operazione|dettagli|details|payee|beneficiario|operazione)$/;
 
 export function splitCsvLine(line: string, separator: string): string[] {
   const cells: string[] = [];
@@ -75,17 +78,30 @@ export function readDate(text: string): string | null {
 }
 
 export function parseBankCsv(text: string): BankCsv {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
-  const fail = (error: string): BankCsv => ({ rows: [], skipped: 0, columns: '', error });
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter((l) => l.trim());
+  const fail = (error: string): BankCsv => ({
+    rows: [],
+    skipped: 0,
+    columns: '',
+    error,
+  });
   if (lines.length < 2) return fail('The file has no movements.');
   // The header is the first line that names a date column (banks put a title above it).
-  const separator = (lines.slice(0, 10).join('').match(/;/g)?.length ?? 0) > 2 ? ';' : ',';
+  const separator =
+    (lines.slice(0, 10).join('').match(/;/g)?.length ?? 0) > 2 ? ';' : ',';
   const headerAt = lines.findIndex((l) =>
     splitCsvLine(l, separator).some((c) => DATE.test(c.toLowerCase())),
   );
   if (headerAt < 0)
-    return fail('Could not find the header: the file needs a "Data" or "Date" column.');
-  const header = splitCsvLine(lines[headerAt], separator).map((c) => c.toLowerCase());
+    return fail(
+      'Could not find the header: the file needs a "Data" or "Date" column.',
+    );
+  const header = splitCsvLine(lines[headerAt], separator).map((c) =>
+    c.toLowerCase(),
+  );
   const find = (pattern: RegExp) => header.findIndex((h) => pattern.test(h));
   const date = find(DATE);
   const amount = find(AMOUNT);
@@ -93,14 +109,18 @@ export function parseBankCsv(text: string): BankCsv {
   const income = find(IN);
   const description = find(TEXT);
   if (amount < 0 && out < 0 && income < 0)
-    return fail('Could not find the amount: the file needs an "Importo"/"Amount" column, or "Dare" and "Avere".');
+    return fail(
+      'Could not find the amount: the file needs an "Importo"/"Amount" column, or "Dare" and "Avere".',
+    );
   const names = (i: number) => (i >= 0 ? `“${header[i]}”` : '');
   const columns = [
     `date from ${names(date)}`,
     amount >= 0
       ? `amount from ${names(amount)}`
       : `money out from ${names(out) || '—'}, in from ${names(income) || '—'}`,
-    description >= 0 ? `description from ${names(description)}` : 'no description column',
+    description >= 0
+      ? `description from ${names(description)}`
+      : 'no description column',
   ].join(', ');
   const rows: BankRow[] = [];
   let skipped = 0;
@@ -114,13 +134,26 @@ export function parseBankCsv(text: string): BankCsv {
       const i = readAmount(cells[income] ?? '') ?? 0;
       value = i - Math.abs(o);
     }
-    const text = (description >= 0 ? cells[description] : '')?.replace(/\s+/g, ' ').trim() || 'Movement';
+    const text =
+      (description >= 0 ? cells[description] : '')
+        ?.replace(/\s+/g, ' ')
+        .trim() || 'Movement';
     if (!day || value === null || value === 0) {
       skipped++;
       continue;
     }
-    rows.push({ date: day, amount: Math.round(value * 100) / 100, description: text.slice(0, 200) });
+    rows.push({
+      date: day,
+      amount: Math.round(value * 100) / 100,
+      description: text.slice(0, 200),
+    });
   }
-  if (!rows.length) return { rows, skipped, columns, error: 'No movement could be read from the file.' };
+  if (!rows.length)
+    return {
+      rows,
+      skipped,
+      columns,
+      error: 'No movement could be read from the file.',
+    };
   return { rows, skipped, columns, error: null };
 }

@@ -6,7 +6,9 @@ export const SUBSCRIPTIONS_ROUTES: Routes = [
     path: '',
     pathMatch: 'full',
     loadComponent: () =>
-      import('./subscriptions/subscriptions-page').then((m) => m.SubscriptionsPage),
+      import('./subscriptions/subscriptions-page').then(
+        (m) => m.SubscriptionsPage,
+      ),
     title: 'Contracts & subscriptions · Life Island',
   },
 ];

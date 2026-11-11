@@ -45,7 +45,9 @@ export class HealthAreaController {
   /** The results explainer (Claude, or Life Island's own rules). */
   @Post('explanations')
   explain(@Body() body: unknown): Promise<ResultsExplanationDto> {
-    return this.health.explain(parseOrThrow(resultsExplainRequestSchema, body ?? {}));
+    return this.health.explain(
+      parseOrThrow(resultsExplainRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('explanations/:id')

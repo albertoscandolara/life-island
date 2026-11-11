@@ -154,19 +154,25 @@ export type SubscriptionDto = LifeRecord<{
 export const renewalAdvisorOutputSchema = z.object({
   summary: z
     .string()
-    .describe('Two or three sentences: what the contracts cost and where the money goes'),
+    .describe(
+      'Two or three sentences: what the contracts cost and where the money goes',
+    ),
   verdicts: z
     .array(
       z.object({
         name: z.string().describe('The contract name, as written'),
         verdict: z.enum(['keep', 'renegotiate', 'switch', 'cancel']),
-        why: z.string().describe('Why, from cost, usage, price changes and dates'),
+        why: z
+          .string()
+          .describe('Why, from cost, usage, price changes and dates'),
         yearlySaving: z
           .number()
           .describe('A realistic saving per year in euro, 0 when keeping'),
         script: z
           .string()
-          .describe('What to say or write to the provider, two or three sentences, or empty'),
+          .describe(
+            'What to say or write to the provider, two or three sentences, or empty',
+          ),
       }),
     )
     .describe('One verdict per contract worth acting on, at most eight'),

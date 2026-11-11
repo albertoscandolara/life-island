@@ -467,8 +467,12 @@ export class IslandScene {
       case 'clock': {
         // The agenda: a small tower with a clock face.
         add(this.mesh(new BoxGeometry(0.5, 1.2, 0.5), 'foam'), 0, 0.75, 0);
-        add(this.mesh(new ConeGeometry(0.42, 0.4, 4), tint), 0, 1.55, 0).rotation.y =
-          Math.PI / 4;
+        add(
+          this.mesh(new ConeGeometry(0.42, 0.4, 4), tint),
+          0,
+          1.55,
+          0,
+        ).rotation.y = Math.PI / 4;
         add(
           this.mesh(new CylinderGeometry(0.2, 0.2, 0.06, 16), tint),
           0,
@@ -516,7 +520,10 @@ export class IslandScene {
           0,
         );
         add(
-          this.mesh(new SphereGeometry(0.25, 10, 6, 0, Math.PI * 2, 0, 1.1), tint),
+          this.mesh(
+            new SphereGeometry(0.25, 10, 6, 0, Math.PI * 2, 0, 1.1),
+            tint,
+          ),
           0.15,
           1.0,
           0,
@@ -532,8 +539,12 @@ export class IslandScene {
           0,
         );
         add(this.mesh(new BoxGeometry(0.55, 0.38, 0.38), tint), 0, 0.92, 0);
-        add(this.mesh(new BoxGeometry(0.36, 0.22, 0.02), 'foam'), 0.05, 1.15, 0.05).rotation.z =
-          0.3;
+        add(
+          this.mesh(new BoxGeometry(0.36, 0.22, 0.02), 'foam'),
+          0.05,
+          1.15,
+          0.05,
+        ).rotation.z = 0.3;
         break;
       }
       case 'boat': {
@@ -545,11 +556,12 @@ export class IslandScene {
           0.9,
           0,
         );
-        add(this.mesh(new ConeGeometry(0.32, 0.7, 3), 'foam'), 0.12, 0.95, 0).scale.set(
-          1,
-          1,
-          0.15,
-        );
+        add(
+          this.mesh(new ConeGeometry(0.32, 0.7, 3), 'foam'),
+          0.12,
+          0.95,
+          0,
+        ).scale.set(1, 1, 0.15);
         break;
       }
       case 'track': {

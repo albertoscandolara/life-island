@@ -74,9 +74,7 @@ export const letterRequestSchema = z.object({
 export type LetterRequest = z.input<typeof letterRequestSchema>;
 
 export const letterExplainerOutputSchema = z.object({
-  summary: z
-    .string()
-    .describe('What the letter is, in two plain sentences'),
+  summary: z.string().describe('What the letter is, in two plain sentences'),
   meaning: z
     .string()
     .describe('What it means for you, and what happens if you do nothing'),
@@ -87,7 +85,9 @@ export const letterExplainerOutputSchema = z.object({
     .describe('The amount to pay in euro, 0 when nothing is due'),
   dueOn: z
     .string()
-    .describe('The date to act by as YYYY-MM-DD, or empty when none is written'),
+    .describe(
+      'The date to act by as YYYY-MM-DD, or empty when none is written',
+    ),
   actions: z
     .array(
       z.object({
@@ -100,9 +100,7 @@ export const letterExplainerOutputSchema = z.object({
     .array(z.string())
     .describe('Up to three things to check or ask (a CAF, the sender)'),
 });
-export type LetterExplainerOutput = z.infer<
-  typeof letterExplainerOutputSchema
->;
+export type LetterExplainerOutput = z.infer<typeof letterExplainerOutputSchema>;
 
 export interface LetterExplanationDto {
   output: LetterExplainerOutput;
@@ -143,9 +141,15 @@ export interface MailboxOverviewDto {
 
 /** Common Italian words in official letters, for the offline reading. */
 export const LETTER_KIND_KEYWORDS: readonly [RegExp, LetterKind][] = [
-  [/agenzia delle entrate|cartella|avviso bonario|f24|irpef|imposta|riscossione/i, 'tax'],
+  [
+    /agenzia delle entrate|cartella|avviso bonario|f24|irpef|imposta|riscossione/i,
+    'tax',
+  ],
   [/inps|contribut|pension|naspi|assegno unico/i, 'social-security'],
-  [/verbale|contravvenzione|codice della strada|polizia locale|multa|sanzione/i, 'fine'],
+  [
+    /verbale|contravvenzione|codice della strada|polizia locale|multa|sanzione/i,
+    'fine',
+  ],
   [/banca|conto corrente|estratto conto|poste italiane|bancoposta/i, 'bank'],
   [/condomin|amministratore|rata condominiale/i, 'condo'],
   [/comune di|tari|anagrafe|imu|tributi/i, 'municipality'],

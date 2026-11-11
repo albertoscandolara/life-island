@@ -44,11 +44,30 @@ type AgendaTab = 'now' | 'ahead' | 'items' | 'brief';
 const SERVICE = 'svc-agenda';
 
 const ITEM_FIELDS: readonly LiField[] = [
-  { key: 'title', label: 'What', type: 'text', required: true, wide: true, placeholder: 'Call the plumber, Anna’s birthday…' },
+  {
+    key: 'title',
+    label: 'What',
+    type: 'text',
+    required: true,
+    wide: true,
+    placeholder: 'Call the plumber, Anna’s birthday…',
+  },
   { key: 'date', label: 'Date', type: 'date', required: true },
   { key: 'time', label: 'Time', type: 'time', hint: 'Optional' },
-  { key: 'repeat', label: 'Repeats', type: 'select', required: true, options: liOptions(AGENDA_REPEAT_LABELS) },
-  { key: 'category', label: 'Kind', type: 'select', required: true, options: liOptions(AGENDA_CATEGORY_LABELS) },
+  {
+    key: 'repeat',
+    label: 'Repeats',
+    type: 'select',
+    required: true,
+    options: liOptions(AGENDA_REPEAT_LABELS),
+  },
+  {
+    key: 'category',
+    label: 'Kind',
+    type: 'select',
+    required: true,
+    options: liOptions(AGENDA_CATEGORY_LABELS),
+  },
   { key: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
@@ -90,7 +109,12 @@ export class AgendaPage {
   protected readonly areaFilter = signal<string | null>(null);
   protected readonly showHandled = signal(false);
   protected readonly itemFields = ITEM_FIELDS;
-  protected readonly items = new RecordEditor(this.api, 'items', () => this.load(), SERVICE);
+  protected readonly items = new RecordEditor(
+    this.api,
+    'items',
+    () => this.load(),
+    SERVICE,
+  );
   protected readonly dateText = dateText;
   protected readonly monthText = monthText;
   protected readonly area = areaOf;
@@ -106,8 +130,7 @@ export class AgendaPage {
     if (!data) return [];
     const area = this.areaFilter();
     return data.entries.filter(
-      (e) =>
-        (!area || e.module === area) && (this.showHandled() || !e.handled),
+      (e) => (!area || e.module === area) && (this.showHandled() || !e.handled),
     );
   });
 
@@ -163,7 +186,12 @@ export class AgendaPage {
   });
 
   protected readonly tabs = computed<LiTab[]>(() => [
-    { id: 'now', label: 'Now', icon: 'alert', count: this.counts().overdue + this.counts().week },
+    {
+      id: 'now',
+      label: 'Now',
+      icon: 'alert',
+      count: this.counts().overdue + this.counts().week,
+    },
     { id: 'ahead', label: 'Year ahead', icon: 'calendar' },
     { id: 'items', label: 'My items', icon: 'edit' },
     { id: 'brief', label: 'Week brief', icon: 'sparkles' },
@@ -200,7 +228,9 @@ export class AgendaPage {
         this.error.set(null);
       },
       error: (error: unknown) =>
-        this.error.set(errorText(error, 'Could not load your agenda.', SERVICE)),
+        this.error.set(
+          errorText(error, 'Could not load your agenda.', SERVICE),
+        ),
     });
   }
 
@@ -231,34 +261,48 @@ export class AgendaPage {
   }
 
   protected addItem(): void {
-    this.items.add({ date: localToday(), repeat: 'none', category: 'personal' });
+    this.items.add({
+      date: localToday(),
+      repeat: 'none',
+      category: 'personal',
+    });
   }
 
   protected repeatLabel(repeat: string): string {
-    return AGENDA_REPEAT_LABELS[repeat as keyof typeof AGENDA_REPEAT_LABELS] ?? repeat;
+    return (
+      AGENDA_REPEAT_LABELS[repeat as keyof typeof AGENDA_REPEAT_LABELS] ??
+      repeat
+    );
   }
 
   protected categoryLabel(category: string): string {
-    return AGENDA_CATEGORY_LABELS[category as keyof typeof AGENDA_CATEGORY_LABELS] ?? category;
+    return (
+      AGENDA_CATEGORY_LABELS[category as keyof typeof AGENDA_CATEGORY_LABELS] ??
+      category
+    );
   }
 
   protected ask(): void {
     this.asking.set(true);
     this.briefStatus.set('idle');
-    this.api.writeBrief({ question: this.question().trim() || null }).subscribe({
-      next: (brief) => {
-        this.asking.set(false);
-        this.briefStatus.set('done');
-        this.shownBrief.set(brief.id);
-        this.question.set('');
-        this.load();
-      },
-      error: (error: unknown) => {
-        this.asking.set(false);
-        this.briefStatus.set('error');
-        this.error.set(errorText(error, 'Could not write the brief.', SERVICE));
-      },
-    });
+    this.api
+      .writeBrief({ question: this.question().trim() || null })
+      .subscribe({
+        next: (brief) => {
+          this.asking.set(false);
+          this.briefStatus.set('done');
+          this.shownBrief.set(brief.id);
+          this.question.set('');
+          this.load();
+        },
+        error: (error: unknown) => {
+          this.asking.set(false);
+          this.briefStatus.set('error');
+          this.error.set(
+            errorText(error, 'Could not write the brief.', SERVICE),
+          );
+        },
+      });
   }
 
   protected removeBrief(id: string): void {

@@ -57,7 +57,8 @@ export function daysText(days: number | null | undefined): string {
   if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';
   if (days === -1) return 'yesterday';
-  if (days > 0) return days > 60 ? `in ${Math.round(days / 30)} months` : `in ${days} days`;
+  if (days > 0)
+    return days > 60 ? `in ${Math.round(days / 30)} months` : `in ${days} days`;
   return -days > 60
     ? `${Math.round(-days / 30)} months ago`
     : `${-days} days ago`;

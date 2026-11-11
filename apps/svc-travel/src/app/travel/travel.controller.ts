@@ -45,13 +45,25 @@ export class TravelController {
 
   /** The trip planner (Claude, or Life Island's own rules). */
   @Post('trips/:id/plans')
-  plan(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<TripPlanDto> {
-    return this.travel.plan(id, parseOrThrow(tripPlanRequestSchema, body ?? {}));
+  plan(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<TripPlanDto> {
+    return this.travel.plan(
+      id,
+      parseOrThrow(tripPlanRequestSchema, body ?? {}),
+    );
   }
 
   @Post('plans/:id/apply')
-  applyPlan(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<{ added: number }> {
-    return this.travel.applyPlan(id, parseOrThrow(applyTripPlanRequestSchema, body ?? {}));
+  applyPlan(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<{ added: number }> {
+    return this.travel.applyPlan(
+      id,
+      parseOrThrow(applyTripPlanRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('plans/:id')

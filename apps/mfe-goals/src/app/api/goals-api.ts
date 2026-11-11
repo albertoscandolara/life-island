@@ -20,7 +20,10 @@ export class GoalsApi extends RecordsApi {
   }
 
   checkHabit(id: string, date: string, done: boolean): Observable<void> {
-    return this.http.put<void>(`${this.base}/habits/${id}/checks`, { date, done });
+    return this.http.put<void>(`${this.base}/habits/${id}/checks`, {
+      date,
+      done,
+    });
   }
 
   saveWeeklyReview(request: WeeklyReviewRequest): Observable<void> {

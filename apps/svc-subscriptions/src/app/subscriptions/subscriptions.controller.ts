@@ -24,7 +24,10 @@ import { SubscriptionsService } from './subscriptions.service.js';
 
 @Controller()
 export class SubscriptionsController {
-  constructor(@Inject(SubscriptionsService) private readonly subscriptions: SubscriptionsService) {}
+  constructor(
+    @Inject(SubscriptionsService)
+    private readonly subscriptions: SubscriptionsService,
+  ) {}
 
   /** Every contract with its cost, next renewal and cancel-by date, totals and advice. */
   @Get('overview')
@@ -35,7 +38,9 @@ export class SubscriptionsController {
   /** Renewals, last days to cancel and minimum terms, for the Agenda. */
   @Get('deadlines')
   deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
-    return this.subscriptions.deadlines(parseOrThrow(deadlinesQuerySchema, query));
+    return this.subscriptions.deadlines(
+      parseOrThrow(deadlinesQuerySchema, query),
+    );
   }
 
   @Get('attention')
@@ -46,14 +51,19 @@ export class SubscriptionsController {
   /** Changes a contract; a new cost is remembered as a price change. */
   @Put('items/:id')
   @HttpCode(204)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<void> {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
     return this.subscriptions.update(id, body);
   }
 
   /** The renewal advisor (Claude, or Life Island's own rules). */
   @Post('advice')
   advise(@Body() body: unknown): Promise<RenewalAdviceDto> {
-    return this.subscriptions.advise(parseOrThrow(lifeQuestionRequestSchema, body ?? {}));
+    return this.subscriptions.advise(
+      parseOrThrow(lifeQuestionRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('advice/:id')

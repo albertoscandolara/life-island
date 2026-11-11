@@ -175,7 +175,9 @@ export type TripDto = LifeRecord<{
 };
 
 export const tripPlanOutputSchema = z.object({
-  summary: z.string().describe('Two sentences about the trip and what to watch'),
+  summary: z
+    .string()
+    .describe('Two sentences about the trip and what to watch'),
   checklist: z
     .array(
       z.object({
@@ -193,7 +195,9 @@ export const tripPlanOutputSchema = z.object({
     .array(
       z.object({
         day: z.string().describe('Day 1, Day 2…'),
-        plan: z.string().describe('What to do that day, in one or two sentences'),
+        plan: z
+          .string()
+          .describe('What to do that day, in one or two sentences'),
       }),
     )
     .describe('A loose plan per day, at most fourteen days'),

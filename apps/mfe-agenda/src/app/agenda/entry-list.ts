@@ -80,7 +80,7 @@ import { areaOf } from './areas';
                 size="sm"
                 type="button"
                 [title]="e.handled ? 'Mark as not done' : 'Mark as done'"
-                (click)="toggle.emit(e)"
+                (click)="toggleDone.emit(e)"
               >
                 <ui-icon [name]="e.handled ? 'refresh' : 'check'" [size]="16" />
                 {{ e.handled ? 'Undo' : 'Done' }}
@@ -168,7 +168,7 @@ import { areaOf } from './areas';
 export class EntryList {
   readonly entries = input.required<readonly AgendaEntryDto[]>();
   readonly showDetail = input(true);
-  readonly toggle = output<AgendaEntryDto>();
+  readonly toggleDone = output<AgendaEntryDto>();
   readonly edit = output<AgendaEntryDto>();
 
   protected readonly euro = euro;

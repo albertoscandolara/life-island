@@ -83,7 +83,8 @@ export class RecordCollections {
       .set(values as never)
       .where(eq(collection.table.id, id))
       .returning({ id: collection.table.id });
-    if (!rows.length) throw new NotFoundException(`${collection.label} not found`);
+    if (!rows.length)
+      throw new NotFoundException(`${collection.label} not found`);
   }
 
   async remove(name: string, id: string): Promise<void> {
@@ -92,7 +93,8 @@ export class RecordCollections {
       .delete(collection.table)
       .where(eq(collection.table.id, id))
       .returning({ id: collection.table.id });
-    if (!rows.length) throw new NotFoundException(`${collection.label} not found`);
+    if (!rows.length)
+      throw new NotFoundException(`${collection.label} not found`);
   }
 }
 

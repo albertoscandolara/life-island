@@ -52,20 +52,27 @@ export class GoalsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: unknown,
   ): Promise<void> {
-    return this.goals.checkHabit(id, parseOrThrow(habitCheckRequestSchema, body));
+    return this.goals.checkHabit(
+      id,
+      parseOrThrow(habitCheckRequestSchema, body),
+    );
   }
 
   /** The review of one week; writing it again replaces it. */
   @Put('weekly-reviews')
   @HttpCode(204)
   saveWeeklyReview(@Body() body: unknown): Promise<void> {
-    return this.goals.saveWeeklyReview(parseOrThrow(weeklyReviewRequestSchema, body));
+    return this.goals.saveWeeklyReview(
+      parseOrThrow(weeklyReviewRequestSchema, body),
+    );
   }
 
   /** The coach (Claude, or Life Island's own rules). */
   @Post('advice')
   coach(@Body() body: unknown): Promise<GoalsCoachDto> {
-    return this.goals.coach(parseOrThrow(lifeQuestionRequestSchema, body ?? {}));
+    return this.goals.coach(
+      parseOrThrow(lifeQuestionRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('advice/:id')

@@ -7,15 +7,19 @@
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
   {{ message }}
-  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
 </ui-alert>
-}
-
-@if (!data() && !error()) {
+} @if (!data() && !error()) {
 <p class="li-muted">Loading your letters…</p>
-}
-
-@if (data(); as d) {
+} @if (data(); as d) {
 <div class="li-tiles li-block">
   <div class="li-tile li-tile--lead">
     <span class="li-tile__label">Open</span>
@@ -38,27 +42,58 @@
 
 <div class="li-toolbar li-block">
   <div class="li-chips" role="group" aria-label="Show">
-    <button type="button" class="li-chip" [class.li-chip--on]="filter() === 'open'" (click)="filter.set('open')">Open</button>
-    <button type="button" class="li-chip" [class.li-chip--on]="filter() === 'all'" (click)="filter.set('all')">All letters ({{ d.letters.length }})</button>
+    <button
+      type="button"
+      class="li-chip"
+      [class.li-chip--on]="filter() === 'open'"
+      (click)="filter.set('open')"
+    >
+      Open
+    </button>
+    <button
+      type="button"
+      class="li-chip"
+      [class.li-chip--on]="filter() === 'all'"
+      (click)="filter.set('all')"
+    >
+      All letters ({{ d.letters.length }})
+    </button>
   </div>
-  <input class="ui-input" type="search" placeholder="Search sender, subject, text" aria-label="Search the letters" [value]="search()" (input)="search.set($any($event.target).value)" />
+  <input
+    class="ui-input"
+    type="search"
+    placeholder="Search sender, subject, text"
+    aria-label="Search the letters"
+    [value]="search()"
+    (input)="search.set($any($event.target).value)"
+  />
   <span class="grow"></span>
-  <button uiButton type="button" (click)="add()"><ui-icon name="plus" [size]="16" /> Add a letter</button>
+  <button uiButton type="button" (click)="add()">
+    <ui-icon name="plus" [size]="16" /> Add a letter
+  </button>
 </div>
 
 @if (!d.letters.length) {
 <ui-empty-state icon="inbox" heading="No letters yet">
-  When an official letter arrives, add it here with its text: the explainer tells you what it means and what to do, and the date goes in the Agenda.
+  When an official letter arrives, add it here with its text: the explainer
+  tells you what it means and what to do, and the date goes in the Agenda.
 </ui-empty-state>
 } @else {
 <div class="layout li-block">
   <ul class="letters" aria-label="Letters">
     @for (l of shown(); track l.id) {
     <li>
-      <button type="button" class="letter" [class.letter--on]="selected()?.id === l.id" [attr.aria-current]="selected()?.id === l.id ? 'true' : null" (click)="selectedId.set(l.id)">
+      <button
+        type="button"
+        class="letter"
+        [class.letter--on]="selected()?.id === l.id"
+        [attr.aria-current]="selected()?.id === l.id ? 'true' : null"
+        (click)="selectedId.set(l.id)"
+      >
         <span class="letter__top">
           <strong>{{ l.sender }}</strong>
-          @if ((l.status === 'todo' || l.status === 'waiting') && l.daysLeft !== null) {
+          @if ((l.status === 'todo' || l.status === 'waiting') && l.daysLeft !==
+          null) {
           <li-due [days]="l.daysLeft" [warnDays]="14" />
           } @else {
           <span class="li-muted li-small">{{ status(l.status) }}</span>
@@ -81,19 +116,54 @@
   <section class="detail" aria-label="The letter">
     <ui-card [heading]="l.subject">
       <div uiCardActions class="li-actions">
-        <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the letter" (click)="letters.edit(l)"><ui-icon name="edit" [size]="16" /></button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit the letter"
+          (click)="letters.edit(l)"
+        >
+          <ui-icon name="edit" [size]="16" />
+        </button>
       </div>
       <dl class="facts">
-        <div><dt>From</dt><dd>{{ l.sender }}</dd></div>
-        <div><dt>Received</dt><dd>{{ dateText(l.receivedOn) }}</dd></div>
-        <div><dt>Kind</dt><dd>{{ kind(l) }}</dd></div>
-        <div><dt>Status</dt><dd>{{ status(l.status) }}</dd></div>
-        @if (l.amount) { <div><dt>To pay</dt><dd><strong>{{ euro(l.amount) }}</strong></dd></div> }
-        @if (l.dueOn) { <div><dt>Act by</dt><dd>{{ dateText(l.dueOn) }}</dd></div> }
-        @if (l.reference) { <div><dt>Reference</dt><dd>{{ l.reference }}</dd></div> }
+        <div>
+          <dt>From</dt>
+          <dd>{{ l.sender }}</dd>
+        </div>
+        <div>
+          <dt>Received</dt>
+          <dd>{{ dateText(l.receivedOn) }}</dd>
+        </div>
+        <div>
+          <dt>Kind</dt>
+          <dd>{{ kind(l) }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ status(l.status) }}</dd>
+        </div>
+        @if (l.amount) {
+        <div>
+          <dt>To pay</dt>
+          <dd><strong>{{ euro(l.amount) }}</strong></dd>
+        </div>
+        } @if (l.dueOn) {
+        <div>
+          <dt>Act by</dt>
+          <dd>{{ dateText(l.dueOn) }}</dd>
+        </div>
+        } @if (l.reference) {
+        <div>
+          <dt>Reference</dt>
+          <dd>{{ l.reference }}</dd>
+        </div>
+        }
       </dl>
-      @if (l.action) { <p><strong>To do:</strong> {{ l.action }}</p> }
-      @if (l.text) {
+      @if (l.action) {
+      <p><strong>To do:</strong> {{ l.action }}</p>
+      } @if (l.text) {
       <details>
         <summary class="li-link">The text</summary>
         <p class="text">{{ l.text }}</p>
@@ -101,60 +171,114 @@
       }
       <div class="li-actions status">
         @if (l.status === 'todo') {
-        <button uiButton variant="secondary" size="sm" type="button" (click)="setStatus(l, 'waiting')">Answered, waiting</button>
-        }
-        @if (l.status === 'todo' || l.status === 'waiting') {
-        <button uiButton size="sm" type="button" (click)="setStatus(l, 'done')"><ui-icon name="check" [size]="16" /> Done</button>
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="setStatus(l, 'waiting')"
+        >
+          Answered, waiting
+        </button>
+        } @if (l.status === 'todo' || l.status === 'waiting') {
+        <button uiButton size="sm" type="button" (click)="setStatus(l, 'done')">
+          <ui-icon name="check" [size]="16" /> Done
+        </button>
         } @else {
-        <button uiButton variant="ghost" size="sm" type="button" (click)="setStatus(l, 'todo')">Open again</button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="setStatus(l, 'todo')"
+        >
+          Open again
+        </button>
         }
       </div>
     </ui-card>
 
-    <ui-ai-panel heading="Letter explainer" class="explain" [state]="explaining() ? 'working' : 'idle'" [offline]="!d.aiExplainer">
+    <ui-ai-panel
+      heading="Letter explainer"
+      class="explain"
+      [state]="explaining() ? 'working' : 'idle'"
+      [offline]="!d.aiExplainer"
+    >
       <li-ai-tool uiAiPanelActions toolId="mailbox.letter-explainer" />
       <p class="li-muted li-small">
-        @if (d.aiExplainer) {
-        Claude reads this letter's sender, subject and text, and tells you in plain English what it means, what happens if you do
-        nothing and the steps to take. Not legal advice: for big amounts or courts, ask a CAF or a lawyer.
-        } @else {
-        Without a Claude API key, or with the tool off in Settings → AI tools, Life Island reads the words: the kind of letter, the
-        amounts and the dates written in it, and the usual steps.
-        }
+        @if (d.aiExplainer) { Claude reads this letter's sender, subject and
+        text, and tells you in plain English what it means, what happens if you
+        do nothing and the steps to take. Not legal advice: for big amounts or
+        courts, ask a CAF or a lawyer. } @else { Without a Claude API key, or
+        with the tool off in Settings → AI tools, Life Island reads the words:
+        the kind of letter, the amounts and the dates written in it, and the
+        usual steps. }
       </p>
       <div class="li-actions">
-        <button uiButton type="button" [loading]="explaining()" (click)="explain(l)">
-          <ui-icon name="sparkles" [size]="16" /> {{ l.explanation ? 'Explain again' : 'Explain this letter' }}
+        <button
+          uiButton
+          type="button"
+          [loading]="explaining()"
+          (click)="explain(l)"
+        >
+          <ui-icon name="sparkles" [size]="16" /> {{ l.explanation ? 'Explain
+          again' : 'Explain this letter' }}
         </button>
         @if (explaining()) {
         <ui-ai-status state="working">Reading the letter…</ui-ai-status>
         } @else if (explainStatus() === 'error') {
-        <ui-ai-status state="error">The letter could not be explained</ui-ai-status>
+        <ui-ai-status state="error"
+          >The letter could not be explained</ui-ai-status
+        >
         }
       </div>
-      @if (!l.text) { <p class="li-warn li-small">There is no text yet: add it for a real explanation.</p> }
+      @if (!l.text) {
+      <p class="li-warn li-small">
+        There is no text yet: add it for a real explanation.
+      </p>
+      }
     </ui-ai-panel>
 
     @if (l.explanation; as e) {
-    <ui-ai-panel heading="What it means" kind="result" [offline]="e.source !== 'claude'" class="explain">
-      <span uiAiPanelActions class="li-muted li-small">{{ urgency[e.output.urgency] }} · {{ dateText(e.createdAt) }}</span>
+    <ui-ai-panel
+      heading="What it means"
+      kind="result"
+      [offline]="e.source !== 'claude'"
+      class="explain"
+    >
+      <span uiAiPanelActions class="li-muted li-small"
+        >{{ urgency[e.output.urgency] }} · {{ dateText(e.createdAt) }}</span
+      >
       <p>{{ e.output.summary }}</p>
       <p>{{ e.output.meaning }}</p>
       @if (e.output.actions.length) {
       <h3 class="li-sub">Steps</h3>
       <ol class="plain">
         @for (a of e.output.actions; track $index) {
-        <li>{{ a.what }}@if (a.by) { <span class="li-muted"> · by {{ dateText(a.by) }}</span> }</li>
+        <li>
+          {{ a.what }}@if (a.by) {
+          <span class="li-muted"> · by {{ dateText(a.by) }}</span> }
+        </li>
         }
       </ol>
-      }
-      @if (e.output.questions.length) {
+      } @if (e.output.questions.length) {
       <h3 class="li-sub">To check or ask</h3>
-      <ul class="plain">@for (q of e.output.questions; track $index) { <li>{{ q }}</li> }</ul>
-      }
-      @if (canApply(l)) {
+      <ul class="plain">
+        @for (q of e.output.questions; track $index) {
+        <li>{{ q }}</li>
+        }
+      </ul>
+      } @if (canApply(l)) {
       <div class="li-actions">
-        <button uiButton variant="secondary" size="sm" type="button" (click)="apply(l)">Use the amount, date and steps found</button>
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="apply(l)"
+        >
+          Use the amount, date and steps found
+        </button>
       </div>
       }
     </ui-ai-panel>
@@ -162,7 +286,16 @@
   </section>
   }
 </div>
-}
-}
+} }
 
-<li-record-dialog heading="Letter" size="lg" [fields]="fields" [(open)]="letters.open" [value]="letters.value()" [saving]="letters.saving()" [error]="letters.error()" (save)="letters.save($event)" (remove)="letters.remove()" />
+<li-record-dialog
+  heading="Letter"
+  size="lg"
+  [fields]="fields"
+  [(open)]="letters.open"
+  [value]="letters.value()"
+  [saving]="letters.saving()"
+  [error]="letters.error()"
+  (save)="letters.save($event)"
+  (remove)="letters.remove()"
+/>

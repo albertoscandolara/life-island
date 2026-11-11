@@ -7,26 +7,42 @@
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
   {{ message }}
-  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
 </ui-alert>
-}
-
-@if (!data() && !error()) {
+} @if (!data() && !error()) {
 <p class="li-muted">Loading your fitness…</p>
-}
-
-@if (data(); as d) {
+} @if (data(); as d) {
 <div class="li-tiles li-block">
   <div class="li-tile li-tile--lead">
     <span class="li-tile__label">This week</span>
-    <span class="li-tile__value">{{ d.stats.thisWeek }} <span class="li-small">/ {{ d.goalMinutes }} min</span></span>
-    <div class="meter" role="progressbar" [attr.aria-valuenow]="progress()" aria-valuemin="0" aria-valuemax="100" aria-label="Active minutes this week against the goal">
+    <span class="li-tile__value"
+      >{{ d.stats.thisWeek }}
+      <span class="li-small">/ {{ d.goalMinutes }} min</span></span
+    >
+    <div
+      class="meter"
+      role="progressbar"
+      [attr.aria-valuenow]="progress()"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-label="Active minutes this week against the goal"
+    >
       <span [style.width.%]="progress()"></span>
     </div>
   </div>
   <div class="li-tile">
     <span class="li-tile__label">Streak</span>
-    <span class="li-tile__value">{{ d.stats.streak ? '🔥 ' + d.stats.streak : '—' }}</span>
+    <span class="li-tile__value"
+      >{{ d.stats.streak ? '🔥 ' + d.stats.streak : '—' }}</span
+    >
     <span class="li-tile__hint">weeks in a row at goal</span>
   </div>
   <div class="li-tile">
@@ -36,43 +52,79 @@
   </div>
   <div class="li-tile">
     <span class="li-tile__label">Weight</span>
-    <span class="li-tile__value">{{ d.stats.latestWeight === null ? '—' : d.stats.latestWeight + ' kg' }}</span>
+    <span class="li-tile__value"
+      >{{ d.stats.latestWeight === null ? '—' : d.stats.latestWeight + ' kg'
+      }}</span
+    >
     @if (d.stats.weightChange30 !== null) {
-    <span class="li-tile__hint">{{ d.stats.weightChange30 > 0 ? '+' : '' }}{{ d.stats.weightChange30 }} kg in 30 days</span>
+    <span class="li-tile__hint"
+      >{{ d.stats.weightChange30 > 0 ? '+' : '' }}{{ d.stats.weightChange30 }}
+      kg in 30 days</span
+    >
     }
   </div>
 </div>
 
-<li-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="setTab($event)" label="Fitness" />
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Fitness"
+/>
 
-@switch (tab()) {
-@case ('week') {
+@switch (tab()) { @case ('week') {
 <ui-card heading="Log a workout" class="li-block">
   <div class="li-chips">
     @for (k of quickKinds; track k) {
-    <button type="button" class="li-chip" (click)="addWorkout(k)">{{ emoji[k] }} {{ kind(k) }}</button>
+    <button type="button" class="li-chip" (click)="addWorkout(k)">
+      {{ emoji[k] }} {{ kind(k) }}
+    </button>
     }
   </div>
   <p class="li-muted li-small">
-    Active minutes count moderate effort once and hard effort twice, as the WHO does; easy ones count half. The goal ({{ d.goalMinutes }} a
-    week) is in Settings → App.
+    Active minutes count moderate effort once and hard effort twice, as the WHO
+    does; easy ones count half. The goal ({{ d.goalMinutes }} a week) is in
+    Settings → App.
   </p>
 </ui-card>
 
 <div class="li-grid li-block">
   <ui-card heading="The last 12 weeks">
-    <li-bars [bars]="weekBars()" [goal]="d.goalMinutes" goalLabel="Goal" caption="Active minutes per week" />
+    <li-bars
+      [bars]="weekBars()"
+      [goal]="d.goalMinutes"
+      goalLabel="Goal"
+      caption="Active minutes per week"
+    />
   </ui-card>
   <ui-card heading="This week">
     @if (!thisWeek().length) {
-    <p class="li-muted">Nothing yet this week. A 30-minute brisk walk counts.</p>
+    <p class="li-muted">
+      Nothing yet this week. A 30-minute brisk walk counts.
+    </p>
     }
     <ul class="li-list">
       @for (w of thisWeek(); track w.id) {
       <li class="li-row">
-        <span>{{ emoji[w.kind] }} {{ dayText(w.date) }} · {{ kind(w.kind) }} <span class="li-muted li-small">· {{ intensity(w) }}{{ w.distanceKm ? ' · ' + w.distanceKm + ' km' : '' }}</span></span>
-        <span class="li-num">{{ duration(w.minutes) }}
-          <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the workout" (click)="workouts.edit(w)"><ui-icon name="edit" [size]="14" /></button>
+        <span
+          >{{ emoji[w.kind] }} {{ dayText(w.date) }} · {{ kind(w.kind) }}
+          <span class="li-muted li-small"
+            >· {{ intensity(w) }}{{ w.distanceKm ? ' · ' + w.distanceKm + ' km'
+            : '' }}</span
+          ></span
+        >
+        <span class="li-num"
+          >{{ duration(w.minutes) }}
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            aria-label="Edit the workout"
+            (click)="workouts.edit(w)"
+          >
+            <ui-icon name="edit" [size]="14" />
+          </button>
         </span>
       </li>
       }
@@ -83,26 +135,45 @@
 @if (d.workouts.length > thisWeek().length) {
 <ui-card heading="Before this week" class="li-block">
   <ul class="li-list">
-    @for (w of d.workouts.slice(thisWeek().length, thisWeek().length + 20); track w.id) {
+    @for (w of d.workouts.slice(thisWeek().length, thisWeek().length + 20);
+    track w.id) {
     <li class="li-row li-small">
-      <span>{{ emoji[w.kind] }} {{ dateText(w.date) }} · {{ kind(w.kind) }} · {{ intensity(w) }}</span>
-      <span class="li-num">{{ duration(w.minutes) }}
-        <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the workout" (click)="workouts.edit(w)"><ui-icon name="edit" [size]="14" /></button>
+      <span
+        >{{ emoji[w.kind] }} {{ dateText(w.date) }} · {{ kind(w.kind) }} · {{
+        intensity(w) }}</span
+      >
+      <span class="li-num"
+        >{{ duration(w.minutes) }}
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit the workout"
+          (click)="workouts.edit(w)"
+        >
+          <ui-icon name="edit" [size]="14" />
+        </button>
       </span>
     </li>
     }
   </ul>
 </ui-card>
-}
-}
-
-@case ('body') {
+} } @case ('body') {
 <div class="li-toolbar li-block">
-  <p class="li-muted li-small grow">Write what you know on a day: any field can stay empty. Once a week is plenty for weight.</p>
-  <button uiButton type="button" (click)="measurements.add({ date: d.today })"><ui-icon name="plus" [size]="16" /> Add</button>
+  <p class="li-muted li-small grow">
+    Write what you know on a day: any field can stay empty. Once a week is
+    plenty for weight.
+  </p>
+  <button uiButton type="button" (click)="measurements.add({ date: d.today })">
+    <ui-icon name="plus" [size]="16" /> Add
+  </button>
 </div>
 @if (!d.measurements.length) {
-<ui-empty-state icon="chart" heading="Nothing measured yet">Weight, waist, resting heart rate, sleep and steps: add them to see how they move.</ui-empty-state>
+<ui-empty-state icon="chart" heading="Nothing measured yet"
+  >Weight, waist, resting heart rate, sleep and steps: add them to see how they
+  move.</ui-empty-state
+>
 } @else {
 <div class="li-grid li-block">
   @if (weightBars().length > 1) {
@@ -111,8 +182,12 @@
   </ui-card>
   }
   <ui-card heading="Sleep">
-    <p class="big">{{ d.stats.averageSleep7 === null ? '—' : d.stats.averageSleep7 + ' h' }}</p>
-    <p class="li-muted li-small">Average of the last 7 days. Adults do best with 7–9 hours.</p>
+    <p class="big">
+      {{ d.stats.averageSleep7 === null ? '—' : d.stats.averageSleep7 + ' h' }}
+    </p>
+    <p class="li-muted li-small">
+      Average of the last 7 days. Adults do best with 7–9 hours.
+    </p>
   </ui-card>
 </div>
 <div class="li-table-wrap li-block">
@@ -137,58 +212,96 @@
         <td class="li-num">{{ m.restingHr ?? '—' }}</td>
         <td class="li-num">{{ m.sleepHours ?? '—' }}</td>
         <td class="li-num">{{ m.steps ?? '—' }}</td>
-        <td><button uiButton variant="ghost" size="sm" type="button" aria-label="Edit" (click)="measurements.edit(m)"><ui-icon name="edit" [size]="14" /></button></td>
+        <td>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            aria-label="Edit"
+            (click)="measurements.edit(m)"
+          >
+            <ui-icon name="edit" [size]="14" />
+          </button>
+        </td>
       </tr>
       }
     </tbody>
   </table>
 </div>
-}
-}
-
-@case ('events') {
+} } @case ('events') {
 <div class="li-toolbar li-block">
-  <p class="li-muted li-small grow">A race, a long hike, a tournament: something with a date makes training stick. Each one is in the Agenda.</p>
-  <button uiButton type="button" (click)="events.add({ date: d.today })"><ui-icon name="plus" [size]="16" /> Add an event</button>
+  <p class="li-muted li-small grow">
+    A race, a long hike, a tournament: something with a date makes training
+    stick. Each one is in the Agenda.
+  </p>
+  <button uiButton type="button" (click)="events.add({ date: d.today })">
+    <ui-icon name="plus" [size]="16" /> Add an event
+  </button>
 </div>
 @if (!d.events.length) {
-<ui-empty-state icon="calendar" heading="No events">Pick a date a few months ahead and train for it.</ui-empty-state>
+<ui-empty-state icon="calendar" heading="No events"
+  >Pick a date a few months ahead and train for it.</ui-empty-state
+>
 } @else {
 <div class="li-cards li-block">
   @for (e of d.events; track e.id) {
   <article class="li-item" [class.li-item--off]="e.done">
     <div class="li-item__head">
-      <span class="li-item__title">{{ e.done ? '🏅' : '🎯' }} {{ e.name }}</span>
-      <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + e.name" (click)="events.edit(e)"><ui-icon name="edit" [size]="16" /></button>
+      <span class="li-item__title"
+        >{{ e.done ? '🏅' : '🎯' }} {{ e.name }}</span
+      >
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="'Edit ' + e.name"
+        (click)="events.edit(e)"
+      >
+        <ui-icon name="edit" [size]="16" />
+      </button>
     </div>
     <span class="li-meta">
       <span>{{ dateText(e.date) }}</span>
-      @if (e.target) { <span>Target: {{ e.target }}</span> }
-      @if (e.result) { <span class="li-good">Result: {{ e.result }}</span> }
+      @if (e.target) { <span>Target: {{ e.target }}</span> } @if (e.result) {
+      <span class="li-good">Result: {{ e.result }}</span> }
     </span>
-    @if (!e.done) { <li-due [days]="e.daysToGo" [warnDays]="14" [happy]="true" /> }
+    @if (!e.done) {
+    <li-due [days]="e.daysToGo" [warnDays]="14" [happy]="true" /> }
   </article>
   }
 </div>
-}
-}
-
-@case ('plan') {
-<ui-ai-panel heading="Training plan" class="li-block" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiCoach">
+} } @case ('plan') {
+<ui-ai-panel
+  heading="Training plan"
+  class="li-block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!d.aiCoach"
+>
   <li-ai-tool uiAiPanelActions toolId="fitness.training-plan" />
   <p class="li-muted li-intro">
-    @if (d.aiCoach) {
-    Claude reads your last weeks (active minutes and kinds of workout), your streak, weight and sleep trends and the events ahead,
-    then plans a realistic week that builds up gently. Notes are never sent. It is not medical advice.
-    } @else {
-    Without a Claude API key, or with the tool off in Settings → AI tools, the plan comes from Life Island's own rules: build up by at
-    most 20% a week, rest days, one strength session, a longer one at the weekend.
-    }
+    @if (d.aiCoach) { Claude reads your last weeks (active minutes and kinds of
+    workout), your streak, weight and sleep trends and the events ahead, then
+    plans a realistic week that builds up gently. Notes are never sent. It is
+    not medical advice. } @else { Without a Claude API key, or with the tool off
+    in Settings → AI tools, the plan comes from Life Island's own rules: build
+    up by at most 20% a week, rest days, one strength session, a longer one at
+    the weekend. }
   </p>
   <form class="ask" (submit)="$event.preventDefault(); ask()">
-    <textarea class="ui-input" rows="2" maxlength="1000" placeholder="Optional: “Only 3 free evenings this week” or “My knee hurts a bit”" [value]="question()" (input)="question.set($any($event.target).value)"></textarea>
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “Only 3 free evenings this week” or “My knee hurts a bit”"
+      [value]="question()"
+      (input)="question.set($any($event.target).value)"
+    ></textarea>
     <div class="ask__row">
-      <button uiButton type="submit" [loading]="asking()"><ui-icon name="sparkles" [size]="16" /> Plan my week</button>
+      <button uiButton type="submit" [loading]="asking()">
+        <ui-icon name="sparkles" [size]="16" /> Plan my week
+      </button>
       @if (asking()) {
       <ui-ai-status state="working">Reading your weeks…</ui-ai-status>
       } @else if (planStatus() === 'done') {
@@ -201,10 +314,24 @@
 </ui-ai-panel>
 
 @if (plan(); as p) {
-<ui-ai-panel [heading]="p.question ? p.question : 'Your week'" kind="result" [offline]="p.source !== 'claude'" class="li-block">
+<ui-ai-panel
+  [heading]="p.question ? p.question : 'Your week'"
+  kind="result"
+  [offline]="p.source !== 'claude'"
+  class="li-block"
+>
   <div uiAiPanelActions class="li-actions">
     <span class="li-muted li-small">{{ dateText(p.createdAt) }}</span>
-    <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this plan" (click)="removePlan(p.id)"><ui-icon name="trash" [size]="16" /></button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this plan"
+      (click)="removePlan(p.id)"
+    >
+      <ui-icon name="trash" [size]="16" />
+    </button>
   </div>
   <p>{{ p.output.summary }}</p>
   <ul class="days">
@@ -212,20 +339,50 @@
     <li class="day" [class.day--rest]="!x.minutes">
       <span class="day__name">{{ x.day }}</span>
       <span>{{ x.session }}</span>
-      <span class="li-muted li-small">{{ x.minutes ? duration(x.minutes) + ' · ' + x.intensity : '' }}</span>
+      <span class="li-muted li-small"
+        >{{ x.minutes ? duration(x.minutes) + ' · ' + x.intensity : '' }}</span
+      >
     </li>
     }
   </ul>
   @if (p.output.tips.length) {
   <h3 class="li-sub">Tips</h3>
-  <ul class="plain">@for (t of p.output.tips; track $index) { <li>{{ t }}</li> }</ul>
+  <ul class="plain">
+    @for (t of p.output.tips; track $index) {
+    <li>{{ t }}</li>
+    }
+  </ul>
   }
 </ui-ai-panel>
-}
-}
-}
-}
+} } } }
 
-<li-record-dialog heading="Workout" [fields]="workoutFields" [(open)]="workouts.open" [value]="workouts.value()" [saving]="workouts.saving()" [error]="workouts.error()" (save)="workouts.save($event)" (remove)="workouts.remove()" />
-<li-record-dialog heading="Measurement" [fields]="measurementFields" [(open)]="measurements.open" [value]="measurements.value()" [saving]="measurements.saving()" [error]="measurements.error()" (save)="measurements.save($event)" (remove)="measurements.remove()" />
-<li-record-dialog heading="Event" [fields]="eventFields" [(open)]="events.open" [value]="events.value()" [saving]="events.saving()" [error]="events.error()" (save)="events.save($event)" (remove)="events.remove()" />
+<li-record-dialog
+  heading="Workout"
+  [fields]="workoutFields"
+  [(open)]="workouts.open"
+  [value]="workouts.value()"
+  [saving]="workouts.saving()"
+  [error]="workouts.error()"
+  (save)="workouts.save($event)"
+  (remove)="workouts.remove()"
+/>
+<li-record-dialog
+  heading="Measurement"
+  [fields]="measurementFields"
+  [(open)]="measurements.open"
+  [value]="measurements.value()"
+  [saving]="measurements.saving()"
+  [error]="measurements.error()"
+  (save)="measurements.save($event)"
+  (remove)="measurements.remove()"
+/>
+<li-record-dialog
+  heading="Event"
+  [fields]="eventFields"
+  [(open)]="events.open"
+  [value]="events.value()"
+  [saving]="events.saving()"
+  [error]="events.error()"
+  (save)="events.save($event)"
+  (remove)="events.remove()"
+/>

@@ -5,8 +5,7 @@ export const GOALS_ROUTES: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () =>
-      import('./goals/goals-page').then((m) => m.GoalsPage),
+    loadComponent: () => import('./goals/goals-page').then((m) => m.GoalsPage),
     title: 'Goals & habits · Life Island',
   },
 ];

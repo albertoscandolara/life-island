@@ -9,7 +9,11 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import type { Intensity, TrainingPlanOutput, WorkoutKind } from '@life-island/contracts';
+import type {
+  Intensity,
+  TrainingPlanOutput,
+  WorkoutKind,
+} from '@life-island/contracts';
 
 export const fitness = pgSchema('fitness');
 

@@ -269,9 +269,9 @@ export class LiBars {
 @Component({
   selector: 'li-due',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<span class="due" [class]="'due due--' + tone()">{{
-    prefix() ? prefix() + ' ' : ''
-  }}{{ text() }}</span>`,
+  template: `<span class="due" [class]="'due due--' + tone()"
+    >{{ prefix() ? prefix() + ' ' : '' }}{{ text() }}</span
+  >`,
   styles: `
     .due {
       display: inline-flex;

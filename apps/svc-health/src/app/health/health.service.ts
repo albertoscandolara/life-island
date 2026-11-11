@@ -1,4 +1,8 @@
-import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import { AiAssistant } from '@life-island/be-nest';
 import {
@@ -87,8 +91,14 @@ export class HealthService implements OnApplicationBootstrap {
     const [visitRows, medicineRows, resultRows, vaccinationRows, checkupRows] =
       await Promise.all([
         this.db.select().from(visits).orderBy(desc(visits.date)),
-        this.db.select().from(medicines).orderBy(desc(medicines.active), medicines.name),
-        this.db.select().from(testResults).orderBy(desc(testResults.date), testResults.test),
+        this.db
+          .select()
+          .from(medicines)
+          .orderBy(desc(medicines.active), medicines.name),
+        this.db
+          .select()
+          .from(testResults)
+          .orderBy(desc(testResults.date), testResults.test),
         this.db.select().from(vaccinations).orderBy(desc(vaccinations.date)),
         this.db.select().from(checkups).orderBy(checkups.person, checkups.name),
       ]);
@@ -108,13 +118,25 @@ export class HealthService implements OnApplicationBootstrap {
   async overview(day = today()): Promise<HealthOverviewDto> {
     const [records, explanationRows, aiExplainer] = await Promise.all([
       this.records(day),
-      this.db.select().from(explanations).orderBy(desc(explanations.createdAt)).limit(5),
+      this.db
+        .select()
+        .from(explanations)
+        .orderBy(desc(explanations.createdAt))
+        .limit(5),
       this.ai.active(),
     ]);
     const year = Number(day.slice(0, 4));
-    const thisYear = records.visits.filter((v) => v.date.startsWith(String(year)));
+    const thisYear = records.visits.filter((v) =>
+      v.date.startsWith(String(year)),
+    );
     const people = new Set<string>();
-    for (const list of [records.visits, records.medicines, records.results, records.vaccinations, records.checkups])
+    for (const list of [
+      records.visits,
+      records.medicines,
+      records.results,
+      records.vaccinations,
+      records.checkups,
+    ])
       for (const r of list) people.add(r.person);
     return {
       today: day,
@@ -123,7 +145,11 @@ export class HealthService implements OnApplicationBootstrap {
       costs: {
         year,
         total: round(thisYear.reduce((s, v) => s + (v.cost ?? 0), 0)),
-        deductible: round(thisYear.filter((v) => v.deductible).reduce((s, v) => s + (v.cost ?? 0), 0)),
+        deductible: round(
+          thisYear
+            .filter((v) => v.deductible)
+            .reduce((s, v) => s + (v.cost ?? 0), 0),
+        ),
       },
       explanations: explanationRows.map(toExplanationDto),
       aiExplainer,
@@ -131,12 +157,16 @@ export class HealthService implements OnApplicationBootstrap {
   }
 
   /** Follow-ups, refills, vaccine boosters and checkups, for the Agenda. */
-  async deadlines(query: DeadlinesQuery, day = today()): Promise<DeadlineDto[]> {
+  async deadlines(
+    query: DeadlinesQuery,
+    day = today(),
+  ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, day);
     const r = await this.records(day);
     const out: DeadlineDto[] = [];
     const add = (d: Omit<DeadlineDto, 'module' | 'amount'>) =>
-      inDeadlineWindow(d.date, window) && out.push({ ...d, module: 'health', amount: null });
+      inDeadlineWindow(d.date, window) &&
+      out.push({ ...d, module: 'health', amount: null });
     for (const v of r.visits)
       if (v.followUpOn)
         add({
@@ -178,7 +208,9 @@ export class HealthService implements OnApplicationBootstrap {
         id: `checkup:${c.id}:${c.nextDueOn}`,
         kind: 'checkup',
         title: `${c.name} (${c.person})`,
-        detail: c.lastDoneOn ? `Last done ${c.lastDoneOn}; every ${c.everyMonths} months.` : 'Never recorded as done.',
+        detail: c.lastDoneOn
+          ? `Last done ${c.lastDoneOn}; every ${c.everyMonths} months.`
+          : 'Never recorded as done.',
         date: c.nextDueOn,
         path: '/health?tab=checkups',
       });
@@ -192,7 +224,9 @@ export class HealthService implements OnApplicationBootstrap {
       expired: r.checkups.filter((c) => c.overdue).length,
       expiring:
         r.checkups.filter((c) => !c.overdue && c.nextDueOn <= soon).length +
-        r.medicines.filter((m) => m.active && m.refillOn && m.refillOn <= isoAddDays(day, 7)).length,
+        r.medicines.filter(
+          (m) => m.active && m.refillOn && m.refillOn <= isoAddDays(day, 7),
+        ).length,
       toReview: 0,
     };
   }
@@ -213,9 +247,21 @@ export class HealthService implements OnApplicationBootstrap {
         // The person's name is not sent: only the values.
         user: `${explainerDossier(null, list)}\n\n${question ? `My question: ${question}` : 'Explain my results.'}`,
       });
-      row = { person, question, output: answer.output, source: 'claude', model: answer.model };
+      row = {
+        person,
+        question,
+        output: answer.output,
+        source: 'claude',
+        model: answer.model,
+      };
     } else
-      row = { person, question, output: offlineExplanation(list), source: 'offline', model: null };
+      row = {
+        person,
+        question,
+        output: offlineExplanation(list),
+        source: 'offline',
+        model: null,
+      };
     const [saved] = await this.db.insert(explanations).values(row).returning();
     const old = await this.db
       .select({ id: explanations.id })
@@ -223,7 +269,12 @@ export class HealthService implements OnApplicationBootstrap {
       .orderBy(desc(explanations.createdAt))
       .offset(10);
     if (old.length)
-      await this.db.delete(explanations).where(inArray(explanations.id, old.map((o) => o.id)));
+      await this.db.delete(explanations).where(
+        inArray(
+          explanations.id,
+          old.map((o) => o.id),
+        ),
+      );
     return toExplanationDto(saved);
   }
 

@@ -24,7 +24,9 @@ export interface PurchaseLine {
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
-export function itemStats(lines: readonly PurchaseLine[]): GroceryItemStatsDto[] {
+export function itemStats(
+  lines: readonly PurchaseLine[],
+): GroceryItemStatsDto[] {
   const groups = new Map<string, PurchaseLine[]>();
   for (const l of lines) groups.set(l.name, [...(groups.get(l.name) ?? []), l]);
   return [...groups.entries()]
@@ -33,7 +35,11 @@ export function itemStats(lines: readonly PurchaseLine[]): GroceryItemStatsDto[]
       const days = [...new Set(sorted.map((l) => l.date))];
       const prices = sorted
         .filter((l) => l.unitPrice !== null && l.unitPrice > 0)
-        .map((l) => ({ date: l.date, price: l.unitPrice!, merchant: l.merchant }));
+        .map((l) => ({
+          date: l.date,
+          price: l.unitPrice!,
+          merchant: l.merchant,
+        }));
       const first = prices[0]?.price;
       const last = prices[prices.length - 1]?.price;
       return {
@@ -43,7 +49,10 @@ export function itemStats(lines: readonly PurchaseLine[]): GroceryItemStatsDto[]
         lastBought: days[days.length - 1],
         everyDays:
           days.length > 1
-            ? Math.round(isoDaysBetween(days[0], days[days.length - 1]) / (days.length - 1))
+            ? Math.round(
+                isoDaysBetween(days[0], days[days.length - 1]) /
+                  (days.length - 1),
+              )
             : null,
         lastPrice: last ?? null,
         averagePrice: prices.length
@@ -63,7 +72,11 @@ export function months(
   return Array.from({ length: 12 }, (_, i) => {
     const month = isoAddMonths(`${today.slice(0, 7)}-01`, i - 11).slice(0, 7);
     const own = receipts.filter((r) => r.date.startsWith(month));
-    return { month, total: round(own.reduce((s, r) => s + r.total, 0)), receipts: own.length };
+    return {
+      month,
+      total: round(own.reduce((s, r) => s + r.total, 0)),
+      receipts: own.length,
+    };
   });
 }
 
@@ -79,14 +92,18 @@ export function categorySpend(lines: readonly PurchaseLine[], today: string) {
     .map((category) => ({
       category,
       thisMonth: round(spent(category, now)),
-      average: round((spent(category, m1) + spent(category, m2) + spent(category, m3)) / 3),
+      average: round(
+        (spent(category, m1) + spent(category, m2) + spent(category, m3)) / 3,
+      ),
     }))
     .filter((c) => c.thisMonth || c.average)
     .sort((a, b) => b.average - a.average);
 }
 
 const asCategory = (c: string): GroceryItemCategory =>
-  (GROCERY_ITEM_CATEGORIES as readonly string[]).includes(c) ? (c as GroceryItemCategory) : 'other';
+  (GROCERY_ITEM_CATEGORIES as readonly string[]).includes(c)
+    ? (c as GroceryItemCategory)
+    : 'other';
 
 /** Items you buy regularly and are about due, the most overdue first. */
 export function dueItems(
@@ -95,9 +112,15 @@ export function dueItems(
   onList: ReadonlySet<string>,
 ) {
   return items
-    .filter((i) => i.everyDays && i.purchases >= 3 && !onList.has(i.name.toLowerCase()))
+    .filter(
+      (i) =>
+        i.everyDays && i.purchases >= 3 && !onList.has(i.name.toLowerCase()),
+    )
     .map((i) => ({ item: i, since: isoDaysBetween(i.lastBought, today) }))
-    .filter(({ item, since }) => since >= item.everyDays! * 0.85 && since <= item.everyDays! * 4)
+    .filter(
+      ({ item, since }) =>
+        since >= item.everyDays! * 0.85 && since <= item.everyDays! * 4,
+    )
     .sort((a, b) => b.since / b.item.everyDays! - a.since / a.item.everyDays!);
 }
 
@@ -108,7 +131,10 @@ export function offlineList(
 ): ShoppingListOutput {
   const due = dueItems(items, today, onList).slice(0, 20);
   const pricier = items
-    .filter((i) => i.priceChange !== null && i.priceChange >= 0.15 && i.purchases >= 3)
+    .filter(
+      (i) =>
+        i.priceChange !== null && i.priceChange >= 0.15 && i.purchases >= 3,
+    )
     .slice(0, 3);
   return {
     summary: due.length
@@ -120,7 +146,8 @@ export function offlineList(
       why: `Bought about every ${item.everyDays} days; last ${since} days ago.`,
     })),
     tips: pricier.map(
-      (i) => `${i.name} costs ${Math.round(i.priceChange! * 100)}% more than when you first bought it: compare shops or brands.`,
+      (i) =>
+        `${i.name} costs ${Math.round(i.priceChange! * 100)}% more than when you first bought it: compare shops or brands.`,
     ),
   };
 }
@@ -144,6 +171,9 @@ export function listDossier(
     lines.push(
       `- ${i.name} (${i.category}): ${i.purchases} times${i.everyDays ? `, about every ${i.everyDays} days` : ''}, last ${isoDaysBetween(i.lastBought, today)} days ago${i.lastPrice ? `, €${i.lastPrice}` : ''}${i.priceChange ? ` (${i.priceChange > 0 ? '+' : ''}${Math.round(i.priceChange * 100)}% since first)` : ''}${i.prices.length > 1 ? `; shops: ${[...new Set(i.prices.map((p) => `${p.merchant} €${p.price}`))].slice(-3).join(', ')}` : ''}`,
     );
-  lines.push('</items>', `Already on the list: ${onList.length ? onList.join(', ') : 'nothing'}`);
+  lines.push(
+    '</items>',
+    `Already on the list: ${onList.length ? onList.join(', ') : 'nothing'}`,
+  );
   return lines.join('\n');
 }

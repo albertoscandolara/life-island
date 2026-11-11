@@ -2,16 +2,23 @@
 
 The Life Island app is where you use your data. It is a Native Federation **host** (`apps/shell`) that shows the island and loads each area of life from its own **remote** (`apps/mfe-<area>`) at runtime. Every area is backed by its own service (`apps/svc-<area>`), which owns its schema and builds what it knows from the documents you upload and confirm.
 
-| Area         | Remote        | Service         | Status                         |
-| ------------ | ------------- | --------------- | ------------------------------ |
-| 730 & taxes  | `mfe-tax730`  | `svc-tax730`    | Live                           |
-| Home, Bills  | `mfe-home`    | `svc-home`      | Live                           |
-| People & IDs | `mfe-people`  | `svc-people`    | Live                           |
-| Cars         | `mfe-cars`    | `svc-cars`      | Live                           |
-| Work         | `mfe-work`    | `svc-work`      | Live                           |
-| Groceries    | planned       | `svc-groceries` | Service live, screen coming    |
-| Studies      | `mfe-studies` | `svc-studies`   | Live                           |
-| Health       | planned       | planned         | On the island as "coming soon" |
+| Area                      | Remote              | Service             | Status |
+| ------------------------- | ------------------- | ------------------- | ------ |
+| 730 & taxes               | `mfe-tax730`        | `svc-tax730`        | Live   |
+| Home, Bills               | `mfe-home`          | `svc-home`          | Live   |
+| People & IDs              | `mfe-people`        | `svc-people`        | Live   |
+| Cars                      | `mfe-cars`          | `svc-cars`          | Live   |
+| Work                      | `mfe-work`          | `svc-work`          | Live   |
+| Groceries                 | `mfe-groceries`     | `svc-groceries`     | Live   |
+| Studies                   | `mfe-studies`       | `svc-studies`       | Live   |
+| Agenda                    | `mfe-agenda`        | `svc-agenda`        | Live   |
+| Money                     | `mfe-money`         | `svc-money`         | Live   |
+| Goals & habits            | `mfe-goals`         | `svc-goals`         | Live   |
+| Health                    | `mfe-health`        | `svc-health`        | Live   |
+| Contracts & subscriptions | `mfe-subscriptions` | `svc-subscriptions` | Live   |
+| Admin mailbox             | `mfe-mailbox`       | `svc-mailbox`       | Live   |
+| Travel                    | `mfe-travel`        | `svc-travel`        | Live   |
+| Fitness                   | `mfe-fitness`       | `svc-fitness`       | Live   |
 
 The list of areas, their order on the island and their routes live in `apps/shell/src/app/hub/modules.ts`.
 
@@ -34,6 +41,16 @@ npx nx serve svc-settings     # settings, AI tool switches and costs (port 3009)
 npx nx serve mfe-settings     # the Settings remote (port 4208), also usable on its own
 npx nx serve svc-studies      # learning paths, courses, exams, platforms, study coach (port 3010)
 npx nx serve mfe-studies      # the Studies remote (port 4209), also usable on its own
+npx nx serve svc-agenda       # every date of every area, reminders, week brief (port 3011)
+npx nx serve mfe-agenda       # the Agenda remote (port 4210)
+npx nx serve svc-money        # accounts, movements, budgets (port 3012); mfe-money on 4211
+npx nx serve svc-goals        # goals, habits, weekly review (port 3013); mfe-goals on 4212
+npx nx serve svc-health       # check-ups, visits, medicines, results (port 3014); mfe-health on 4213
+npx nx serve svc-subscriptions # contracts and renewals (port 3015); mfe-subscriptions on 4214
+npx nx serve svc-mailbox      # official letters (port 3016); mfe-mailbox on 4215
+npx nx serve svc-travel       # trips (port 3017); mfe-travel on 4216
+npx nx serve svc-fitness      # workouts, body, events (port 3018); mfe-fitness on 4217
+npx nx serve svc-groceries    # receipts and the shopping list (port 3003); mfe-groceries on 4202
 npx nx serve shell            # the island (port 4200)
 ```
 
@@ -288,3 +305,28 @@ Iggy's zone (`/studies`, `mfe-studies` and `svc-studies`) is where you grow: it 
 | `POST /plans`, `DELETE /plans/:id`                                                             | The study coach (optional `question` and `hours`)                                      |
 
 A database created before this area existed gets its schema and role from svc-studies itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/006-studies-schema.sql`).
+
+## The new areas: one way of working
+
+Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Admin mailbox, Travel, Fitness and the Groceries page all follow the same pattern, so once you know one you know them all.
+
+- **One page, a few tabs.** Each page opens with a header and a row of tiles that say what matters now (what is late, this week's total, the next step), then tabs for the details. Everything you type goes through the same dialog (`li-record-dialog`), with the same Save and Remove buttons.
+- **Its own AI tool, with an offline fallback.** Every area has one AI tool (registered in `AI_TOOLS`, with its Settings switch, request and costs in Settings → AI tools). The panel says what is sent to Claude and what is not. With AI turned off, or without a key, the same button gives an answer from Life Island's own rules, marked "offline". The last ten answers are kept.
+- **Dates go to the Agenda.** Every area with dates answers `GET /deadlines?from&to` with `DeadlineDto` items (libs/contracts `agenda.ts`), and svc-agenda reads them all (`AGENDA_SOURCES`, see `apps/svc-agenda/src/app/config.ts`). An area that is down shows as "not reachable" on the Agenda; the rest still shows. Marking a date as done in the Agenda never changes the area's own data.
+
+| Area           | Dates it sends to the Agenda                                                                                                               | AI tool                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| People & IDs   | ID documents that expire                                                                                                                   | —                          |
+| Cars           | insurance, road tax, revisione, fines                                                                                                      | insurance quote comparison |
+| Houses         | bills to pay                                                                                                                               | —                          |
+| Studies        | exams, course ends, renewals of platforms                                                                                                  | study coach                |
+| Money          | the next date of each recurring charge                                                                                                     | spending review            |
+| Goals & habits | goal and step due dates                                                                                                                    | coach                      |
+| Health         | check-ups due, follow-up visits, medicine refills, vaccine boosters                                                                        | results explainer          |
+| Contracts      | renewals and the date to cancel by                                                                                                         | renewal advisor            |
+| Admin mailbox  | the date to act by on each letter                                                                                                          | letter explainer           |
+| Travel         | departures, check-ins, booking deadlines                                                                                                   | trip planner               |
+| Fitness        | races and events                                                                                                                           | training plan              |
+| Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                 |
+
+The hub shows the next six dates under **Coming up**, from `GET /api/agenda/upcoming`.

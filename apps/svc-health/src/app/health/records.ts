@@ -29,7 +29,8 @@ export function series(results: readonly TestResultDto[]): TestSeriesDto[] {
       const before = sorted[sorted.length - 2];
       let trend: TestSeriesDto['trend'] = null;
       if (before) {
-        const change = (last.value - before.value) / (Math.abs(before.value) || 1);
+        const change =
+          (last.value - before.value) / (Math.abs(before.value) || 1);
         trend = change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'steady';
       }
       return {
@@ -38,11 +39,18 @@ export function series(results: readonly TestResultDto[]): TestSeriesDto[] {
         unit: last.unit,
         low: last.low,
         high: last.high,
-        points: sorted.map((r) => ({ date: r.date, value: r.value, flag: r.flag })),
+        points: sorted.map((r) => ({
+          date: r.date,
+          value: r.value,
+          flag: r.flag,
+        })),
         trend,
       };
     })
-    .sort((a, b) => a.person.localeCompare(b.person) || a.test.localeCompare(b.test));
+    .sort(
+      (a, b) =>
+        a.person.localeCompare(b.person) || a.test.localeCompare(b.test),
+    );
 }
 
 export function withDue(
@@ -60,14 +68,19 @@ export function offlineExplanation(
 ): ResultsExplainerOutput {
   if (!list.length)
     return {
-      summary: 'There are no results yet. Add the values from your last blood tests to see them over time.',
+      summary:
+        'There are no results yet. Add the values from your last blood tests to see them over time.',
       items: [],
       askTheDoctor: [],
       lifestyle: [],
     };
   const latest = list.map((s) => ({ s, last: s.points[s.points.length - 1] }));
-  const out = latest.filter((x) => x.last.flag === 'low' || x.last.flag === 'high');
-  const moving = latest.filter((x) => x.s.trend === 'up' || x.s.trend === 'down');
+  const out = latest.filter(
+    (x) => x.last.flag === 'low' || x.last.flag === 'high',
+  );
+  const moving = latest.filter(
+    (x) => x.s.trend === 'up' || x.s.trend === 'down',
+  );
   const picked = [...new Set([...out, ...moving])].slice(0, 8);
   return {
     summary:
@@ -92,7 +105,10 @@ export function offlineExplanation(
     })),
     askTheDoctor: out
       .slice(0, 5)
-      .map(({ s }) => `My ${s.test} is out of range: is it something to look at, and when should I test it again?`),
+      .map(
+        ({ s }) =>
+          `My ${s.test} is out of range: is it something to look at, and when should I test it again?`,
+      ),
     lifestyle: [],
   };
 }
@@ -107,15 +123,23 @@ You receive one person's test results over time: test name, value, unit, the ref
 
 Rules: never diagnose, never suggest medicines or doses, never alarm. Say clearly when a value is only slightly out of range. Use only the values given. Plain English, no emojis. If the person asked a question, answer it within these fields and remind them the doctor decides.`;
 
-export function explainerDossier(person: string | null, list: readonly TestSeriesDto[]): string {
+export function explainerDossier(
+  person: string | null,
+  list: readonly TestSeriesDto[],
+): string {
   const lines = [person ? `Results of ${person}:` : 'Results:'];
   for (const s of list.slice(0, 40)) {
     const range =
-      s.low !== null || s.high !== null ? ` (range ${s.low ?? '—'}–${s.high ?? '—'})` : '';
+      s.low !== null || s.high !== null
+        ? ` (range ${s.low ?? '—'}–${s.high ?? '—'})`
+        : '';
     lines.push(
       `- ${s.test}${s.unit ? ` [${s.unit}]` : ''}${range}: ${s.points
         .slice(-5)
-        .map((p) => `${p.date} ${p.value}${p.flag === 'high' ? ' H' : p.flag === 'low' ? ' L' : ''}`)
+        .map(
+          (p) =>
+            `${p.date} ${p.value}${p.flag === 'high' ? ' H' : p.flag === 'low' ? ' L' : ''}`,
+        )
         .join('; ')}`,
     );
   }

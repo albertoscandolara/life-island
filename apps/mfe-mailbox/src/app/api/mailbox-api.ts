@@ -19,6 +19,9 @@ export class MailboxApi extends RecordsApi {
   }
 
   applyExplanation(id: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/letters/${id}/apply-explanation`, {});
+    return this.http.post<void>(
+      `${this.base}/letters/${id}/apply-explanation`,
+      {},
+    );
   }
 }

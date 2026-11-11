@@ -20,7 +20,9 @@ import { MailboxService } from './mailbox.service.js';
 
 @Controller()
 export class MailboxController {
-  constructor(@Inject(MailboxService) private readonly mailbox: MailboxService) {}
+  constructor(
+    @Inject(MailboxService) private readonly mailbox: MailboxService,
+  ) {}
 
   /** Every letter, open ones first by date, with the totals. */
   @Get('overview')

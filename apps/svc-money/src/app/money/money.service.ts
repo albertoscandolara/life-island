@@ -1,4 +1,8 @@
-import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import { AiAssistant, requireRow } from '@life-island/be-nest';
 import {
@@ -123,7 +127,10 @@ export class MoneyService implements OnApplicationBootstrap {
     );
     return {
       accounts: withBalances(
-        accountRows.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
+        accountRows.map((a) => ({
+          ...a,
+          createdAt: a.createdAt.toISOString(),
+        })),
         [...txs, ...older],
       ).map((a) => ({
         ...a,
@@ -158,11 +165,12 @@ export class MoneyService implements OnApplicationBootstrap {
       months: state.months,
       categories: state.categories,
       totals: {
-        balance: Math.round(
-          state.accounts
-            .filter((a) => !a.archived)
-            .reduce((s, a) => s + a.balance, 0) * 100,
-        ) / 100,
+        balance:
+          Math.round(
+            state.accounts
+              .filter((a) => !a.archived)
+              .reduce((s, a) => s + a.balance, 0) * 100,
+          ) / 100,
         incomeThisMonth: thisMonth.income,
         spendingThisMonth: thisMonth.spending,
         savingsRate: state.rate,
@@ -176,7 +184,10 @@ export class MoneyService implements OnApplicationBootstrap {
   }
 
   /** The recurring charges expected next, and the budgets already over. */
-  async deadlines(query: DeadlinesQuery, day = today()): Promise<DeadlineDto[]> {
+  async deadlines(
+    query: DeadlinesQuery,
+    day = today(),
+  ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, day);
     const state = await this.state(day);
     return state.recurring
@@ -196,7 +207,9 @@ export class MoneyService implements OnApplicationBootstrap {
   async attention(day = today()): Promise<LifeAttentionDto> {
     const state = await this.state(day);
     const soon = state.recurring.filter(
-      (r) => isoDaysBetween(day, r.nextDate) >= 0 && isoDaysBetween(day, r.nextDate) <= 7,
+      (r) =>
+        isoDaysBetween(day, r.nextDate) >= 0 &&
+        isoDaysBetween(day, r.nextDate) <= 7,
     );
     return {
       expired: state.budgets.filter((b) => b.share > 1).length,
@@ -254,19 +267,35 @@ export class MoneyService implements OnApplicationBootstrap {
         output: spendingReviewOutputSchema,
         user: `${reviewDossier(facts)}\n\n${question ? `My question: ${question}` : 'Review my spending.'}`,
       });
-      row = { question, output: answer.output, source: 'claude', model: answer.model };
+      row = {
+        question,
+        output: answer.output,
+        source: 'claude',
+        model: answer.model,
+      };
     } else
-      row = { question, output: offlineReview(facts), source: 'offline', model: null };
-    const [saved] = await this.db.insert(spendingReviews).values(row).returning();
+      row = {
+        question,
+        output: offlineReview(facts),
+        source: 'offline',
+        model: null,
+      };
+    const [saved] = await this.db
+      .insert(spendingReviews)
+      .values(row)
+      .returning();
     const old = await this.db
       .select({ id: spendingReviews.id })
       .from(spendingReviews)
       .orderBy(desc(spendingReviews.createdAt))
       .offset(10);
     if (old.length)
-      await this.db
-        .delete(spendingReviews)
-        .where(inArray(spendingReviews.id, old.map((o) => o.id)));
+      await this.db.delete(spendingReviews).where(
+        inArray(
+          spendingReviews.id,
+          old.map((o) => o.id),
+        ),
+      );
     return toReviewDto(saved);
   }
 
@@ -276,10 +305,13 @@ export class MoneyService implements OnApplicationBootstrap {
 }
 
 export function toTransactionDto(row: TransactionRow): TransactionDto {
-  return { ...row, amount: Number(row.amount), createdAt: row.createdAt.toISOString() };
+  return {
+    ...row,
+    amount: Number(row.amount),
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function toReviewDto(row: SpendingReviewRow): SpendingReviewDto {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
-

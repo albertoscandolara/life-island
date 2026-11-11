@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { lifeName, lifeNote, type LifeAiAnswerDto, type LifeRecord } from './life-schemas.js';
+import {
+  lifeName,
+  lifeNote,
+  type LifeAiAnswerDto,
+  type LifeRecord,
+} from './life-schemas.js';
 import { GROCERY_ITEM_CATEGORIES } from './targets/grocery-receipt.js';
 import type { ReceiptDto } from './domain-dtos.js';
 

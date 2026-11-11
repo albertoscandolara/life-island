@@ -47,8 +47,19 @@ const SERVICE = 'svc-groceries';
 
 const ITEM_FIELDS: readonly LiField[] = [
   { key: 'name', label: 'Item', type: 'text', required: true },
-  { key: 'quantity', label: 'How much', type: 'text', placeholder: '2 packs, 1 kg…' },
-  { key: 'category', label: 'Aisle', type: 'select', required: true, options: liOptions(GROCERY_CATEGORY_LABELS) },
+  {
+    key: 'quantity',
+    label: 'How much',
+    type: 'text',
+    placeholder: '2 packs, 1 kg…',
+  },
+  {
+    key: 'category',
+    label: 'Aisle',
+    type: 'select',
+    required: true,
+    options: liOptions(GROCERY_CATEGORY_LABELS),
+  },
   { key: 'done', label: 'In the cart', type: 'checkbox' },
 ];
 
@@ -91,7 +102,12 @@ export class GroceriesPage {
   protected readonly percent = percent;
   protected readonly itemFields = ITEM_FIELDS;
   protected readonly categories = liOptions(GROCERY_CATEGORY_LABELS);
-  protected readonly list = new RecordEditor(this.api, 'list', () => this.load(), SERVICE);
+  protected readonly list = new RecordEditor(
+    this.api,
+    'list',
+    () => this.load(),
+    SERVICE,
+  );
 
   protected readonly newItem = signal('');
   protected readonly search = signal('');
@@ -103,7 +119,12 @@ export class GroceriesPage {
   protected readonly applied = signal<string | null>(null);
 
   protected readonly tabs = computed<LiTab[]>(() => [
-    { id: 'list', label: 'Shopping list', icon: 'check', count: (this.data()?.list ?? []).filter((i) => !i.done).length },
+    {
+      id: 'list',
+      label: 'Shopping list',
+      icon: 'check',
+      count: (this.data()?.list ?? []).filter((i) => !i.done).length,
+    },
     { id: 'prices', label: 'What you buy', icon: 'layers' },
     { id: 'spending', label: 'Spending', icon: 'chart' },
   ]);
@@ -111,17 +132,22 @@ export class GroceriesPage {
   /** The list grouped by aisle, what is still to buy first. */
   protected readonly aisles = computed(() => {
     const groups = new Map<string, ShoppingItemDto[]>();
-    for (const i of this.data()?.list ?? []) groups.set(i.category, [...(groups.get(i.category) ?? []), i]);
+    for (const i of this.data()?.list ?? [])
+      groups.set(i.category, [...(groups.get(i.category) ?? []), i]);
     return [...groups.entries()].map(([category, items]) => ({
       category,
       items: [...items].sort((a, b) => Number(a.done) - Number(b.done)),
     }));
   });
-  protected readonly doneCount = computed(() => (this.data()?.list ?? []).filter((i) => i.done).length);
+  protected readonly doneCount = computed(
+    () => (this.data()?.list ?? []).filter((i) => i.done).length,
+  );
 
   protected readonly items = computed(() => {
     const text = this.search().trim().toLowerCase();
-    return (this.data()?.items ?? []).filter((i) => !text || i.name.toLowerCase().includes(text)).slice(0, 100);
+    return (this.data()?.items ?? [])
+      .filter((i) => !text || i.name.toLowerCase().includes(text))
+      .slice(0, 100);
   });
 
   protected readonly monthBars = computed<LiBar[]>(() =>
@@ -139,7 +165,12 @@ export class GroceriesPage {
 
   /** Names already on the list, so a suggestion shows what it would add. */
   protected readonly onList = computed(
-    () => new Set((this.data()?.list ?? []).filter((i) => !i.done).map((i) => i.name.toLowerCase())),
+    () =>
+      new Set(
+        (this.data()?.list ?? [])
+          .filter((i) => !i.done)
+          .map((i) => i.name.toLowerCase()),
+      ),
   );
 
   constructor() {
@@ -147,7 +178,9 @@ export class GroceriesPage {
   }
 
   private initialTab(): GroceriesTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab') as GroceriesTab | null;
+    const tab = this.route.snapshot.queryParamMap.get(
+      'tab',
+    ) as GroceriesTab | null;
     return tab && TABS.includes(tab) ? tab : 'list';
   }
 
@@ -167,7 +200,10 @@ export class GroceriesPage {
         this.data.set(data);
         this.error.set(null);
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not load your groceries.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(
+          errorText(error, 'Could not load your groceries.', SERVICE),
+        ),
     });
   }
 
@@ -179,17 +215,29 @@ export class GroceriesPage {
   protected quickAdd(): void {
     const name = this.newItem().trim();
     if (!name) return;
-    const known = this.data()?.items.find((i) => i.name.toLowerCase() === name.toLowerCase());
+    const known = this.data()?.items.find(
+      (i) => i.name.toLowerCase() === name.toLowerCase(),
+    );
     this.newItem.set('');
-    this.api.create('list', { name, category: known?.category ?? 'other' }).subscribe({
-      next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not add it.', SERVICE)),
-    });
+    this.api
+      .create('list', { name, category: known?.category ?? 'other' })
+      .subscribe({
+        next: () => this.load(),
+        error: (error: unknown) =>
+          this.error.set(errorText(error, 'Could not add it.', SERVICE)),
+      });
   }
 
   protected toggle(item: ShoppingItemDto): void {
     this.data.update((d) =>
-      d ? { ...d, list: d.list.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)) } : d,
+      d
+        ? {
+            ...d,
+            list: d.list.map((i) =>
+              i.id === item.id ? { ...i, done: !i.done } : i,
+            ),
+          }
+        : d,
     );
     this.api.update('list', item.id, { done: !item.done }).subscribe({
       error: (error: unknown) => {
@@ -202,7 +250,8 @@ export class GroceriesPage {
   protected clearDone(): void {
     this.api.clearDone().subscribe({
       next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not clear the list.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not clear the list.', SERVICE)),
     });
   }
 
@@ -229,10 +278,15 @@ export class GroceriesPage {
   protected apply(s: ShoppingSuggestionDto, names?: string[]): void {
     this.api.apply(s.id, { names }).subscribe({
       next: ({ added }) => {
-        this.applied.set(added ? `${added} item${added === 1 ? '' : 's'} added to the list.` : 'Everything is already on the list.');
+        this.applied.set(
+          added
+            ? `${added} item${added === 1 ? '' : 's'} added to the list.`
+            : 'Everything is already on the list.',
+        );
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not add them.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not add them.', SERVICE)),
     });
   }
 
@@ -242,7 +296,8 @@ export class GroceriesPage {
         this.shownSuggestion.set(null);
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
     });
   }
 }

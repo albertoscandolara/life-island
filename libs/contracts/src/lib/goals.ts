@@ -39,7 +39,12 @@ export const GOAL_AREA_LABELS: Record<GoalArea, string> = {
   other: 'Other',
 };
 
-export const LIFE_GOAL_STATUSES = ['active', 'paused', 'done', 'dropped'] as const;
+export const LIFE_GOAL_STATUSES = [
+  'active',
+  'paused',
+  'done',
+  'dropped',
+] as const;
 export type LifeGoalStatus = (typeof LIFE_GOAL_STATUSES)[number];
 export const LIFE_GOAL_STATUS_LABELS: Record<LifeGoalStatus, string> = {
   active: 'Active',

@@ -43,18 +43,76 @@ import { SubscriptionsApi } from '../api/subscriptions-api';
 const SERVICE = 'svc-subscriptions';
 
 const FIELDS: readonly LiField[] = [
-  { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Netflix, Iliad, home insurance…' },
+  {
+    key: 'name',
+    label: 'Name',
+    type: 'text',
+    required: true,
+    placeholder: 'Netflix, Iliad, home insurance…',
+  },
   { key: 'provider', label: 'Provider', type: 'text' },
-  { key: 'kind', label: 'Kind', type: 'select', required: true, options: liOptions(SUBSCRIPTION_KIND_LABELS) },
-  { key: 'status', label: 'Status', type: 'select', required: true, options: liOptions(SUBSCRIPTION_STATUS_LABELS) },
-  { key: 'cost', label: 'Cost', type: 'money', required: true, hint: 'For one billing period' },
-  { key: 'cycle', label: 'Billed', type: 'select', required: true, options: liOptions(BILLING_CYCLE_LABELS) },
-  { key: 'renewsOn', label: 'Next renewal', type: 'date', hint: 'Or the end of the free trial' },
-  { key: 'noticeDays', label: 'Notice to cancel (days)', type: 'number', min: 0, max: 365, hint: 'Written in the contract; 0 if none' },
+  {
+    key: 'kind',
+    label: 'Kind',
+    type: 'select',
+    required: true,
+    options: liOptions(SUBSCRIPTION_KIND_LABELS),
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: liOptions(SUBSCRIPTION_STATUS_LABELS),
+  },
+  {
+    key: 'cost',
+    label: 'Cost',
+    type: 'money',
+    required: true,
+    hint: 'For one billing period',
+  },
+  {
+    key: 'cycle',
+    label: 'Billed',
+    type: 'select',
+    required: true,
+    options: liOptions(BILLING_CYCLE_LABELS),
+  },
+  {
+    key: 'renewsOn',
+    label: 'Next renewal',
+    type: 'date',
+    hint: 'Or the end of the free trial',
+  },
+  {
+    key: 'noticeDays',
+    label: 'Notice to cancel (days)',
+    type: 'number',
+    min: 0,
+    max: 365,
+    hint: 'Written in the contract; 0 if none',
+  },
   { key: 'autoRenew', label: 'Renews on its own', type: 'checkbox' },
-  { key: 'lockedUntil', label: 'Minimum term until', type: 'date', hint: 'The vincolo: leaving before costs a fee' },
-  { key: 'usage', label: 'How often you use it', type: 'select', options: liOptions(USAGE_LABELS), emptyLabel: 'Not said' },
-  { key: 'paidWith', label: 'Paid with', type: 'text', placeholder: 'Visa …1234, direct debit' },
+  {
+    key: 'lockedUntil',
+    label: 'Minimum term until',
+    type: 'date',
+    hint: 'The vincolo: leaving before costs a fee',
+  },
+  {
+    key: 'usage',
+    label: 'How often you use it',
+    type: 'select',
+    options: liOptions(USAGE_LABELS),
+    emptyLabel: 'Not said',
+  },
+  {
+    key: 'paidWith',
+    label: 'Paid with',
+    type: 'text',
+    placeholder: 'Visa …1234, direct debit',
+  },
   { key: 'startOn', label: 'Since', type: 'date' },
   { key: 'cancelUrl', label: 'Where to cancel', type: 'url', wide: true },
   { key: 'notes', label: 'Notes', type: 'textarea' },
@@ -93,30 +151,55 @@ export class SubscriptionsPage {
 
   protected readonly data = signal<SubscriptionsOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.route.snapshot.queryParamMap.get('tab') === 'advisor' ? 'advisor' : 'contracts');
+  protected readonly tab = signal<string>(
+    this.route.snapshot.queryParamMap.get('tab') === 'advisor'
+      ? 'advisor'
+      : 'contracts',
+  );
   protected readonly showEnded = signal(false);
   protected readonly euro = euro;
   protected readonly dateText = dateText;
   protected readonly fields = FIELDS;
-  protected readonly items = new RecordEditor(this.api, 'items', () => this.load(), SERVICE);
+  protected readonly items = new RecordEditor(
+    this.api,
+    'items',
+    () => this.load(),
+    SERVICE,
+  );
 
   protected readonly question = signal('');
   protected readonly asking = signal(false);
   protected readonly adviceStatus = signal<'idle' | 'done' | 'error'>('idle');
   protected readonly shownAdvice = signal<string | null>(null);
 
-  protected readonly live = computed(() => (this.data()?.items ?? []).filter((i) => i.status !== 'cancelled'));
-  protected readonly ended = computed(() => (this.data()?.items ?? []).filter((i) => i.status === 'cancelled'));
+  protected readonly live = computed(() =>
+    (this.data()?.items ?? []).filter((i) => i.status !== 'cancelled'),
+  );
+  protected readonly ended = computed(() =>
+    (this.data()?.items ?? []).filter((i) => i.status === 'cancelled'),
+  );
   protected readonly cancelSoon = computed(() =>
-    this.live().filter((i) => i.daysToCancelBy !== null && i.daysToCancelBy >= 0 && i.daysToCancelBy <= 30),
+    this.live().filter(
+      (i) =>
+        i.daysToCancelBy !== null &&
+        i.daysToCancelBy >= 0 &&
+        i.daysToCancelBy <= 30,
+    ),
   );
 
   protected readonly tabs = computed<LiTab[]>(() => [
-    { id: 'contracts', label: 'Contracts', icon: 'file', count: this.cancelSoon().length },
+    {
+      id: 'contracts',
+      label: 'Contracts',
+      icon: 'file',
+      count: this.cancelSoon().length,
+    },
     { id: 'advisor', label: 'Advisor', icon: 'sparkles' },
   ]);
 
-  protected readonly maxKind = computed(() => Math.max(1, ...(this.data()?.byKind ?? []).map((k) => k.yearly)));
+  protected readonly maxKind = computed(() =>
+    Math.max(1, ...(this.data()?.byKind ?? []).map((k) => k.yearly)),
+  );
 
   protected readonly advice = computed<RenewalAdviceDto | null>(() => {
     const all = this.data()?.advice ?? [];
@@ -143,12 +226,17 @@ export class SubscriptionsPage {
         this.data.set(data);
         this.error.set(null);
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not load your contracts.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(
+          errorText(error, 'Could not load your contracts.', SERVICE),
+        ),
     });
   }
 
   protected kind(k: string): string {
-    return SUBSCRIPTION_KIND_LABELS[k as keyof typeof SUBSCRIPTION_KIND_LABELS] ?? k;
+    return (
+      SUBSCRIPTION_KIND_LABELS[k as keyof typeof SUBSCRIPTION_KIND_LABELS] ?? k
+    );
   }
 
   protected status(i: SubscriptionDto): string {
@@ -164,13 +252,23 @@ export class SubscriptionsPage {
   }
 
   protected add(): void {
-    this.items.add({ kind: 'streaming', status: 'active', cycle: 'monthly', autoRenew: true, noticeDays: 0 });
+    this.items.add({
+      kind: 'streaming',
+      status: 'active',
+      cycle: 'monthly',
+      autoRenew: true,
+      noticeDays: 0,
+    });
   }
 
-  protected setStatus(i: SubscriptionDto, status: 'cancelling' | 'cancelled'): void {
+  protected setStatus(
+    i: SubscriptionDto,
+    status: 'cancelling' | 'cancelled',
+  ): void {
     this.api.update('items', i.id, { status }).subscribe({
       next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not save it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not save it.', SERVICE)),
     });
   }
 
@@ -188,7 +286,9 @@ export class SubscriptionsPage {
       error: (error: unknown) => {
         this.asking.set(false);
         this.adviceStatus.set('error');
-        this.error.set(errorText(error, 'The advisor could not answer.', SERVICE));
+        this.error.set(
+          errorText(error, 'The advisor could not answer.', SERVICE),
+        );
       },
     });
   }
@@ -199,7 +299,8 @@ export class SubscriptionsPage {
         this.shownAdvice.set(null);
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
     });
   }
 

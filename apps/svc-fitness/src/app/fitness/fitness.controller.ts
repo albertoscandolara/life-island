@@ -23,7 +23,9 @@ import { FitnessService } from './fitness.service.js';
 
 @Controller()
 export class FitnessController {
-  constructor(@Inject(FitnessService) private readonly fitness: FitnessService) {}
+  constructor(
+    @Inject(FitnessService) private readonly fitness: FitnessService,
+  ) {}
 
   /** Workouts, measurements, events, weeks against the goal and the plans. */
   @Get('overview')
@@ -45,7 +47,9 @@ export class FitnessController {
   /** The training plan (Claude, or Life Island's own rules). */
   @Post('plans')
   plan(@Body() body: unknown): Promise<TrainingPlanDto> {
-    return this.fitness.plan(parseOrThrow(lifeQuestionRequestSchema, body ?? {}));
+    return this.fitness.plan(
+      parseOrThrow(lifeQuestionRequestSchema, body ?? {}),
+    );
   }
 
   @Delete('plans/:id')

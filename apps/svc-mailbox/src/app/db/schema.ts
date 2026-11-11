@@ -31,8 +31,12 @@ export const letters = mailbox.table('letters', {
   notes: text('notes'),
   /** What the explainer said about it, the last time it was asked. */
   explanation: jsonb('explanation').$type<LetterExplanationDto>(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 export type LetterRow = typeof letters.$inferSelect;
 

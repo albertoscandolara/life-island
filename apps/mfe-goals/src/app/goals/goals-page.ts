@@ -46,17 +46,60 @@ const TABS: readonly GoalsTab[] = ['goals', 'habits', 'week', 'coach'];
 const SERVICE = 'svc-goals';
 
 const GOAL_FIELDS: readonly LiField[] = [
-  { key: 'title', label: 'Goal', type: 'text', required: true, wide: true, placeholder: 'Run a 10 km race, change job, save €5,000…' },
-  { key: 'area', label: 'Area of life', type: 'select', required: true, options: liOptions(GOAL_AREA_LABELS) },
+  {
+    key: 'title',
+    label: 'Goal',
+    type: 'text',
+    required: true,
+    wide: true,
+    placeholder: 'Run a 10 km race, change job, save €5,000…',
+  },
+  {
+    key: 'area',
+    label: 'Area of life',
+    type: 'select',
+    required: true,
+    options: liOptions(GOAL_AREA_LABELS),
+  },
   { key: 'targetDate', label: 'By', type: 'date', hint: 'Optional' },
-  { key: 'why', label: 'Why it matters to you', type: 'textarea', wide: true, hint: 'Read it again when motivation dips' },
-  { key: 'measure', label: 'Reached when', type: 'text', wide: true, placeholder: 'I finish a 10 km race in under an hour' },
-  { key: 'status', label: 'Status', type: 'select', required: true, options: liOptions(LIFE_GOAL_STATUS_LABELS) },
+  {
+    key: 'why',
+    label: 'Why it matters to you',
+    type: 'textarea',
+    wide: true,
+    hint: 'Read it again when motivation dips',
+  },
+  {
+    key: 'measure',
+    label: 'Reached when',
+    type: 'text',
+    wide: true,
+    placeholder: 'I finish a 10 km race in under an hour',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: liOptions(LIFE_GOAL_STATUS_LABELS),
+  },
 ];
 
 const STEP_FIELDS: readonly LiField[] = [
-  { key: 'title', label: 'Step', type: 'text', required: true, wide: true, hint: 'Small enough to do in one sitting' },
-  { key: 'dueDate', label: 'By', type: 'date', hint: 'Optional; it shows in the Agenda' },
+  {
+    key: 'title',
+    label: 'Step',
+    type: 'text',
+    required: true,
+    wide: true,
+    hint: 'Small enough to do in one sitting',
+  },
+  {
+    key: 'dueDate',
+    label: 'By',
+    type: 'date',
+    hint: 'Optional; it shows in the Agenda',
+  },
   { key: 'done', label: 'Done', type: 'checkbox' },
 ];
 
@@ -109,9 +152,25 @@ export class GoalsPage {
   protected readonly stepFields = STEP_FIELDS;
   protected readonly moods = MOODS;
 
-  protected readonly goals = new RecordEditor(this.api, 'goals', () => this.load(), SERVICE);
-  protected readonly steps = new RecordEditor(this.api, 'steps', () => this.load(), SERVICE, ['goalId']);
-  protected readonly habits = new RecordEditor(this.api, 'habits', () => this.load(), SERVICE);
+  protected readonly goals = new RecordEditor(
+    this.api,
+    'goals',
+    () => this.load(),
+    SERVICE,
+  );
+  protected readonly steps = new RecordEditor(
+    this.api,
+    'steps',
+    () => this.load(),
+    SERVICE,
+    ['goalId'],
+  );
+  protected readonly habits = new RecordEditor(
+    this.api,
+    'habits',
+    () => this.load(),
+    SERVICE,
+  );
 
   // The weekly review form
   protected readonly mood = signal<number | null>(null);
@@ -128,25 +187,47 @@ export class GoalsPage {
   protected readonly shownAdvice = signal<string | null>(null);
 
   protected readonly habitFields = computed<LiField[]>(() => [
-    { key: 'title', label: 'Habit', type: 'text', required: true, wide: true, placeholder: 'Walk 30 minutes, read 10 pages…' },
-    { key: 'perWeek', label: 'Days a week', type: 'number', required: true, min: 1, max: 7 },
+    {
+      key: 'title',
+      label: 'Habit',
+      type: 'text',
+      required: true,
+      wide: true,
+      placeholder: 'Walk 30 minutes, read 10 pages…',
+    },
+    {
+      key: 'perWeek',
+      label: 'Days a week',
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 7,
+    },
     {
       key: 'goalId',
       label: 'For the goal',
       type: 'select',
       emptyLabel: 'None',
-      options: (this.data()?.goals ?? []).filter((g) => g.status === 'active').map((g) => ({ value: g.id, label: g.title })),
+      options: (this.data()?.goals ?? [])
+        .filter((g) => g.status === 'active')
+        .map((g) => ({ value: g.id, label: g.title })),
     },
     { key: 'active', label: 'Active', type: 'checkbox' },
   ]);
 
   protected readonly openGoals = computed(() =>
-    (this.data()?.goals ?? []).filter((g) => g.status === 'active' || g.status === 'paused'),
+    (this.data()?.goals ?? []).filter(
+      (g) => g.status === 'active' || g.status === 'paused',
+    ),
   );
   protected readonly closedGoals = computed(() =>
-    (this.data()?.goals ?? []).filter((g) => g.status === 'done' || g.status === 'dropped'),
+    (this.data()?.goals ?? []).filter(
+      (g) => g.status === 'done' || g.status === 'dropped',
+    ),
   );
-  protected readonly stuckCount = computed(() => this.openGoals().filter((g) => g.stuck).length);
+  protected readonly stuckCount = computed(
+    () => this.openGoals().filter((g) => g.stuck).length,
+  );
 
   /** The last seven days, oldest first, for the habit grid. */
   protected readonly days = computed(() => {
@@ -157,11 +238,18 @@ export class GoalsPage {
 
   protected readonly tabs = computed<LiTab[]>(() => {
     const d = this.data();
-    const habitsLeft = (d?.habits ?? []).filter((h) => h.active && !h.checked.includes(d!.today)).length;
+    const habitsLeft = (d?.habits ?? []).filter(
+      (h) => h.active && !h.checked.includes(d!.today),
+    ).length;
     return [
       { id: 'goals', label: 'Goals', icon: 'flame', count: this.stuckCount() },
       { id: 'habits', label: 'Habits', icon: 'check', count: habitsLeft },
-      { id: 'week', label: 'Weekly review', icon: 'calendar', count: d && !d.reviewedThisWeek ? 1 : 0 },
+      {
+        id: 'week',
+        label: 'Weekly review',
+        icon: 'calendar',
+        count: d && !d.reviewedThisWeek ? 1 : 0,
+      },
       { id: 'coach', label: 'Coach', icon: 'sparkles' },
     ];
   });
@@ -230,7 +318,8 @@ export class GoalsPage {
   protected toggleStep(step: GoalStepDto): void {
     this.api.update('steps', step.id, { done: !step.done }).subscribe({
       next: () => this.load(),
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not save it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not save it.', SERVICE)),
     });
   }
 
@@ -249,8 +338,11 @@ export class GoalsPage {
               h.id === habit.id
                 ? {
                     ...h,
-                    checked: done ? [...h.checked, day] : h.checked.filter((c) => c !== day),
-                    thisWeek: h.thisWeek + (day >= d.weekStart ? (done ? 1 : -1) : 0),
+                    checked: done
+                      ? [...h.checked, day]
+                      : h.checked.filter((c) => c !== day),
+                    thisWeek:
+                      h.thisWeek + (day >= d.weekStart ? (done ? 1 : -1) : 0),
                   }
                 : h,
             ),
@@ -291,7 +383,9 @@ export class GoalsPage {
         },
         error: (error: unknown) => {
           this.savingReview.set(false);
-          this.error.set(errorText(error, 'Could not save the review.', SERVICE));
+          this.error.set(
+            errorText(error, 'Could not save the review.', SERVICE),
+          );
         },
       });
   }
@@ -314,7 +408,9 @@ export class GoalsPage {
       error: (error: unknown) => {
         this.asking.set(false);
         this.coachStatus.set('error');
-        this.error.set(errorText(error, 'The coach could not answer.', SERVICE));
+        this.error.set(
+          errorText(error, 'The coach could not answer.', SERVICE),
+        );
       },
     });
   }
@@ -325,7 +421,8 @@ export class GoalsPage {
         this.shownAdvice.set(null);
         this.load();
       },
-      error: (error: unknown) => this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not remove it.', SERVICE)),
     });
   }
 }

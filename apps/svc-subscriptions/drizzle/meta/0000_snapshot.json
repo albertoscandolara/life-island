@@ -176,12 +176,8 @@
           "tableFrom": "price_changes",
           "tableTo": "contracts",
           "schemaTo": "subscriptions",
-          "columnsFrom": [
-            "contract_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contract_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

@@ -29,7 +29,11 @@ export class AppModule {
     return {
       module: AppModule,
       // Contracts & subscriptions's own routes first: the records' `/:collection` routes match anything.
-      controllers: [HealthController, SubscriptionsController, RecordsController],
+      controllers: [
+        HealthController,
+        SubscriptionsController,
+        RecordsController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },

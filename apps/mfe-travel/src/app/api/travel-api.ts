@@ -20,11 +20,20 @@ export class TravelApi extends RecordsApi {
   }
 
   plan(tripId: string, request: TripPlanRequest): Observable<TripPlanDto> {
-    return this.http.post<TripPlanDto>(`${this.base}/trips/${tripId}/plans`, request);
+    return this.http.post<TripPlanDto>(
+      `${this.base}/trips/${tripId}/plans`,
+      request,
+    );
   }
 
-  applyPlan(id: string, request: ApplyTripPlanRequest): Observable<{ added: number }> {
-    return this.http.post<{ added: number }>(`${this.base}/plans/${id}/apply`, request);
+  applyPlan(
+    id: string,
+    request: ApplyTripPlanRequest,
+  ): Observable<{ added: number }> {
+    return this.http.post<{ added: number }>(
+      `${this.base}/plans/${id}/apply`,
+      request,
+    );
   }
 
   removePlan(id: string): Observable<void> {

@@ -106,9 +106,14 @@ export const shoppingItems = grocery.table('shopping_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   quantity: text('quantity'),
-  category: text('category').$type<GroceryItemCategory>().notNull().default('other'),
+  category: text('category')
+    .$type<GroceryItemCategory>()
+    .notNull()
+    .default('other'),
   done: boolean('done').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 export type ShoppingItemRow = typeof shoppingItems.$inferSelect;
 
@@ -119,7 +124,9 @@ export const shoppingSuggestions = grocery.table('shopping_suggestions', {
   output: jsonb('output').$type<ShoppingListOutput>().notNull(),
   source: text('source').$type<'claude' | 'offline'>().notNull(),
   model: text('model'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 export type ShoppingSuggestionRow = typeof shoppingSuggestions.$inferSelect;
 

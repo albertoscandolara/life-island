@@ -16,22 +16,48 @@ export function offlinePlan(trip: TripDto): TripPlanOutput {
   const checklist: TripPlanOutput['checklist'] = [
     ...(trip.abroad
       ? [
-          { text: 'Check that passports or ID cards are valid for the whole trip (often 6 months after return)', daysBefore: 60 },
-          { text: 'Check whether a visa or entry authorisation is needed (viaggiaresicuri.it)', daysBefore: 45 },
-          { text: 'Get travel health insurance and check what your card covers abroad', daysBefore: 21 },
+          {
+            text: 'Check that passports or ID cards are valid for the whole trip (often 6 months after return)',
+            daysBefore: 60,
+          },
+          {
+            text: 'Check whether a visa or entry authorisation is needed (viaggiaresicuri.it)',
+            daysBefore: 45,
+          },
+          {
+            text: 'Get travel health insurance and check what your card covers abroad',
+            daysBefore: 21,
+          },
         ]
-      : [{ text: 'Check that ID cards and driving licences are valid', daysBefore: 21 }]),
-    ...(kinds.has('stay') ? [] : [{ text: 'Book where to stay', daysBefore: 30 }]),
-    ...(kinds.has('flight') || kinds.has('train') ? [] : [{ text: 'Book how to get there', daysBefore: 30 }]),
-    { text: 'Tell your bank if you will pay abroad, and bring a second card', daysBefore: 7 },
-    { text: 'Download tickets, boarding passes and offline maps', daysBefore: 2 },
+      : [
+          {
+            text: 'Check that ID cards and driving licences are valid',
+            daysBefore: 21,
+          },
+        ]),
+    ...(kinds.has('stay')
+      ? []
+      : [{ text: 'Book where to stay', daysBefore: 30 }]),
+    ...(kinds.has('flight') || kinds.has('train')
+      ? []
+      : [{ text: 'Book how to get there', daysBefore: 30 }]),
+    {
+      text: 'Tell your bank if you will pay abroad, and bring a second card',
+      daysBefore: 7,
+    },
+    {
+      text: 'Download tickets, boarding passes and offline maps',
+      daysBefore: 2,
+    },
     { text: 'Check in online', daysBefore: 1 },
   ];
   const packing = [
     'ID card or passport',
     'Bank cards and some cash',
     'Phone charger and power bank',
-    ...(trip.abroad ? ['Travel adapter', 'European health insurance card (TEAM)'] : ['Tessera sanitaria']),
+    ...(trip.abroad
+      ? ['Travel adapter', 'European health insurance card (TEAM)']
+      : ['Tessera sanitaria']),
     'Medicines you take',
     `Clothes for ${Math.min(nights + 1, 7)} days`,
     'Toiletries',
@@ -43,7 +69,12 @@ export function offlinePlan(trip: TripDto): TripPlanOutput {
     packing,
     days: Array.from({ length: Math.min(nights + 1, 14) }, (_, i) => ({
       day: `Day ${i + 1}`,
-      plan: i === 0 ? 'Arrive, settle in and walk around the area.' : i === nights ? 'Pack, check out and travel back.' : 'Free day: pick one thing you really want to see.',
+      plan:
+        i === 0
+          ? 'Arrive, settle in and walk around the area.'
+          : i === nights
+            ? 'Pack, check out and travel back.'
+            : 'Free day: pick one thing you really want to see.',
     })),
     budgetTips: [
       'Book trains and flights early, and compare the total with luggage.',
@@ -71,7 +102,10 @@ export function planDossier(trip: TripDto, today: string): string {
     `Dates: ${trip.startOn ?? 'not set'} to ${trip.endOn ?? 'not set'}${trip.nights ? `, ${trip.nights} nights` : ''}${trip.startOn ? `, ${isoDaysBetween(today, trip.startOn)} days from now` : ''}.`,
     `Travellers: ${trip.travellers}. Budget: ${trip.budget ? `€${trip.budget}` : 'not set'}.`,
     'Booked:',
-    ...trip.bookings.map((b) => `- ${BOOKING_KIND_LABELS[b.kind]}: ${b.title}${b.date ? ` on ${b.date}` : ''}`),
+    ...trip.bookings.map(
+      (b) =>
+        `- ${BOOKING_KIND_LABELS[b.kind]}: ${b.title}${b.date ? ` on ${b.date}` : ''}`,
+    ),
     'Already on the checklist:',
     ...trip.checklist.map((c) => `- ${c.text}${c.done ? ' (done)' : ''}`),
   ].join('\n');

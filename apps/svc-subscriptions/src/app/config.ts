@@ -28,10 +28,12 @@ export function loadConfig(
       numberEnv('PORT', LOCAL_SUBSCRIPTIONS_PORT, env),
       env,
     ),
-    databaseUrl: env['SUBSCRIPTIONS_DATABASE_URL'] || LOCAL_SUBSCRIPTIONS_DATABASE_URL,
+    databaseUrl:
+      env['SUBSCRIPTIONS_DATABASE_URL'] || LOCAL_SUBSCRIPTIONS_DATABASE_URL,
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
-    aiModel: env['SUBSCRIPTIONS_AI_MODEL']?.trim() || DEFAULT_SUBSCRIPTIONS_AI_MODEL,
+    aiModel:
+      env['SUBSCRIPTIONS_AI_MODEL']?.trim() || DEFAULT_SUBSCRIPTIONS_AI_MODEL,
   };
 }
 

@@ -7,105 +7,168 @@
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
   {{ message }}
-  <button uiButton variant="ghost" size="sm" type="button" (click)="error.set(null)">Dismiss</button>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
 </ui-alert>
-}
-
-@if (!data() && !error()) {
+} @if (!data() && !error()) {
 <p class="li-muted">Loading your goals…</p>
-}
+} @if (data(); as d) {
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Goals & habits"
+/>
 
-@if (data(); as d) {
-<li-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="setTab($event)" label="Goals & habits" />
-
-@switch (tab()) {
-@case ('goals') {
+@switch (tab()) { @case ('goals') {
 <div class="li-toolbar li-block">
   <p class="li-muted li-small grow">
-    A goal is stuck when no step was ticked for two weeks, or it has no next step. Keep steps small: one sitting each.
+    A goal is stuck when no step was ticked for two weeks, or it has no next
+    step. Keep steps small: one sitting each.
   </p>
-  <button uiButton type="button" (click)="addGoal()"><ui-icon name="plus" [size]="16" /> Add a goal</button>
+  <button uiButton type="button" (click)="addGoal()">
+    <ui-icon name="plus" [size]="16" /> Add a goal
+  </button>
 </div>
 
 @if (!openGoals().length) {
 <ui-empty-state icon="flame" heading="No goal yet">
-  Pick one thing that would make the next months better. Write why it matters, then its first small step.
+  Pick one thing that would make the next months better. Write why it matters,
+  then its first small step.
 </ui-empty-state>
 }
 
 <div class="li-cards li-block">
   @for (g of openGoals(); track g.id) {
-  <article class="li-item goal" [class.li-item--warning]="g.stuck" [class.li-item--off]="g.status === 'paused'">
+  <article
+    class="li-item goal"
+    [class.li-item--warning]="g.stuck"
+    [class.li-item--off]="g.status === 'paused'"
+  >
     <div class="li-item__head">
       <span class="li-item__title">{{ g.title }}</span>
       <span class="li-item__buttons">
-        <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + g.title" (click)="goals.edit(g)">
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Edit ' + g.title"
+          (click)="goals.edit(g)"
+        >
           <ui-icon name="edit" [size]="16" />
         </button>
       </span>
     </div>
     <span class="li-meta">
       <span>{{ area(g) }}</span>
-      @if (g.status === 'paused') { <span>Paused</span> }
-      @if (g.daysLeft !== null) { <li-due [days]="g.daysLeft" [warnDays]="30" prefix="Target" /> }
-      @if (g.stuck) { <span class="li-warn">Stuck · {{ g.idleDays }} days without a step</span> }
+      @if (g.status === 'paused') { <span>Paused</span> } @if (g.daysLeft !==
+      null) { <li-due [days]="g.daysLeft" [warnDays]="30" prefix="Target" /> }
+      @if (g.stuck) {
+      <span class="li-warn">Stuck · {{ g.idleDays }} days without a step</span>
+      }
     </span>
     @if (g.progress !== null) {
-    <div class="progress" role="progressbar" [attr.aria-valuenow]="g.progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'Progress of ' + g.title">
+    <div
+      class="progress"
+      role="progressbar"
+      [attr.aria-valuenow]="g.progress"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      [attr.aria-label]="'Progress of ' + g.title"
+    >
       <span class="progress__fill" [style.width.%]="g.progress"></span>
     </div>
-    <span class="li-small li-muted">{{ g.progress }}% · {{ g.steps.length }} steps</span>
-    }
-    @if (g.why) {
+    <span class="li-small li-muted"
+      >{{ g.progress }}% · {{ g.steps.length }} steps</span
+    >
+    } @if (g.why) {
     <p class="why">“{{ g.why }}”</p>
     }
     <ul class="steps">
       @for (s of g.steps; track s.id) {
       <li class="li-check" [class.li-check--done]="s.done">
-        <input type="checkbox" [checked]="s.done" (change)="toggleStep(s)" [attr.aria-label]="s.title" />
+        <input
+          type="checkbox"
+          [checked]="s.done"
+          (change)="toggleStep(s)"
+          [attr.aria-label]="s.title"
+        />
         <span>
-          {{ s.title }}
-          @if (s.dueDate && !s.done) { <span class="li-muted li-small" [class.li-bad]="s.dueDate < d.today"> · by {{ dateText(s.dueDate) }}</span> }
+          {{ s.title }} @if (s.dueDate && !s.done) {
+          <span class="li-muted li-small" [class.li-bad]="s.dueDate < d.today">
+            · by {{ dateText(s.dueDate) }}</span
+          >
+          }
         </span>
-        <button uiButton variant="ghost" size="sm" type="button" aria-label="Edit the step" (click)="steps.edit(s)">
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Edit the step"
+          (click)="steps.edit(s)"
+        >
           <ui-icon name="edit" [size]="14" />
         </button>
       </li>
       }
     </ul>
-    <button type="button" class="li-link li-small" (click)="addStep(g)">+ Add a step</button>
+    <button type="button" class="li-link li-small" (click)="addStep(g)">
+      + Add a step
+    </button>
   </article>
   }
 </div>
 
 @if (closedGoals().length) {
 <button type="button" class="li-link" (click)="showClosed.set(!showClosed())">
-  {{ showClosed() ? 'Hide' : 'Show' }} reached and let go ({{ closedGoals().length }})
+  {{ showClosed() ? 'Hide' : 'Show' }} reached and let go ({{
+  closedGoals().length }})
 </button>
 @if (showClosed()) {
 <ul class="li-list li-block">
   @for (g of closedGoals(); track g.id) {
   <li class="li-row">
     <span>{{ g.status === 'done' ? '🏆' : '🍃' }} {{ g.title }}</span>
-    <span class="li-muted li-small">{{ status(g) }}
-      <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + g.title" (click)="goals.edit(g)"><ui-icon name="edit" [size]="14" /></button>
+    <span class="li-muted li-small"
+      >{{ status(g) }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="'Edit ' + g.title"
+        (click)="goals.edit(g)"
+      >
+        <ui-icon name="edit" [size]="14" />
+      </button>
     </span>
   </li>
   }
 </ul>
-}
-}
-}
-
-@case ('habits') {
+} } } @case ('habits') {
 <ui-card heading="Habits" class="li-block">
   <div uiCardActions class="li-actions">
-    <button uiButton size="sm" type="button" (click)="addHabit()"><ui-icon name="plus" [size]="16" /> Add</button>
+    <button uiButton size="sm" type="button" (click)="addHabit()">
+      <ui-icon name="plus" [size]="16" /> Add
+    </button>
   </div>
-  <p class="li-intro li-muted">Tick a day when you did it. The week counts from Monday; a streak is the weeks in a row you reached your target.</p>
+  <p class="li-intro li-muted">
+    Tick a day when you did it. The week counts from Monday; a streak is the
+    weeks in a row you reached your target.
+  </p>
   @if (!d.habits.length) {
   <ui-empty-state icon="check" heading="No habit yet">
-    A habit is something small you want to do a few days a week: walk, read, stretch, call your parents.
+    A habit is something small you want to do a few days a week: walk, read,
+    stretch, call your parents.
   </ui-empty-state>
   } @else {
   <div class="li-table-wrap">
@@ -114,7 +177,11 @@
         <tr>
           <th scope="col">Habit</th>
           @for (day of days(); track day) {
-          <th scope="col" class="day" [class.day--today]="day === d.today">{{ dayText(day).split(' ')[0] }}<br /><span class="li-muted">{{ day.slice(8) }}</span></th>
+          <th scope="col" class="day" [class.day--today]="day === d.today">
+            {{ dayText(day).split(' ')[0] }}<br /><span class="li-muted"
+              >{{ day.slice(8) }}</span
+            >
+          </th>
           }
           <th scope="col" class="li-num">This week</th>
           <th scope="col" class="li-num">Streak</th>
@@ -125,8 +192,8 @@
         @for (h of d.habits; track h.id) {
         <tr [class.off]="!h.active">
           <th scope="row">
-            {{ h.title }}
-            @if (goalTitle(h.goalId); as goal) { <span class="li-muted li-small"><br />for {{ goal }}</span> }
+            {{ h.title }} @if (goalTitle(h.goalId); as goal) {
+            <span class="li-muted li-small"><br />for {{ goal }}</span> }
           </th>
           @for (day of days(); track day) {
           <td class="day">
@@ -138,14 +205,24 @@
               [attr.aria-label]="h.title + ', ' + dayText(day)"
               (click)="toggleDay(h, day)"
             >
-              @if (h.checked.includes(day)) { <ui-icon name="check" [size]="16" /> }
+              @if (h.checked.includes(day)) {
+              <ui-icon name="check" [size]="16" /> }
             </button>
           </td>
           }
-          <td class="li-num" [class.li-good]="h.thisWeek >= h.perWeek">{{ h.thisWeek }} / {{ h.perWeek }}</td>
+          <td class="li-num" [class.li-good]="h.thisWeek >= h.perWeek">
+            {{ h.thisWeek }} / {{ h.perWeek }}
+          </td>
           <td class="li-num">{{ h.streak ? '🔥 ' + h.streak : '—' }}</td>
           <td>
-            <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'Edit ' + h.title" (click)="habits.edit(h)">
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [attr.aria-label]="'Edit ' + h.title"
+              (click)="habits.edit(h)"
+            >
               <ui-icon name="edit" [size]="16" />
             </button>
           </td>
@@ -156,34 +233,63 @@
   </div>
   }
 </ui-card>
-}
-
-@case ('week') {
+} @case ('week') {
 <ui-card [heading]="'The week of ' + dateText(d.weekStart)" class="li-block">
-  <p class="li-intro li-muted">Five minutes on Sunday: what went well, where you got stuck, what comes next. The coach reads the last three.</p>
+  <p class="li-intro li-muted">
+    Five minutes on Sunday: what went well, where you got stuck, what comes
+    next. The coach reads the last three.
+  </p>
   <form class="review" (submit)="$event.preventDefault(); saveReview()">
     <fieldset class="moods">
       <legend>How was the week?</legend>
       @for (m of moods; track m.value) {
-      <button type="button" class="mood" [class.mood--on]="mood() === m.value" [attr.aria-pressed]="mood() === m.value" [title]="m.name" [attr.aria-label]="m.name" (click)="mood.set(mood() === m.value ? null : m.value)">
+      <button
+        type="button"
+        class="mood"
+        [class.mood--on]="mood() === m.value"
+        [attr.aria-pressed]="mood() === m.value"
+        [title]="m.name"
+        [attr.aria-label]="m.name"
+        (click)="mood.set(mood() === m.value ? null : m.value)"
+      >
         {{ m.label }}
       </button>
       }
     </fieldset>
     <label class="field">
       <span>What went well</span>
-      <textarea class="ui-input" rows="3" maxlength="2000" [value]="wins()" (input)="wins.set($any($event.target).value)"></textarea>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="wins()"
+        (input)="wins.set($any($event.target).value)"
+      ></textarea>
     </label>
     <label class="field">
       <span>Where I got stuck</span>
-      <textarea class="ui-input" rows="3" maxlength="2000" [value]="stuck()" (input)="stuck.set($any($event.target).value)"></textarea>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="stuck()"
+        (input)="stuck.set($any($event.target).value)"
+      ></textarea>
     </label>
     <label class="field">
       <span>Next week I will</span>
-      <textarea class="ui-input" rows="3" maxlength="2000" [value]="next()" (input)="next.set($any($event.target).value)"></textarea>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="next()"
+        (input)="next.set($any($event.target).value)"
+      ></textarea>
     </label>
     <div class="li-actions">
-      <button uiButton type="submit" [loading]="savingReview()">Save the week</button>
+      <button uiButton type="submit" [loading]="savingReview()">
+        Save the week
+      </button>
       @if (reviewSaved()) { <span class="li-good li-small">Saved</span> }
     </div>
   </form>
@@ -191,37 +297,51 @@
 @if (d.reviews.length) {
 <ui-card heading="Earlier weeks" class="li-block">
   <ul class="li-list">
-    @for (r of d.reviews; track r.id) {
-    @if (r.weekStart !== d.weekStart) {
+    @for (r of d.reviews; track r.id) { @if (r.weekStart !== d.weekStart) {
     <li class="past">
-      <strong>{{ moodLabel(r.mood) }} Week of {{ dateText(r.weekStart) }}</strong>
-      @if (r.wins) { <p><span class="li-good">Went well:</span> {{ r.wins }}</p> }
-      @if (r.stuck) { <p><span class="li-warn">Stuck:</span> {{ r.stuck }}</p> }
-      @if (r.next) { <p><span class="li-muted">Next:</span> {{ r.next }}</p> }
+      <strong
+        >{{ moodLabel(r.mood) }} Week of {{ dateText(r.weekStart) }}</strong
+      >
+      @if (r.wins) {
+      <p><span class="li-good">Went well:</span> {{ r.wins }}</p>
+      } @if (r.stuck) {
+      <p><span class="li-warn">Stuck:</span> {{ r.stuck }}</p>
+      } @if (r.next) {
+      <p><span class="li-muted">Next:</span> {{ r.next }}</p>
+      }
     </li>
-    }
-    }
+    } }
   </ul>
 </ui-card>
-}
-}
-
-@case ('coach') {
-<ui-ai-panel heading="Coach" class="li-block" [state]="asking() ? 'working' : 'idle'" [offline]="!d.aiCoach">
+} } @case ('coach') {
+<ui-ai-panel
+  heading="Coach"
+  class="li-block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!d.aiCoach"
+>
   <li-ai-tool uiAiPanelActions toolId="goals.coach" />
   <p class="li-muted li-intro">
-    @if (d.aiCoach) {
-    Claude reads your active and paused goals (why, steps, dates), your habits this week and your last three weekly reviews, then
-    finds what is stuck and one small next step for it. Nothing else is sent.
-    } @else {
-    Without a Claude API key, or with the tool off in Settings → AI tools, the advice comes from Life Island's own rules: stuck goals
-    first, then the next steps by date.
-    }
+    @if (d.aiCoach) { Claude reads your active and paused goals (why, steps,
+    dates), your habits this week and your last three weekly reviews, then finds
+    what is stuck and one small next step for it. Nothing else is sent. } @else
+    { Without a Claude API key, or with the tool off in Settings → AI tools, the
+    advice comes from Life Island's own rules: stuck goals first, then the next
+    steps by date. }
   </p>
   <form class="ask" (submit)="$event.preventDefault(); ask()">
-    <textarea class="ui-input" rows="2" maxlength="1000" placeholder="Optional: “I keep postponing the job search, why?”" [value]="question()" (input)="question.set($any($event.target).value)"></textarea>
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “I keep postponing the job search, why?”"
+      [value]="question()"
+      (input)="question.set($any($event.target).value)"
+    ></textarea>
     <div class="ask__row">
-      <button uiButton type="submit" [loading]="asking()"><ui-icon name="sparkles" [size]="16" /> Help me move forward</button>
+      <button uiButton type="submit" [loading]="asking()">
+        <ui-icon name="sparkles" [size]="16" /> Help me move forward
+      </button>
       @if (asking()) {
       <ui-ai-status state="working">Reading your goals…</ui-ai-status>
       } @else if (coachStatus() === 'done') {
@@ -234,10 +354,24 @@
 </ui-ai-panel>
 
 @if (advice(); as a) {
-<ui-ai-panel [heading]="a.question ? a.question : 'Moving forward'" kind="result" [offline]="a.source !== 'claude'" class="li-block">
+<ui-ai-panel
+  [heading]="a.question ? a.question : 'Moving forward'"
+  kind="result"
+  [offline]="a.source !== 'claude'"
+  class="li-block"
+>
   <div uiAiPanelActions class="li-actions">
     <span class="li-muted li-small">{{ dateText(a.createdAt) }}</span>
-    <button uiButton variant="ghost" size="sm" type="button" aria-label="Remove this advice" (click)="removeAdvice(a.id)"><ui-icon name="trash" [size]="16" /></button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this advice"
+      (click)="removeAdvice(a.id)"
+    >
+      <ui-icon name="trash" [size]="16" />
+    </button>
   </div>
   <p>{{ a.output.summary }}</p>
   @if (a.output.unstuck.length) {
@@ -251,34 +385,67 @@
     </li>
     }
   </ul>
-  }
-  @if (a.output.focus.length) {
+  } @if (a.output.focus.length) {
   <h3 class="li-sub">This week</h3>
   <ol class="plain">
     @for (f of a.output.focus; track $index) {
-    <li><strong>{{ f.title }}</strong> <span class="li-muted li-small">· {{ f.why }}</span></li>
+    <li>
+      <strong>{{ f.title }}</strong>
+      <span class="li-muted li-small">· {{ f.why }}</span>
+    </li>
     }
   </ol>
   }
   <p class="encouragement">{{ a.output.encouragement }}</p>
 </ui-ai-panel>
-}
-@if (d.advice.length > 1) {
+} @if (d.advice.length > 1) {
 <ui-card heading="Earlier advice" class="li-block">
   <ul class="li-list">
     @for (a of d.advice; track a.id) {
     <li class="li-row">
-      <button type="button" class="li-link" (click)="shownAdvice.set(a.id)">{{ a.question ?? 'Moving forward' }}</button>
-      <span class="li-muted li-small">{{ dateText(a.createdAt) }} · {{ a.source === 'claude' ? 'AI' : 'Life Island rules' }}</span>
+      <button type="button" class="li-link" (click)="shownAdvice.set(a.id)">
+        {{ a.question ?? 'Moving forward' }}
+      </button>
+      <span class="li-muted li-small"
+        >{{ dateText(a.createdAt) }} · {{ a.source === 'claude' ? 'AI' : 'Life
+        Island rules' }}</span
+      >
     </li>
     }
   </ul>
 </ui-card>
-}
-}
-}
-}
+} } } }
 
-<li-record-dialog heading="Goal" [fields]="goalFields" [(open)]="goals.open" [value]="goals.value()" [saving]="goals.saving()" [error]="goals.error()" (save)="goals.save($event)" (remove)="goals.remove()" intro="Deleting a goal deletes its steps too." />
-<li-record-dialog heading="Step" size="sm" [fields]="stepFields" [(open)]="steps.open" [value]="steps.value()" [saving]="steps.saving()" [error]="steps.error()" (save)="steps.save($event)" (remove)="steps.remove()" />
-<li-record-dialog heading="Habit" size="sm" [fields]="habitFields()" [(open)]="habits.open" [value]="habits.value()" [saving]="habits.saving()" [error]="habits.error()" (save)="habits.save($event)" (remove)="habits.remove()" />
+<li-record-dialog
+  heading="Goal"
+  [fields]="goalFields"
+  [(open)]="goals.open"
+  [value]="goals.value()"
+  [saving]="goals.saving()"
+  [error]="goals.error()"
+  (save)="goals.save($event)"
+  (remove)="goals.remove()"
+  intro="Deleting a goal deletes its steps too."
+/>
+<li-record-dialog
+  heading="Step"
+  size="sm"
+  [fields]="stepFields"
+  [(open)]="steps.open"
+  [value]="steps.value()"
+  [saving]="steps.saving()"
+  [error]="steps.error()"
+  (save)="steps.save($event)"
+  (remove)="steps.remove()"
+/>
+<li-record-dialog
+  heading="Habit"
+  size="sm"
+  [fields]="habitFields()"
+  [(open)]="habits.open"
+  [value]="habits.value()"
+  [saving]="habits.saving()"
+  [error]="habits.error()"
+  (save)="habits.save($event)"
+  (remove)="habits.remove()"
+/>
