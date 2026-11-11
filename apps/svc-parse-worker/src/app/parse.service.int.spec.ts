@@ -243,31 +243,44 @@ describe.skipIf(!configured)(
 
     const ENEL = `ENEL ENERGIA - Bolletta luce\nEmessa il 12/10/2026\nTOTALE EUR 84,20 ${randomUUID()}`;
 
-    it('takes a document waiting for its retry at once when you press Parse now', async () => {
+    it('takes a document waiting for its retry once when you press Parse now', async () => {
       const id = await seed(ENEL);
-      await db()
-        .update(uploads)
-        .set({ nextAttemptAt: new Date(Date.now() + 60 * 60_000) })
-        .where(eq(uploads.id, id));
       const service = new ParseService(
         svc,
         storage,
         new ScriptedAnalyzer(),
         config,
       );
-      const claimAll = async (now: boolean) => {
+      const waitForRetry = (lastAttemptAt: Date | null) =>
+        db()
+          .update(uploads)
+          .set({
+            status: 'TO_BE_PARSED',
+            lockToken: null,
+            lockedUntil: null,
+            nextAttemptAt: new Date(Date.now() + 60 * 60_000),
+            lastAttemptAt,
+          })
+          .where(eq(uploads.id, id));
+      const claimAll = async (since: Date | null) => {
         const ids: string[] = [];
         for (let i = 0; i < 50; i++) {
-          const next = await service.claimNext(now);
+          const next = await service.claimNext(since);
           if (!next) break;
           ids.push(next.id);
         }
         return ids;
       };
+      await waitForRetry(new Date(Date.now() - 60_000));
+      const runStarted = new Date();
       // The scheduled run leaves it to its retry time...
-      expect(await claimAll(false)).not.toContain(id);
-      // ...Parse now does not.
-      expect(await claimAll(true)).toContain(id);
+      expect(await claimAll(null)).not.toContain(id);
+      // ...a run from Parse now takes it...
+      await waitForRetry(new Date(Date.now() - 60_000));
+      expect(await claimAll(runStarted)).toContain(id);
+      // ...but only once: tried during this run, it waits for its retry.
+      await waitForRetry(new Date());
+      expect(await claimAll(runStarted)).not.toContain(id);
       await db()
         .update(uploads)
         .set({ status: 'FAILED', lockToken: null, lockedUntil: null })

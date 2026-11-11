@@ -35,13 +35,17 @@ export async function migrateServiceSchema(
          created_at bigint
        )`,
     );
-    const { rows } = await client.query<{ created_at: string | null }>(
-      `select created_at from ${safeSchema}.${safeTable} order by created_at desc limit 1`,
+    // A migration is pending when its hash was never recorded, wherever it
+    // sits in time: drizzle's own rule (skip anything not newer than the last
+    // one applied) silently skips a migration whose journal date is older
+    // than one already applied, as happens when branches merge.
+    const { rows } = await client.query<{ hash: string }>(
+      `select hash from ${safeSchema}.${safeTable}`,
     );
-    const lastApplied = Number(rows[0]?.created_at ?? 0);
+    const done = new Set(rows.map((row) => row.hash));
     let applied = 0;
     for (const migration of migrations) {
-      if (migration.folderMillis <= lastApplied) continue;
+      if (done.has(migration.hash)) continue;
       for (const statement of migration.sql) {
         if (statement.trim()) await client.query(statement);
       }
@@ -49,6 +53,7 @@ export async function migrateServiceSchema(
         `insert into ${safeSchema}.${safeTable} (hash, created_at) values ($1, $2)`,
         [migration.hash, migration.folderMillis],
       );
+      done.add(migration.hash);
       applied++;
     }
     return applied;
