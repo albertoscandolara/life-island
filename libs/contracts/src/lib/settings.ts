@@ -163,13 +163,6 @@ export const AI_TOOL_MODULES = [
     service: 'svc-subscriptions',
   },
   {
-    id: 'mailbox',
-    name: 'Admin mailbox',
-    emblem: '📬',
-    character: 'diplo',
-    service: 'svc-mailbox',
-  },
-  {
     id: 'travel',
     name: 'Travel',
     emblem: '✈️',
@@ -669,32 +662,6 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
     ],
   },
   {
-    id: 'mailbox.letter-explainer',
-    module: 'mailbox',
-    name: 'Letter explainer',
-    description:
-      'Reads an official letter you pasted (taxes, INPS, a fine, the bank, the condo) and explains it in plain words: what it asks, how much, by when, and the steps to take.',
-    unit: 'letter',
-    trigger: 'on-demand',
-    where: { app: 'island', path: '/mailbox', label: 'Mailbox · Letters' },
-    whenOff:
-      "The letter is read by Life Island's own rules: its kind from keywords, and the first date and amount it prints.",
-    defaultEnabled: true,
-    steps: [
-      {
-        id: 'explain',
-        label: 'Explain the letter',
-        modelEnv: 'MAILBOX_AI_MODEL',
-        defaultModel: 'claude-sonnet-5-5',
-        effort: 'low',
-        maxTokens: 6000,
-        tools: [],
-        estimate: { inputTokens: 5000, outputTokens: 1500 },
-        always: true,
-      },
-    ],
-  },
-  {
     id: 'travel.trip-planner',
     module: 'travel',
     name: 'Trip planner',
@@ -902,7 +869,6 @@ export const ISLAND_AREAS = [
   { id: 'money', emblem: '💶', name: 'Money' },
   { id: 'goals', emblem: '🎯', name: 'Goals & habits' },
   { id: 'subscriptions', emblem: '📑', name: 'Contracts & subscriptions' },
-  { id: 'mailbox', emblem: '📬', name: 'Admin mailbox' },
   { id: 'travel', emblem: '✈️', name: 'Travel' },
   { id: 'fitness', emblem: '🏃', name: 'Fitness' },
 ] as const;
@@ -969,7 +935,6 @@ const AI_SERVICES = [
   'svc-health',
   'svc-groceries',
   'svc-subscriptions',
-  'svc-mailbox',
   'svc-travel',
   'svc-fitness',
 ] as const;

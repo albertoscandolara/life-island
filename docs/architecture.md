@@ -25,7 +25,6 @@ You drop any document (receipt photo, PDF, spreadsheet, email) onto the island. 
 | Rex (tyrannosaurus)        | Goals & habits            | Goals with steps and the next one to take, daily or weekly habits with streaks, a weekly review, an AI coach for when you are stuck                                                                                                                             | Live          |
 | Maia (maiasaura)           | Health                    | Check-ups by age, visits, medicines with refill dates, test results with their trend and range, vaccinations, an AI results explainer (no names are sent)                                                                                                       | Live          |
 | Allo (allosaurus)          | Contracts & subscriptions | Contracts and subscriptions with their yearly cost, renewal and cancel-by dates, price history, an AI renewal advisor                                                                                                                                           | Live          |
-| Diplo (diplodocus)         | Admin mailbox             | Official letters with what they ask, the amount and the date to act by, an AI letter explainer                                                                                                                                                                  | Live          |
 | Quetzal (quetzalcoatlus)   | Travel                    | Trips with bookings, checklist, packing and expenses, an AI trip planner                                                                                                                                                                                        | Live          |
 | Galli (gallimimus)         | Fitness                   | Workouts as active minutes against a weekly goal, weight and sleep, races and events, an AI training plan                                                                                                                                                       | Live          |
 | Trice (triceratops)        | Groceries page            | A shopping list that learns from your receipts, price history by item and shop, spending by category, AI list suggestions                                                                                                                                       | Live          |
@@ -125,7 +124,6 @@ life-island/
 │   ├── mfe-goals/ svc-goals/                # Rex: goals and steps, habits and streaks, weekly review, coach
 │   ├── mfe-health/ svc-health/              # Maia: check-ups, visits, medicines, results, vaccinations, explainer
 │   ├── mfe-subscriptions/ svc-subscriptions/ # Allo: contracts, renewals, cancel-by dates, price history, advisor
-│   ├── mfe-mailbox/ svc-mailbox/            # Diplo: official letters, dates to act by, explainer
 │   ├── mfe-travel/ svc-travel/              # Quetzal: trips, bookings, checklist, expenses, planner
 │   └── mfe-fitness/ svc-fitness/            # Galli: workouts, body and sleep, events, training plan
 ├── libs/

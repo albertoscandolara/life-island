@@ -101,7 +101,6 @@ services:
       STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@postgres:5432/life_island
       FITNESS_DATABASE_URL: postgres://fitness_svc:dev_fitness@postgres:5432/life_island
       TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@postgres:5432/life_island
-      MAILBOX_DATABASE_URL: postgres://mailbox_svc:dev_mailbox@postgres:5432/life_island
       SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@postgres:5432/life_island
       HEALTH_DATABASE_URL: postgres://health_svc:dev_health@postgres:5432/life_island
       GOALS_DATABASE_URL: postgres://goals_svc:dev_goals@postgres:5432/life_island
@@ -241,17 +240,6 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
-  svc-mailbox:
-    profiles: [apps]
-    build:
-      <<: *service-build
-      args: { SERVICE: svc-mailbox }
-    environment:
-      <<: *service-env
-      # The letter explainer uses the Claude API when the key is set; without, its own rules.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    depends_on: *service-deps
-
   svc-subscriptions:
     profiles: [apps]
     build:
@@ -305,7 +293,7 @@ services:
       <<: *service-env
       # The week brief uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,mailbox=http://svc-mailbox:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000
+      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000
     depends_on: *service-deps
 
   svc-work:

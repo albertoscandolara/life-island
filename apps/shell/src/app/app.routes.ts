@@ -112,10 +112,6 @@ export const appRoutes: Route[] = [
     ),
   },
   {
-    path: 'mailbox',
-    loadChildren: remote('mfe-mailbox', './routes', 'MAILBOX_ROUTES'),
-  },
-  {
     path: 'travel',
     loadChildren: remote('mfe-travel', './routes', 'TRAVEL_ROUTES'),
   },

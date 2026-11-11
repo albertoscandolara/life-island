@@ -28,6 +28,5 @@ export * from './lib/goals.js';
 export * from './lib/health.js';
 export * from './lib/groceries.js';
 export * from './lib/subscriptions.js';
-export * from './lib/mailbox.js';
 export * from './lib/travel.js';
 export * from './lib/fitness.js';

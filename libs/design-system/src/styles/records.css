@@ -1,6 +1,6 @@
 /*
  * Layout classes for the record-keeping areas (Agenda, Money, Goals, Health,
- * Groceries, Subscriptions, Mailbox, Travel, Fitness): blocks, stat tiles,
+ * Groceries, Subscriptions, Travel, Fitness): blocks, stat tiles,
  * chips, lists of cards and tables, so every area reads the same way.
  * Global like `.ui-input`, prefixed `li-`; only semantic tokens.
  */

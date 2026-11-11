@@ -83,7 +83,6 @@ export const DEADLINE_SOURCES = [
     emblem: '📑',
     path: '/subscriptions',
   },
-  { module: 'mailbox', name: 'Admin mailbox', emblem: '📬', path: '/mailbox' },
   { module: 'travel', name: 'Travel', emblem: '✈️', path: '/travel' },
   { module: 'fitness', name: 'Fitness', emblem: '🏃', path: '/fitness' },
 ] as const;

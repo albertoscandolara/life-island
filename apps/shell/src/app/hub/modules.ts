@@ -48,7 +48,6 @@ export interface IslandModule {
     | 'coins'
     | 'flag'
     | 'antenna'
-    | 'postbox'
     | 'boat'
     | 'track';
 }
@@ -208,18 +207,6 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     attentionUrl: '/api/goals/attention',
     angle: 315,
     landmark: 'flag',
-  },
-  {
-    id: 'mailbox',
-    character: 'diplo',
-    emblem: '📬',
-    name: 'Admin mailbox',
-    mission:
-      'Official letters (INPS, Agenzia delle Entrate, the comune, fines): what each one asks, the date to act by, and an explainer in plain words.',
-    path: '/mailbox',
-    attentionUrl: '/api/mailbox/attention',
-    angle: 247.5,
-    landmark: 'postbox',
   },
   {
     id: 'travel',
