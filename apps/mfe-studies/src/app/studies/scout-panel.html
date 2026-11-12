@@ -1,0 +1,131 @@
+@let s = scout(); @let last = scan();
+<ui-ai-panel
+  heading="Resource scout"
+  class="block"
+  [state]="running() ? 'working' : 'idle'"
+  [offline]="!s.ai"
+>
+  <li-ai-tool uiAiPanelActions toolId="studies.resource-scout" />
+  <p class="muted intro">
+    The scout keeps one path current: every few months it searches the web for
+    the best recent resources for the stage you are on and the next one, checks
+    the ones you pinned for anything outdated, and may propose a step to add or
+    retire. You pin what you want to keep and dismiss the rest.
+  </p>
+
+  <div class="scout-state">
+    @if (watching()) {
+    <p>
+      <strong>Keeping this path current.</strong>
+      @if (s.nextScanOn) { Next scan {{ dateText(s.nextScanOn) }}, then every {{
+      s.cadenceMonths }} month{{ s.cadenceMonths === 1 ? '' : 's' }}. }
+    </p>
+    <div class="actions">
+      <button
+        uiButton
+        type="button"
+        [disabled]="!s.ai || running()"
+        [loading]="busy() === 'refresh'"
+        (click)="refresh()"
+      >
+        <ui-icon name="sparkles" [size]="16" /> Refresh now
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [loading]="busy() === 'watch'"
+        (click)="watch(false)"
+      >
+        Stop watching
+      </button>
+    </div>
+    } @else {
+    <p>
+      @if (otherName(); as other) { The scout is keeping
+      <strong>{{ other }}</strong> current. It watches one path at a time, so
+      watching this one stops that. } @else { The scout is not watching any
+      path. }
+    </p>
+    <div class="actions">
+      <button
+        uiButton
+        variant="secondary"
+        type="button"
+        [loading]="busy() === 'watch'"
+        (click)="watch(true)"
+      >
+        {{ otherName() ? 'Watch this path instead' : 'Keep this path current' }}
+      </button>
+    </div>
+    }
+  </div>
+
+  @if (!s.ai) {
+  <p class="muted small">
+    Scans need the resource scout on in Settings → AI tools, and a Claude API
+    key. Until then each step keeps its hand-picked resources and what you
+    pinned.
+  </p>
+  } @if (last) {
+  <p class="small scout-last">
+    @if (last.status === 'running') {
+    <ui-ai-status state="working">Searching the web…</ui-ai-status>
+    } @else if (last.status === 'error') {
+    <ui-ai-status state="error"
+      >{{ last.error ?? 'The scan failed' }}</ui-ai-status
+    >
+    } @else {
+    <ui-ai-status state="done"
+      >Scanned {{ dateText(last.finishedAt ?? last.startedAt) }}: {{ last.found
+      }} new, {{ last.flagged }} outdated, {{ last.proposed }} outline change{{
+      last.proposed === 1 ? '' : 's' }}</ui-ai-status
+    >
+    }
+  </p>
+  } @if (proposals().length) {
+  <h3 class="scout-heading">Proposed changes to the outline</h3>
+  <ul class="plain scout-changes">
+    @for (c of proposals(); track c.id) {
+    <li class="scout-change">
+      <p>
+        @if (c.kind === 'add-step') {
+        <strong>Add “{{ c.title }}”</strong> to {{ stageTitle(c.stageId) }}@if
+        (c.hours) { · about {{ c.hours }} h } } @else {
+        <strong>Retire “{{ stepTitle(c) }}”</strong> from {{
+        stageTitle(c.stageId) }} }
+      </p>
+      @if (c.detail) {
+      <p class="small">{{ c.detail }}</p>
+      }
+      <p class="muted small">Why: {{ c.reason }}</p>
+      <div class="actions">
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [loading]="busy() === c.id"
+          (click)="decide(c, 'accepted')"
+        >
+          <ui-icon name="check" [size]="14" /> Accept
+        </button>
+        <button
+          uiButton
+          size="sm"
+          variant="ghost"
+          type="button"
+          [disabled]="busy() === c.id"
+          (click)="decide(c, 'declined')"
+        >
+          Decline
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  <p class="muted small">
+    Your progress is kept by step: a retired step leaves the path but its notes
+    and time stay recorded.
+  </p>
+  }
+</ui-ai-panel>

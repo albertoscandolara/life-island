@@ -252,9 +252,10 @@ export function pathsProgress(
   }[],
   weeklyGoalHours: number,
   today: string,
+  catalogue: readonly LearningPath[] = LEARNING_PATHS,
 ): PathProgressDto[] {
   const following = pathRows.filter((p) => p.status === 'following').length;
-  return LEARNING_PATHS.map((path) =>
+  return catalogue.map((path) =>
     pathProgress(
       path,
       pathRows.find((p) => p.pathId === path.id) ?? null,

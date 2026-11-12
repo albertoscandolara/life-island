@@ -276,3 +276,47 @@
     grid-column: 1 / -1;
   }
 }
+
+/* What the resource scout found for a step: pin it, dismiss it, or keep a flagged one. */
+.scouted {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-md);
+}
+
+.scouted__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.scouted__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.scouted__item:first-child {
+  border-top: 0;
+}
+
+.scouted__item--pinned .scouted__text a {
+  font-weight: 600;
+}
+
+.scouted__text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.scouted__text a {
+  overflow-wrap: anywhere;
+}

@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type {
   CertificationRequest,
+  OutlineDecisionRequest,
+  ScoutResourceRequest,
   CourseRequest,
   PathProgressRequest,
   StepProgressRequest,
@@ -95,5 +97,18 @@ export class StudiesApi {
 
   removePlan(id: string): Observable<void> {
     return this.http.delete<void>(`${STUDIES_API}/plans/${id}`);
+  }
+
+  /** Refresh now: the resource scout scans the path under watch. */
+  scoutScan(): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${STUDIES_API}/scout/scans`, {});
+  }
+
+  decideResource(id: string, request: ScoutResourceRequest): Observable<void> {
+    return this.http.put<void>(`${STUDIES_API}/scout/resources/${id}`, request);
+  }
+
+  decideChange(id: string, request: OutlineDecisionRequest): Observable<void> {
+    return this.http.put<void>(`${STUDIES_API}/scout/changes/${id}`, request);
   }
 }

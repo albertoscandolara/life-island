@@ -238,6 +238,28 @@
           </button>
           }
         </div>
+        @for (setting of toolSettings(tool.id); track setting.key) {
+        <div class="model">
+          <label class="small" [for]="'setting-' + anchor(setting.key)"
+            >{{ setting.label }}</label
+          >
+          <select
+            class="select"
+            [id]="'setting-' + anchor(setting.key)"
+            [disabled]="!api.overview.hasValue() || api.busy()"
+            (change)="setToolSetting(setting, $any($event.target).value)"
+          >
+            @for (option of setting.options; track option.value) {
+            <option
+              [value]="option.value"
+              [selected]="settingValue(setting) === option.value"
+            >
+              {{ option.label }}
+            </option>
+            }
+          </select>
+        </div>
+        }
       </div>
       <li-ai-tool [toolId]="tool.id" [settingsLink]="false" />
     </li>

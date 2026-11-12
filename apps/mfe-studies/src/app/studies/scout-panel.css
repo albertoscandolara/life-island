@@ -1,0 +1,38 @@
+/* The resource scout on Learning paths: its state, the last scan, the outline changes it proposes. */
+.scout-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.scout-state p {
+  margin: 0;
+}
+
+.scout-last {
+  margin: var(--space-2) 0 0;
+}
+
+.scout-heading {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--text-base);
+}
+
+.scout-changes {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.scout-change {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-md);
+  background: var(--ai-soft);
+}
+
+.scout-change p {
+  margin: 0 0 var(--space-1);
+}

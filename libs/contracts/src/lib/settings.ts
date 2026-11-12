@@ -8,6 +8,13 @@ import {
   studyReminderSettingKey,
 } from './studies.js';
 import { AGENDA_CALENDAR_SETTING } from './agenda.js';
+import { LEARNING_PATHS } from './studies-paths.js';
+import {
+  STUDY_SCOUT_CADENCE_SETTING,
+  STUDY_SCOUT_NONE,
+  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_TOOL,
+} from './studies-scout.js';
 import {
   FITNESS_WEEKLY_MINUTES_DEFAULT,
   FITNESS_WEEKLY_MINUTES_SETTING,
@@ -498,6 +505,47 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
     ],
   },
   {
+    id: STUDY_SCOUT_TOOL,
+    module: 'studies',
+    name: 'Resource scout',
+    description:
+      'Keeps the resources of one learning path current: it searches the web for the best recent material for the stage you are on and the next one, checks the resources you pinned for anything outdated, and may propose a step to add or retire. It watches one path at a time (Settings → App settings → Studies), and scans it every few months.',
+    unit: 'scan',
+    trigger: 'scheduled',
+    where: {
+      app: 'island',
+      path: '/studies',
+      label: 'Studies · Learning paths',
+    },
+    whenOff:
+      'No new scans: each step keeps its hand-picked resources and everything you pinned.',
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'research',
+        label: 'Search the web',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        maxTokens: 16000,
+        tools: ['web_search'],
+        estimate: { inputTokens: 45000, outputTokens: 5000, webSearches: 10 },
+        always: true,
+      },
+      {
+        id: 'format',
+        label: 'Structure the findings',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 16000,
+        tools: [],
+        estimate: { inputTokens: 8000, outputTokens: 5000 },
+        always: true,
+      },
+    ],
+  },
+  {
     id: 'agenda.week-brief',
     module: 'agenda',
     name: 'Week brief',
@@ -828,6 +876,8 @@ export interface AppSettingDefinition {
   scope: 'server' | 'browser';
   /** The services that read it, for the "used by" line. */
   usedBy: readonly string[];
+  /** The AI tool it steers: Settings → AI tools shows it with that tool too. */
+  aiTool?: string;
 }
 
 /** The master switch of every AI tool: off, no service calls a model. */
@@ -1105,6 +1155,42 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     default: 5,
     scope: 'server',
     usedBy: ['svc-studies'],
+  },
+  {
+    key: STUDY_SCOUT_SUBJECT_SETTING,
+    group: 'Studies',
+    label: 'Resource scout: path to keep current',
+    description:
+      'The one learning path the resource scout keeps current. It scans it as soon as you pick it, then on its schedule. One at a time, because every scan searches the web: picking another path stops the first.',
+    type: 'choice',
+    options: [
+      { value: STUDY_SCOUT_NONE, label: 'None' },
+      ...LEARNING_PATHS.map((path) => ({ value: path.id, label: path.name })),
+    ],
+    default: STUDY_SCOUT_NONE,
+    scope: 'server',
+    usedBy: ['svc-studies'],
+    aiTool: STUDY_SCOUT_TOOL,
+  },
+  {
+    key: STUDY_SCOUT_CADENCE_SETTING,
+    group: 'Studies',
+    label: 'Resource scout: how often',
+    description:
+      'How often the resource scout scans its path. Automatic is every 2 months for AI, frameworks and infrastructure, and every 6 for the slower subjects.',
+    type: 'choice',
+    options: [
+      { value: 'auto', label: 'Automatic' },
+      { value: '1', label: 'Monthly' },
+      { value: '2', label: '2 months' },
+      { value: '3', label: '3 months' },
+      { value: '6', label: '6 months' },
+      { value: '12', label: 'Yearly' },
+    ],
+    default: 'auto',
+    scope: 'server',
+    usedBy: ['svc-studies'],
+    aiTool: STUDY_SCOUT_TOOL,
   },
   {
     key: STUDY_IDLE_DAYS_SETTING,

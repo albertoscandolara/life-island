@@ -55,7 +55,9 @@ export class CoachTab {
   );
 
   protected pathOf(stepId: string): string | null {
-    return stepId ? (pathOfStep(stepId)?.id ?? null) : null;
+    return stepId
+      ? (pathOfStep(stepId, this.data().catalogue)?.id ?? null)
+      : null;
   }
 
   protected totalMinutes(plan: StudyPlanDto): number {

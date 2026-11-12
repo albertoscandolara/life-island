@@ -75,7 +75,7 @@ Settings → App settings shows every setting in `APP_SETTINGS`, and a search bo
 A setting has a `type`:
 
 - `boolean`
-- `choice`
+- `choice`, shown as a list when it has more than four options
 - `number`, with `min`, `max` and a `unit`
 - `time`, as `HH:MM`
 - `modules`, a list of island areas
@@ -88,15 +88,17 @@ A setting has a `type`:
 
 **Server settings.** A `server` setting is stored by svc-settings and reaches services through their replica. Services read it with `readBooleanSetting`, `readNumberSettings` or `readSettings`.
 
-| Setting                                                  | Read by                                                                            |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Reminder windows `people.warn-days.*`                    | svc-people (it has a replica for them)                                             |
-| Reminder windows `cars.warn-days.*`                      | svc-cars                                                                           |
-| Weekly goal and reminders `studies.*`                    | svc-studies                                                                        |
-| Italian calendar dates `agenda.italian-calendar`         | svc-agenda                                                                         |
-| Renewal warning window `subscriptions.warn-days`         | svc-subscriptions                                                                  |
-| Weekly active minutes goal `fitness.weekly-minutes`      | svc-fitness                                                                        |
-| Daily reading switch, time and startup run `documents.*` | the parse worker, which checks them every 15 seconds, so a change needs no restart |
+| Setting                                                   | Read by                                                                            |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Reminder windows `people.warn-days.*`                     | svc-people (it has a replica for them)                                             |
+| Reminder windows `cars.warn-days.*`                       | svc-cars                                                                           |
+| Weekly goal, reminders and the resource scout `studies.*` | svc-studies                                                                        |
+| Italian calendar dates `agenda.italian-calendar`          | svc-agenda                                                                         |
+| Renewal warning window `subscriptions.warn-days`          | svc-subscriptions                                                                  |
+| Weekly active minutes goal `fitness.weekly-minutes`       | svc-fitness                                                                        |
+| Daily reading switch, time and startup run `documents.*`  | the parse worker, which checks them every 15 seconds, so a change needs no restart |
+
+A setting that steers one AI tool names it in `aiTool`, and Settings → AI tools shows it next to that tool too (the path the resource scout keeps current, and how often).
 
 To add a server setting:
 

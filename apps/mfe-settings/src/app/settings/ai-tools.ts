@@ -15,12 +15,15 @@ import {
   AI_TOOL_MODULES,
   AI_TOOLS,
   aiTool,
+  APP_SETTINGS,
   appSetting,
   estimatedCostUsd,
   formatUsd,
   priceOf,
   type AiMonthSpendDto,
   type AiToolDefinition,
+  type AppSettingDefinition,
+  type AppSettingValue,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -237,6 +240,29 @@ export class AiToolsPage {
     await this.run(
       `Could not change the model of ${tool.name}. Try again.`,
       () => this.api.setModel(tool.id, model === '' ? null : model),
+    );
+  }
+
+  /** The choices that steer a tool (the path the resource scout keeps current). */
+  protected toolSettings(toolId: string): AppSettingDefinition[] {
+    return APP_SETTINGS.filter(
+      (s) => s.aiTool === toolId && s.type === 'choice',
+    );
+  }
+
+  protected settingValue(setting: AppSettingDefinition): AppSettingValue {
+    const stored = this.api.overview.hasValue()
+      ? this.api.overview.value().settings.find((s) => s.key === setting.key)
+      : undefined;
+    return stored?.value ?? setting.default;
+  }
+
+  protected async setToolSetting(
+    setting: AppSettingDefinition,
+    value: string,
+  ): Promise<void> {
+    await this.run(`Could not save “${setting.label}”. Try again.`, () =>
+      this.api.setSetting(setting.key, value),
     );
   }
 

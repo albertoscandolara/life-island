@@ -17,6 +17,8 @@ import {
   deadlinesQuerySchema,
   type DeadlineDto,
   courseRequestSchema,
+  outlineDecisionRequestSchema,
+  scoutResourceRequestSchema,
   pathProgressRequestSchema,
   stepProgressRequestSchema,
   studyPlanRequestSchema,
@@ -26,12 +28,14 @@ import {
   type StudiesOverviewDto,
   type StudyPlanDto,
 } from '@life-island/contracts';
+import { ResourceScout } from './resource-scout.js';
 import { StudiesService } from './studies.service.js';
 
 @Controller()
 export class StudiesController {
   constructor(
     @Inject(StudiesService) private readonly studies: StudiesService,
+    @Inject(ResourceScout) private readonly scout: ResourceScout,
   ) {}
 
   /** Platforms, paths with your progress, courses, exams, sessions, statistics, reminders and plans. */
@@ -184,5 +188,39 @@ export class StudiesController {
   @HttpCode(204)
   removePlan(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.studies.removePlan(id);
+  }
+
+  // ---- resource scout
+  /** Refresh now: scans the path under watch in the background. */
+  @Post('scout/scans')
+  @HttpCode(202)
+  scan(): Promise<{ id: string }> {
+    return this.scout.refresh();
+  }
+
+  /** Pin a resource the scout found (or keep a flagged one), or dismiss it. */
+  @Put('scout/resources/:id')
+  @HttpCode(204)
+  decideResource(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.scout.decideResource(
+      id,
+      parseOrThrow(scoutResourceRequestSchema, body).status,
+    );
+  }
+
+  /** Accept or decline a change to a path's outline. */
+  @Put('scout/changes/:id')
+  @HttpCode(204)
+  decideChange(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.scout.decideChange(
+      id,
+      parseOrThrow(outlineDecisionRequestSchema, body).decision,
+    );
   }
 }

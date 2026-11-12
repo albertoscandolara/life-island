@@ -3,7 +3,9 @@ import {
   LEARNING_PATHS,
   STUDY_TOPICS,
   type StudyTopic,
+  type LearningPath,
 } from './studies-paths.js';
+import type { StudyScoutDto } from './studies-scout.js';
 
 /*
  * The Studies area (svc-studies, mfe-studies), run by Iggy: the training
@@ -579,6 +581,13 @@ export interface StudiesOverviewDto {
   aiCoach: boolean;
   /** The reminder windows from Settings, in days. */
   reminderDays: StudyReminderDays;
+  /**
+   * The learning paths as you study them: LEARNING_PATHS with the outline
+   * changes you accepted from the resource scout.
+   */
+  catalogue: LearningPath[];
+  /** The resource scout: the path it watches, what it found, what it proposes. */
+  scout: StudyScoutDto;
 }
 
 // ---------------------------------------------------------------------------

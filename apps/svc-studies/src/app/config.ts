@@ -10,6 +10,11 @@ export interface StudiesConfig {
    */
   anthropicApiKey: string | null;
   coachModel: string;
+  /**
+   * Whether the resource scout checks every few minutes if a scan of the
+   * path under watch is due (STUDIES_SCOUT_SCHEDULE=false turns it off).
+   */
+  scoutSchedule: boolean;
 }
 
 /**
@@ -35,6 +40,7 @@ export function loadConfig(
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     coachModel: env['STUDIES_AI_MODEL']?.trim() || DEFAULT_COACH_MODEL,
+    scoutSchedule: env['STUDIES_SCOUT_SCHEDULE']?.trim() !== 'false',
   };
 }
 

@@ -199,4 +199,24 @@ describe('AiToolsPage', () => {
     // The budget and the totals step aside while you search.
     expect(element.querySelector('#budget')).toBeNull();
   });
+  it('picks the one path the resource scout keeps current, next to the tool', async () => {
+    const { element, http } = await setup(overview());
+    const select = element.querySelector<HTMLSelectElement>(
+      '#setting-tool-studies-scout-subject',
+    )!;
+    expect(select.value).toBe('none');
+    expect([...select.options].map((o) => o.value)).toContain('frameworks');
+    expect(
+      element.querySelector('#setting-tool-studies-scout-cadence'),
+    ).not.toBeNull();
+    select.value = 'frameworks';
+    select.dispatchEvent(new Event('change'));
+    const put = http.expectOne(
+      `${SETTINGS_API}/settings/studies.scout-subject`,
+    );
+    expect(put.request.body).toEqual({ value: 'frameworks' });
+    put.flush(null);
+    await settle();
+    http.expectOne(`${SETTINGS_API}/overview`).flush(overview());
+  });
 });

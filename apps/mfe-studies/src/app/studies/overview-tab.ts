@@ -108,8 +108,10 @@ export class OverviewTab {
       .paths.filter((p) => p.status === 'following')
       .map((p) => ({
         progress: p,
-        path: learningPath(p.pathId)!,
-        next: p.nextStepId ? pathStep(p.nextStepId) : undefined,
+        path: learningPath(p.pathId, this.data().catalogue)!,
+        next: p.nextStepId
+          ? pathStep(p.nextStepId, this.data().catalogue)
+          : undefined,
       }))
       .filter((p) => !!p.path),
   );
@@ -122,7 +124,7 @@ export class OverviewTab {
         .slice(0, 6)
         .map((s) => ({
           value: `step:${s.stepId}`,
-          label: pathStep(s.stepId)?.title ?? s.stepId,
+          label: pathStep(s.stepId, this.data().catalogue)?.title ?? s.stepId,
         })),
     }));
     const courses = this.data()
@@ -168,13 +170,15 @@ export class OverviewTab {
   }
 
   protected sessionLabel(s: StudiesOverviewDto['sessions'][number]): string {
-    if (s.stepId) return pathStep(s.stepId)?.title ?? s.stepId;
+    if (s.stepId)
+      return pathStep(s.stepId, this.data().catalogue)?.title ?? s.stepId;
     if (s.courseId)
       return (
         this.data().courses.find((c) => c.id === s.courseId)?.title ??
         'A course'
       );
-    if (s.pathId) return learningPath(s.pathId)?.name ?? s.pathId;
+    if (s.pathId)
+      return learningPath(s.pathId, this.data().catalogue)?.name ?? s.pathId;
     return STUDY_TOPIC_LABELS[s.topic];
   }
 

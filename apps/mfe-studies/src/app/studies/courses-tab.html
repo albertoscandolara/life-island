@@ -73,7 +73,7 @@
         (change)="setCourse({ stepId: $any($event.target).value })"
       >
         <option value="" [selected]="!d.stepId">None</option>
-        @for (p of paths; track p.id) {
+        @for (p of paths(); track p.id) {
         <optgroup [label]="p.name">
           @for (stage of p.stages; track stage.id) { @for (s of stage.steps;
           track s.id) {

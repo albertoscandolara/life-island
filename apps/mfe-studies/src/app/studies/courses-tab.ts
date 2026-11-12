@@ -13,7 +13,6 @@ import {
   CERTIFICATION_STATUSES,
   COURSE_STATUS_LABELS,
   COURSE_STATUSES,
-  LEARNING_PATHS,
   pathStep,
   STUDY_TOPIC_LABELS,
   STUDY_TOPICS,
@@ -113,7 +112,7 @@ export class CoursesTab {
   protected readonly certificationStatusLabels = CERTIFICATION_STATUS_LABELS;
   protected readonly certificationTones = CERTIFICATION_TONES;
   protected readonly presets = CERTIFICATION_PRESETS;
-  protected readonly paths = LEARNING_PATHS;
+  protected readonly paths = computed(() => this.data().catalogue);
   protected readonly dateText = dateText;
   protected readonly euro = euro;
   protected readonly safeUrl = safeUrl;

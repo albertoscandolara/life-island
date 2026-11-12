@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   index,
   integer,
@@ -7,10 +8,18 @@ import {
   pgSchema,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type {
   BillingPeriod,
+  OutlineChangeKind,
+  ScoutResourceKind,
+  ScoutResourceStatus,
+  ScoutScanReason,
+  ScoutScanStatus,
+  StepKind,
+  StepPace,
   CertificationStatus,
   CourseStatus,
   PathStatus,
@@ -142,6 +151,91 @@ export const studyPlans = studies.table('study_plans', {
   createdAt: createdAt(),
 });
 export type StudyPlanRow = typeof studyPlans.$inferSelect;
+
+/** Every scan of the resource scout (AI tool studies.resource-scout). */
+export const scoutScans = studies.table(
+  'scout_scans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pathId: text('path_id').notNull(),
+    reason: text('reason').$type<ScoutScanReason>().notNull(),
+    status: text('status').$type<ScoutScanStatus>().notNull(),
+    stepIds: text('step_ids').array().notNull().default([]),
+    found: integer('found').notNull().default(0),
+    flagged: integer('flagged').notNull().default(0),
+    proposed: integer('proposed').notNull().default(0),
+    error: text('error'),
+    model: text('model'),
+    startedAt: timestamp('started_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [index('scout_scans_path_idx').on(table.pathId, table.startedAt)],
+);
+export type ScoutScanRow = typeof scoutScans.$inferSelect;
+
+/**
+ * The resources the scout found, one row per step and address: suggested
+ * until you pin or dismiss it. A dismissed one is kept so it never returns.
+ */
+export const scoutResources = studies.table(
+  'scout_resources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pathId: text('path_id').notNull(),
+    stepId: text('step_id').notNull(),
+    url: text('url').notNull(),
+    title: text('title').notNull(),
+    kind: text('kind').$type<ScoutResourceKind>().notNull(),
+    publishedOn: text('published_on'),
+    free: boolean('free').notNull().default(true),
+    why: text('why').notNull(),
+    status: text('status').$type<ScoutResourceStatus>().notNull(),
+    /** Why the last scan found this pinned resource outdated. */
+    outdated: text('outdated'),
+    scanId: uuid('scan_id'),
+    foundAt: timestamp('found_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('scout_resources_step_url_idx').on(table.stepId, table.url),
+  ],
+);
+export type ScoutResourceRow = typeof scoutResources.$inferSelect;
+
+/** Fast-moving or evergreen, per step the scout scanned. */
+export const scoutSteps = studies.table('scout_steps', {
+  stepId: text('step_id').primaryKey(),
+  pathId: text('path_id').notNull(),
+  pace: text('pace').$type<StepPace>().notNull(),
+  scannedAt: timestamp('scanned_at', { withTimezone: true }).notNull(),
+});
+
+/** Outline changes the scout proposed: a step to add or to retire. */
+export const outlineChanges = studies.table('outline_changes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pathId: text('path_id').notNull(),
+  kind: text('kind').$type<OutlineChangeKind>().notNull(),
+  stageId: text('stage_id').notNull(),
+  stepId: text('step_id').notNull(),
+  title: text('title'),
+  detail: text('detail'),
+  outcome: text('outcome'),
+  stepKind: text('step_kind').$type<StepKind>(),
+  hours: integer('hours'),
+  reason: text('reason').notNull(),
+  status: text('status')
+    .$type<'proposed' | 'accepted' | 'declined'>()
+    .notNull()
+    .default('proposed'),
+  scanId: uuid('scan_id'),
+  createdAt: createdAt(),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+});
+export type OutlineChangeRow = typeof outlineChanges.$inferSelect;
 
 /**
  * svc-studies' copy of the settings it reads (AI switches, the weekly goal,
