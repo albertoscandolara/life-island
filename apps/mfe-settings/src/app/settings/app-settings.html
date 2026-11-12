@@ -90,7 +90,23 @@
           </label>
           }
         </fieldset>
-        } @default {
+        } @default { @if ((setting.options?.length ?? 0) > 4) {
+        <select
+          class="ui-input choice-select"
+          [disabled]="locked(setting)"
+          [attr.aria-labelledby]="'label-' + setting.key"
+          (change)="choose(setting, $any($event.target).value)"
+        >
+          @for (option of setting.options; track option.value) {
+          <option
+            [value]="option.value"
+            [selected]="value(setting) === option.value"
+          >
+            {{ option.label }}
+          </option>
+          }
+        </select>
+        } @else {
         <div
           class="segmented"
           role="radiogroup"
@@ -110,7 +126,7 @@
           </button>
           }
         </div>
-        } } @if (isSet(setting)) {
+        } } } @if (isSet(setting)) {
         <button
           uiButton
           variant="ghost"

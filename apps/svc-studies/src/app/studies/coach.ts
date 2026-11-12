@@ -5,6 +5,7 @@ import {
   STUDY_TOPIC_LABELS,
   type CertificationDto,
   type CourseDto,
+  type LearningPath,
   type PathProgressDto,
   type StudyPlanOutput,
   type StudyReminderDto,
@@ -26,6 +27,8 @@ export interface CoachInput {
   /** Hours you have this week; null uses the weekly goal. */
   hours: number | null;
   today: string;
+  /** The paths with the outline changes you accepted; LEARNING_PATHS if left out. */
+  catalogue?: readonly LearningPath[];
 }
 
 export const COACH_INSTRUCTIONS = `You are a study coach for one software developer who studies on their own, around a full-time job. They are a beginner in every path below. You get a dossier: the learning paths they follow with each step's status, their courses, exams ahead, the time they logged week by week against their weekly goal, and reminders.
@@ -58,14 +61,14 @@ export function coachDossier(input: CoachInput): string {
   lines.push('', '## Paths followed');
   if (!followed.length) lines.push('None yet.');
   for (const p of followed) {
-    const path = learningPath(p.pathId);
+    const path = learningPath(p.pathId, input.catalogue);
     if (!path) continue;
     lines.push(
       `### ${path.name} (${p.doneSteps}/${p.totalSteps} steps, ${p.hoursDone}/${p.hoursTotal} h${p.targetOn ? `, target ${p.targetOn}` : ''}${p.projectedOn ? `, projected ${p.projectedOn}` : ''})`,
     );
     for (const step of p.steps) {
       if (step.status === 'done') continue;
-      const def = pathStep(step.stepId);
+      const def = pathStep(step.stepId, input.catalogue);
       if (!def) continue;
       lines.push(
         `- [${step.status === 'doing' ? 'studying' : 'not started'}] ${step.stepId}: ${def.title} (${STEP_KIND_LABELS[def.kind]}, about ${def.hours} h${step.minutes ? `, ${hoursText(step.minutes)} logged` : ''})`,
@@ -76,7 +79,7 @@ export function coachDossier(input: CoachInput): string {
   if (paused.length)
     lines.push(
       '',
-      `Paused paths: ${paused.map((p) => learningPath(p.pathId)?.name ?? p.pathId).join(', ')}`,
+      `Paused paths: ${paused.map((p) => learningPath(p.pathId, input.catalogue)?.name ?? p.pathId).join(', ')}`,
     );
 
   const courses = input.courses.filter(
@@ -160,7 +163,7 @@ export function offlinePlan(
   const followed = input.paths.filter((p) => p.status === 'following');
   for (const p of followed)
     for (const step of p.steps.filter((s) => s.status === 'doing')) {
-      const def = pathStep(step.stepId);
+      const def = pathStep(step.stepId, input.catalogue);
       if (def)
         add({
           stepId: step.stepId,
@@ -172,8 +175,8 @@ export function offlinePlan(
   for (const p of followed) {
     const next = p.steps.find((s) => s.status === 'todo');
     if (!next) continue;
-    const def = pathStep(next.stepId);
-    const path = learningPath(p.pathId);
+    const def = pathStep(next.stepId, input.catalogue);
+    const path = learningPath(p.pathId, input.catalogue);
     if (def && path)
       add({
         stepId: def.id,

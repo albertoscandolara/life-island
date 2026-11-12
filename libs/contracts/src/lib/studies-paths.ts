@@ -1112,8 +1112,11 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
   },
 ];
 
-export function learningPath(id: string): LearningPath | undefined {
-  return LEARNING_PATHS.find((path) => path.id === id);
+export function learningPath(
+  id: string,
+  paths: readonly LearningPath[] = LEARNING_PATHS,
+): LearningPath | undefined {
+  return paths.find((path) => path.id === id);
 }
 
 /** Every step of a path, in order. */
@@ -1121,15 +1124,27 @@ export function pathSteps(path: LearningPath): PathStep[] {
   return path.stages.flatMap((stage) => [...stage.steps]);
 }
 
-/** The path a step belongs to. */
-export function pathOfStep(stepId: string): LearningPath | undefined {
-  return LEARNING_PATHS.find((path) =>
-    path.stages.some((stage) => stage.steps.some((s) => s.id === stepId)),
+/**
+ * The path a step belongs to. A step id starts with its path's id
+ * (`<path>.<stage>.<step>`), so a step the resource scout added, or one you
+ * retired, still finds its path.
+ */
+export function pathOfStep(
+  stepId: string,
+  paths: readonly LearningPath[] = LEARNING_PATHS,
+): LearningPath | undefined {
+  return (
+    paths.find((path) =>
+      path.stages.some((stage) => stage.steps.some((s) => s.id === stepId)),
+    ) ?? paths.find((path) => stepId.startsWith(`${path.id}.`))
   );
 }
 
-export function pathStep(stepId: string): PathStep | undefined {
-  for (const path of LEARNING_PATHS)
+export function pathStep(
+  stepId: string,
+  paths: readonly LearningPath[] = LEARNING_PATHS,
+): PathStep | undefined {
+  for (const path of paths)
     for (const stage of path.stages)
       for (const step of stage.steps) if (step.id === stepId) return step;
   return undefined;

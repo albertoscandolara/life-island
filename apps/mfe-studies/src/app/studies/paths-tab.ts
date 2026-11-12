@@ -8,17 +8,20 @@ import {
   signal,
 } from '@angular/core';
 import {
-  LEARNING_PATHS,
+  SCOUT_RESOURCE_KIND_LABELS,
   STEP_KIND_LABELS,
+  STEP_PACE_LABELS,
   STEP_STATUS_LABELS,
   STEP_STATUSES,
   STUDY_TOPIC_LABELS,
   type PathStatus,
+  type ScoutResourceDto,
   type StepProgressDto,
   type StepStatus,
   type StudiesOverviewDto,
 } from '@life-island/contracts';
 import {
+  UiAiBadge,
   UiBadge,
   UiButton,
   UiCard,
@@ -27,6 +30,7 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { StudiesApi } from '../api/studies-api';
+import { ScoutPanel } from './scout-panel';
 import {
   dateText,
   duration,
@@ -43,7 +47,15 @@ import {
 @Component({
   selector: 'studies-paths',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton, UiCard, UiIcon, UiProgressBar],
+  imports: [
+    ScoutPanel,
+    UiAiBadge,
+    UiBadge,
+    UiButton,
+    UiCard,
+    UiIcon,
+    UiProgressBar,
+  ],
   templateUrl: './paths-tab.html',
   styleUrls: ['./blocks.css', './paths-tab.css'],
 })
@@ -56,7 +68,10 @@ export class PathsTab {
   readonly changed = output<void>();
   readonly failed = output<string>();
 
-  protected readonly paths = LEARNING_PATHS;
+  /** The paths with the outline changes you accepted. */
+  protected readonly paths = computed(() => this.data().catalogue);
+  protected readonly resourceKinds = SCOUT_RESOURCE_KIND_LABELS;
+  protected readonly paceLabels = STEP_PACE_LABELS;
   protected readonly kindLabels = STEP_KIND_LABELS;
   protected readonly statusLabels = STEP_STATUS_LABELS;
   protected readonly statuses = STEP_STATUSES;
@@ -74,12 +89,28 @@ export class PathsTab {
   );
   protected readonly selected = computed(
     () =>
-      LEARNING_PATHS.find((p) => p.id === this.pathId()) ??
-      LEARNING_PATHS.find(
+      this.paths().find((p) => p.id === this.pathId()) ??
+      this.paths().find(
         (p) => this.progressOf().get(p.id)?.status === 'following',
       ) ??
-      LEARNING_PATHS[0],
+      this.paths()[0],
   );
+  /** What the resource scout found for each step: pinned first. */
+  protected readonly scouted = computed(() => {
+    const byStep = new Map<string, ScoutResourceDto[]>();
+    for (const r of this.data().scout.resources) {
+      const list = byStep.get(r.stepId) ?? [];
+      list.push(r);
+      byStep.set(r.stepId, list);
+    }
+    for (const list of byStep.values())
+      list.sort(
+        (a, b) =>
+          Number(b.status === 'pinned') - Number(a.status === 'pinned') ||
+          b.foundAt.localeCompare(a.foundAt),
+      );
+    return byStep;
+  });
   protected readonly progress = computed(() =>
     this.progressOf().get(this.selected().id)!,
   );
@@ -159,6 +190,18 @@ export class PathsTab {
       stepId,
       this.api.addSession({ date: today(), minutes, stepId }),
       'Could not log the time.',
+    );
+  }
+
+  /** Pin a resource the scout found (or keep a flagged one), or dismiss it for good. */
+  protected decide(
+    resource: ScoutResourceDto,
+    status: 'pinned' | 'dismissed',
+  ): void {
+    this.run(
+      resource.id,
+      this.api.decideResource(resource.id, { status }),
+      'Could not save your choice.',
     );
   }
 }

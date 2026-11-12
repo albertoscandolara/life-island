@@ -8,6 +8,8 @@ import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
 import {
   learningPath,
   pathOfStep,
+  pathStep,
+  type LearningPath,
   STUDY_IDLE_DAYS_SETTING,
   STUDY_WEEKLY_GOAL_SETTING,
   studyReminderSettingKey,
@@ -56,6 +58,7 @@ import {
   subscriptionSpend,
   yearlyCost,
 } from './progress.js';
+import { ResourceScout } from './resource-scout.js';
 import { StudyCoach } from './study-coach.js';
 
 /** Today in the time zone the app runs in (SETTINGS_TIMEZONE, else Rome). */
@@ -82,6 +85,7 @@ export class StudiesService {
   constructor(
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
     @Inject(StudyCoach) private readonly coach: StudyCoach,
+    @Inject(ResourceScout) private readonly scout: ResourceScout,
   ) {}
 
   private get db() {
@@ -123,6 +127,7 @@ export class StudiesService {
       totals,
       settings,
       aiCoach,
+      catalogue,
     ] = await Promise.all([
       this.db.select().from(trainingPlatforms).orderBy(trainingPlatforms.name),
       this.db.select().from(courses).orderBy(desc(courses.updatedAt)),
@@ -155,6 +160,7 @@ export class StudiesService {
         ),
       this.settings(),
       this.coach.usesAi(),
+      this.scout.catalogue(),
     ]);
 
     const platformName = new Map(platformRows.map((p) => [p.id, p.name]));
@@ -185,6 +191,7 @@ export class StudiesService {
       totals,
       settings.goal,
       today,
+      catalogue,
     );
     const stats = studyStats({
       sessions,
@@ -224,6 +231,8 @@ export class StudiesService {
       plans: planRows.map(planDto),
       aiCoach,
       reminderDays: settings.days,
+      catalogue,
+      scout: await this.scout.status(catalogue, today),
     };
   }
 
@@ -382,7 +391,9 @@ export class StudiesService {
   }
 
   private async courseValues(request: CourseRequest, today: string) {
-    const step = request.stepId ? checkStep(request.stepId) : null;
+    const step = request.stepId
+      ? checkStep(request.stepId, await this.scout.catalogue())
+      : null;
     if (request.platformId) {
       const [platform] = await this.db
         .select({ id: trainingPlatforms.id })
@@ -450,7 +461,9 @@ export class StudiesService {
    * starts the step (and follows its path) if you had not yet.
    */
   async addSession(request: StudySessionRequest): Promise<{ id: string }> {
-    const step = request.stepId ? checkStep(request.stepId) : null;
+    const step = request.stepId
+      ? checkStep(request.stepId, await this.scout.catalogue())
+      : null;
     let topic: StudyTopic = request.topic ?? step?.topic ?? 'other';
     if (request.courseId) {
       const [course] = await this.db
@@ -545,7 +558,10 @@ export class StudiesService {
     request: StepProgressRequest,
     today = localToday(),
   ): Promise<void> {
-    const step = pathOfStep(stepId);
+    const catalogue = await this.scout.catalogue();
+    const step = pathStep(stepId, catalogue)
+      ? pathOfStep(stepId, catalogue)
+      : undefined;
     if (!step) throw new NotFoundException('Step not found');
     const [current] = await this.db
       .select()
@@ -596,6 +612,7 @@ export class StudiesService {
         reminders: overview.reminders,
         hours: request.hours ?? null,
         today,
+        catalogue: overview.catalogue,
       },
       question,
     );
@@ -625,12 +642,17 @@ export class StudiesService {
 }
 
 /** The step and its path, or a 400 for an id not in the catalog. */
-function checkStep(stepId: string): {
+function checkStep(
+  stepId: string,
+  catalogue: readonly LearningPath[],
+): {
   stepId: string;
   pathId: string;
   topic: StudyTopic;
 } {
-  const path = pathOfStep(stepId);
+  const path = pathStep(stepId, catalogue)
+    ? pathOfStep(stepId, catalogue)
+    : undefined;
   if (!path) throw new BadRequestException(`Unknown path step ${stepId}`);
   return { stepId, pathId: path.id, topic: path.topic };
 }

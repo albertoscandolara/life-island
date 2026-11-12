@@ -19,6 +19,7 @@ export * from './lib/document-links.js';
 export * from './lib/tax730-deductions.js';
 export * from './lib/settings.js';
 export * from './lib/studies-paths.js';
+export * from './lib/studies-scout.js';
 export * from './lib/studies.js';
 export * from './lib/life-dates.js';
 export * from './lib/life-schemas.js';

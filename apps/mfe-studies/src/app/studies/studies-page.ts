@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
@@ -60,6 +61,8 @@ export class StudiesPage {
   private readonly api = inject(StudiesApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  /** While the resource scout scans, the page looks again every few seconds. */
+  private poll: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly tabs = TABS;
   protected readonly overview = signal<StudiesOverviewDto | null>(null);
@@ -78,6 +81,9 @@ export class StudiesPage {
 
   constructor() {
     this.load();
+    inject(DestroyRef).onDestroy(() => {
+      if (this.poll) clearTimeout(this.poll);
+    });
   }
 
   private initialTab(): StudiesTab {
@@ -118,6 +124,11 @@ export class StudiesPage {
       next: (overview) => {
         this.overview.set(overview);
         this.error.set(null);
+        if (this.poll) clearTimeout(this.poll);
+        this.poll =
+          overview.scout.lastScan?.status === 'running'
+            ? setTimeout(() => this.load(), 5000)
+            : null;
       },
       error: (error: unknown) =>
         this.error.set(errorText(error, 'Could not load your studies.')),

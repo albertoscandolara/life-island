@@ -6,10 +6,16 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
-import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
+import {
+  aiToolSettingKey,
+  SETTING_CHANGED_EVENT,
+  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_TOOL,
+} from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type StudiesConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { StudiesController } from './studies/studies.controller.js';
+import { ResourceScout } from './studies/resource-scout.js';
 import { StudiesService } from './studies/studies.service.js';
 import { StudyCoach } from './studies/study-coach.js';
 
@@ -33,12 +39,13 @@ export class AppModule {
         { provide: SERVICE_DB, useValue: svc },
         StudiesService,
         StudyCoach,
+        ResourceScout,
         ...(options.events === false
           ? []
           : [
               {
                 provide: EventsRuntime,
-                useFactory: (db: ServiceDb) =>
+                useFactory: (db: ServiceDb, scout: ResourceScout) =>
                   new EventsRuntime({
                     pool: db.pool,
                     natsUrl: config.natsUrl,
@@ -53,7 +60,10 @@ export class AppModule {
                         schema: db.schema,
                         durableName: 'studies-settings',
                         eventTypes: [SETTING_CHANGED_EVENT],
-                        handle: settingChangedHandler(db.schema),
+                        handle: scoutAware(
+                          settingChangedHandler(db.schema),
+                          scout,
+                        ),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,
@@ -61,10 +71,31 @@ export class AppModule {
                       });
                     },
                   }),
-                inject: [SERVICE_DB],
+                inject: [SERVICE_DB, ResourceScout],
               },
             ]),
       ],
     };
   }
+}
+
+type SettingHandler = ReturnType<typeof settingChangedHandler>;
+
+/**
+ * Picking the path to keep current, or turning the scout on, starts its
+ * first scan within seconds, not at the next check.
+ */
+function scoutAware(
+  handle: SettingHandler,
+  scout: ResourceScout,
+): SettingHandler {
+  const watched = [
+    STUDY_SCOUT_SUBJECT_SETTING,
+    aiToolSettingKey(STUDY_SCOUT_TOOL),
+  ];
+  return async (event, client) => {
+    await handle(event, client);
+    const key = (event.payload as { key?: unknown } | null)?.key;
+    if (typeof key === 'string' && watched.includes(key)) scout.soon();
+  };
 }

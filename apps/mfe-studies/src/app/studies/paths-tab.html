@@ -1,5 +1,5 @@
 <ul class="path-cards" aria-label="Learning paths">
-  @for (p of paths; track p.id) { @let pr = progressOf().get(p.id);
+  @for (p of paths(); track p.id) { @let pr = progressOf().get(p.id);
   <li>
     <button
       type="button"
@@ -101,6 +101,13 @@
   </div>
 </ui-card>
 
+<studies-scout-panel
+  [data]="data()"
+  [path]="path"
+  (changed)="changed.emit()"
+  (failed)="failed.emit($event)"
+/>
+
 @for (stage of path.stages; track stage.id; let i = $index) {
 <section class="stage block" [attr.aria-label]="stage.title">
   <header class="stage__head">
@@ -126,7 +133,8 @@
           <strong class="step__title">{{ step.title }}</strong>
           <span class="muted small step__meta"
             >{{ kindLabels[step.kind] }} · about {{ step.hours }} h @if
-            (sp?.minutes) { · {{ duration(sp!.minutes) }} logged } @if
+            (data().scout.paces[step.id]; as pace) { · {{ paceLabels[pace] }} }
+            @if (sp?.minutes) { · {{ duration(sp!.minutes) }} logged } @if
             (sp?.doneOn) { · done {{ dateText(sp!.doneOn) }} }</span
           >
         </div>
@@ -165,6 +173,67 @@
         </li>
         }
       </ul>
+      } @if (scouted().get(step.id); as found) {
+      <div class="scouted">
+        <p class="scouted__head small">
+          <ui-ai-badge label="Scout" /> Found for this step
+        </p>
+        <ul class="plain scouted__list">
+          @for (r of found; track r.id) {
+          <li
+            class="scouted__item"
+            [class.scouted__item--pinned]="r.status === 'pinned'"
+          >
+            <div class="scouted__text">
+              @if (safeUrl(r.url); as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer"
+                >{{ r.title }} <ui-icon name="external" [size]="12"
+              /></a>
+              } @else { {{ r.title }} }
+              <span class="muted small">
+                {{ resourceKinds[r.kind] }}@if (r.publishedOn) { · {{
+                r.publishedOn }} } · {{ r.free ? 'Free' : 'Paid' }}@if (r.status
+                === 'pinned') { · pinned }
+              </span>
+              <span class="small">{{ r.why }}</span>
+              @if (r.outdated) {
+              <span class="warn small"
+                ><ui-icon name="alert" [size]="12" /> Outdated: {{ r.outdated
+                }}</span
+              >
+              }
+            </div>
+            <div class="actions">
+              @if (r.status === 'suggested' || r.outdated) {
+              <button
+                uiButton
+                size="sm"
+                variant="secondary"
+                type="button"
+                [disabled]="busy() === r.id"
+                (click)="decide(r, 'pinned')"
+              >
+                <ui-icon name="check" [size]="14" /> {{ r.outdated ? 'Keep' :
+                'Pin' }}
+              </button>
+              }
+              <button
+                uiButton
+                size="sm"
+                variant="ghost"
+                type="button"
+                [disabled]="busy() === r.id"
+                [attr.aria-label]="(r.status === 'pinned' ? 'Remove ' : 'Dismiss ') + r.title"
+                (click)="decide(r, 'dismissed')"
+              >
+                <ui-icon name="x" [size]="14" /> {{ r.status === 'pinned' ?
+                'Remove' : 'Dismiss' }}
+              </button>
+            </div>
+          </li>
+          }
+        </ul>
+      </div>
       }
       <div class="step__foot">
         <span class="muted small">Log today:</span>
