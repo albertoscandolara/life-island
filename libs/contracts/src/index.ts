@@ -31,3 +31,4 @@ export * from './lib/groceries.js';
 export * from './lib/subscriptions.js';
 export * from './lib/travel.js';
 export * from './lib/fitness.js';
+export * from './lib/property-address.js';

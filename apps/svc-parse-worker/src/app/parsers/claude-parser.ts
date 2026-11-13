@@ -167,7 +167,7 @@ ${GROUNDING}
 Propose the NEW categories this document calls for that no existing category or pending suggestion already covers. Go through every dimension and ask what this document shows for it:
 - DOCUMENT_TYPE: what it is, as specific as is useful (ELECTRICITY_BILL under BILL, CAR_INSURANCE_POLICY).
 - SUBJECT: what it is about (WATER_SUPPLY, CAR, SCHOOL).
-- PROPERTY: the property or place it concerns, when it names one (a supply address, a rented flat, a car plate): name it by the place (TREGNAGO_HOUSE, VIA_ROMA_FLAT). For a bill this is the supply address, never the mailing address of the account holder. Never propose a property that an existing PROPERTY category already stands for under another name.
+- PROPERTY: the home or place it concerns, when it names one (a supply address, a rented flat): name it by its full address as printed, with the street number (VIA_PONZILOVO_9 "Via Ponzilovo 9"). For a bill this is the supply address, never the mailing address of the account holder. A car is never a property: its plate or model goes under SUBJECT. Never propose a property that an existing PROPERTY category already stands for under another name, or the same street with or without its number.
 - PERSON: who it concerns, when it names a person other than a company (the account holder, the patient), by name as printed.
 - ISSUER: who issued it (the utility, shop, insurer, employer, doctor, public office), with the name as printed and without the legal form (ACQUE_VERONESI for "Acque Veronesi S.c.a r.l.", ENEL, LIDL). When the document names its issuer and no existing issuer category is that issuer, ALWAYS propose it.
 - ATTRIBUTE: lasting traits worth filtering on (RECURRING, DIRECT_DEBIT, TAX_DEDUCTIBLE).

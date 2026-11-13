@@ -7,9 +7,13 @@ import {
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  addressMatch,
   CATEGORY_ID_PATTERN,
+  hasStreetNumber,
+  namesVehicle,
   type CategoryDto,
   type CreateCategoryRequest,
+  type UpdateCategoryRequest,
 } from '@life-island/contracts';
 import { eq } from 'drizzle-orm';
 import { normalizeText } from '../bills/bill-reader.js';
@@ -17,7 +21,10 @@ import { CONFIG, SERVICE_DB, type HomeConfig } from '../config.js';
 import { properties, type PropertyRow } from '../db/schema.js';
 
 /** The category fields this module reads; ingestion serves more. */
-export type CategoryLike = Pick<CategoryDto, 'id' | 'title' | 'dimension'>;
+export type CategoryLike = Pick<CategoryDto, 'id' | 'title' | 'dimension'> &
+  Partial<Pick<CategoryDto, 'parentId'>>;
+
+type HomeLike = Pick<PropertyRow, 'name' | 'address' | 'matchTerms'>;
 
 /** "Via dei Bandi" → "VIA_DEI_BANDI"; a name with no letters gets a fallback. */
 export function categoryIdFor(name: string): string {
@@ -45,6 +52,85 @@ export function findPropertyCategory(
   return hits.length === 1 ? hits[0] : null;
 }
 
+/** What tidying the PROPERTY categories does, so each home has exactly one. */
+export interface PropertyTidyPlan {
+  /** Duplicates of a home's category: their documents move to `into`. */
+  merges: { from: CategoryLike; into: CategoryLike }[];
+  /** A home's category named by its street only, renamed to the full address. */
+  renames: { id: string; title: string }[];
+  /** The one category of each home that has one, by the home's index. */
+  links: Map<number, CategoryLike>;
+  /** Cars filed as places ("Fiat Punto EJ560PZ"): moved to the SUBJECT dimension. */
+  vehicles: CategoryLike[];
+}
+
+/**
+ * Plans the clean-up of the "Property / location" values: every PROPERTY
+ * category that names a home (by its name, match terms or address) becomes
+ * one, the one with the full address when there is one, so "Via Ponzilovo"
+ * merges into "Via Ponzilovo 9". A category that names two homes is left as
+ * it is. Categories that are cars leave the dimension.
+ */
+export function planPropertyTidy(
+  homes: readonly (HomeLike & Pick<PropertyRow, 'categoryIds'>)[],
+  categories: readonly CategoryLike[],
+): PropertyTidyPlan {
+  const property = categories.filter((c) => c.dimension === 'PROPERTY');
+  const termsOf = (home: HomeLike) =>
+    [home.name, ...home.matchTerms]
+      .map(normalizeText)
+      .filter((term) => term.length > 1);
+  const hitsOf = (home: HomeLike) =>
+    property.filter((category) => {
+      const text = ` ${normalizeText(category.title)} ${normalizeText(category.id)} `;
+      return (
+        termsOf(home).some((term) => text.includes(` ${term} `)) ||
+        addressMatch(category.title, home.address) !== null
+      );
+    });
+  const hits = homes.map(hitsOf);
+  const homesOf = new Map<string, number>();
+  for (const list of hits)
+    for (const category of list)
+      homesOf.set(category.id, (homesOf.get(category.id) ?? 0) + 1);
+
+  const plan: PropertyTidyPlan = {
+    merges: [],
+    renames: [],
+    links: new Map(),
+    vehicles: property.filter(
+      (c) =>
+        !c.parentId &&
+        namesVehicle(c) &&
+        !homes.some((home) => home.categoryIds.includes(c.id)),
+    ),
+  };
+  homes.forEach((home, index) => {
+    // Its full address is always its own; anything else only when no other home's.
+    const own = hits[index].filter(
+      (c) =>
+        !plan.vehicles.includes(c) &&
+        (homesOf.get(c.id) === 1 ||
+          addressMatch(c.title, home.address) === 'full'),
+    );
+    if (!own.length) return;
+    const keep =
+      own.find((c) => addressMatch(c.title, home.address) === 'full') ??
+      own.find((c) => home.categoryIds.includes(c.id)) ??
+      own[0];
+    plan.links.set(index, keep);
+    for (const other of own)
+      if (other !== keep) plan.merges.push({ from: other, into: keep });
+    if (
+      home.address &&
+      hasStreetNumber(home.address) &&
+      addressMatch(keep.title, home.address) === 'street'
+    )
+      plan.renames.push({ id: keep.id, title: home.address.trim() });
+  });
+  return plan;
+}
+
 /** What the AI reads to decide whether a document is about this home. */
 export function propertyCategoryRequest(
   home: Pick<PropertyRow, 'name' | 'address' | 'city' | 'matchTerms'>,
@@ -58,7 +144,8 @@ export function propertyCategoryRequest(
     : '';
   return {
     id,
-    title: home.name,
+    // Named by its address, as the review inbox shows it: "Via dei Bandi, 10".
+    title: (home.address ?? home.name).trim().slice(0, 100),
     description:
       `Documents about the home at ${where}: utility bills supplied there, works, contracts and taxes of that property.${terms} ` +
       'Assign it by the supply or property address (indirizzo di fornitura), never by the address a bill is mailed to.',
@@ -98,16 +185,114 @@ export class PropertyCategories
     this.timer = null;
   }
 
-  /** Links every home without categories; true when all are linked. */
+  /**
+   * Tidies the PROPERTY categories (one per home, cars out) and links every
+   * home to its category, creating the missing ones; true when all are linked.
+   */
   async syncAll(): Promise<boolean> {
     const rows = await this.svc.db.select().from(properties);
-    const unlinked = rows.filter((row) => !row.categoryIds.length);
-    if (!unlinked.length) return true;
-    const categories = await this.listCategories();
+    if (!rows.length) return true;
+    let categories = await this.listCategories();
+    if (await this.tidy(rows, categories))
+      categories = await this.listCategories();
+    const plan = planPropertyTidy(rows, categories);
     let ok = true;
-    for (const row of unlinked)
-      ok = (await this.link(row, categories)) !== null && ok;
+    for (const [index, row] of rows.entries()) {
+      const category = plan.links.get(index);
+      if (category) {
+        // Its category first; other categories you linked stay while they exist.
+        const ids = [
+          category.id,
+          ...row.categoryIds.filter(
+            (id) => id !== category.id && categories.some((c) => c.id === id),
+          ),
+        ];
+        if (ids.join() !== row.categoryIds.join())
+          await this.setCategory(row, category, ids);
+      } else if (
+        !row.categoryIds.some((id) => categories.some((c) => c.id === id))
+      ) {
+        // Not linked, or linked to a category that is gone.
+        ok =
+          (await this.link({ ...row, categoryIds: [] }, categories)) !== null &&
+          ok;
+      }
+    }
     return ok;
+  }
+
+  /** Applies the clean-up plan; true when it changed any category. */
+  private async tidy(
+    rows: PropertyRow[],
+    categories: CategoryLike[],
+  ): Promise<boolean> {
+    const plan = planPropertyTidy(rows, categories);
+    let changed = false;
+    for (const vehicle of plan.vehicles) {
+      // Its documents keep it; it just stops being offered as a place.
+      if (!(await this.patchCategory(vehicle.id, { dimension: 'SUBJECT' })))
+        continue;
+      changed = true;
+      this.logger.log(
+        `"${vehicle.title}" is a car, not a property: moved to Subject`,
+      );
+    }
+    for (const { from, into } of plan.merges) {
+      // Under the one that stays, then deleted: its documents move up to it.
+      if (into.parentId === from.id)
+        await this.patchCategory(into.id, { parentId: from.parentId ?? null });
+      if (!(await this.patchCategory(from.id, { parentId: into.id }))) continue;
+      const response = await fetch(
+        `${this.config.ingestionUrl}/categories/${encodeURIComponent(from.id)}?documents=MOVE_TO_PARENT&children=MOVE_TO_PARENT`,
+        { method: 'DELETE' },
+      );
+      if (!response.ok) {
+        this.logger.warn(
+          `svc-ingestion refused to merge ${from.id} into ${into.id} (${response.status}): ${await response.text()}`,
+        );
+        continue;
+      }
+      changed = true;
+      this.logger.log(`"${from.title}" merged into "${into.title}"`);
+    }
+    for (const rename of plan.renames)
+      changed =
+        (await this.patchCategory(rename.id, { title: rename.title })) ||
+        changed;
+    return changed;
+  }
+
+  private async patchCategory(
+    id: string,
+    request: UpdateCategoryRequest,
+  ): Promise<boolean> {
+    const response = await fetch(
+      `${this.config.ingestionUrl}/categories/${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      },
+    );
+    if (response.ok) return true;
+    this.logger.warn(
+      `svc-ingestion refused to change ${id} (${response.status}): ${await response.text()}`,
+    );
+    return false;
+  }
+
+  private async setCategory(
+    row: PropertyRow,
+    category: CategoryLike,
+    categoryIds = [category.id],
+  ): Promise<PropertyRow | null> {
+    const [updated] = await this.svc.db
+      .update(properties)
+      .set({ categoryIds })
+      .where(eq(properties.id, row.id))
+      .returning();
+    this.logger.log(`Home "${row.name}" linked to category ${category.id}`);
+    return updated ?? null;
   }
 
   /** Links one home, best effort: a failure is logged and retried at the next start. */
@@ -146,7 +331,7 @@ export class PropertyCategories
   ): Promise<PropertyRow | null> {
     let category = findPropertyCategory(row, categories);
     if (!category) {
-      const id = categoryIdFor(row.name);
+      const id = categoryIdFor(row.address ?? row.name);
       const taken = categories.find((c) => c.id === id);
       category =
         taken?.dimension === 'PROPERTY'
@@ -156,13 +341,7 @@ export class PropertyCategories
             );
     }
     if (!category) return null;
-    const [updated] = await this.svc.db
-      .update(properties)
-      .set({ categoryIds: [category.id] })
-      .where(eq(properties.id, row.id))
-      .returning();
-    this.logger.log(`Home "${row.name}" linked to category ${category.id}`);
-    return updated ?? null;
+    return this.setCategory(row, category);
   }
 
   private async listCategories(): Promise<CategoryLike[]> {

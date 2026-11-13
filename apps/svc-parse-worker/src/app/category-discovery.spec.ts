@@ -158,6 +158,42 @@ describe('placement of a suggestion', () => {
       { id: 'TREGNAGO_HOUSE', parentId: null, dimension: null },
     ]);
   });
+
+  it('never proposes the same street twice, or a car as a place', () => {
+    const places = [
+      {
+        id: 'VIA_PONZILOVO_9',
+        title: 'Via Ponzilovo 9',
+        description: '',
+        template: { fields: [] },
+        dimension: 'PROPERTY' as const,
+      },
+    ];
+    const { accepted, dropped } = filterSuggestions(
+      [
+        {
+          ...proposal('VIA_PONZILOVO', 'Via Ponzilovo'),
+          dimension: 'PROPERTY',
+        },
+        {
+          ...proposal('FIAT_PUNTO_EJ560PZ', 'Fiat Punto EJ560PZ'),
+          dimension: 'PROPERTY',
+        },
+        {
+          ...proposal('VIA_DEI_BANDI_10', 'Via dei Bandi, 10'),
+          dimension: 'PROPERTY',
+        },
+      ],
+      { categories: places, pending: [], rejectedIds: [] },
+    );
+    expect(dropped).toEqual([
+      { id: 'VIA_PONZILOVO', reason: 'the same place as VIA_PONZILOVO_9' },
+    ]);
+    expect(accepted.map(({ id, dimension }) => [id, dimension])).toEqual([
+      ['FIAT_PUNTO_EJ560PZ', 'SUBJECT'],
+      ['VIA_DEI_BANDI_10', 'PROPERTY'],
+    ]);
+  });
 });
 
 describe('issuerName', () => {
