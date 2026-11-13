@@ -15,6 +15,7 @@ import {
   type Tax730AttachmentDto,
   type Tax730AttachmentRole,
   type Tax730DocumentCandidateDto,
+  type Tax730DocumentDto,
   type TaxYearDossierDto,
   type TaxYearDto,
   type UpdateExpenseRequest,
@@ -128,9 +129,10 @@ export class DossierService {
             ),
           ),
       ]);
-    const documentsById = await this.documentsById(
-      attachmentRows.map((row) => row.uploadId),
-    );
+    const documentsById = await this.documentsById([
+      ...attachmentRows.map((row) => row.uploadId),
+      ...certificateRows.map((row) => row.uploadId),
+    ]);
     const attachmentDto = (row: AttachmentRow): Tax730AttachmentDto => {
       const document = documentsById.get(row.uploadId);
       return {
@@ -196,6 +198,10 @@ export class DossierService {
           (byYear.get(year) ?? []).sort(byRole),
           estimated,
           certificateRows,
+          (uploadId) => {
+            const document = documentsById.get(uploadId);
+            return document ? toDocumentDto(document) : null;
+          },
         ),
       );
   }
@@ -206,7 +212,20 @@ export class DossierService {
     yearDocuments: Tax730AttachmentDto[],
     estimated: EstimatedExpense[],
     certificateRows: CertificateSource[] = [],
+    documentOf: (uploadId: string) => Tax730DocumentDto | null = () => null,
   ): TaxYearDossierDto {
+    const certificates = certificatesOf(taxYear, certificateRows);
+    // The CUs the estimate uses are documents of the year too, with no need
+    // to file them by hand (and nothing to remove: they come from Documents).
+    const filed = new Set(yearDocuments.map((a) => a.uploadId));
+    const found: Tax730AttachmentDto[] = certificates
+      .filter((c) => !filed.has(c.uploadId))
+      .map((c) => ({
+        uploadId: c.uploadId,
+        role: 'CERTIFICATION',
+        document: documentOf(c.uploadId),
+        automatic: true,
+      }));
     const byMonth = Array.from({ length: 12 }, () => 0);
     for (const expense of yearExpenses) {
       const month = Number(expense.date.slice(5, 7)) - 1;
@@ -233,14 +252,10 @@ export class DossierService {
       missingInvoiceCount: yearExpenses.filter((e) => !e.hasInvoice).length,
       missingPaymentCount: yearExpenses.filter((e) => !e.hasPaymentProof)
         .length,
-      deductions: estimateDeductions(
-        taxYear,
-        estimated,
-        certificatesOf(taxYear, certificateRows),
-      ),
+      deductions: estimateDeductions(taxYear, estimated, certificates),
       byMonth,
       expenses: yearExpenses,
-      yearDocuments,
+      yearDocuments: [...found, ...yearDocuments].sort(byRole),
     };
   }
 

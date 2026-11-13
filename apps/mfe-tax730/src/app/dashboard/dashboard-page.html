@@ -114,6 +114,9 @@
           >{{ attachmentTitle(a) }}</a
         >
         <ui-badge>{{ roleLabels[a.role] }}</ui-badge>
+        @if (a.automatic) {
+        <span class="doc__auto" title="Found in your documents: nothing to file">From Documents</span>
+        } @else {
         <button
           uiButton
           variant="ghost"
@@ -125,6 +128,7 @@
         >
           <ui-icon name="x" [size]="16" />
         </button>
+        }
       </li>
       } @empty {
       <li class="muted">

@@ -202,6 +202,11 @@ tax-deductions-card {
   white-space: nowrap;
 }
 
+.doc__auto {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .expenses-card {
   margin-bottom: var(--space-4);
 }
