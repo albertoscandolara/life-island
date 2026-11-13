@@ -22,4 +22,10 @@ export const HOME_ROUTES: Routes = [
     loadComponent: () => import('./bills/bills-page').then((m) => m.BillsPage),
     title: 'Bills · Life Island',
   },
+  {
+    path: 'companies',
+    loadComponent: () =>
+      import('./companies/companies-page').then((m) => m.CompaniesPage),
+    title: 'Companies · Life Island',
+  },
 ];

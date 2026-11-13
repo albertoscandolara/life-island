@@ -32,6 +32,7 @@
         "apps/shell/**/*",
         "libs/design-system/**/*",
         "libs/settings-ui/**/*",
+        "libs/entities-ui/**/*",
         "libs/records-ui/**/*"
       ]
     },

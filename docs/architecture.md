@@ -551,6 +551,7 @@ Every new module (sport, travel, bills) or feature goes through this list before
 - [ ] OpenAPI published; FE client generated with orval
 - [ ] `apps/mfe-<module>` remote exposing `./routes`, added to the federation manifest, runnable standalone
 - [ ] Only design-system components and semantic tokens; Stylelint passes
+- [ ] Entities it owns published at `GET /entities`, new ones confirmed before they link, and every mention shown with `<li-entity-link>` (docs/guides/entities.md)
 - [ ] Nx tags set; no imports from other apps
 - [ ] Eval documents added in `tools/evals/` for its targets
 - [ ] Own Dockerfile and CI job; deploys independently

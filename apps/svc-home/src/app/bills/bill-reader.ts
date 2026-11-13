@@ -1,4 +1,5 @@
 import {
+  entityKey,
   UTILITIES,
   UTILITY_KINDS,
   type BillAssignment,
@@ -352,13 +353,29 @@ export const normalizeTaxCode = (code: string): string => {
   return /^IT\d{11}$/.test(plain) ? plain.slice(2) : plain;
 };
 
-const LEGAL_FORMS =
-  /\b(s ?p ?a|s ?r ?l|s ?r ?l ?s|s ?n ?c|s ?a ?s|soc(ieta)? coop(erativa)?|spa|srl|ltd|inc|gmbh|ag|sa)\b/g;
-
-/** A company name without case, accents or legal form: "ACME S.p.A." = "Acme spa" = "acme". */
+/**
+ * A company name without case, accents or legal form, and without what
+ * follows the legal form: "ACME S.p.A." = "Acme spa" = "acme", and
+ * "EDILRENSO SNC DI RENSO MASSIMO E C." = "Edilrenso". The same key every
+ * area reads names with (`entityKey`).
+ */
 export const organizationKey = (name: string): string =>
-  normalizeText(name).replace(LEGAL_FORMS, ' ').replace(/\s+/g, ' ').trim() ||
-  normalizeText(name);
+  entityKey(name) || normalizeText(name);
+
+/** Every key a company is found by: its name and the other names documents print. */
+export function organizationKeys(org: {
+  name: string;
+  nameKey: string;
+  aliases: readonly string[];
+}): string[] {
+  return [
+    ...new Set([
+      organizationKey(org.name),
+      org.nameKey,
+      ...org.aliases.map(organizationKey),
+    ]),
+  ];
+}
 
 /**
  * The entity facts of a bill. The supply point code is the POD (electricity)

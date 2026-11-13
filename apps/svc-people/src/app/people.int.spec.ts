@@ -162,6 +162,17 @@ describe.skipIf(!configured)(
         'sex',
       ]);
 
+      // Until you approve it, the new person is a pending entity.
+      const before = (await (await send('GET', '/entities')).json()) as {
+        id: string;
+        status: string;
+        aliases: string[];
+      }[];
+      expect(before.find((e) => e.id === card)).toMatchObject({
+        status: 'pending',
+        aliases: expect.arrayContaining([taxCode]),
+      });
+
       const approved = await send('POST', `/reviews/${card}/approve`, {
         personId: null,
       });
@@ -171,6 +182,16 @@ describe.skipIf(!configured)(
       const created = all.people.find((p) => p.lastName === lastName);
       expect(created).toMatchObject({ taxCode, firstName: 'MARIA' });
       personId = created?.id ?? '';
+      const after = (await (await send('GET', '/entities')).json()) as {
+        id: string;
+        kind: string;
+        status: string;
+      }[];
+      expect(after.find((e) => e.id === personId)).toMatchObject({
+        kind: 'person',
+        status: 'confirmed',
+      });
+      expect(after.some((e) => e.id === card)).toBe(false);
       // 30 days left: within a health card's 60.
       expect(created?.alerts).toEqual([
         expect.objectContaining({ level: 'expiring', uploadId: card }),

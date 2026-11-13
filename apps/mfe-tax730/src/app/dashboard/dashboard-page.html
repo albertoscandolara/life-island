@@ -115,7 +115,9 @@
         >
         <ui-badge>{{ roleLabels[a.role] }}</ui-badge>
         @if (a.automatic) {
-        <span class="doc__auto" title="Found in your documents: nothing to file">From Documents</span>
+        <span class="doc__auto" title="Found in your documents: nothing to file"
+          >From Documents</span
+        >
         } @else {
         <button
           uiButton
@@ -179,6 +181,12 @@
       <div class="expense__detail">
         <dl class="facts">
           <div>
+            <dt>Issuer</dt>
+            <dd>
+              <li-entity-link [name]="e.issuer" kind="organization" />
+            </dd>
+          </div>
+          <div>
             <dt>Invoice no.</dt>
             <dd>{{ e.documentNumber || '–' }}</dd>
           </div>
@@ -195,7 +203,15 @@
           </div>
           <div>
             <dt>Beneficiary</dt>
-            <dd>{{ e.beneficiaryFiscalCode || '–' }}</dd>
+            <dd>
+              @if (e.beneficiaryFiscalCode) {
+              <li-entity-link
+                [name]="e.beneficiaryFiscalCode"
+                kind="person"
+                [showName]="true"
+              />
+              } @else { – }
+            </dd>
           </div>
         </dl>
 

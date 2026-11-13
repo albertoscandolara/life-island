@@ -1,4 +1,6 @@
 import { DatePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -7,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import {
+  entityParam,
   ID_DOCUMENT_STATUS_LABELS,
   ID_DOCUMENT_TYPES,
   identifiesSomeone,
@@ -171,6 +174,13 @@ export class PeoplePage {
   );
 
   constructor() {
+    // A link from anywhere on the island opens one person: /people?person=<id>.
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe((query) => {
+        const id = query.get(entityParam('person'));
+        if (id) this.selectedId.set(id);
+      });
     this.load();
     this.api.residenceHouses().subscribe({
       next: ({ houses, available }) => {

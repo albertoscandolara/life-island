@@ -242,7 +242,9 @@
         (change)="toggleCategory(item.category.id, $event)"
       />
       <span
-        >{{ item.category.title }} @if (item.parent) {
+        >@if (entityKinds(group.key); as kinds) {
+        <li-entity-link [name]="item.category.title" [kind]="kinds" />
+        } @else { {{ item.category.title }} } @if (item.parent) {
         <span class="muted small-inline">in {{ item.parent }}</span>
         }</span
       >

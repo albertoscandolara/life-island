@@ -19,7 +19,6 @@ import {
   type SupplyPointDto,
 } from '@life-island/contracts';
 import { eq, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { SERVICE_DB } from '../config.js';
 import {
   bills,
@@ -28,36 +27,9 @@ import {
   supplyContracts,
   supplyPoints,
 } from '../db/schema.js';
+import { listOrganizations } from '../organizations/organizations.js';
 import { normalizeTaxCode, organizationKey } from './bill-reader.js';
 import { BillsService } from './bills.service.js';
-
-/** Every organization, with how many bills it issued. */
-export async function listOrganizations(
-  db: NodePgDatabase,
-): Promise<OrganizationDto[]> {
-  const [orgs, counts] = await Promise.all([
-    db.select().from(organizations),
-    db
-      .select({
-        id: bills.supplierId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(bills)
-      .where(sql`${bills.duplicateOf} is null`)
-      .groupBy(bills.supplierId),
-  ]);
-  const countOf = new Map(counts.map((c) => [c.id, c.count]));
-  return orgs
-    .map((o) => ({
-      id: o.id,
-      name: o.name,
-      taxCode: o.taxCode,
-      vatNumber: o.vatNumber,
-      roles: o.roles,
-      billCount: countOf.get(o.id) ?? 0,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
 
 /**
  * What bills hang on: the supply points of your houses with their contracts,

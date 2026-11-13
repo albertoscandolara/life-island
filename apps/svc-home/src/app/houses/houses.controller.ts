@@ -13,7 +13,7 @@ import {
 } from '@life-island/contracts';
 import { isNotNull } from 'drizzle-orm';
 import { organizationKey } from '../bills/bill-reader.js';
-import { listOrganizations } from '../bills/supply-points.controller.js';
+import { listOrganizations } from '../organizations/organizations.js';
 import { SERVICE_DB } from '../config.js';
 import { properties, works } from '../db/schema.js';
 import { HomePeople } from '../properties/home-people.js';
@@ -108,12 +108,14 @@ export class HousesController {
         .where(isNotNull(works.contractor)),
     ]);
     return knownCompanies([
-      ...orgs.map((o) => ({
-        id: o.id,
-        name: o.name,
-        source: 'ORGANIZATION' as const,
-        uses: 0,
-      })),
+      ...orgs
+        .filter((o) => o.status !== 'DISMISSED')
+        .map((o) => ({
+          id: o.id,
+          name: o.name,
+          source: 'ORGANIZATION' as const,
+          uses: 0,
+        })),
       ...orgs
         .filter((o) => o.billCount)
         .map((o) => ({

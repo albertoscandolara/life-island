@@ -115,7 +115,10 @@ describe.skipIf(!configured)(
       expect(overview.body.sources.find((s) => s.module === 'people')?.ok).toBe(
         false,
       );
-      const insurance = overview.body.entries.find((e) => e.module === 'cars');
+      // The calendar files dates under Cars too (winter tyres from 15 November).
+      const insurance = overview.body.entries.find(
+        (e) => e.module === 'cars' && e.source === 'module',
+      );
       expect(insurance).toMatchObject({
         daysLeft: 3,
         urgency: 'week',

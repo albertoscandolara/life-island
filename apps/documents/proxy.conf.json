@@ -1,17 +1,51 @@
 {
   "/api/ingestion": {
     "target": "http://localhost:3001",
-    "pathRewrite": { "^/api/ingestion": "" },
+    "pathRewrite": {
+      "^/api/ingestion": ""
+    },
     "changeOrigin": true
   },
   "/api/review": {
     "target": "http://localhost:3002",
-    "pathRewrite": { "^/api/review": "" },
+    "pathRewrite": {
+      "^/api/review": ""
+    },
     "changeOrigin": true
   },
   "/api/settings": {
     "target": "http://localhost:3009",
-    "pathRewrite": { "^/api/settings": "" },
+    "pathRewrite": {
+      "^/api/settings": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/home": {
+    "target": "http://localhost:3005",
+    "pathRewrite": {
+      "^/api/home": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/people": {
+    "target": "http://localhost:3006",
+    "pathRewrite": {
+      "^/api/people": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/cars": {
+    "target": "http://localhost:3007",
+    "pathRewrite": {
+      "^/api/cars": ""
+    },
+    "changeOrigin": true
+  },
+  "/api/work": {
+    "target": "http://localhost:3008",
+    "pathRewrite": {
+      "^/api/work": ""
+    },
     "changeOrigin": true
   }
 }

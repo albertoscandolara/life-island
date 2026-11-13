@@ -38,65 +38,67 @@ import { selectionParams } from './selection';
       }
     </nav>
 
-    <div class="homes" role="group" aria-label="Which houses">
-      <button
-        type="button"
-        class="chip"
-        [class.chip--on]="!selected().length"
-        [attr.aria-pressed]="!selected().length"
-        (click)="clear()"
-      >
-        <ui-icon name="layers" [size]="16" /> All houses
-      </button>
-      @for (p of store.properties() ?? []; track p.id) {
+    @if (area() !== 'companies') {
+      <div class="homes" role="group" aria-label="Which houses">
         <button
           type="button"
           class="chip"
-          [class.chip--on]="selected().includes(p.id)"
-          [attr.aria-pressed]="selected().includes(p.id)"
-          [title]="'Click to look at it alone, Ctrl/⌘-click to add it'"
-          (click)="toggle(p.id, $event)"
+          [class.chip--on]="!selected().length"
+          [attr.aria-pressed]="!selected().length"
+          (click)="clear()"
         >
-          <span class="dot" [style.background]="color(p.colorSlot)"></span>
-          {{ p.name }}
-          @if (p.isResidence) {
-            <ui-icon name="home" [size]="14" aria-label="Residence" />
-          }
+          <ui-icon name="layers" [size]="16" /> All houses
         </button>
-      }
-      @if (area() === 'bills' && selected().length !== 1 && count() > 1) {
-        <span class="split" role="group" aria-label="How to show them">
+        @for (p of store.properties() ?? []; track p.id) {
           <button
             type="button"
-            class="seg"
-            [class.seg--on]="!split()"
-            [attr.aria-pressed]="!split()"
-            (click)="setSplit(false)"
+            class="chip"
+            [class.chip--on]="selected().includes(p.id)"
+            [attr.aria-pressed]="selected().includes(p.id)"
+            [title]="'Click to look at it alone, Ctrl/⌘-click to add it'"
+            (click)="toggle(p.id, $event)"
           >
-            Together
+            <span class="dot" [style.background]="color(p.colorSlot)"></span>
+            {{ p.name }}
+            @if (p.isResidence) {
+              <ui-icon name="home" [size]="14" aria-label="Residence" />
+            }
           </button>
-          <button
-            type="button"
-            class="seg"
-            [class.seg--on]="split()"
-            [attr.aria-pressed]="split()"
-            (click)="setSplit(true)"
-          >
-            Side by side
-          </button>
-        </span>
-      }
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        class="manage"
-        (click)="manage.emit()"
-      >
-        <ui-icon name="plus" [size]="16" /> Add a house
-      </button>
-    </div>
+        }
+        @if (area() === 'bills' && selected().length !== 1 && count() > 1) {
+          <span class="split" role="group" aria-label="How to show them">
+            <button
+              type="button"
+              class="seg"
+              [class.seg--on]="!split()"
+              [attr.aria-pressed]="!split()"
+              (click)="setSplit(false)"
+            >
+              Together
+            </button>
+            <button
+              type="button"
+              class="seg"
+              [class.seg--on]="split()"
+              [attr.aria-pressed]="split()"
+              (click)="setSplit(true)"
+            >
+              Side by side
+            </button>
+          </span>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="manage"
+          (click)="manage.emit()"
+        >
+          <ui-icon name="plus" [size]="16" /> Add a house
+        </button>
+      </div>
+    }
   `,
   styles: `
     :host {
@@ -223,6 +225,12 @@ export class AreaNav {
       character: 'bronto',
     },
     { area: 'bills', label: 'Bills', icon: 'bolt', character: 'stego' },
+    {
+      area: 'companies',
+      label: 'Companies',
+      icon: 'layers',
+      character: 'bronto',
+    },
   ] as const;
 
   protected readonly color = propertyColor;
@@ -269,4 +277,4 @@ export class AreaNav {
   }
 }
 
-export type HousesArea = 'overview' | 'renovations' | 'bills';
+export type HousesArea = 'overview' | 'renovations' | 'bills' | 'companies';

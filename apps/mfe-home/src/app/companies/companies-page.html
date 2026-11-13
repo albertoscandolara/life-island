@@ -1,0 +1,221 @@
+<ui-page-header
+  emblem="🏢"
+  heading="Companies"
+  subtitle="Every company your documents name: suppliers, contractors, banks and shops. A new one waits for you to confirm it; from then on its name links here from every page."
+>
+</ui-page-header>
+
+<home-area-nav area="companies" />
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="error">{{ message }}</ui-alert>
+} @if (companies() === null) {
+<p class="loading">Reading your companies…</p>
+} @else { @if (pending().length) {
+<ui-card heading="New companies to confirm" class="pending" id="to-confirm">
+  <p class="muted small">
+    Read from your documents. Confirm the ones that are right, say which company
+    a name really is (the same company printed differently), or that it is not a
+    company at all.
+  </p>
+  <ul class="pending__list" role="list">
+    @for (c of pending(); track c.id) {
+    <li class="pending__item" [class.pending__item--busy]="busy() === c.id">
+      <div class="pending__what">
+        <strong>{{ c.name }}</strong>
+        <span class="muted small">
+          {{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
+          'documents' }} @if (c.billCount) { · {{ c.billCount }} {{ c.billCount
+          === 1 ? 'bill' : 'bills' }} } @if (c.vatNumber || c.taxCode) { ·
+          <span class="mono">{{ c.vatNumber || c.taxCode }}</span> }
+        </span>
+      </div>
+      <div class="pending__actions">
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="confirm(c)"
+        >
+          <ui-icon name="check" [size]="16" /> Confirm
+        </button>
+        @if (confirmed().length) {
+        <span class="same">
+          <select
+            class="ui-input compact"
+            [attr.aria-label]="'Company that ' + c.name + ' really is'"
+            [disabled]="busy() !== null"
+            (change)="pickSameAs(c.id, $any($event.target).value)"
+          >
+            <option value="">Same as…</option>
+            @for (t of confirmed(); track t.id) {
+            <option [value]="t.id">{{ t.name }}</option>
+            }
+          </select>
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="busy() !== null || !sameAs()[c.id]"
+            (click)="merge(c)"
+          >
+            Merge
+          </button>
+        </span>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="dismiss(c)"
+        >
+          Not a company
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  @if (pending().length > 1) {
+  <div class="pending__all">
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      [disabled]="busy() !== null"
+      (click)="confirmAll()"
+    >
+      Confirm all {{ pending().length }}
+    </button>
+  </div>
+  }
+</ui-card>
+} @if (!confirmed().length && !pending().length) {
+<ui-empty-state icon="inbox" heading="No companies yet">
+  Load invoices, bills and receipts in the documents app: the companies that
+  issued them show up here for you to confirm.
+</ui-empty-state>
+} @else if (confirmed().length) {
+<div class="layout">
+  <ul class="list" role="list" aria-label="Companies">
+    @for (c of confirmed(); track c.id) {
+    <li>
+      <button
+        type="button"
+        class="list__item"
+        [class.list__item--on]="selectedId() === c.id"
+        [attr.aria-current]="selectedId() === c.id ? 'true' : null"
+        (click)="select(c)"
+      >
+        <span class="list__name">{{ c.name }}</span>
+        <span class="muted small"
+          >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
+          'documents' }}</span
+        >
+      </button>
+    </li>
+    }
+  </ul>
+
+  <section class="detail" aria-live="polite">
+    @if (detail(); as d) {
+    <ui-card [heading]="d.name">
+      <dl class="facts">
+        <div>
+          <dt>VAT number</dt>
+          <dd class="mono">{{ d.vatNumber || '–' }}</dd>
+        </div>
+        <div>
+          <dt>Tax code</dt>
+          <dd class="mono">{{ d.taxCode || '–' }}</dd>
+        </div>
+        <div>
+          <dt>Role</dt>
+          <dd>
+            @for (r of d.roles; track r) {
+            <ui-badge>{{ roleLabel(r) }}</ui-badge> } @empty { – }
+          </dd>
+        </div>
+        @if (d.aliases.length) {
+        <div class="wide">
+          <dt>Also printed as</dt>
+          <dd>{{ d.aliases.join(' · ') }}</dd>
+        </div>
+        } @if (d.houses.length) {
+        <div class="wide">
+          <dt>Houses</dt>
+          <dd>
+            @for (h of d.houses; track h.id + h.role) {
+            <span class="house"
+              ><li-entity-link kind="house" [entityId]="h.id" [name]="h.name" />
+              <span class="muted small">{{ h.role }}</span></span
+            >
+            }
+          </dd>
+        </div>
+        }
+      </dl>
+
+      <h3 class="sub">Documents</h3>
+      @if (d.documents.length) {
+      <ul class="docs" role="list">
+        @for (doc of d.documents; track doc.uploadId) {
+        <li class="doc">
+          <span class="muted small doc__date">{{ formatDate(doc.date) }}</span>
+          <a
+            class="doc__title"
+            [href]="previewUrl(doc.uploadId)"
+            target="_blank"
+            rel="noopener"
+            >{{ doc.title }}</a
+          >
+          @if (doc.amount !== null) {
+          <strong class="doc__amount">{{ formatEuro(doc.amount) }}</strong>
+          }
+        </li>
+        }
+      </ul>
+      } @else {
+      <p class="muted small">No document names it as its issuer.</p>
+      }
+    </ui-card>
+    } @else {
+    <p class="muted hint">Pick a company to see its documents and houses.</p>
+    }
+  </section>
+</div>
+} @if (dismissed().length) {
+<section class="dismissed">
+  <button
+    type="button"
+    class="seg__item"
+    [attr.aria-expanded]="showDismissed()"
+    (click)="showDismissed.set(!showDismissed())"
+  >
+    Not companies ({{ dismissed().length }})
+  </button>
+  @if (showDismissed()) {
+  <ul class="pending__list" role="list">
+    @for (c of dismissed(); track c.id) {
+    <li class="pending__item">
+      <span>{{ c.name }}</span>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reopen(c)"
+      >
+        Suggest again
+      </button>
+    </li>
+    }
+  </ul>
+  }
+</section>
+} }

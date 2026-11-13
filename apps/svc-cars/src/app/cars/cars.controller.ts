@@ -37,10 +37,12 @@ import {
   type CarsPeopleDto,
   deadlinesQuerySchema,
   type DeadlineDto,
+  type EntityRefDto,
 } from '@life-island/contracts';
 import { CarModels } from './car-models.js';
 import { CarPeople } from './car-people.js';
 import { CarsService } from './cars.service.js';
+import { carEntities } from './entities.js';
 import { IngestionFiles } from '../documents/ingestion-files.js';
 import { QuoteAdvisor, type QuoteFile } from './quote-advisor.js';
 
@@ -67,6 +69,12 @@ export class CarsController {
   @Get('overview')
   async overview(): Promise<CarsOverviewDto> {
     return this.cars.overview(undefined, await this.quotes.usesAi());
+  }
+
+  /** Every car, and the new cars documents suggest, as every area links them. */
+  @Get('entities')
+  async entities(): Promise<EntityRefDto[]> {
+    return carEntities(await this.cars.overview(undefined, false));
   }
 
   /** Every renewal date of the cars in use, for the Agenda. */

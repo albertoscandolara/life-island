@@ -1,4 +1,7 @@
+import { EntityLink } from '@life-island/entities-ui';
 import { DatePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -7,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import {
+  entityParam,
   CAR_DOCUMENT_ROLE_LABELS,
   CAR_DOCUMENT_STATUS_LABELS,
   COST_KIND_LABELS,
@@ -140,6 +144,7 @@ const DEFINITION = new Map<string, Definition>(
   selector: 'cars-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
     CarFinesCard,
     CarTyresCard,
     CarUsageCard,
@@ -224,6 +229,13 @@ export class CarsPage {
   });
 
   constructor() {
+    // A link from anywhere on the island opens one car: /cars?car=<id>.
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe((query) => {
+        const id = query.get(entityParam('vehicle'));
+        if (id) this.selectedId.set(id);
+      });
     this.load();
     this.loadPeople();
   }
@@ -596,6 +608,11 @@ export class CarsPage {
   /** The person of People a party of the car is, when you picked one. */
   protected linkedPerson(vehicle: VehicleDto, field: string): boolean {
     return this.isParty(field) && !!vehicle.people?.[field];
+  }
+
+  /** The person of People a party (holder, owner) is, when you picked one. */
+  protected personIdOf(vehicle: VehicleDto, field: string): string | null {
+    return this.isParty(field) ? (vehicle.people?.[field] ?? null) : null;
   }
 
   protected inputType(definition: Definition): string {

@@ -16,6 +16,7 @@ import {
   approveReviewRequestSchema,
   deadlinesQuerySchema,
   type DeadlineDto,
+  type EntityRefDto,
   markDocumentRequestSchema,
   mergePeopleRequestSchema,
   setRelationRequestSchema,
@@ -25,6 +26,7 @@ import {
   type PersonSummaryDto,
   type ResidenceHousesDto,
 } from '@life-island/contracts';
+import { peopleEntities } from './entities.js';
 import { HomeHouses } from './home-houses.js';
 import { PeopleService } from './people.service.js';
 
@@ -57,6 +59,12 @@ export class PeopleController {
   @Get('deadlines')
   deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
     return this.people.deadlines(parseOrThrow(deadlinesQuerySchema, query));
+  }
+
+  /** Everyone, and the new people documents suggest, as every area links them. */
+  @Get('entities')
+  async entities(): Promise<EntityRefDto[]> {
+    return peopleEntities(await this.people.overview());
   }
 
   /** Everyone in short, with their driving licence, for the Houses and Cars areas. */
