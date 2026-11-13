@@ -251,11 +251,7 @@ tax-deductions-card {
   font-variant-numeric: tabular-nums;
 }
 
-.expense__main {
-  display: grid;
-  min-width: 0;
-}
-
+.expense__main,
 .expense__issuer {
   color: var(--text-primary);
   font-weight: 600;
@@ -340,6 +336,19 @@ tax-deductions-card {
 .expense__actions {
   display: flex;
   gap: var(--space-2);
+}
+
+/* Expenses that are one and the same: an invoice and its payments. */
+.pairs-alert {
+  margin-bottom: var(--space-3);
+}
+
+.expense__paired {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 @media (width <= 48rem) {

@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -50,6 +51,15 @@ export const expenses = tax730.table(
     description: text('description'),
     /** Your own note, e.g. "payment proof on its way". */
     notes: text('notes'),
+    /**
+     * The expense this one is the same as (its invoice, or the other receipt
+     * of one transfer), when you paired them by hand or confirmed the pair.
+     */
+    pairedWith: uuid('paired_with').references((): AnyPgColumn => expenses.id, {
+      onDelete: 'set null',
+    }),
+    /** Your decision on pairing: CONFIRMED (with `paired_with`) or SEPARATE; null leaves it automatic. */
+    pairing: text('pairing'),
     /** The document's template fields as you reviewed them. */
     documentFields: jsonb('document_fields'),
     approvedAt: timestamp('approved_at', { withTimezone: true }).notNull(),

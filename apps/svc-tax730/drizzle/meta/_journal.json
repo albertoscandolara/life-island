@@ -15,6 +15,13 @@
       "when": 1793744509544,
       "tag": "0001_dossier",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794586352711,
+      "tag": "0002_expense_pairing",
+      "breakpoints": true
     }
   ]
 }

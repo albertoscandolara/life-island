@@ -297,6 +297,160 @@ describe.skipIf(!configured)(
       expect(year.deductions.income?.certificates).toHaveLength(1);
     });
 
+    it('pairs an invoice with the transfers that paid it, so it is counted once', async () => {
+      // Before cuYear, so no other test shares the year.
+      const year = 1900 + Math.floor(Math.random() * 45);
+      const docs = {
+        invoice: randomUUID(),
+        first: randomUUID(),
+        firstDetail: randomUUID(),
+        second: randomUUID(),
+      };
+      const approve = async (
+        uploadId: string,
+        title: string,
+        date: string,
+        amount: number,
+        issuer: string,
+      ) => {
+        await apply('upload.updated@1', uploaded(uploadId, title, {}));
+        await apply(
+          'record.approved@1',
+          {
+            recordId: randomUUID(),
+            uploadId,
+            category: 'tax730',
+            targetKey: 'tax730.expense@1',
+            payload: {
+              taxYear: year,
+              expenseType: 'renovation',
+              date: `${year}-${date}`,
+              amount,
+              issuer,
+            },
+            approvedAt: new Date().toISOString(),
+          } satisfies RecordApprovedV1,
+          handle,
+        );
+      };
+      try {
+        await approve(
+          docs.invoice,
+          '66 Edilrenso Fattura',
+          '12-16',
+          55000,
+          'EDILRENSO SNC',
+        );
+        await approve(
+          docs.first,
+          '66 15K Edilrenso Ricevuta bonifico',
+          '12-19',
+          15000,
+          'Banca Widiba',
+        );
+        await approve(
+          docs.firstDetail,
+          '66 15K Edilrenso Dettaglio bonifico',
+          '12-19',
+          15000,
+          'Edilrenso',
+        );
+        await approve(
+          docs.second,
+          '66 40K Edilrenso Ricevuta bonifico',
+          '12-22',
+          40000,
+          'Banca Widiba',
+        );
+
+        let dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/tax-years/${year}`),
+        );
+        expect(dossier).toMatchObject({
+          total: 55000,
+          expenseCount: 1,
+          pairsToReviewCount: 1,
+          missingPaymentCount: 0,
+        });
+        const [invoice] = dossier.expenses;
+        expect(invoice).toMatchObject({
+          kind: 'INVOICE',
+          hasInvoice: true,
+          hasPaymentProof: true,
+          traceablePayment: true,
+        });
+        expect(
+          invoice.paired.map((p) => [p.amount, p.kind, p.automatic]),
+        ).toEqual([
+          [15000, 'PAYMENT', true],
+          [15000, 'PAYMENT', true],
+          [40000, 'PAYMENT', true],
+        ]);
+        expect(invoice.attachments.map((a) => [a.uploadId, a.role])).toEqual([
+          [docs.invoice, 'INVOICE'],
+          [docs.first, 'PAYMENT'],
+          [docs.firstDetail, 'PAYMENT'],
+          [docs.second, 'PAYMENT'],
+        ]);
+        expect(dossier.deductions.lines[0]).toMatchObject({
+          spent: 55000,
+          overCap: 0,
+        });
+
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${invoice.id}/pairing/confirm`, {
+            method: 'POST',
+          }),
+        );
+        expect(dossier.pairsToReviewCount).toBe(0);
+        expect(dossier.expenses[0].paired.every((p) => !p.automatic)).toBe(
+          true,
+        );
+
+        // Not the same: the 40.000 € transfer is counted on its own again.
+        const second = dossier.expenses[0].paired[2].id;
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${second}/pairing`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ pairedWith: null }),
+          }),
+        );
+        expect(dossier.total).toBe(95000);
+        expect(dossier.expenses.find((e) => e.id === second)?.pairing).toBe(
+          'SEPARATE',
+        );
+
+        // Paired by hand again.
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${second}/pairing`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ pairedWith: invoice.id }),
+          }),
+        );
+        expect(dossier.total).toBe(55000);
+        expect(dossier.pairsToReviewCount).toBe(0);
+      } finally {
+        await svc.pool.query(
+          `delete from tax730.attachments where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.expenses where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.tax_years where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.documents where upload_id = any($1)`,
+          [Object.values(docs)],
+        );
+      }
+    });
+
     it('keeps the newest snapshot of a document and remembers deletions', async () => {
       const id = randomUUID();
       const newer = uploaded(id, 'Newer title', {});

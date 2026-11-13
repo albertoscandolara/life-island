@@ -115,7 +115,9 @@
         >
         <ui-badge>{{ roleLabels[a.role] }}</ui-badge>
         @if (a.automatic) {
-        <span class="doc__auto" title="Found in your documents: nothing to file">From Documents</span>
+        <span class="doc__auto" title="Found in your documents: nothing to file"
+          >From Documents</span
+        >
         } @else {
         <button
           uiButton
@@ -141,6 +143,14 @@
 </div>
 
 <ui-card heading="Expenses of {{ d.taxYear }}" class="expenses-card">
+  @if (d.pairsToReviewCount) {
+  <ui-alert tone="info" class="pairs-alert">
+    {{ d.pairsToReviewCount }} {{ d.pairsToReviewCount === 1 ? 'expense was' :
+    'expenses were' }} paired with {{ d.pairsToReviewCount === 1 ? 'its' :
+    'their' }} payments automatically, so each is counted once. Open {{
+    d.pairsToReviewCount === 1 ? 'it' : 'them' }} to confirm or split the pair.
+  </ui-alert>
+  }
   <ul class="expenses" role="list">
     @for (e of d.expenses; track e.id) {
     <li class="expense" [class.expense--open]="expanded() === e.id">
@@ -156,6 +166,14 @@
           <span class="expense__desc"
             >{{ e.description || 'No description' }}</span
           >
+          @if (e.paired.length) {
+          <span class="expense__paired">
+            <ui-icon name="layers" [size]="12" />
+            {{ pairedSummary(e) }} @if (needsReview(e)) {
+            <ui-badge tone="warning">To review</ui-badge>
+            }
+          </span>
+          }
         </span>
         <span class="expense__type">{{ typeLabel(e.expenseType) }}</span>
         <span class="expense__checks">
@@ -248,6 +266,15 @@
           </button>
         </p>
         }
+
+        <tax-expense-pairs
+          [expense]="e"
+          [expenses]="d.expenses"
+          (confirm)="confirmPairing(e)"
+          (separate)="separate($event)"
+          (autoPair)="resetPairing(e)"
+          (pairWith)="pairWithExpense(e, $event)"
+        />
 
         <ul class="docs" role="list">
           @for (a of e.attachments; track a.uploadId) {

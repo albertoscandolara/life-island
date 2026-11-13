@@ -4,6 +4,7 @@ import type {
   AddAttachmentRequest,
   DossierExpenseDto,
   ExpenseDto,
+  SetExpensePairingRequest,
   Tax730DocumentCandidateDto,
   TaxYearDossierDto,
   TaxYearDto,
@@ -40,6 +41,32 @@ export class Tax730Api {
     return this.http.post<DossierExpenseDto>(
       `${TAX730_API}/expenses/${id}/attachments`,
       request,
+    );
+  }
+
+  /** Pair an expense with another one, or keep it apart with `null`. */
+  setPairing(
+    id: string,
+    pairedWith: string | null,
+  ): Observable<TaxYearDossierDto> {
+    return this.http.put<TaxYearDossierDto>(
+      `${TAX730_API}/expenses/${id}/pairing`,
+      { pairedWith } satisfies SetExpensePairingRequest,
+    );
+  }
+
+  /** Forget your pairing decision: it is paired automatically again. */
+  resetPairing(id: string): Observable<TaxYearDossierDto> {
+    return this.http.delete<TaxYearDossierDto>(
+      `${TAX730_API}/expenses/${id}/pairing`,
+    );
+  }
+
+  /** Confirm the payments paired automatically with this expense. */
+  confirmPairing(id: string): Observable<TaxYearDossierDto> {
+    return this.http.post<TaxYearDossierDto>(
+      `${TAX730_API}/expenses/${id}/pairing/confirm`,
+      {},
     );
   }
 

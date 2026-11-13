@@ -28,6 +28,7 @@ import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
 import { Tax730Guide } from '../guide/tax730-guide';
 import { DeductionsCard } from './deductions-card';
+import { ExpensePairs } from './expense-pairs';
 import { MonthChart } from './month-chart';
 import { YearComparison } from './year-comparison';
 import { formatDate, formatEuro, ROLE_LABELS, typeLabel } from './format';
@@ -58,6 +59,7 @@ type PickerTarget =
     DocumentPicker,
     YearComparison,
     DeductionsCard,
+    ExpensePairs,
     MonthChart,
     Tax730Guide,
   ],
@@ -157,6 +159,55 @@ export class DashboardPage {
         next: (updated) => this.replaceExpense(updated),
         error: (error) => this.fail(error),
       });
+  }
+
+  /** "Paired with 2 payments": what is counted once with this expense. */
+  protected pairedSummary(expense: DossierExpenseDto): string {
+    const payments = expense.paired.filter((p) => p.kind === 'PAYMENT').length;
+    const others = expense.paired.length - payments;
+    const parts = [
+      payments ? `${payments} ${payments === 1 ? 'payment' : 'payments'}` : '',
+      others ? `${others} ${others === 1 ? 'invoice' : 'invoices'}` : '',
+    ].filter(Boolean);
+    return `Paired with ${parts.join(' and ')}`;
+  }
+
+  protected needsReview(expense: DossierExpenseDto): boolean {
+    return expense.paired.some((p) => p.automatic);
+  }
+
+  protected confirmPairing(expense: DossierExpenseDto): void {
+    this.api.confirmPairing(expense.id).subscribe({
+      next: (dossier) => this.setDossier(dossier),
+      error: (error) => this.fail(error),
+    });
+  }
+
+  /** Not the same expense: it is counted on its own again. */
+  protected separate(expenseId: string): void {
+    this.api.setPairing(expenseId, null).subscribe({
+      next: (dossier) => this.setDossier(dossier),
+      error: (error) => this.fail(error),
+    });
+  }
+
+  protected resetPairing(expense: DossierExpenseDto): void {
+    this.api.resetPairing(expense.id).subscribe({
+      next: (dossier) => this.setDossier(dossier),
+      error: (error) => this.fail(error),
+    });
+  }
+
+  /** You say this is the same expense as another one: it is counted through that one. */
+  protected pairWithExpense(expense: DossierExpenseDto, otherId: string): void {
+    if (!otherId) return;
+    this.api.setPairing(expense.id, otherId).subscribe({
+      next: (dossier) => {
+        this.setDossier(dossier);
+        this.expanded.set(otherId);
+      },
+      error: (error) => this.fail(error),
+    });
   }
 
   protected removeYearAttachment(attachment: Tax730AttachmentDto): void {

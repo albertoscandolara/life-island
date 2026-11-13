@@ -16,6 +16,8 @@ import {
   type Tax730AttachmentRole,
   type Tax730DocumentCandidateDto,
   type Tax730DocumentDto,
+  type Tax730PairingDecision,
+  type SetExpensePairingRequest,
   type TaxYearDossierDto,
   type TaxYearDto,
   type UpdateExpenseRequest,
@@ -53,10 +55,42 @@ import {
 import { toDocumentDto } from '../documents/document-view.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
+import {
+  expenseKind,
+  pairExpenses,
+  type PairableExpense,
+  type PairingDecision,
+} from '../expenses/expense-pairing.js';
 
 type ListDocuments = z.output<typeof listTax730DocumentsQuerySchema>;
 
 const round = (value: number) => Math.round(value * 100) / 100;
+
+/** What pairing reads of an expense: its numbers and what its document says. */
+function pairableOf(
+  row: ExpenseRow,
+  documentsById: Map<string, DocumentRow>,
+): PairableExpense {
+  const source = documentsById.get(row.uploadId);
+  return {
+    id: row.id,
+    taxYear: row.taxYear,
+    date: row.date,
+    amount: row.amount,
+    issuer: row.issuer,
+    text: [
+      row.description,
+      row.documentNumber,
+      source?.title,
+      source?.description,
+      source?.originalFilename,
+    ]
+      .filter(Boolean)
+      .join(' '),
+    pairedWith: row.pairedWith,
+    pairing: row.pairing as PairingDecision | null,
+  };
+}
 const ROLE_ORDER = new Map(TAX730_ATTACHMENT_ROLES.map((role, i) => [role, i]));
 
 function byRole(a: Tax730AttachmentDto, b: Tax730AttachmentDto): number {
@@ -87,49 +121,37 @@ export class DossierService {
   /** The dossiers of the given years (all years when empty), newest first. */
   async dossiers(years: number[] = []): Promise<TaxYearDossierDto[]> {
     const db = this.svc.db;
-    const yearFilter = years.length
-      ? inArray(expenses.taxYear, years)
-      : undefined;
-    const [expenseRows, attachmentRows, estimated, certificateRows] =
-      await Promise.all([
-        db
-          .select()
-          .from(expenses)
-          .where(yearFilter)
-          .orderBy(asc(expenses.date), asc(expenses.createdAt)),
-        db
-          .select()
-          .from(attachments)
-          .where(years.length ? inArray(attachments.taxYear, years) : undefined)
-          .orderBy(asc(attachments.createdAt)),
-        // Every year: home bonuses of earlier years still bring instalments.
-        db
-          .select({
-            taxYear: expenses.taxYear,
-            expenseType: expenses.expenseType,
-            amount: expenses.amount,
-            traceablePayment: expenses.traceablePayment,
-            beneficiaryFiscalCode: expenses.beneficiaryFiscalCode,
-          })
-          .from(expenses),
-        // Your Certificazioni Uniche: the income and tax of each year.
-        db
-          .select({
-            uploadId: documents.uploadId,
-            title: documents.title,
-            categories: documents.categories,
-            fields: documents.fields,
-            uploadedAt: documents.uploadedAt,
-          })
-          .from(documents)
-          .where(
-            and(
-              isNull(documents.deletedAt),
-              arrayContains(documents.categories, [CERTIFICATE_CATEGORY]),
-            ),
+    const [expenseRows, attachmentRows, certificateRows] = await Promise.all([
+      // Every year: pairing needs them all, and home bonuses of earlier
+      // years still bring instalments.
+      db
+        .select()
+        .from(expenses)
+        .orderBy(asc(expenses.date), asc(expenses.createdAt)),
+      db
+        .select()
+        .from(attachments)
+        .where(years.length ? inArray(attachments.taxYear, years) : undefined)
+        .orderBy(asc(attachments.createdAt)),
+      // Your Certificazioni Uniche: the income and tax of each year.
+      db
+        .select({
+          uploadId: documents.uploadId,
+          title: documents.title,
+          categories: documents.categories,
+          fields: documents.fields,
+          uploadedAt: documents.uploadedAt,
+        })
+        .from(documents)
+        .where(
+          and(
+            isNull(documents.deletedAt),
+            arrayContains(documents.categories, [CERTIFICATE_CATEGORY]),
           ),
-      ]);
+        ),
+    ]);
     const documentsById = await this.documentsById([
+      ...expenseRows.map((row) => row.uploadId),
       ...attachmentRows.map((row) => row.uploadId),
       ...certificateRows.map((row) => row.uploadId),
     ]);
@@ -156,21 +178,78 @@ export class DossierService {
       }
     }
 
-    const expensesByYear = new Map<number, DossierExpenseDto[]>();
+    // One document, one expense: pair the invoices with their payments.
+    const pairables = expenseRows.map((row) => pairableOf(row, documentsById));
+    const kinds = new Map(pairables.map((e) => [e.id, expenseKind(e)]));
+    const pairs = pairExpenses(pairables);
+    const members = new Map<string, ExpenseRow[]>();
     for (const row of expenseRows) {
-      const files = (byExpense.get(row.id) ?? []).sort(byRole);
-      const invoice = files.find((file) => file.role === 'INVOICE');
+      const pair = pairs.get(row.id);
+      if (!pair) continue;
+      members.set(pair.primaryId, [
+        ...(members.get(pair.primaryId) ?? []),
+        row,
+      ]);
+    }
+    const kindOf = (row: ExpenseRow) => kinds.get(row.id) ?? 'INVOICE';
+    // The document an expense was read from is its invoice, or its payment
+    // proof when it was read from a transfer receipt.
+    const filesOf = (row: ExpenseRow) =>
+      (byExpense.get(row.id) ?? []).map((file) =>
+        file.uploadId === row.uploadId &&
+        file.role === 'INVOICE' &&
+        kindOf(row) === 'PAYMENT'
+          ? { ...file, role: 'PAYMENT' as const }
+          : file,
+      );
+    const descriptionOf = (row: ExpenseRow) => {
+      const source = documentsById.get(row.uploadId);
+      return (
+        row.description ?? (source && !source.deletedAt ? source.title : null)
+      );
+    };
+    const traceable = (row: ExpenseRow, group: ExpenseRow[]) =>
+      [row, ...group].some((e) => kindOf(e) === 'PAYMENT')
+        ? true
+        : row.traceablePayment;
+
+    const primaries = expenseRows.filter((row) => !pairs.has(row.id));
+    const estimated: EstimatedExpense[] = primaries.map((row) => ({
+      taxYear: row.taxYear,
+      expenseType: row.expenseType,
+      amount: row.amount,
+      traceablePayment: traceable(row, members.get(row.id) ?? []),
+      beneficiaryFiscalCode: row.beneficiaryFiscalCode,
+    }));
+
+    const expensesByYear = new Map<number, DossierExpenseDto[]>();
+    for (const row of primaries) {
+      if (years.length && !years.includes(row.taxYear)) continue;
+      const group = members.get(row.id) ?? [];
+      const seen = new Set<string>();
+      const files = [row, ...group]
+        .flatMap(filesOf)
+        .filter((file) => !seen.has(file.uploadId) && seen.add(file.uploadId))
+        .sort(byRole);
       const dto: DossierExpenseDto = {
         ...toExpenseDto(row),
+        traceablePayment: traceable(row, group),
         // Until you write one, the invoice's title says what it was for.
-        description:
-          row.description ??
-          (invoice?.document && !invoice.document.deleted
-            ? invoice.document.title
-            : null),
+        description: descriptionOf(row),
         attachments: files,
-        hasInvoice: !!invoice,
+        hasInvoice: files.some((file) => file.role === 'INVOICE'),
         hasPaymentProof: files.some((file) => file.role === 'PAYMENT'),
+        kind: kindOf(row),
+        pairing: row.pairing as Tax730PairingDecision | null,
+        paired: group.map((member) => ({
+          id: member.id,
+          date: member.date,
+          amount: member.amount,
+          issuer: member.issuer,
+          description: descriptionOf(member),
+          kind: kindOf(member),
+          automatic: pairs.get(member.id)?.automatic ?? true,
+        })),
       };
       const list = expensesByYear.get(row.taxYear) ?? [];
       list.push(dto);
@@ -252,6 +331,9 @@ export class DossierService {
       missingInvoiceCount: yearExpenses.filter((e) => !e.hasInvoice).length,
       missingPaymentCount: yearExpenses.filter((e) => !e.hasPaymentProof)
         .length,
+      pairsToReviewCount: yearExpenses.filter((e) =>
+        e.paired.some((p) => p.automatic),
+      ).length,
       deductions: estimateDeductions(taxYear, estimated, certificates),
       byMonth,
       expenses: yearExpenses,
@@ -314,15 +396,106 @@ export class DossierService {
   ): Promise<DossierExpenseDto> {
     const expense = await this.expense(expenseId);
     if (!expense) throw new NotFoundException(`Expense ${expenseId} not found`);
+    // The documents of the expenses paired with it are shown, and removed, with it.
+    const group = await this.dossierExpense(expense);
     await this.svc.db
       .delete(attachments)
       .where(
         and(
-          eq(attachments.expenseId, expenseId),
+          inArray(attachments.expenseId, [
+            expenseId,
+            group.id,
+            ...group.paired.map((p) => p.id),
+          ]),
           eq(attachments.uploadId, uploadId),
         ),
       );
     return this.dossierExpense(expense);
+  }
+
+  /**
+   * Pairs an expense with another one of its year (it is then counted only
+   * through that one), or keeps it apart with `pairedWith: null`. Expenses
+   * already confirmed with it follow it to the new one.
+   */
+  async setPairing(
+    id: string,
+    request: SetExpensePairingRequest,
+  ): Promise<TaxYearDossierDto> {
+    const expense = await this.expense(id);
+    if (!expense) throw new NotFoundException(`Expense ${id} not found`);
+    if (request.pairedWith === null) {
+      await this.svc.db
+        .update(expenses)
+        .set({ pairedWith: null, pairing: 'SEPARATE' })
+        .where(eq(expenses.id, id));
+      return this.dossier(expense.taxYear);
+    }
+    let target = await this.expense(request.pairedWith);
+    if (!target)
+      throw new NotFoundException(`Expense ${request.pairedWith} not found`);
+    // Pair with the expense that is counted, not with one of its payments.
+    for (let hops = 0; hops < 10; hops++) {
+      if (
+        target.pairing !== 'CONFIRMED' ||
+        !target.pairedWith ||
+        target.pairedWith === id
+      )
+        break;
+      const next = await this.expense(target.pairedWith);
+      if (!next) break;
+      target = next;
+    }
+    if (target.id === id)
+      throw new BadRequestException('An expense cannot be paired with itself');
+    if (target.taxYear !== expense.taxYear)
+      throw new BadRequestException(
+        'Only expenses of the same tax year can be paired',
+      );
+    const targetId = target.id;
+    await this.svc.db.transaction(async (tx) => {
+      // The target was one of this expense's payments: it becomes the one counted.
+      await tx
+        .update(expenses)
+        .set({ pairedWith: null, pairing: null })
+        .where(and(eq(expenses.id, targetId), eq(expenses.pairedWith, id)));
+      await tx
+        .update(expenses)
+        .set({ pairedWith: targetId })
+        .where(
+          and(eq(expenses.pairedWith, id), eq(expenses.pairing, 'CONFIRMED')),
+        );
+      await tx
+        .update(expenses)
+        .set({ pairedWith: targetId, pairing: 'CONFIRMED' })
+        .where(eq(expenses.id, id));
+    });
+    return this.dossier(expense.taxYear);
+  }
+
+  /** Forgets your decision: the expense is paired automatically again. */
+  async resetPairing(id: string): Promise<TaxYearDossierDto> {
+    const [row] = await this.svc.db
+      .update(expenses)
+      .set({ pairedWith: null, pairing: null })
+      .where(eq(expenses.id, id))
+      .returning();
+    if (!row) throw new NotFoundException(`Expense ${id} not found`);
+    return this.dossier(row.taxYear);
+  }
+
+  /** Confirms the payments paired automatically with this expense. */
+  async confirmPairing(id: string): Promise<TaxYearDossierDto> {
+    const expense = await this.expense(id);
+    if (!expense) throw new NotFoundException(`Expense ${id} not found`);
+    const group = await this.dossierExpense(expense);
+    const automatic = group.paired.filter((p) => p.automatic).map((p) => p.id);
+    if (automatic.length)
+      await this.svc.db
+        .update(expenses)
+        .set({ pairedWith: group.id, pairing: 'CONFIRMED' })
+        .where(inArray(expenses.id, automatic));
+    return this.dossier(expense.taxYear);
   }
 
   /** Files a document with the whole year, e.g. the Certificazione Unica. */
@@ -394,18 +567,14 @@ export class DossierService {
     const expense = await this.expense(query.forExpense);
     if (!expense)
       throw new NotFoundException(`Expense ${query.forExpense} not found`);
-    const filed = new Set(
-      (
-        await this.svc.db
-          .select({ uploadId: attachments.uploadId })
-          .from(attachments)
-          .where(eq(attachments.expenseId, expense.id))
-      ).map((row) => row.uploadId),
-    );
+    // What is filed with it, or with the expenses paired with it.
+    const group = await this.dossierExpense(expense);
+    const filed = new Set([
+      expense.uploadId,
+      ...group.attachments.map((a) => a.uploadId),
+    ]);
     return rows
-      .filter(
-        (row) => !filed.has(row.uploadId) && row.uploadId !== expense.uploadId,
-      )
+      .filter((row) => !filed.has(row.uploadId))
       .map((row) => ({
         ...toDocumentDto(row),
         ...scorePaymentCandidate(expense, row),
@@ -448,7 +617,10 @@ export class DossierService {
     expense: ExpenseRow,
   ): Promise<DossierExpenseDto> {
     const dossier = await this.dossier(expense.taxYear);
-    const found = dossier.expenses.find((e) => e.id === expense.id);
+    // A paired expense is shown, and counted, through the one it pairs with.
+    const found = dossier.expenses.find(
+      (e) => e.id === expense.id || e.paired.some((p) => p.id === expense.id),
+    );
     if (!found) throw new NotFoundException(`Expense ${expense.id} not found`);
     return found;
   }
