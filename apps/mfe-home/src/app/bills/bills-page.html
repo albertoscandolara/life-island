@@ -263,7 +263,7 @@
     <ol class="providers">
       @for (p of providers(); track p.key) {
       <li>
-        <span>{{ p.key }}</span>
+        <span><li-entity-link kind="organization" [name]="p.key" /></span>
         <span class="muted"
           >{{ p.bills }} {{ p.bills === 1 ? 'bill' : 'bills' }}</span
         >

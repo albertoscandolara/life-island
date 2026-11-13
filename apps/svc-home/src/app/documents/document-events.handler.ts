@@ -15,6 +15,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { syncBillsIn } from '../bills/bill-ledger.js';
 import { categoryTree, documents } from '../db/schema.js';
+import { syncOrganizationsIn } from '../organizations/organization-ledger.js';
 
 export const DOCUMENT_EVENTS = [
   UPLOAD_COMPLETED_EVENT,
@@ -35,6 +36,22 @@ export async function applyDocumentEvent(
 ): Promise<void> {
   await mirror(event, client);
   await syncBills(client);
+  await syncOrganizations(client);
+}
+
+/** The companies documents name follow them too, the same way as bills. */
+async function syncOrganizations(client: pg.PoolClient): Promise<void> {
+  const db = drizzle(client);
+  await db.execute(sql`savepoint organization_sync`);
+  try {
+    await syncOrganizationsIn(db);
+    await db.execute(sql`release savepoint organization_sync`);
+  } catch (error) {
+    await db.execute(sql`rollback to savepoint organization_sync`);
+    new Logger('OrganizationLedger').error(
+      `Organization sync failed: ${String(error)}`,
+    );
+  }
 }
 
 /**

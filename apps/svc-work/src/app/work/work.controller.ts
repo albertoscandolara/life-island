@@ -25,7 +25,9 @@ import {
   type CareerFeedbackDto,
   type MarketCheckDto,
   type WorkOverviewDto,
+  type EntityRefDto,
 } from '@life-island/contracts';
+import { workEntities } from './entities.js';
 import { WorkService } from './work.service.js';
 
 @Controller()
@@ -36,6 +38,12 @@ export class WorkController {
   @Get('overview')
   overview(): Promise<WorkOverviewDto> {
     return this.work.overview();
+  }
+
+  /** Every workplace, and the new ones documents suggest, as every area links them. */
+  @Get('entities')
+  async entities(): Promise<EntityRefDto[]> {
+    return workEntities(await this.work.overview());
   }
 
   /** A workplace added by hand, by its employer. */

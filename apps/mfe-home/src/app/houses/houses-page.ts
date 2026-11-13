@@ -1,3 +1,4 @@
+import { EntityLink } from '@life-island/entities-ui';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -55,6 +56,7 @@ import { HousesView } from './houses-view';
   selector: 'home-houses-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
     UiPageHeader,
     UiButton,
     UiBadge,
@@ -207,9 +209,6 @@ export class HousesPage {
       });
     }
   }
-
-  /** People & IDs, where the person is (the shell serves it at /people). */
-  protected readonly peopleUrl = '/people';
 
   protected loadNumbers(): void {
     this.api.bills().subscribe({

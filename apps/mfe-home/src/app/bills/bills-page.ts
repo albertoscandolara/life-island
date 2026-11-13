@@ -1,3 +1,4 @@
+import { EntityLink } from '@life-island/entities-ui';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -113,6 +114,7 @@ const YEAR_SHADES = [100, 72, 48, 30];
   selector: 'home-bills-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
     UiPageHeader,
     UiCard,
     UiButton,

@@ -7,9 +7,11 @@ import {
 } from '@life-island/be-common';
 import type {
   BillDto,
+  EntityRefDto,
   EventEnvelope,
   HouseSuggestionDto,
   KnownCompanyDto,
+  OrganizationDetailDto,
   OrganizationDto,
   PropertyDto,
   SupplyPointDto,
@@ -619,6 +621,98 @@ describe.skipIf(!configured)(
         accept: ['gasSupplier'],
       });
       expect(again.status).toBe(422);
+    });
+
+    it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
+      const edil = `Edil${run}`;
+      const invoice = await upload(
+        ['INVOICE'],
+        {
+          issuer: `${edil.toUpperCase()} SNC DI ROSSI MARIO E C.`,
+          issue_date: '2025-12-16',
+          total_amount: 55000,
+        },
+        'Invoice',
+      );
+      await upload(['INVOICE'], { issuer: `${edil} s.n.c.` }, 'Transfer');
+      await upload(['RECEIPT'], { issuer: `Misread ${run}` }, 'Receipt');
+      const misread = await upload(
+        ['RECEIPT'],
+        { issuer: `Banca ${run} S.p.A.` },
+        'Receipt',
+      );
+
+      const orgs = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      const mine = orgs.filter((o) => o.name.toLowerCase().includes(run));
+      // Printed three ways, one company: the legal form and what follows it do not count.
+      const company = mine.find((o) => o.name.startsWith(edil.toUpperCase()));
+      expect(company).toMatchObject({ status: 'PENDING', documentCount: 2 });
+      expect(mine.filter((o) => /edil/i.test(o.name))).toHaveLength(1);
+
+      let entities = await json<EntityRefDto[]>(await send('GET', '/entities'));
+      expect(entities.find((e) => e.id === company?.id)).toMatchObject({
+        kind: 'organization',
+        status: 'pending',
+      });
+
+      expect(
+        (await send('POST', `/organizations/${company?.id}/confirm`)).status,
+      ).toBe(204);
+      entities = await json<EntityRefDto[]>(await send('GET', '/entities'));
+      expect(entities.find((e) => e.id === company?.id)?.status).toBe(
+        'confirmed',
+      );
+
+      // "Banca <run>" is really the same company: merged, its name stays as an alias.
+      const bank = mine.find((o) => o.name.startsWith('Banca'));
+      const merged = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${company?.id}/merge`, {
+          from: bank?.id,
+        }),
+      );
+      expect(merged.aliases).toContain(`Banca ${run} S.p.A.`);
+      expect(merged.documents.map((d) => d.uploadId)).toEqual(
+        expect.arrayContaining([invoice, misread]),
+      );
+      // Newest first; the invoice keeps the date and total it prints.
+      expect(merged.documents.at(-1)).toMatchObject({
+        uploadId: invoice,
+        date: '2025-12-16',
+        amount: 55000,
+      });
+
+      // A misread name, dismissed, is never suggested again.
+      const wrong = mine.find((o) => o.name.startsWith('Misread'));
+      expect(
+        (await send('POST', `/organizations/${wrong?.id}/dismiss`)).status,
+      ).toBe(204);
+      await upload(['RECEIPT'], { issuer: `MISREAD ${run}` }, 'Receipt');
+      const after = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(
+        after.filter((o) => o.name.toLowerCase().includes(`misread ${run}`)),
+      ).toEqual([expect.objectContaining({ status: 'DISMISSED' })]);
+      expect(after.some((o) => o.id === bank?.id)).toBe(false);
+      entities = await json<EntityRefDto[]>(await send('GET', '/entities'));
+      expect(entities.some((e) => e.id === wrong?.id)).toBe(false);
+    });
+
+    it('lists houses as entities, found by address and street', async () => {
+      const house = await createProperty(`Casa E${run}`, {
+        address: `Via E${run} 9`,
+        city: 'Ronco all’Adige',
+      });
+      const entities = await json<EntityRefDto[]>(
+        await send('GET', '/entities'),
+      );
+      expect(entities.find((e) => e.id === house.id)).toMatchObject({
+        kind: 'house',
+        status: 'confirmed',
+        aliases: expect.arrayContaining([`Via E${run} 9`, `Via E${run}`]),
+      });
     });
 
     it('keeps a 3D model per house in its own bucket', async () => {

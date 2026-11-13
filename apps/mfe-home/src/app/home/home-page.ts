@@ -1,3 +1,4 @@
+import { EntityLink } from '@life-island/entities-ui';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -75,6 +76,7 @@ export const workYear = (work: WorkDto): number | null => {
   selector: 'home-home-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
     UiPageHeader,
     UiCard,
     UiButton,

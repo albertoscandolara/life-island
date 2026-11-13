@@ -23,6 +23,7 @@ import {
 } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { SERVICE_DB } from '../config.js';
+import { syncOrganizationsIn } from '../organizations/organization-ledger.js';
 import {
   billOverrides,
   bills,
@@ -40,6 +41,7 @@ import {
 import {
   normalizeCode,
   organizationKey,
+  organizationKeys,
   readBill,
   readBillFacts,
   withAncestors,
@@ -139,7 +141,9 @@ export async function syncBillsIn(db: Db): Promise<void> {
   const orgsByKey = new Map<string, OrganizationRow>();
   for (const o of orgs) {
     if (o.taxCode) orgsByTax.set(o.taxCode, o);
-    if (!orgsByKey.has(o.nameKey) || !o.taxCode) orgsByKey.set(o.nameKey, o);
+    // Read every name again: the key may have improved since it was stored.
+    for (const key of organizationKeys(o))
+      if (!orgsByKey.has(key) || !o.taxCode) orgsByKey.set(key, o);
   }
   const pointByCode = new Map<string, SupplyPointRow>(
     points.map((p) => [p.code, p]),
@@ -185,7 +189,7 @@ export async function syncBillsIn(db: Db): Promise<void> {
         .returning();
     }
     if (org.taxCode) orgsByTax.set(org.taxCode, org);
-    orgsByKey.set(org.nameKey, org);
+    for (const k of organizationKeys(org)) orgsByKey.set(k, org);
     return org;
   };
 
@@ -385,6 +389,9 @@ export class BillLedger implements OnApplicationBootstrap {
   }
 
   sync(): Promise<void> {
-    return this.svc.db.transaction((tx) => syncBillsIn(tx));
+    return this.svc.db.transaction(async (tx) => {
+      await syncBillsIn(tx);
+      await syncOrganizationsIn(tx);
+    });
   }
 }

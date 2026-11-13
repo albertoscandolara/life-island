@@ -1,0 +1,32 @@
+{
+  "name": "entities-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/entities-ui/src",
+  "prefix": "li",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:shared"],
+  "targets": {
+    "test": {
+      "executor": "@nx/angular:unit-test",
+      "options": {
+        "watch": false,
+        "buildTarget": "entities-ui:test-build:development"
+      }
+    },
+    "test-build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "project": "libs/entities-ui/ng-package.json",
+        "tsConfig": "libs/entities-ui/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/entities-ui/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      }
+    }
+  }
+}

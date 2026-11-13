@@ -590,6 +590,18 @@ export const ORGANIZATION_ROLES = [
 ] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 
+/**
+ * PENDING: a document named it and it waits for you. CONFIRMED: you know it,
+ * and every mention links to its page. DISMISSED: not a company (a misread
+ * name), never suggested again.
+ */
+export const ORGANIZATION_STATUSES = [
+  'PENDING',
+  'CONFIRMED',
+  'DISMISSED',
+] as const;
+export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
+
 /** A company or public office, whatever its role: one row, referenced by id. */
 export interface OrganizationDto {
   id: string;
@@ -598,8 +610,48 @@ export interface OrganizationDto {
   taxCode: string | null;
   vatNumber: string | null;
   roles: OrganizationRole[];
+  status: OrganizationStatus;
+  /** Other names documents print for it. */
+  aliases: string[];
   billCount: number;
+  /** Documents whose issuer is this company. */
+  documentCount: number;
 }
+
+/** A document a company issued, on the company's page. */
+export interface OrganizationDocumentDto {
+  uploadId: string;
+  title: string;
+  /** The document date when read, else the upload day. */
+  date: string;
+  /** The total it prints, when read. */
+  amount: number | null;
+}
+
+/** A house a company supplies (through a supply contract) or worked on. */
+export interface OrganizationHouseDto {
+  id: string;
+  name: string;
+  /** "Electricity supplier", "Contractor"... */
+  role: string;
+}
+
+/** A company's page: what it is, its documents and the houses it is tied to. */
+export interface OrganizationDetailDto extends OrganizationDto {
+  documents: OrganizationDocumentDto[];
+  houses: OrganizationHouseDto[];
+}
+
+/**
+ * Merges a duplicate into this company: its bills, contracts and supply
+ * points move here, its names become aliases, and it is removed.
+ */
+export const mergeOrganizationRequestSchema = z.object({
+  from: z.uuid(),
+});
+export type MergeOrganizationRequest = z.input<
+  typeof mergeOrganizationRequestSchema
+>;
 
 export const updateOrganizationRequestSchema = z.object({
   name: z.string().trim().min(1).max(160).optional(),

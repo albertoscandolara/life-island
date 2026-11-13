@@ -3,6 +3,7 @@ import type {
   HouseField,
   ModelFormat,
   OrganizationRole,
+  OrganizationStatus,
   UtilityKind,
   PropertyOwnerDto,
   PropertyTenure,
@@ -256,6 +257,17 @@ export const organizations = home.table(
       .$type<OrganizationRole[]>()
       .notNull()
       .default([]),
+    /**
+     * PENDING: a document named it and it waits for you to confirm it.
+     * CONFIRMED: a company you know, linked everywhere. DISMISSED: not a
+     * company (a misread name); kept so it is never suggested again.
+     */
+    status: text('status')
+      .$type<OrganizationStatus>()
+      .notNull()
+      .default('PENDING'),
+    /** Other names documents print for it (kept when you merge a duplicate in). */
+    aliases: text('aliases').array().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

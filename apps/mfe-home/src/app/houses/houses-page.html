@@ -129,7 +129,11 @@
         <dt>Owners</dt>
         <dd>
           @for (o of c.house.owners; track $index) { @if (o.personId) {
-          <a class="person" [href]="peopleUrl">{{ o.name }}</a>
+          <li-entity-link
+            kind="person"
+            [entityId]="o.personId"
+            [name]="o.name"
+          />
           } @else { {{ o.name }} } @if (o.share !== null) {
           <span class="muted">({{ o.share }}%)</span> }{{ $last ? '' : ', ' }} }
           @empty {
@@ -142,14 +146,14 @@
         <dt>Lives here (People)</dt>
         <dd>
           @for (p of c.residents; track p.id) {
-          <a class="person" [href]="peopleUrl">{{ p.name }}</a>{{ $last ? '' :
-          ', ' }} }
+          <li-entity-link kind="person" [entityId]="p.id" [name]="p.name" />{{
+          $last ? '' : ', ' }} }
         </dd>
       </div>
       } @for (company of c.companies; track company[0]) {
       <div>
         <dt>{{ company[0] }}</dt>
-        <dd>{{ company[1] }}</dd>
+        <dd><li-entity-link kind="organization" [name]="company[1]" /></dd>
       </div>
       } @if (c.otherCodes.length) {
       <div class="wide">
@@ -215,18 +219,34 @@
       <span class="mono">{{ p.code }}</span>
     </div>
     <div class="point__who muted">
-      @if (current(p); as k) { {{ k.supplierName ?? 'Unknown supplier' }} @if
-      (k.offerName) { · {{ k.offerName }} } @if (k.customerCode) { · customer {{
-      k.customerCode }} } } @else { No supplier read yet } @if
-      (p.distributorName) { · grid by {{ p.distributorName }} } · {{ p.billCount
-      }} {{ p.billCount === 1 ? 'bill' : 'bills' }}
+      @if (current(p); as k) { @if (k.supplierName) {
+      <li-entity-link
+        kind="organization"
+        [entityId]="k.supplierId"
+        [name]="k.supplierName"
+      />
+      } @else { Unknown supplier } @if (k.offerName) { · {{ k.offerName }} } @if
+      (k.customerCode) { · customer {{ k.customerCode }} } } @else { No supplier
+      read yet } @if (p.distributorName) { · grid by
+      <li-entity-link
+        kind="organization"
+        [entityId]="p.distributorId"
+        [name]="p.distributorName"
+      />
+      } · {{ p.billCount }} {{ p.billCount === 1 ? 'bill' : 'bills' }}
     </div>
     @if (ended(p).length) {
     <ul class="point__history muted">
       @for (k of ended(p); track k.id) {
       <li>
-        Ended: {{ k.supplierName ?? 'Unknown supplier' }} @if (k.customerCode) {
-        · customer {{ k.customerCode }} } · {{ span(k.firstDay, k.lastDay) }}
+        Ended: @if (k.supplierName) {
+        <li-entity-link
+          kind="organization"
+          [entityId]="k.supplierId"
+          [name]="k.supplierName"
+        />
+        } @else { Unknown supplier } @if (k.customerCode) { · customer {{
+        k.customerCode }} } · {{ span(k.firstDay, k.lastDay) }}
       </li>
       }
     </ul>

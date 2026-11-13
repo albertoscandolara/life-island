@@ -716,9 +716,16 @@ idle) {
                   @if (row.fields.length > 1) {
                   <span class="muted small-label">{{ d.label }}:</span>
                   } @if (value(vehicle, d.field) !== null) {
-                  <span class="value"
-                    >{{ valueText(d.field, value(vehicle, d.field)) }}</span
-                  >
+                  <span class="value">
+                    @if (linkedPerson(vehicle, d.field)) {
+                    <li-entity-link
+                      kind="person"
+                      [entityId]="personIdOf(vehicle, d.field)"
+                      [name]="valueText(d.field, value(vehicle, d.field))"
+                    />
+                    } @else { {{ valueText(d.field, value(vehicle, d.field)) }}
+                    }
+                  </span>
                   @if (linkedPerson(vehicle, d.field)) {
                   <ui-badge tone="neutral">In People</ui-badge>
                   @if (licenceOf(vehicle, d.field); as licence) {

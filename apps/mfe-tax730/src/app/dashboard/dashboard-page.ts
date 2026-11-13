@@ -24,6 +24,7 @@ import {
   UiIcon,
   UiPageHeader,
 } from '@life-island/design-system';
+import { EntityLink } from '@life-island/entities-ui';
 import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
 import { Tax730Guide } from '../guide/tax730-guide';
@@ -60,6 +61,7 @@ type PickerTarget =
     DeductionsCard,
     MonthChart,
     Tax730Guide,
+    EntityLink,
   ],
   host: { 'data-character': 'ankylo', class: 'tax730' },
   templateUrl: './dashboard-page.html',

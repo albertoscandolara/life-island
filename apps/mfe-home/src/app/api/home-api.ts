@@ -10,6 +10,7 @@ import type {
   CreateWorkRequest,
   HomeDocumentDto,
   ListBillsQuery,
+  OrganizationDetailDto,
   OrganizationDto,
   SupplyPointDto,
   UpdateOrganizationRequest,
@@ -151,6 +152,41 @@ export class HomeApi {
     return this.http.patch<OrganizationDto>(
       `${HOME_API}/organizations/${id}`,
       request,
+    );
+  }
+
+  organization(id: string): Observable<OrganizationDetailDto> {
+    return this.http.get<OrganizationDetailDto>(
+      `${HOME_API}/organizations/${id}`,
+    );
+  }
+
+  /** Confirm, dismiss (not a company) or suggest again a company documents named. */
+  setOrganizationStatus(
+    id: string,
+    action: 'confirm' | 'dismiss' | 'reopen',
+  ): Observable<void> {
+    return this.http.post<void>(
+      `${HOME_API}/organizations/${id}/${action}`,
+      {},
+    );
+  }
+
+  confirmPendingOrganizations(): Observable<{ confirmed: number }> {
+    return this.http.post<{ confirmed: number }>(
+      `${HOME_API}/organizations/confirm-pending`,
+      {},
+    );
+  }
+
+  /** Merges `from` (a duplicate) into the company `into`. */
+  mergeOrganization(
+    into: string,
+    from: string,
+  ): Observable<OrganizationDetailDto> {
+    return this.http.post<OrganizationDetailDto>(
+      `${HOME_API}/organizations/${into}/merge`,
+      { from },
     );
   }
 

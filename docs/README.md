@@ -11,6 +11,7 @@ This folder explains how Life Island is built and how to work on it. Start with 
 | [Database](guides/database.md)                       | Work with Postgres: one schema and one role per service, init scripts, the isolation check, connecting, migrations                                    |
 | [Events and the outbox](guides/events-and-outbox.md) | Publish or consume events: contracts, the transactional outbox, the relay, idempotent consumers, delivery guarantees                                  |
 | [Storage and gateway](guides/storage-and-gateway.md) | Use S3 storage (SeaweedFS locally) and route the front end to services through Caddy                                                                  |
+| [Entities](guides/entities.md)                       | Show a person, house, car, company or workplace as a link to its page; publish an area's entities; confirm new ones                                   |
 | [Documents loader](guides/documents-loader.md)       | Run or change the upload, parse and review flow: data model, categories, schedule, parser, APIs, storage                                              |
 | [Life Island app](guides/life-island-app.md)         | Work on the island hub, an area's remote, or the 730 area: Native Federation, the 3D island, documents per year, the zip and the Excel export         |
 | [Document storage](document-storage.md)              | Know where uploaded files live, how they are retrieved by id, and the SQL of the documents table                                                      |

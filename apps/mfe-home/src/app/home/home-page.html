@@ -182,7 +182,14 @@
                   }
                   <span>{{ kindLabels[work.kind] }}</span>
                   @if (work.area) { <span>· {{ work.area }}</span> } @if
-                  (work.contractor) { <span>· {{ work.contractor }}</span> }
+                  (work.contractor) {
+                  <span
+                    >·
+                    <li-entity-link
+                      kind="organization"
+                      [name]="work.contractor"
+                  /></span>
+                  }
                 </span>
               </div>
               <select

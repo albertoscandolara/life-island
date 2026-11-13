@@ -1,3 +1,4 @@
+import { EntityLink } from '@life-island/entities-ui';
 import { DatePipe, DecimalPipe, PercentPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -16,6 +17,7 @@ import type {
   CategorySuggestionDto,
   RecordDetailDto,
   TargetCatalogEntryDto,
+  EntityKind,
 } from '@life-island/contracts';
 import { toggleCategory } from '@life-island/contracts/category-tree';
 import {
@@ -45,6 +47,14 @@ import { firstValueFrom, of } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
 import { DIMENSION_GROUPS } from '../categories/category-rows';
+
+const DIMENSION_ENTITY_KINDS: Partial<
+  Record<CategoryDimension, readonly EntityKind[]>
+> = {
+  PROPERTY: ['house', 'vehicle'],
+  PERSON: ['person'],
+  ISSUER: ['organization', 'workplace'],
+};
 import { CategoryStore, errorMessage } from '../categories/category-store';
 import { DetailsForm } from './details-form';
 import {
@@ -109,6 +119,7 @@ function canonical(value: unknown, schema: JsonSchema | undefined): string {
   selector: 'app-review-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
     DatePipe,
     DecimalPipe,
     DetailsForm,
@@ -437,6 +448,16 @@ export class ReviewPanel {
     this.categories.update((ids) =>
       toggleCategory(ids, id, checked, this.store.hierarchy()),
     );
+  }
+
+  /**
+   * The entities a category of this dimension can stand for: a property is a
+   * house (or a car, when a document filed one there), an issuer a company.
+   */
+  protected entityKinds(
+    dimension: CategoryDimension | null,
+  ): readonly EntityKind[] | null {
+    return dimension ? (DIMENSION_ENTITY_KINDS[dimension] ?? null) : null;
   }
 
   protected singleHint(dimension: CategoryDimension | null): string {

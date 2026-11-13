@@ -5,8 +5,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
+  entityParam,
   CAREER_EVENT_LABELS,
   CONTRACT_KINDS,
   CONTRACT_KIND_LABELS,
@@ -336,6 +338,13 @@ export class WorkPage {
   );
 
   constructor() {
+    // A link from anywhere on the island opens one workplace: /work?workplace=<id>.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      const id = query.get(entityParam('workplace'));
+      if (!id) return;
+      this.selectedId.set(id);
+      this.tab.set('workplaces');
+    });
     this.load();
   }
 
