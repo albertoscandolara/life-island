@@ -39,6 +39,9 @@ describe.skipIf(!configured)(
     const invoiceId = randomUUID();
     const transferId = randomUUID();
     const certificationId = randomUUID();
+    const cuId = randomUUID();
+    // Before any taxYear above, so the two tests never share a year.
+    const cuYear = 1950 + Math.floor(Math.random() * 40);
 
     beforeAll(async () => {
       // Stands in for svc-ingestion: every file's bytes are its id.
@@ -78,7 +81,7 @@ describe.skipIf(!configured)(
       );
       await svc?.pool.query(
         `delete from tax730.documents where upload_id = any($1)`,
-        [[invoiceId, transferId, certificationId]],
+        [[invoiceId, transferId, certificationId, cuId]],
       );
       await svc?.close();
       await app?.close();
@@ -263,6 +266,35 @@ describe.skipIf(!configured)(
       expect(
         await zip.file(`${root}/Certificazione unica.pdf`)?.async('string'),
       ).toBe(`file ${certificationId}`);
+    });
+
+    it('shows a Certificazione Unica among the documents of its year without filing it', async () => {
+      await apply(
+        'upload.updated@1',
+        uploaded(
+          cuId,
+          `CU ${cuYear + 1}`,
+          {
+            employer: 'ACME S.R.L.',
+            income_year: cuYear,
+            employment_income: 27997.47,
+            net_tax: 4464.29,
+          },
+          ['CERTIFICAZIONE_UNICA', 'WORK'],
+        ),
+      );
+      const year = await json<TaxYearDossierDto>(
+        await fetch(`${base}/tax-years/${cuYear}`),
+      );
+      expect(year.yearDocuments).toEqual([
+        expect.objectContaining({
+          uploadId: cuId,
+          role: 'CERTIFICATION',
+          automatic: true,
+          document: expect.objectContaining({ title: `CU ${cuYear + 1}` }),
+        }),
+      ]);
+      expect(year.deductions.income?.certificates).toHaveLength(1);
     });
 
     it('keeps the newest snapshot of a document and remembers deletions', async () => {

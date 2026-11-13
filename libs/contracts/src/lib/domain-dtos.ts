@@ -141,6 +141,11 @@ export interface Tax730AttachmentDto {
   role: Tax730AttachmentRole;
   /** Null when the document never reached this service. */
   document: Tax730DocumentDto | null;
+  /**
+   * Found by the 730 itself (a Certificazione Unica of the year in your
+   * documents), not filed by you: there is nothing to remove.
+   */
+  automatic?: boolean;
 }
 
 /** An expense with the documents that prove it. */
