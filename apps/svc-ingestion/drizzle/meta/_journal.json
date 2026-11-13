@@ -183,6 +183,13 @@
       "when": 1794333047785,
       "tag": "0025_car_fine_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794333107785,
+      "tag": "0026_merge_certificazione_unica",
+      "breakpoints": true
     }
   ]
 }
