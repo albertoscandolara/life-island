@@ -106,6 +106,8 @@ export interface TaxYearDto {
   /** Expenses with no invoice or no payment proof filed. */
   missingInvoiceCount: number;
   missingPaymentCount: number;
+  /** Expenses paired automatically with their payments, waiting for you to confirm the pair. */
+  pairsToReviewCount: number;
   /** Estimated tax back, line by line against each kind's cap and rate. */
   deductions: Tax730DeductionsDto;
   /** Spending by month, January first (12 values). */
@@ -149,11 +151,48 @@ export interface Tax730AttachmentDto {
 }
 
 /** An expense with the documents that prove it. */
+/** Whether an expense was read from an invoice or from a payment (a transfer receipt). */
+export const TAX730_EXPENSE_KINDS = ['INVOICE', 'PAYMENT'] as const;
+export type Tax730ExpenseKind = (typeof TAX730_EXPENSE_KINDS)[number];
+
+/** Your decision on pairing: confirmed, or kept apart; null while automatic. */
+export const TAX730_PAIRING_DECISIONS = ['CONFIRMED', 'SEPARATE'] as const;
+export type Tax730PairingDecision = (typeof TAX730_PAIRING_DECISIONS)[number];
+
+/** An expense that is the same as another one (a payment of its invoice), so it is not counted again. */
+export interface PairedExpenseDto {
+  id: string;
+  date: string;
+  amount: number;
+  issuer: string;
+  description: string | null;
+  kind: Tax730ExpenseKind;
+  /** Paired by the 730 area, not confirmed by you yet. */
+  automatic: boolean;
+}
+
 export interface DossierExpenseDto extends ExpenseDto {
+  /** Its documents, with those of the expenses paired with it. */
   attachments: Tax730AttachmentDto[];
   hasInvoice: boolean;
   hasPaymentProof: boolean;
+  kind: Tax730ExpenseKind;
+  /** Your decision on this expense's own pairing; SEPARATE once you kept it apart. */
+  pairing: Tax730PairingDecision | null;
+  /** The payments (or second receipts) that are this same expense. Only this one is counted. */
+  paired: PairedExpenseDto[];
 }
+
+/**
+ * Pair an expense with another one (`pairedWith`, it is then counted through
+ * that one) or keep it apart (`pairedWith: null`).
+ */
+export const setExpensePairingRequestSchema = z.object({
+  pairedWith: z.uuid().nullable(),
+});
+export type SetExpensePairingRequest = z.input<
+  typeof setExpensePairingRequestSchema
+>;
 
 /** Everything that goes into one year's 730: expenses, their documents and the year's own documents. */
 export interface TaxYearDossierDto extends TaxYearDto {

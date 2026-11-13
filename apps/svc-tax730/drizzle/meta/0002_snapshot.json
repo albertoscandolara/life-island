@@ -1,0 +1,440 @@
+{
+  "id": "da7e90b0-730d-4fd5-8ad3-3d2473ba4ce8",
+  "prevId": "07f2d914-1b24-46d4-acfc-dc42a1f57cac",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "tax730.attachments": {
+      "name": "attachments",
+      "schema": "tax730",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tax_year": {
+          "name": "tax_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expense_id": {
+          "name": "expense_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "upload_id": {
+          "name": "upload_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "attachments_expense_upload_idx": {
+          "name": "attachments_expense_upload_idx",
+          "columns": [
+            {
+              "expression": "expense_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "upload_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"tax730\".\"attachments\".\"expense_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attachments_year_upload_idx": {
+          "name": "attachments_year_upload_idx",
+          "columns": [
+            {
+              "expression": "tax_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "upload_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"tax730\".\"attachments\".\"expense_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attachments_tax_year_idx": {
+          "name": "attachments_tax_year_idx",
+          "columns": [
+            {
+              "expression": "tax_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "attachments_tax_year_tax_years_tax_year_fk": {
+          "name": "attachments_tax_year_tax_years_tax_year_fk",
+          "tableFrom": "attachments",
+          "tableTo": "tax_years",
+          "schemaTo": "tax730",
+          "columnsFrom": ["tax_year"],
+          "columnsTo": ["tax_year"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "attachments_expense_id_expenses_id_fk": {
+          "name": "attachments_expense_id_expenses_id_fk",
+          "tableFrom": "attachments",
+          "tableTo": "expenses",
+          "schemaTo": "tax730",
+          "columnsFrom": ["expense_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tax730.documents": {
+      "name": "documents",
+      "schema": "tax730",
+      "columns": {
+        "upload_id": {
+          "name": "upload_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "file_format": {
+          "name": "file_format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "categories": {
+          "name": "categories",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "fields": {
+          "name": "fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "uploaded_at": {
+          "name": "uploaded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata_updated_at": {
+          "name": "metadata_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tax730.expenses": {
+      "name": "expenses",
+      "schema": "tax730",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_staging_id": {
+          "name": "source_staging_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "upload_id": {
+          "name": "upload_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tax_year": {
+          "name": "tax_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expense_type": {
+          "name": "expense_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "frame730": {
+          "name": "frame730",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "beneficiary_fiscal_code": {
+          "name": "beneficiary_fiscal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "traceable_payment": {
+          "name": "traceable_payment",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_number": {
+          "name": "document_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paired_with": {
+          "name": "paired_with",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pairing": {
+          "name": "pairing",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_fields": {
+          "name": "document_fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_at": {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "expenses_source_staging_id_idx": {
+          "name": "expenses_source_staging_id_idx",
+          "columns": [
+            {
+              "expression": "source_staging_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "expenses_tax_year_type_idx": {
+          "name": "expenses_tax_year_type_idx",
+          "columns": [
+            {
+              "expression": "tax_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expense_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "expenses_tax_year_tax_years_tax_year_fk": {
+          "name": "expenses_tax_year_tax_years_tax_year_fk",
+          "tableFrom": "expenses",
+          "tableTo": "tax_years",
+          "schemaTo": "tax730",
+          "columnsFrom": ["tax_year"],
+          "columnsTo": ["tax_year"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "expenses_paired_with_expenses_id_fk": {
+          "name": "expenses_paired_with_expenses_id_fk",
+          "tableFrom": "expenses",
+          "tableTo": "expenses",
+          "schemaTo": "tax730",
+          "columnsFrom": ["paired_with"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tax730.tax_years": {
+      "name": "tax_years",
+      "schema": "tax730",
+      "columns": {
+        "tax_year": {
+          "name": "tax_year",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "tax730": "tax730"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -26,6 +26,9 @@ const expense = (
   attachments: [],
   hasInvoice: true,
   hasPaymentProof: false,
+  kind: 'INVOICE',
+  pairing: null,
+  paired: [],
   ...overrides,
 });
 
@@ -39,6 +42,7 @@ function dossier(expenses: DossierExpenseDto[]): TaxYearDossierDto {
     untraceableCount: 0,
     missingInvoiceCount: 0,
     missingPaymentCount: 0,
+    pairsToReviewCount: 0,
     deductions: estimateDeductions(2025, expenses),
     byMonth: Array(12).fill(0),
     expenses,

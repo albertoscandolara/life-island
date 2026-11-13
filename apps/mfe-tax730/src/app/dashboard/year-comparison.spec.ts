@@ -11,6 +11,7 @@ const year = (taxYear: number, byType: TaxYearDto['byType']): TaxYearDto => ({
   untraceableCount: 0,
   missingInvoiceCount: 0,
   missingPaymentCount: 0,
+  pairsToReviewCount: 0,
   deductions: {
     lines: [],
     carried: [],

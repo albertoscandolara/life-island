@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   StreamableFile,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   addAttachmentRequestSchema,
   exportQuerySchema,
   listTax730DocumentsQuerySchema,
+  setExpensePairingRequestSchema,
   updateExpenseRequestSchema,
   type DossierExpenseDto,
   type ExpenseDto,
@@ -125,6 +127,34 @@ export class DossierController {
     @Param('uploadId', ParseUUIDPipe) uploadId: string,
   ): Promise<DossierExpenseDto> {
     return this.dossier.removeExpenseAttachment(id, uploadId);
+  }
+
+  /** Pair an expense with another one (`{ pairedWith }`), or keep it apart (`{ pairedWith: null }`). */
+  @Put('expenses/:id/pairing')
+  setPairing(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<TaxYearDossierDto> {
+    return this.dossier.setPairing(
+      id,
+      parseOrThrow(setExpensePairingRequestSchema, body),
+    );
+  }
+
+  /** Forget your decision: the expense is paired automatically again. */
+  @Delete('expenses/:id/pairing')
+  resetPairing(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TaxYearDossierDto> {
+    return this.dossier.resetPairing(id);
+  }
+
+  /** Confirm the payments paired automatically with this expense. */
+  @Post('expenses/:id/pairing/confirm')
+  confirmPairing(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TaxYearDossierDto> {
+    return this.dossier.confirmPairing(id);
   }
 
   /** Your documents, to file with an expense or a year; `forExpense` ranks likely payment proofs first. */

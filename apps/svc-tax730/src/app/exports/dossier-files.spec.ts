@@ -47,6 +47,9 @@ const expense = (
   attachments: [],
   hasInvoice: false,
   hasPaymentProof: false,
+  kind: 'INVOICE',
+  pairing: null,
+  paired: [],
   ...overrides,
 });
 
@@ -59,6 +62,7 @@ const dossier = (expenses: DossierExpenseDto[]): TaxYearDossierDto => ({
   untraceableCount: 0,
   missingInvoiceCount: 0,
   missingPaymentCount: 0,
+  pairsToReviewCount: 0,
   deductions: {
     lines: [],
     carried: [],

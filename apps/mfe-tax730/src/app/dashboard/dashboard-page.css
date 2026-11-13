@@ -181,6 +181,7 @@ tax-deductions-card {
 /* Documents (of a year or an expense). */
 .docs {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -196,6 +197,7 @@ tax-deductions-card {
 
 .doc__title {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
   text-overflow: ellipsis;
@@ -213,6 +215,7 @@ tax-deductions-card {
 
 .expenses {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -294,6 +297,7 @@ tax-deductions-card {
 
 .expense__detail {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-2) var(--space-2) var(--space-5);
 }
@@ -340,6 +344,19 @@ tax-deductions-card {
 .expense__actions {
   display: flex;
   gap: var(--space-2);
+}
+
+/* Expenses that are one and the same: an invoice and its payments. */
+.pairs-alert {
+  margin-bottom: var(--space-3);
+}
+
+.expense__paired {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 @media (width <= 48rem) {

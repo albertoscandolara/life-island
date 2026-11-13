@@ -1,6 +1,8 @@
 import {
   CATEGORY_DIMENSIONS,
   CATEGORY_ID_PATTERN,
+  namesVehicle,
+  samePlace,
   templateFieldSchema,
   type CategoryDimension,
   type CategoryTemplate,
@@ -208,6 +210,26 @@ export function filterSuggestions(
         looseKey(candidate.title) === keys[1],
     );
     const finalId = pending?.id ?? id;
+    let placement = placementOf(
+      pending?.parentId || pending?.dimension ? pending : suggestion,
+      context.categories,
+      finalId,
+    );
+    if (placement.dimension === 'PROPERTY') {
+      // "Via Ponzilovo" when "Via Ponzilovo 9" exists: one place, not two.
+      const place = context.categories.find(
+        (category) =>
+          category.dimension === 'PROPERTY' &&
+          samePlace(category.title, suggestion.title),
+      );
+      if (place) {
+        dropped.push({ id, reason: `the same place as ${place.id}` });
+        continue;
+      }
+      // A car is never a place: its plate files it under SUBJECT.
+      if (!placement.parentId && namesVehicle({ id, title: suggestion.title }))
+        placement = { parentId: null, dimension: 'SUBJECT' };
+    }
     if (
       accepted.some(
         (item) =>
@@ -226,11 +248,7 @@ export function filterSuggestions(
         .slice(0, 1000),
       template: pending?.template ?? cleanTemplate(suggestion.template),
       reason: suggestion.reason.trim().slice(0, 1000),
-      ...placementOf(
-        pending?.parentId || pending?.dimension ? pending : suggestion,
-        context.categories,
-        finalId,
-      ),
+      ...placement,
     });
   }
   return { accepted, dropped };
