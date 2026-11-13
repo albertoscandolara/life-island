@@ -114,12 +114,8 @@
           "tableFrom": "attachments",
           "tableTo": "tax_years",
           "schemaTo": "tax730",
-          "columnsFrom": [
-            "tax_year"
-          ],
-          "columnsTo": [
-            "tax_year"
-          ],
+          "columnsFrom": ["tax_year"],
+          "columnsTo": ["tax_year"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -128,12 +124,8 @@
           "tableFrom": "attachments",
           "tableTo": "expenses",
           "schemaTo": "tax730",
-          "columnsFrom": [
-            "expense_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["expense_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -383,12 +375,8 @@
           "tableFrom": "expenses",
           "tableTo": "tax_years",
           "schemaTo": "tax730",
-          "columnsFrom": [
-            "tax_year"
-          ],
-          "columnsTo": [
-            "tax_year"
-          ],
+          "columnsFrom": ["tax_year"],
+          "columnsTo": ["tax_year"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -397,12 +385,8 @@
           "tableFrom": "expenses",
           "tableTo": "expenses",
           "schemaTo": "tax730",
-          "columnsFrom": [
-            "paired_with"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["paired_with"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
