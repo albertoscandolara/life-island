@@ -181,6 +181,7 @@ tax-deductions-card {
 /* Documents (of a year or an expense). */
 .docs {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -196,6 +197,7 @@ tax-deductions-card {
 
 .doc__title {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
   text-overflow: ellipsis;
@@ -213,6 +215,7 @@ tax-deductions-card {
 
 .expenses {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -251,7 +254,11 @@ tax-deductions-card {
   font-variant-numeric: tabular-nums;
 }
 
-.expense__main,
+.expense__main {
+  display: grid;
+  min-width: 0;
+}
+
 .expense__issuer {
   color: var(--text-primary);
   font-weight: 600;
@@ -290,6 +297,7 @@ tax-deductions-card {
 
 .expense__detail {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-2) var(--space-2) var(--space-5);
 }

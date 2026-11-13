@@ -108,12 +108,14 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
   styles: `
     :host {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-3);
     }
 
     .pairs,
     .pairs__list {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-2);
       margin: 0;
       padding: 0;
@@ -195,7 +197,16 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
 
     @media (width <= 48rem) {
       .pair {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: auto auto minmax(0, 1fr);
+      }
+
+      .pair__main,
+      .pair button {
+        grid-column: 1 / -1;
+      }
+
+      .pair button {
+        justify-self: start;
       }
 
       .pair__date {
