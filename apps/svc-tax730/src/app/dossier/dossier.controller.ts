@@ -129,6 +129,14 @@ export class DossierController {
     return this.dossier.removeExpenseAttachment(id, uploadId);
   }
 
+  /** Remove an expense from the 730; its documents stay, free to file elsewhere. */
+  @Delete('expenses/:id')
+  removeExpense(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TaxYearDossierDto> {
+    return this.dossier.removeExpense(id);
+  }
+
   /** Pair an expense with another one (`{ pairedWith }`), or keep it apart (`{ pairedWith: null }`). */
   @Put('expenses/:id/pairing')
   setPairing(

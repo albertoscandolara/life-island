@@ -193,6 +193,17 @@ describe.skipIf(!configured)(
       expect(candidates[0].uploadId).toBe(transferId);
       expect(candidates.some((c) => c.uploadId === invoiceId)).toBe(false);
 
+      // Searched by its file name, with other separators: found, and shown as
+      // the invoice it already is.
+      const searched = await json<Tax730DocumentCandidateDto[]>(
+        await fetch(
+          `${base}/documents?forExpense=${expense.id}&search=${encodeURIComponent('fattura - NOTAIO.pdf')}`,
+        ),
+      );
+      expect(searched.map((c) => [c.uploadId, c.filedAs])).toEqual([
+        [invoiceId, 'INVOICE'],
+      ]);
+
       const filed = await json<DossierExpenseDto>(
         await fetch(`${base}/expenses/${expense.id}/attachments`, {
           method: 'POST',
@@ -431,6 +442,28 @@ describe.skipIf(!configured)(
         );
         expect(dossier.total).toBe(55000);
         expect(dossier.pairsToReviewCount).toBe(0);
+
+        // The invoice taken out of its expense is found and free to file again.
+        await fetch(
+          `${base}/expenses/${invoice.id}/attachments/${docs.invoice}`,
+          { method: 'DELETE' },
+        );
+        const found = await json<Tax730DocumentCandidateDto[]>(
+          await fetch(
+            `${base}/documents?forExpense=${invoice.id}&search=${encodeURIComponent('66 - Edilrenso - Fattura.pdf')}`,
+          ),
+        );
+        expect(found.map((c) => [c.uploadId, c.filedAs])).toContainEqual([
+          docs.invoice,
+          null,
+        ]);
+
+        // Removed: its payments count on their own again.
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${invoice.id}`, { method: 'DELETE' }),
+        );
+        expect(dossier.expenses.map((e) => e.amount)).toEqual([15000, 40000]);
+        expect(dossier.expenses.every((e) => e.pairing === null)).toBe(true);
       } finally {
         await svc.pool.query(
           `delete from tax730.attachments where tax_year = $1`,

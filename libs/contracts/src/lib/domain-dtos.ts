@@ -230,6 +230,8 @@ export type ListTax730DocumentsQuery = z.input<
 export interface Tax730DocumentCandidateDto extends Tax730DocumentDto {
   score: number;
   reasons: string[];
+  /** How it is already filed with the expense (or one paired with it); null when it is not. */
+  filedAs: Tax730AttachmentRole | null;
 }
 
 /** Years to export; none means every year. `year=2025&year=2026` or `year=2025,2026`. */

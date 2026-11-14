@@ -283,11 +283,9 @@
 
         <tax-expense-pairs
           [expense]="e"
-          [expenses]="d.expenses"
           (confirm)="confirmPairing(e)"
           (separate)="separate($event)"
           (autoPair)="resetPairing(e)"
-          (pairWith)="pairWithExpense(e, $event)"
         />
 
         <ul class="docs" role="list">
@@ -328,6 +326,40 @@
             <ui-icon name="plus" [size]="16" />
             {{ e.hasPaymentProof ? 'Add a document' : 'Add payment proof' }}
           </button>
+          @if (removing() === e.id) {
+          <span class="remove">
+            Remove this expense? Its documents stay, free to file with another
+            one.
+            <button
+              uiButton
+              variant="danger"
+              size="sm"
+              type="button"
+              (click)="removeExpense(e)"
+            >
+              Remove
+            </button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="removing.set(null)"
+            >
+              Cancel
+            </button>
+          </span>
+          } @else {
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="removing.set(e.id)"
+          >
+            <ui-icon name="trash" [size]="16" /> Remove expense
+          </button>
+          }
         </div>
       </div>
       }

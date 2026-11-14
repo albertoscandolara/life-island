@@ -19,8 +19,8 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
 
 /**
  * The expenses that are this same one (the transfers that paid an invoice,
- * the second receipt of a transfer), counted once: you confirm the pair, say
- * one is not the same, or pair it with another expense by hand.
+ * the second receipt of a transfer), counted once: you confirm the pair or
+ * say one is not the same.
  */
 @Component({
   selector: 'tax-expense-pairs',
@@ -86,23 +86,6 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
           Pair it automatically again
         </button>
       </p>
-    }
-    @if (others().length) {
-      <label class="pair-with">
-        <span>Same expense as</span>
-        <select
-          #pick
-          (change)="pick.value && pairWith.emit(pick.value); pick.value = ''"
-        >
-          <option value="">Choose one…</option>
-          @for (o of others(); track o.id) {
-            <option [value]="o.id">
-              {{ formatDate(o.date) }} · {{ o.issuer }} ·
-              {{ formatEuro(o.amount) }}
-            </option>
-          }
-        </select>
-      </label>
     }
   `,
   styles: `
@@ -175,26 +158,6 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
       color: var(--text-secondary);
     }
 
-    .pair-with {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--space-2);
-      color: var(--text-secondary);
-      font-size: var(--text-sm);
-    }
-
-    .pair-with select {
-      min-width: 0;
-      max-width: 100%;
-      padding: var(--space-1) var(--space-2);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      background: var(--surface-card);
-      color: var(--text-primary);
-      font: inherit;
-    }
-
     @media (width <= 48rem) {
       .pair {
         grid-template-columns: auto auto minmax(0, 1fr);
@@ -217,15 +180,11 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
 })
 export class ExpensePairs {
   readonly expense = input.required<DossierExpenseDto>();
-  /** The year's expenses, to pair this one with by hand. */
-  readonly expenses = input.required<DossierExpenseDto[]>();
 
   readonly confirm = output<void>();
   /** The expense (by id) that is not the same: it is counted on its own. */
   readonly separate = output<string>();
   readonly autoPair = output<void>();
-  /** The expense (by id) this one is the same as. */
-  readonly pairWith = output<string>();
 
   protected readonly kindLabels = KIND_LABELS;
   protected readonly formatDate = formatDate;
@@ -233,8 +192,5 @@ export class ExpensePairs {
 
   protected readonly toReview = computed(() =>
     this.expense().paired.some((p) => p.automatic),
-  );
-  protected readonly others = computed(() =>
-    this.expenses().filter((o) => o.id !== this.expense().id),
   );
 }

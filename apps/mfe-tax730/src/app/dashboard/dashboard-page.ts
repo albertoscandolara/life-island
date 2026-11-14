@@ -81,6 +81,8 @@ export class DashboardPage {
   protected readonly error = signal<string | null>(null);
   protected readonly expanded = signal<string | null>(null);
   protected readonly editing = signal<string | null>(null);
+  /** The expense whose removal waits for you to confirm it. */
+  protected readonly removing = signal<string | null>(null);
   protected readonly picker = signal<PickerTarget | null>(null);
   protected readonly pickerOpen = signal(false);
 
@@ -200,13 +202,13 @@ export class DashboardPage {
     });
   }
 
-  /** You say this is the same expense as another one: it is counted through that one. */
-  protected pairWithExpense(expense: DossierExpenseDto, otherId: string): void {
-    if (!otherId) return;
-    this.api.setPairing(expense.id, otherId).subscribe({
+  /** Removes an expense from the 730; its documents stay, free to file elsewhere. */
+  protected removeExpense(expense: DossierExpenseDto): void {
+    this.api.removeExpense(expense.id).subscribe({
       next: (dossier) => {
+        this.removing.set(null);
+        this.expanded.set(null);
         this.setDossier(dossier);
-        this.expanded.set(otherId);
       },
       error: (error) => this.fail(error),
     });
