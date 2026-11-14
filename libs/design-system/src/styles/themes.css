@@ -183,6 +183,22 @@
   --accent-2: var(--sky-600);
 }
 
+[data-character='ovi'] {
+  /* dreams: a dawn rose over the night, for small steps towards a dream */
+  --accent: color-mix(in srgb, var(--coral-400) 55%, var(--abyss-700));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--coral-400) 55%, var(--abyss-700)) 82%,
+    var(--ink-900)
+  );
+  --accent-soft: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--coral-400) 55%, var(--abyss-700)) 10%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sky-600);
+}
+
 /* Dark theme: lighter tints so the accents stay readable on deep surfaces. */
 :root[data-theme='dark'] [data-character='ptera'] {
   --accent: var(--sky-400);
@@ -293,6 +309,16 @@
 :root[data-theme='dark'] [data-character='galli'] {
   --accent: var(--leaf-400);
   --accent-hover: color-mix(in srgb, var(--leaf-400) 82%, var(--ink-0));
+}
+
+:root[data-theme='dark'] [data-character='ovi'] {
+  --accent: color-mix(in srgb, var(--coral-400) 70%, var(--sun-300));
+  --accent-hover: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--coral-400) 70%, var(--sun-300)) 82%,
+    var(--ink-0)
+  );
+  --accent-2: var(--sky-300);
 }
 
 :root[data-theme='dark'] [data-character] {

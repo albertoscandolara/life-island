@@ -97,6 +97,13 @@
     },
     "changeOrigin": true
   },
+  "/api/dreams": {
+    "target": "http://localhost:3019",
+    "pathRewrite": {
+      "^/api/dreams": ""
+    },
+    "changeOrigin": true
+  },
   "/api/groceries": {
     "target": "http://localhost:3003",
     "pathRewrite": {

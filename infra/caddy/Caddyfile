@@ -60,6 +60,10 @@
 		import protected
 		reverse_proxy svc-fitness:3000
 	}
+	handle_path /api/dreams/* {
+		import protected
+		reverse_proxy svc-dreams:3000
+	}
 	handle_path /api/travel/* {
 		import protected
 		reverse_proxy svc-travel:3000

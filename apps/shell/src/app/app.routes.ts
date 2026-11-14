@@ -120,6 +120,10 @@ export const appRoutes: Route[] = [
     loadChildren: remote('mfe-fitness', './routes', 'FITNESS_ROUTES'),
   },
   {
+    path: 'dreams',
+    loadChildren: remote('mfe-dreams', './routes', 'DREAMS_ROUTES'),
+  },
+  {
     path: 'settings',
     loadChildren: remote('mfe-settings', './routes', 'SETTINGS_ROUTES'),
   },

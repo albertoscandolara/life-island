@@ -1,0 +1,40 @@
+{
+  "name": "@life-island/svc-dreams",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The Dreams area: a dream in your own words, clarifying questions, small reversible steps with their cost and how to undo them, and check-ins that set the pace",
+  "type": "module",
+  "main": "./dist/main.js",
+  "nx": {
+    "name": "svc-dreams",
+    "tags": [
+      "type:app",
+      "scope:dreams"
+    ],
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": [
+          "build"
+        ],
+        "command": "node --enable-source-maps --env-file-if-exists=../../.env dist/main.js",
+        "options": {
+          "cwd": "{projectRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@life-island/be-common": "*",
+    "@life-island/be-nest": "*",
+    "@life-island/contracts": "*",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
+  }
+}

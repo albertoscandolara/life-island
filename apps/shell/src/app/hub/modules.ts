@@ -20,6 +20,7 @@ export interface IslandModule {
     | 'diplo'
     | 'quetzal'
     | 'galli'
+    | 'ovi'
     | null;
   emblem: string;
   name: string;
@@ -47,7 +48,8 @@ export interface IslandModule {
     | 'flag'
     | 'antenna'
     | 'boat'
-    | 'track';
+    | 'track'
+    | 'balloon';
 }
 
 /**
@@ -194,6 +196,17 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     path: '/goals',
     attentionUrl: '/api/goals/attention',
     landmark: 'flag',
+  },
+  {
+    id: 'dreams',
+    character: 'ovi',
+    emblem: '🌄',
+    name: 'Dreams',
+    mission:
+      'Something you would love to reach, in your own words: a few questions first, then small steps you can undo, each with what it costs you, at the pace your check-ins set.',
+    path: '/dreams',
+    attentionUrl: '/api/dreams/attention',
+    landmark: 'balloon',
   },
   {
     id: 'travel',

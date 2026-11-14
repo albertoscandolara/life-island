@@ -71,6 +71,7 @@ When the infrastructure is already up, `npm run dev` alone restarts the apps and
 | http://localhost:4200/subscriptions | Contracts & subscriptions: renewals, cancel-by dates     | `mfe-subscriptions` (4214) + `svc-subscriptions` (3015)                       |
 | http://localhost:4200/travel        | Travel: trips, bookings, checklist, packing, costs       | `mfe-travel` (4216) + `svc-travel` (3017)                                     |
 | http://localhost:4200/fitness       | Fitness: active minutes, body and sleep, events, plan    | `mfe-fitness` (4217) + `svc-fitness` (3018)                                   |
+| http://localhost:4200/dreams        | Dreams: questions first, small reversible steps, pace    | `mfe-dreams` (4218) + `svc-dreams` (3019)                                     |
 | http://localhost:4200/groceries     | Groceries: shopping list, prices, spending               | `mfe-groceries` (4202) + `svc-groceries` (3003)                               |
 | http://localhost:4200/settings      | Settings: app settings, AI tools with costs and switches | `mfe-settings` (4208) + `svc-settings` (3009)                                 |
 | http://localhost:4201               | Documents: upload, review inbox, Parse now               | `documents` + `svc-ingestion` (3001), `svc-review` (3002), `svc-parse-worker` |

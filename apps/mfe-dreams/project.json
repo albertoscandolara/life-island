@@ -1,0 +1,123 @@
+{
+  "name": "mfe-dreams",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "dreams",
+  "sourceRoot": "apps/mfe-dreams/src",
+  "tags": ["type:app", "scope:dreams"],
+  "targets": {
+    "build": {
+      "executor": "@angular-architects/native-federation:build",
+      "defaultConfiguration": "production",
+      "options": {
+        "cacheExternalArtifacts": true,
+        "tsConfig": "apps/mfe-dreams/tsconfig.federation.json"
+      },
+      "configurations": {
+        "production": {
+          "target": "mfe-dreams:esbuild:production"
+        },
+        "development": {
+          "target": "mfe-dreams:esbuild:development",
+          "dev": true
+        }
+      }
+    },
+    "serve": {
+      "executor": "@angular-architects/native-federation:build",
+      "options": {
+        "target": "mfe-dreams:serve-original:development",
+        "tsConfig": "apps/mfe-dreams/tsconfig.federation.json",
+        "rebuildDelay": 500,
+        "cacheExternalArtifacts": true,
+        "dev": true,
+        "devServer": true,
+        "port": 0
+      },
+      "continuous": true
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "watch": false
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"],
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "mfe-dreams:build",
+        "port": 4218,
+        "staticFilePath": "dist/apps/mfe-dreams/browser",
+        "spa": true
+      }
+    },
+    "esbuild": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/mfe-dreams",
+        "browser": "apps/mfe-dreams/src/main.ts",
+        "tsConfig": "apps/mfe-dreams/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/mfe-dreams/public"
+          }
+        ],
+        "styles": [
+          "libs/design-system/src/styles/index.css",
+          "apps/mfe-dreams/src/styles.css"
+        ],
+        "polyfills": ["es-module-shims"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "12kb",
+              "maximumError": "16kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve-original": {
+      "continuous": true,
+      "readyWhen": {
+        "signal": true
+      },
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "port": 4218,
+        "proxyConfig": "apps/mfe-dreams/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "mfe-dreams:esbuild:production"
+        },
+        "development": {
+          "buildTarget": "mfe-dreams:esbuild:development"
+        }
+      }
+    }
+  }
+}

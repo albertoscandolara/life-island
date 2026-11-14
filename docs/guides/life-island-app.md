@@ -18,6 +18,7 @@ The Life Island app is where you use your data. It is a Native Federation **host
 | Contracts & subscriptions | `mfe-subscriptions` | `svc-subscriptions` | Live   |
 | Travel                    | `mfe-travel`        | `svc-travel`        | Live   |
 | Fitness                   | `mfe-fitness`       | `svc-fitness`       | Live   |
+| Dreams                    | `mfe-dreams`        | `svc-dreams`        | Live   |
 
 The list of areas, their order on the island and their routes live in `apps/shell/src/app/hub/modules.ts`.
 
@@ -48,6 +49,7 @@ npx nx serve svc-health       # check-ups, visits, medicines, results (port 3014
 npx nx serve svc-subscriptions # contracts and renewals (port 3015); mfe-subscriptions on 4214
 npx nx serve svc-travel       # trips (port 3017); mfe-travel on 4216
 npx nx serve svc-fitness      # workouts, body, events (port 3018); mfe-fitness on 4217
+npx nx serve svc-dreams       # dreams, questions, small steps, check-ins (port 3019); mfe-dreams on 4218
 npx nx serve svc-groceries    # receipts and the shopping list (port 3003); mfe-groceries on 4202
 npx nx serve shell            # the island (port 4200)
 ```
@@ -315,6 +317,30 @@ Iggy's zone (`/studies`, `mfe-studies` and `svc-studies`) is where you grow: it 
 
 A database created before this area existed gets its schema and role from svc-studies itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/006-studies-schema.sql`).
 
+## Dreams
+
+Ovi's zone (`/dreams`, `mfe-dreams` and `svc-dreams`) is for something you would love to reach but that takes you out of your comfort zone: a new job, a trip, a sport, something to create. It is built for small, pondered steps, and it never decides for you.
+
+- **The dream.** You write it in your own words: why it matters, where you are today, what scares you, and what you cannot put at risk (income, time, people). You pick a pace (gentle, steady, bolder) and can rest a dream, mark it reached or let it go at any time. The page opens on a sky with the dream's path in 3D: one lit stone per step taken, a pulsing one for the next step, faint ones ahead, and the dream as a light at the end. The same facts are written beside it, and the scene stops for "reduce motion".
+- **Questions first.** Before any step, the AI tool `dreams.questions` asks three to five questions about what it still does not know. Answered questions stay when you ask again. Off, or without `ANTHROPIC_API_KEY`, the questions come from Life Island's own list for the dream's area.
+- **Small steps.** The AI tool `dreams.steps` suggests two to four steps: think, explore, prepare, try. Each says what it costs you (minutes, euro, energy), how far out of the comfort zone it goes, how to undo it, and a smaller version for a day it feels too much. Nothing happens until you pick one ("I'll do this one", "Take the smaller one", "Not for me"). Bigger moves, such as resigning, moving or a large purchase, are never steps: they are listed under "Not yet" with what should be true first (for example six months of safety net). Off, Life Island's own ladder for the area suggests them.
+- **Check-ins and the pace.** After a step you say how it felt (too much … energising) and what you want next (smaller, the same, a bit further). `dreamReach` in `libs/contracts` (dreams.ts) turns the pace and the latest check-ins into how far the next steps may reach: "smaller" or a step that felt like too much brings it down, "a bit further" after a step that went well lets it up by one, and two heavy check-ins in a row make the next round tiny and short, with a gentle note that resting is fine and that talking to someone helps. The service also pulls any model step back within that reach.
+- **Safety net, from the other areas.** A dream can be about any area of life, so you tick which areas it may read (Money, Work, Studies, Fitness, Travel, Goals; each new dream offers the usual ones for its area). svc-dreams reads their `GET /overview` over HTTP (`DREAMS_SOURCES`, the local ports when unset) and keeps a few facts each: your balance and usual month, so the months your savings cover, time at your job and since the last rise, the paths you follow, your active minutes. These lines are exactly what the small steps tool sends, and no names of companies, people or places are. An area that is not running is shown as not reachable, and the dream works without it.
+- **Agenda and badge.** A chosen step with a date shows in the Agenda. The island badge counts only steps waiting for their check-in: a dream is never "late".
+
+| Endpoint (`/api/dreams/...`)                             | What it does                                                                      |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GET /overview`                                          | Dreams with questions, steps, check-ins, the last guidance and the pace now       |
+| `GET /deadlines`, `GET /attention`                       | Dated chosen steps for the Agenda; steps waiting for a check-in                   |
+| `POST /dreams`, `PUT /dreams/:id`, `DELETE /dreams/:id`  | A dream (its fields, pace, status and `contextAreas`)                             |
+| `POST /dreams/:id/questions`, `PUT /questions/:id`       | Ask (or ask again, keeping answers); answer a question                            |
+| `POST /dreams/:id/suggestions`                           | The next small steps (optional `note`); earlier unpicked suggestions are replaced |
+| `POST /steps`, `PUT /steps/:id`, `PUT /steps/:id/status` | Your own step, an edit; choose, set aside or bring back a step                    |
+| `POST /check-ins`, `DELETE /check-ins/:id`               | How a step went (`outcome` done or skipped), or how the dream feels today         |
+| `GET /dreams/:id/context`                                | What the shared areas say now, exactly as the small steps tool reads it           |
+
+A database created before this area existed gets its schema and role from svc-dreams itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/015-dreams-schema.sql`).
+
 ## The new areas: one way of working
 
 Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Travel, Fitness and the Groceries page all follow the same pattern, so once you know one you know them all.
@@ -323,18 +349,19 @@ Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Travel, Fitnes
 - **Its own AI tool, with an offline fallback.** Every area has one AI tool (registered in `AI_TOOLS`, with its Settings switch, request and costs in Settings → AI tools). The panel says what is sent to Claude and what is not. With AI turned off, or without a key, the same button gives an answer from Life Island's own rules, marked "offline". The last ten answers are kept.
 - **Dates go to the Agenda.** Every area with dates answers `GET /deadlines?from&to` with `DeadlineDto` items (libs/contracts `agenda.ts`), and svc-agenda reads them all (`AGENDA_SOURCES`, see `apps/svc-agenda/src/app/config.ts`). An area that is down shows as "not reachable" on the Agenda; the rest still shows. Marking a date as done in the Agenda never changes the area's own data.
 
-| Area           | Dates it sends to the Agenda                                                                                                               | AI tool                     |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
-| People & IDs   | ID documents that expire                                                                                                                   | —                           |
-| Cars           | insurance, road tax, revisione, fines                                                                                                      | insurance quote comparison  |
-| Houses         | bills to pay                                                                                                                               | —                           |
-| Studies        | exams, course ends, renewals of platforms                                                                                                  | study coach, resource scout |
-| Money          | the next date of each recurring charge                                                                                                     | spending review             |
-| Goals & habits | goal and step due dates                                                                                                                    | coach                       |
-| Health         | check-ups due, follow-up visits, medicine refills, vaccine boosters                                                                        | results explainer           |
-| Contracts      | renewals and the date to cancel by                                                                                                         | renewal advisor             |
-| Travel         | departures, check-ins, booking deadlines                                                                                                   | trip planner                |
-| Fitness        | races and events                                                                                                                           | training plan               |
-| Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                  |
+| Area           | Dates it sends to the Agenda                                                                                                               | AI tool                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| People & IDs   | ID documents that expire                                                                                                                   | —                            |
+| Cars           | insurance, road tax, revisione, fines                                                                                                      | insurance quote comparison   |
+| Houses         | bills to pay                                                                                                                               | —                            |
+| Studies        | exams, course ends, renewals of platforms                                                                                                  | study coach, resource scout  |
+| Money          | the next date of each recurring charge                                                                                                     | spending review              |
+| Goals & habits | goal and step due dates                                                                                                                    | coach                        |
+| Health         | check-ups due, follow-up visits, medicine refills, vaccine boosters                                                                        | results explainer            |
+| Contracts      | renewals and the date to cancel by                                                                                                         | renewal advisor              |
+| Travel         | departures, check-ins, booking deadlines                                                                                                   | trip planner                 |
+| Fitness        | races and events                                                                                                                           | training plan                |
+| Dreams         | the dates you give chosen steps                                                                                                            | dream questions, small steps |
+| Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                   |
 
 The hub shows the next six dates under **Coming up**, from `GET /api/agenda/upcoming`.

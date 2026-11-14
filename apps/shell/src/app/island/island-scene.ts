@@ -560,6 +560,30 @@ export class IslandScene {
         ).scale.set(1, 1, 0.15);
         break;
       }
+      case 'balloon': {
+        // Dreams: a hot-air balloon rising from its basket.
+        add(this.mesh(new BoxGeometry(0.34, 0.26, 0.34), 'trunk'), 0, 0.36, 0);
+        for (const x of [-0.13, 0.13])
+          add(
+            this.mesh(new CylinderGeometry(0.012, 0.012, 0.42, 4), 'foam'),
+            x,
+            0.68,
+            0,
+          );
+        add(
+          this.mesh(new SphereGeometry(0.42, 14, 10), tint),
+          0,
+          1.18,
+          0,
+        ).scale.set(1, 1.12, 1);
+        add(
+          this.mesh(new ConeGeometry(0.2, 0.22, 10), tint),
+          0,
+          0.82,
+          0,
+        ).rotation.x = Math.PI;
+        break;
+      }
       case 'track': {
         // Fitness: a running track round a field.
         const track = add(

@@ -27,6 +27,7 @@ You drop any document (receipt photo, PDF, spreadsheet, email) onto the island. 
 | Allo (allosaurus)          | Contracts & subscriptions | Contracts and subscriptions with their yearly cost, renewal and cancel-by dates, price history, an AI renewal advisor                                                                                                                                           | Live          |
 | Quetzal (quetzalcoatlus)   | Travel                    | Trips with bookings, checklist, packing and expenses, an AI trip planner                                                                                                                                                                                        | Live          |
 | Galli (gallimimus)         | Fitness                   | Workouts as active minutes against a weekly goal, weight and sleep, races and events, an AI training plan                                                                                                                                                       | Live          |
+| Ovi (oviraptor)            | Dreams                    | A dream in your own words, a few questions first (today, fears, what you cannot risk), small reversible steps with their cost and how to undo them, check-ins that set the pace, and a safety net read from the areas you share                                 | Live          |
 | Trice (triceratops)        | Groceries page            | A shopping list that learns from your receipts, price history by item and shop, spending by category, AI list suggestions                                                                                                                                       | Live          |
 | More to come               | Anything else             | Each a new module following the same checklist                                                                                                                                                                                                                  | Later         |
 
@@ -125,7 +126,8 @@ life-island/
 │   ├── mfe-health/ svc-health/              # Maia: check-ups, visits, medicines, results, vaccinations, explainer
 │   ├── mfe-subscriptions/ svc-subscriptions/ # Allo: contracts, renewals, cancel-by dates, price history, advisor
 │   ├── mfe-travel/ svc-travel/              # Quetzal: trips, bookings, checklist, expenses, planner
-│   └── mfe-fitness/ svc-fitness/            # Galli: workouts, body and sleep, events, training plan
+│   ├── mfe-fitness/ svc-fitness/            # Galli: workouts, body and sleep, events, training plan
+│   └── mfe-dreams/ svc-dreams/              # Ovi: dreams, questions, small steps, check-ins, safety net from other areas
 ├── libs/
 │   ├── design-system/         # tokens (CSS vars) + Angular components + Storybook
 │   ├── contracts/             # Zod: events, target schemas, DTOs
@@ -535,7 +537,7 @@ Ten weeks to the first full loop; the 3D island comes last, once the data flow w
 6. **Week 7 — Review and loading:** staging, approval API, domain consumers. Done when 20 bulk-approved records reach LOADED across two services with no duplicates on replay.
 7. **Weeks 8–9 — Module UIs:** review, groceries, 730.
 8. **Week 10 — 3D island.**
-9. **Since then — Areas:** Houses and Bills, People & IDs, Cars and Work, each a remote and a service built through the checklist below.
+9. **Since then — Areas:** Houses and Bills, People & IDs, Cars, Work, Studies, the record-keeping areas and Dreams, each a remote and a service built through the checklist below.
 10. **Ongoing — Hardening:** OIDC (Keycloak or Zitadel) at the gateway; never log payloads; encrypted backups; HTTPS; optional codice fiscale redaction before AI calls; OpenTelemetry trace per upload; status dashboard; VPS deploy.
 
 First demo: photograph a pharmacy receipt, see two records in Ptera's inbox (groceries and 730), approve both with one key, then see them in Trice's spending and Ankylo's deductible total.
