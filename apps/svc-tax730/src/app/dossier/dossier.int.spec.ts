@@ -193,6 +193,17 @@ describe.skipIf(!configured)(
       expect(candidates[0].uploadId).toBe(transferId);
       expect(candidates.some((c) => c.uploadId === invoiceId)).toBe(false);
 
+      // Searched by its file name, with other separators: found, and shown as
+      // the invoice it already is.
+      const searched = await json<Tax730DocumentCandidateDto[]>(
+        await fetch(
+          `${base}/documents?forExpense=${expense.id}&search=${encodeURIComponent('fattura - NOTAIO.pdf')}`,
+        ),
+      );
+      expect(searched.map((c) => [c.uploadId, c.filedAs])).toEqual([
+        [invoiceId, 'INVOICE'],
+      ]);
+
       const filed = await json<DossierExpenseDto>(
         await fetch(`${base}/expenses/${expense.id}/attachments`, {
           method: 'POST',

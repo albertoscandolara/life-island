@@ -69,9 +69,15 @@
         >
           <ui-icon name="eye" [size]="16" /> View
         </a>
+        @if (document.filedAs) {
+        <ui-badge tone="info"
+          >Already filed as {{ roleLabels[document.filedAs] }}</ui-badge
+        >
+        } @else {
         <button uiButton size="sm" type="button" (click)="pick(document)">
           <ui-icon name="plus" [size]="16" /> File it
         </button>
+        }
       </li>
       } @empty { @if (!loading()) {
       <ui-empty-state icon="search" heading="No matching documents">

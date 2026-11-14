@@ -66,6 +66,14 @@ type ListDocuments = z.output<typeof listTax730DocumentsQuerySchema>;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
+/** The words of a search, without the separators of file names: "a - b.pdf" → [a, b, pdf]. */
+export function searchWords(search: string | undefined): string[] {
+  return (search ?? '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
 /** What pairing reads of an expense: its numbers and what its document says. */
 function pairableOf(
   row: ExpenseRow,
@@ -545,8 +553,10 @@ export class DossierService {
    */
   async documents(query: ListDocuments): Promise<Tax730DocumentCandidateDto[]> {
     const conditions = [isNull(documents.deletedAt)];
-    if (query.search) {
-      const pattern = `%${query.search.replace(/[\\%_]/g, '\\$&')}%`;
+    // Every word, wherever it is: "2025-12-16 - 66 - Edilrenso - Fattura.pdf"
+    // finds the document titled "2025 12 16 66 Edilrenso Fattura".
+    for (const word of searchWords(query.search)) {
+      const pattern = `%${word.replace(/[\\%_]/g, '\\$&')}%`;
       conditions.push(
         sql`(${documents.title} ilike ${pattern} or ${documents.originalFilename} ilike ${pattern} or ${documents.fields}::text ilike ${pattern})`,
       );
@@ -562,6 +572,7 @@ export class DossierService {
         ...toDocumentDto(row),
         score: 0,
         reasons: [],
+        filedAs: null,
       }));
 
     const expense = await this.expense(query.forExpense);
@@ -569,21 +580,27 @@ export class DossierService {
       throw new NotFoundException(`Expense ${query.forExpense} not found`);
     // What is filed with it, or with the expenses paired with it.
     const group = await this.dossierExpense(expense);
-    const filed = new Set([
-      expense.uploadId,
-      ...group.attachments.map((a) => a.uploadId),
-    ]);
-    return rows
-      .filter((row) => !filed.has(row.uploadId))
-      .map((row) => ({
-        ...toDocumentDto(row),
-        ...scorePaymentCandidate(expense, row),
-      }))
-      .filter((candidate) => query.search || candidate.score > 0)
-      .sort(
-        (a, b) => b.score - a.score || b.uploadedAt.localeCompare(a.uploadedAt),
-      )
-      .slice(0, query.limit);
+    const filed = new Map<string, Tax730AttachmentRole>(
+      group.attachments.map((a) => [a.uploadId, a.role]),
+    );
+    if (!filed.has(expense.uploadId)) filed.set(expense.uploadId, 'INVOICE');
+    return (
+      rows
+        // A search shows what is filed already, so you see why it is not new;
+        // the suggestions leave it out.
+        .filter((row) => query.search || !filed.has(row.uploadId))
+        .map((row) => ({
+          ...toDocumentDto(row),
+          ...scorePaymentCandidate(expense, row),
+          filedAs: filed.get(row.uploadId) ?? null,
+        }))
+        .filter((candidate) => query.search || candidate.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score || b.uploadedAt.localeCompare(a.uploadedAt),
+        )
+        .slice(0, query.limit)
+    );
   }
 
   /** A document this service knows, for streaming its file. */
