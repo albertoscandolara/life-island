@@ -86,15 +86,10 @@ function pairableOf(
     date: row.date,
     amount: row.amount,
     issuer: row.issuer,
-    text: [
-      row.description,
-      row.documentNumber,
-      source?.title,
-      source?.description,
-      source?.originalFilename,
-    ]
+    text: [row.documentNumber, source?.title, source?.originalFilename]
       .filter(Boolean)
       .join(' '),
+    details: [row.description, source?.description].filter(Boolean).join(' '),
     pairedWith: row.pairedWith,
     pairing: row.pairing as PairingDecision | null,
   };
@@ -174,6 +169,11 @@ export class DossierService {
 
     const byExpense = new Map<string, Tax730AttachmentDto[]>();
     const byYear = new Map<number, Tax730AttachmentDto[]>();
+    const chosen = new Set(
+      attachmentRows
+        .filter((row) => row.chosen && row.expenseId)
+        .map((row) => `${row.expenseId}:${row.uploadId}`),
+    );
     for (const row of attachmentRows) {
       if (row.expenseId) {
         const list = byExpense.get(row.expenseId) ?? [];
@@ -201,12 +201,13 @@ export class DossierService {
     }
     const kindOf = (row: ExpenseRow) => kinds.get(row.id) ?? 'INVOICE';
     // The document an expense was read from is its invoice, or its payment
-    // proof when it was read from a transfer receipt.
+    // proof when it was read from a transfer receipt; a role you chose wins.
     const filesOf = (row: ExpenseRow) =>
       (byExpense.get(row.id) ?? []).map((file) =>
         file.uploadId === row.uploadId &&
         file.role === 'INVOICE' &&
-        kindOf(row) === 'PAYMENT'
+        kindOf(row) === 'PAYMENT' &&
+        !chosen.has(`${row.id}:${file.uploadId}`)
           ? { ...file, role: 'PAYMENT' as const }
           : file,
       );
@@ -389,11 +390,12 @@ export class DossierService {
         expenseId,
         uploadId: request.uploadId,
         role: request.role,
+        chosen: true,
       })
       .onConflictDoUpdate({
         target: [attachments.expenseId, attachments.uploadId],
         targetWhere: sql`${attachments.expenseId} is not null`,
-        set: { role: request.role },
+        set: { role: request.role, chosen: true },
       });
     return this.dossierExpense(expense);
   }

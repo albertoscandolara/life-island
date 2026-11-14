@@ -1,0 +1,1 @@
+ALTER TABLE "tax730"."attachments" ADD COLUMN "chosen" boolean DEFAULT false NOT NULL;

@@ -18,8 +18,14 @@ export interface PairableExpense {
   date: string;
   amount: number;
   issuer: string;
-  /** Everything the expense's document says about itself: title, file name, description... */
+  /** What the expense's document is called: its title, file name and number. */
   text: string;
+  /**
+   * What else is written about it (descriptions). It helps find the supplier,
+   * but only says invoice or payment when the name does not: an invoice
+   * often reads "to be paid by bank transfer".
+   */
+  details?: string;
   pairedWith: string | null;
   pairing: PairingDecision | null;
 }
@@ -124,12 +130,15 @@ export function partyWords(text: string): Set<string> {
 
 /** Whether the expense was read from a payment (a transfer receipt) rather than an invoice. */
 export function expenseKind(
-  expense: Pick<PairableExpense, 'issuer' | 'text'>,
+  expense: Pick<PairableExpense, 'issuer' | 'text' | 'details'>,
 ): ExpenseKind {
-  const text = `${expense.issuer} ${expense.text}`;
-  if (PAYMENT_WORDS.test(text)) return 'PAYMENT';
-  if (INVOICE_WORDS.test(text)) return 'INVOICE';
-  return BANK_ISSUER.test(expense.issuer) ? 'PAYMENT' : 'INVOICE';
+  const name = `${expense.issuer} ${expense.text}`;
+  if (PAYMENT_WORDS.test(name)) return 'PAYMENT';
+  if (INVOICE_WORDS.test(name)) return 'INVOICE';
+  if (BANK_ISSUER.test(expense.issuer)) return 'PAYMENT';
+  const details = expense.details ?? '';
+  if (INVOICE_WORDS.test(details)) return 'INVOICE';
+  return PAYMENT_WORDS.test(details) ? 'PAYMENT' : 'INVOICE';
 }
 
 const days = (a: string, b: string) =>
@@ -189,7 +198,9 @@ export function pairExpenses(
   const words = new Map(
     expenses.map((e) => [
       e.id,
-      partyWords(BANK_ISSUER.test(e.issuer) ? e.text : `${e.issuer} ${e.text}`),
+      partyWords(
+        `${BANK_ISSUER.test(e.issuer) ? '' : e.issuer} ${e.text} ${e.details ?? ''}`,
+      ),
     ]),
   );
   const kinds = new Map(expenses.map((e) => [e.id, expenseKind(e)]));

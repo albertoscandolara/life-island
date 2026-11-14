@@ -126,6 +126,21 @@ describe('pairing expenses', () => {
     expect(expenseKind(e.lesoTransfer)).toBe('PAYMENT');
     expect(expenseKind(e.edilrenso15Detail)).toBe('PAYMENT');
     expect(expenseKind(e.elektroHome)).toBe('INVOICE');
+    // An invoice that says how to pay it is still an invoice.
+    expect(
+      expenseKind({
+        ...e.edilrensoInvoice,
+        details:
+          'Invoice n. 66 of 16/12/2025, to be paid by bank transfer (bonifico)',
+      }),
+    ).toBe('INVOICE');
+    expect(
+      expenseKind({
+        issuer: 'Idroterm',
+        text: '2025 10 26 Idroterm',
+        details: 'Bank transfer receipt',
+      }),
+    ).toBe('PAYMENT');
   });
 
   it('counts each invoice once, with the transfers that paid it', () => {
