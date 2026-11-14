@@ -141,10 +141,170 @@ export function entityKey(text: string): string {
 /** An Italian plate (AB123CD), or another short code of letters and digits. */
 const PLATE = /^[a-z]{2}\d{3}[a-z]{2}$/;
 
+/** How close two names are, from the same to unrelated. */
+export type NameMatch = 'same' | 'compact' | 'street' | 'similar';
+
+/** The tiers a name is matched in, the strictest first. */
+const TIERS: readonly NameMatch[] = ['same', 'compact', 'street', 'similar'];
+
+/** Street words documents abbreviate: "V.le" is "viale", "P.zza" is "piazza". */
+const STREET_WORDS: [RegExp, string][] = [
+  [/^\s*v\.?\s*le\b\.?/i, 'viale '],
+  [/^\s*p\.?\s*zz?a\b\.?/i, 'piazza '],
+  [/^\s*p\.?\s*(zz)?le\b\.?/i, 'piazzale '],
+  [/^\s*c\.?\s*so\b\.?/i, 'corso '],
+  [/^\s*v\.?\s*lo\b\.?/i, 'vicolo '],
+  [/^\s*loc\b\.?/i, 'localita '],
+  [/^\s*fraz\b\.?/i, 'frazione '],
+  [/^\s*v\.\s*/i, 'via '],
+];
+
+/** A house number, with its letter or interior: 9, 10a, 12/b, snc, n 9. */
+const NUMBER = /^(\d+[a-z]?|snc|sn|n|nr|civ|int|bis|ter)$/;
+
 /**
- * The entity a text names: one whose name or alias reads the same, or, for a
- * car, whose plate the text contains ("Fiat Punto EJ560PZ"). A text that
- * would fit two entities finds none: a guess would link the wrong page.
+ * An address without its house number, with street words written out:
+ * "Via dei Bandi, 9", "via dei Bandi" and "V. dei Bandi 10/a" all read
+ * "via dei bandi". Null when nothing is left.
+ */
+export function streetKey(text: string): string | null {
+  const parts = streetParts(text);
+  return parts ? parts.street : null;
+}
+
+/** An address as its street and its house number (null when not printed). */
+function streetParts(
+  text: string,
+): { street: string; number: string | null } | null {
+  let written = text;
+  for (const [pattern, word] of STREET_WORDS)
+    if (pattern.test(written)) {
+      written = written.replace(pattern, word);
+      break;
+    }
+  const words = entityKey(written).split(' ').filter(Boolean);
+  const number: string[] = [];
+  while (words.length > 1 && NUMBER.test(words[words.length - 1]))
+    number.unshift(words.pop() as string);
+  // "Via Roma 5 a" and "Via Roma 5/b" leave a lone letter after the number.
+  while (
+    words.length > 2 &&
+    words[words.length - 1].length === 1 &&
+    /\d/.test(words[words.length - 2])
+  )
+    number.unshift(...words.splice(-2, 2));
+  const digits = number.join('').replace(/\D/g, '');
+  return words.length
+    ? { street: words.join(' '), number: digits || null }
+    : null;
+}
+
+const STREET =
+  /^(via|viale|piazza|piazzale|corso|vicolo|strada|largo|localita|contrada|frazione|borgo)\b/;
+
+/** Letters changed, added or removed to turn one text into the other. */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++)
+      next[j] = Math.min(
+        row[j] + 1,
+        next[j - 1] + 1,
+        row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    row = next;
+  }
+  return row[b.length];
+}
+
+/** Typos a name may have and still be the same: none below 6 letters, then 1, then 2 from 12. */
+function typosAllowed(length: number): number {
+  return length >= 12 ? 2 : length >= 6 ? 1 : 0;
+}
+
+/**
+ * How two names compare, or null when they are not the same thing:
+ * - same: equal once case, accents, punctuation and legal form are gone
+ *   ("Arcoda" = "ARCODA S.R.L.");
+ * - compact: equal once spaces go too ("Banca Widiba" = "BancaWidiba",
+ *   "EJ 560 PZ" = "EJ560PZ");
+ * - street: the same street, with or without its number ("Via dei Bandi" =
+ *   "via dei Bandi, 9"), for addresses only;
+ * - similar: one or two letters apart in a long enough name ("Elektrosistem"
+ *   = "Elektrosystem"). Numbers must match exactly: "Via Roma 5" is not
+ *   "Via Roma 6" by typo.
+ */
+export function compareNames(a: string, b: string): NameMatch | null {
+  const ka = entityKey(a);
+  const kb = entityKey(b);
+  if (!ka || !kb) return null;
+  if (ka === kb) return 'same';
+  const ca = ka.replace(/ /g, '');
+  const cb = kb.replace(/ /g, '');
+  if (ca === cb) return 'compact';
+  const sa = streetParts(a);
+  const sb = streetParts(b);
+  if (
+    sa &&
+    sb &&
+    sa.street === sb.street &&
+    STREET.test(sa.street) &&
+    sa.street.includes(' ') &&
+    // "Via Roma" is "Via Roma 5"; "Via Roma 5" is not "Via Roma 6".
+    (!sa.number || !sb.number || sa.number === sb.number)
+  )
+    return 'street';
+  const digits = (k: string) => k.replace(/\D/g, '');
+  if (digits(ca) !== digits(cb)) return null;
+  const allowed = typosAllowed(Math.min(ca.length, cb.length));
+  if (allowed && Math.abs(ca.length - cb.length) <= allowed)
+    if (editDistance(ca, cb) <= allowed) return 'similar';
+  return null;
+}
+
+/** Whether two names stand for the same thing, however slightly they differ. */
+export function sameName(a: string, b: string): boolean {
+  return compareNames(a, b) !== null;
+}
+
+/**
+ * The one candidate a text names, in the strictest tier that finds any: a
+ * text two candidates fit equally well finds none, since a guess would pick
+ * the wrong one. `prefer` breaks a tie (a confirmed entity over pending ones).
+ */
+export function matchName<T>(
+  text: string | null | undefined,
+  candidates: readonly T[],
+  names: (candidate: T) => readonly string[],
+  options: {
+    same?: (a: T, b: T) => boolean;
+    prefer?: (candidate: T) => boolean;
+  } = {},
+): { found: T; how: NameMatch } | null {
+  if (!text || !entityKey(text)) return null;
+  const same = options.same ?? ((a: T, b: T) => a === b);
+  for (const tier of TIERS) {
+    const hits = candidates.filter((c) =>
+      names(c).some((name) => compareNames(text, name) === tier),
+    );
+    if (!hits.length) continue;
+    if (hits.every((h) => same(h, hits[0])))
+      return { found: hits[0], how: tier };
+    const preferred = options.prefer ? hits.filter(options.prefer) : [];
+    if (preferred.length && preferred.every((h) => same(h, preferred[0])))
+      return { found: preferred[0], how: tier };
+    return null;
+  }
+  return null;
+}
+
+/**
+ * The entity a text names: one whose name or alias reads the same (case,
+ * accents, punctuation, legal form, spacing, a street's number and a typo
+ * or two do not count), or, for a car, whose plate the text contains
+ * ("Fiat Punto EJ560PZ"). A text that fits two entities finds none.
  */
 export function findEntity(
   text: string | null | undefined,
@@ -158,12 +318,13 @@ export function findEntity(
   const candidates = kinds
     ? entities.filter((e) => kinds.includes(e.kind))
     : entities;
-  const exact = unique(
-    candidates.filter((e) =>
-      [e.name, ...e.aliases].some((name) => entityKey(name) === key),
-    ),
-  );
-  if (exact !== undefined) return exact;
+  const sameEntity = (a: EntityRefDto, b: EntityRefDto) =>
+    a.kind === b.kind && a.id === b.id;
+  const matched = matchName(text, candidates, (e) => [e.name, ...e.aliases], {
+    same: sameEntity,
+    prefer: (e) => e.status === 'confirmed',
+  });
+  if (matched) return matched.found;
   const words = new Set(key.split(' '));
   return (
     unique(

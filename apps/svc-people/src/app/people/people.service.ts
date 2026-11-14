@@ -1,3 +1,4 @@
+import { duplicateNotices } from './duplicates.js';
 import {
   ConflictException,
   Inject,
@@ -202,7 +203,10 @@ export class PeopleService {
           age: ageOn(person.birthDate, today),
           relations: pairs.flatMap((row) => relationOf(row, person.id) ?? []),
           taxDependentOf: person.taxDependentOf,
-          notices: personNotices(person, series, today),
+          notices: [
+            ...personNotices(person, series, today),
+            ...duplicateNotices(person, people),
+          ],
         };
       })
       .sort((a, b) =>

@@ -138,13 +138,30 @@ export class SupplyPointsController {
     return listOrganizations(this.svc.db);
   }
 
-  /** Your fixes to a company: a clearer name, its tax code or VAT number. */
+  /** Your fixes to a company: a clearer name, its tax code or VAT number, its other names and roles. */
   @Patch('organizations/:id')
   async updateOrganization(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: unknown,
   ): Promise<OrganizationDto> {
     const request = parseOrThrow(updateOrganizationRequestSchema, body);
+    const [current] = await this.svc.db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, id));
+    if (!current) throw new NotFoundException(`Organization ${id} not found`);
+    // A renamed company is still found by the name its documents print.
+    const aliases = request.aliases ?? current.aliases;
+    if (
+      request.name !== undefined &&
+      organizationKey(request.name) !== organizationKey(current.name)
+    )
+      request.aliases = [...aliases, current.name];
+    if (request.aliases)
+      request.aliases = request.aliases.filter(
+        (a) =>
+          organizationKey(a) !== organizationKey(request.name ?? current.name),
+      );
     const set = {
       ...(request.name !== undefined
         ? { name: request.name, nameKey: organizationKey(request.name) }
@@ -160,6 +177,12 @@ export class SupplyPointsController {
               ? normalizeTaxCode(request.vatNumber)
               : null,
           }
+        : {}),
+      ...(request.aliases !== undefined
+        ? { aliases: [...new Set(request.aliases)] }
+        : {}),
+      ...(request.roles !== undefined
+        ? { roles: [...new Set(request.roles)] }
         : {}),
     };
     if (Object.keys(set).length)

@@ -1,5 +1,8 @@
 import {
   cleanAliases,
+  compareNames,
+  matchName,
+  streetKey,
   entityKey,
   entityPath,
   findEntity,
@@ -112,5 +115,69 @@ describe('cleanAliases', () => {
         '',
       ]),
     ).toEqual(['Via dei Bandi 10']);
+  });
+});
+
+describe('compareNames', () => {
+  it('ignores case, accents, punctuation and legal form', () => {
+    expect(compareNames('Arcoda', 'ARCODA')).toBe('same');
+    expect(compareNames('arcoda', 'ARCODA S.R.L.')).toBe('same');
+    expect(compareNames('Città di Verona', 'CITTA DI VERONA')).toBe('same');
+  });
+
+  it('ignores spacing', () => {
+    expect(compareNames('Banca Widiba', 'BancaWidiba')).toBe('compact');
+    expect(compareNames('EJ 560 PZ', 'ej560pz')).toBe('compact');
+  });
+
+  it('reads a street the same with or without its number', () => {
+    expect(compareNames('via dei Bandi', 'Via dei Bandi, 9')).toBe('street');
+    expect(compareNames('V. dei Bandi 10/a', 'Via dei Bandi')).toBe('street');
+    expect(compareNames('Via Roma', 'Roma')).toBeNull();
+  });
+
+  it('forgives a typo in a long enough name, never in a number', () => {
+    expect(compareNames('Elektrosistem', 'ELEKTROSYSTEM SNC')).toBe('similar');
+    expect(compareNames('Enel', 'Enea')).toBeNull();
+    expect(compareNames('Via Roma 5', 'Via Roma 6')).toBeNull();
+    expect(compareNames('Idroterm', 'Termoidraulica')).toBeNull();
+  });
+});
+
+describe('findEntity, tolerant', () => {
+  it('finds a house from a street the document prints without the number', () => {
+    expect(findEntity('via dei bandi, 9', ENTITIES)?.id).toBe('h2');
+  });
+
+  it('finds a company printed in another case or with a typo', () => {
+    expect(findEntity('edilrenso', ENTITIES)?.id).toBe('o1');
+    expect(findEntity('Edilrenzo s.n.c.', ENTITIES)?.id).toBe('o1');
+  });
+
+  it('prefers the strictest match over a looser one', () => {
+    const list = [
+      ref('organization', 'a', 'Arcoda'),
+      ref('organization', 'b', 'Arcadia'),
+    ];
+    expect(findEntity('ARCODA', list)?.id).toBe('a');
+  });
+});
+
+describe('matchName', () => {
+  it('finds nothing when two candidates fit equally', () => {
+    const list = [
+      { id: 'a', name: 'Via Roma 1' },
+      { id: 'b', name: 'Via Roma 3' },
+    ];
+    expect(matchName('Via Roma', list, (c) => [c.name])).toBeNull();
+    expect(matchName('Via Roma 3', list, (c) => [c.name])?.found.id).toBe('b');
+  });
+});
+
+describe('streetKey', () => {
+  it('drops the number and writes street words out', () => {
+    expect(streetKey('Via dei Bandi, 10')).toBe('via dei bandi');
+    expect(streetKey('P.zza Bra 1')).toBe('piazza bra');
+    expect(streetKey('Via Roma 5 a')).toBe('via roma');
   });
 });

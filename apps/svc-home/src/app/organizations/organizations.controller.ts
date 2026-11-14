@@ -20,7 +20,8 @@ import {
 import { eq, inArray } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import { organizations } from '../db/schema.js';
-import { mergeOrganizations, organizationDetail } from './organizations.js';
+import { mergeOrganizations } from './organization-merge.js';
+import { organizationDetail } from './organizations.js';
 
 /**
  * Companies as entities: every company a document names is suggested, and

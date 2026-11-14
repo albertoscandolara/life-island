@@ -5,7 +5,7 @@ import type {
   OrganizationHouseDto,
   UtilityKind,
 } from '@life-island/contracts';
-import { UTILITIES } from '@life-island/contracts';
+import { sameName, UTILITIES } from '@life-island/contracts';
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { organizationKey, organizationKeys } from '../bills/bill-reader.js';
@@ -101,16 +101,46 @@ export async function listOrganizations(db: Db): Promise<OrganizationDto[]> {
     const org = orgOf.get(key);
     if (org) docCount.set(org.id, (docCount.get(org.id) ?? 0) + 1);
   }
+  const duplicates = possibleDuplicates(orgs);
   return orgs
-    .map((o) => toDto(o, countOf.get(o.id) ?? 0, docCount.get(o.id) ?? 0))
+    .map((o) => ({
+      ...toDto(o, countOf.get(o.id) ?? 0, docCount.get(o.id) ?? 0),
+      possibleDuplicates: duplicates.get(o.id) ?? [],
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * For each company, the others whose name (or a name it was printed as) is
+ * close enough to be the same company: a typo or two apart. Never two with
+ * different tax codes, and never a dismissed one.
+ */
+export function possibleDuplicates(
+  orgs: readonly OrganizationRow[],
+): Map<string, { id: string; name: string }[]> {
+  const live = orgs.filter((o) => o.status !== 'DISMISSED');
+  const found = new Map<string, { id: string; name: string }[]>();
+  for (const a of live)
+    for (const b of live) {
+      if (a.id === b.id) continue;
+      if (a.taxCode && b.taxCode && a.taxCode !== b.taxCode) continue;
+      const close = [a.name, ...a.aliases].some((x) =>
+        [b.name, ...b.aliases].some((y) => sameName(x, y)),
+      );
+      if (close)
+        found.set(a.id, [
+          ...(found.get(a.id) ?? []),
+          { id: b.id, name: b.name },
+        ]);
+    }
+  return found;
 }
 
 function toDto(
   o: OrganizationRow,
   billCount: number,
   documentCount: number,
-): OrganizationDto {
+): Omit<OrganizationDto, 'possibleDuplicates'> {
   return {
     id: o.id,
     name: o.name,
@@ -183,78 +213,4 @@ export async function organizationDetail(
       .sort((a, b) => b.date.localeCompare(a.date)),
     houses: [...houses.values()],
   };
-}
-
-/**
- * Moves everything of `fromId` to `intoId`: bills, supply contracts (joining
- * the contract the target already has for the same customer code and supply
- * point), supply points it distributes. Its name, aliases and missing tax
- * data go to the target, and it is removed. Runs inside a transaction.
- */
-export async function mergeOrganizations(
-  db: Db,
-  intoId: string,
-  fromId: string,
-): Promise<void> {
-  const [[into], [from]] = await Promise.all([
-    db.select().from(organizations).where(eq(organizations.id, intoId)),
-    db.select().from(organizations).where(eq(organizations.id, fromId)),
-  ]);
-  if (!into || !from) throw new Error('not found');
-
-  const targetContracts = await db
-    .select()
-    .from(supplyContracts)
-    .where(eq(supplyContracts.supplierId, intoId));
-  const targetByKey = new Map(targetContracts.map((c) => [c.naturalKey, c]));
-  const moved = await db
-    .select()
-    .from(supplyContracts)
-    .where(eq(supplyContracts.supplierId, fromId));
-  for (const contract of moved) {
-    const naturalKey = [
-      intoId,
-      ...contract.naturalKey.split('|').slice(1),
-    ].join('|');
-    const same = targetByKey.get(naturalKey);
-    if (same) {
-      await db
-        .update(bills)
-        .set({ contractId: same.id })
-        .where(eq(bills.contractId, contract.id));
-      await db
-        .delete(supplyContracts)
-        .where(eq(supplyContracts.id, contract.id));
-    } else {
-      await db
-        .update(supplyContracts)
-        .set({ supplierId: intoId, naturalKey })
-        .where(eq(supplyContracts.id, contract.id));
-    }
-  }
-  await db
-    .update(bills)
-    .set({ supplierId: intoId })
-    .where(eq(bills.supplierId, fromId));
-  await db
-    .update(supplyPoints)
-    .set({ distributorId: intoId })
-    .where(eq(supplyPoints.distributorId, fromId));
-
-  const aliases = [
-    ...new Set([...into.aliases, from.name, ...from.aliases]),
-  ].filter((a) => organizationKey(a) !== organizationKey(into.name));
-  // The tax code is unique: free it before the target takes it.
-  await db.delete(organizations).where(eq(organizations.id, fromId));
-  await db
-    .update(organizations)
-    .set({
-      aliases,
-      taxCode: into.taxCode ?? from.taxCode,
-      vatNumber: into.vatNumber ?? from.vatNumber,
-      roles: [...new Set([...into.roles, ...from.roles])],
-      // Merging into a company says what it is: it is confirmed.
-      status: 'CONFIRMED',
-    })
-    .where(eq(organizations.id, intoId));
 }

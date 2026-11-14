@@ -69,7 +69,11 @@ function text(value: string | number | boolean | null | undefined) {
   return trimmed === '' ? null : trimmed;
 }
 
-/** How a value is compared: names and codes ignore case and spacing. */
+/**
+ * How a value is compared: names, places and codes ignore case, accents,
+ * apostrophes, punctuation and spacing ("D'Angelo" = "DANGELO", "Rossì" =
+ * "ROSSI").
+ */
 export function normalizeValue(
   field: PersonField,
   value: string | null,
@@ -78,7 +82,10 @@ export function normalizeValue(
   const upper = value.toUpperCase().trim().replace(/\s+/g, ' ');
   if (field === 'taxCode') return upper.replace(/\s/g, '');
   if (field === 'birthDate') return value.trim().slice(0, 10);
-  return upper.replace(/[’']/g, "'");
+  return upper
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]+/g, '');
 }
 
 export interface IdDocumentReading {

@@ -1,5 +1,6 @@
 import {
   HOUSE_FIELDS,
+  matchName,
   type HouseField,
   type HouseProposedChangeDto,
   type PropertyDto,
@@ -291,6 +292,14 @@ function houseOf(
   const matched = matchProperty(document, properties, parentOf, override);
   if (matched.propertyId || override?.manualProperty) return matched.propertyId;
   if (!address) return null;
+  // The house's own address, however printed: "via dei Bandi" and "Via dei
+  // Bandi, 10" are the house at Via dei Bandi 10.
+  const byAddress = matchName(
+    address.street,
+    properties.filter((p) => p.address),
+    (p) => [p.address ?? ''],
+  );
+  if (byAddress) return byAddress.found.id;
   const street = ` ${normalizeText(address.street)} `;
   const hits = properties.filter((p) =>
     p.matchTerms.some((term) => {
