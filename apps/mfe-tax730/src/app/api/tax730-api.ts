@@ -44,6 +44,11 @@ export class Tax730Api {
     );
   }
 
+  /** Remove an expense from the 730; its documents stay. */
+  removeExpense(id: string): Observable<TaxYearDossierDto> {
+    return this.http.delete<TaxYearDossierDto>(`${TAX730_API}/expenses/${id}`);
+  }
+
   /** Pair an expense with another one, or keep it apart with `null`. */
   setPairing(
     id: string,

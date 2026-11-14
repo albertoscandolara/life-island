@@ -481,6 +481,28 @@ export class DossierService {
     return this.dossier(expense.taxYear);
   }
 
+  /**
+   * Removes an expense from the 730, with how its documents were filed: the
+   * documents stay in your archive and can be filed with another expense.
+   * Expenses paired with it are counted on their own again.
+   */
+  async removeExpense(id: string): Promise<TaxYearDossierDto> {
+    const row = await this.svc.db.transaction(async (tx) => {
+      // Its confirmed payments go back to being paired automatically.
+      await tx
+        .update(expenses)
+        .set({ pairedWith: null, pairing: null })
+        .where(eq(expenses.pairedWith, id));
+      const [deleted] = await tx
+        .delete(expenses)
+        .where(eq(expenses.id, id))
+        .returning();
+      return deleted;
+    });
+    if (!row) throw new NotFoundException(`Expense ${id} not found`);
+    return this.dossier(row.taxYear);
+  }
+
   /** Forgets your decision: the expense is paired automatically again. */
   async resetPairing(id: string): Promise<TaxYearDossierDto> {
     const [row] = await this.svc.db
@@ -583,7 +605,6 @@ export class DossierService {
     const filed = new Map<string, Tax730AttachmentRole>(
       group.attachments.map((a) => [a.uploadId, a.role]),
     );
-    if (!filed.has(expense.uploadId)) filed.set(expense.uploadId, 'INVOICE');
     return (
       rows
         // A search shows what is filed already, so you see why it is not new;

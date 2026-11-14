@@ -341,8 +341,11 @@ tax-deductions-card {
 }
 
 .edit__actions,
-.expense__actions {
+.expense__actions,
+.remove {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
