@@ -217,10 +217,10 @@ export const updateExpenseRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
     .optional(),
   amount: z.number().positive().max(10_000_000).optional(),
-  issuer: z.string().trim().min(1).max(200).optional(),
+  issuer: z.string().trim().min(1).max(300).optional(),
   documentNumber: z.string().trim().max(100).nullable().optional(),
   traceablePayment: z.boolean().nullable().optional(),
-  frame730: z.string().trim().max(20).nullable().optional(),
+  frame730: z.string().trim().max(100).nullable().optional(),
   beneficiaryFiscalCode: z
     .string()
     .transform((code) => code.replace(/\s/g, '').toUpperCase())

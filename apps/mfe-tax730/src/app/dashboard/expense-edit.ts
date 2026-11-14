@@ -37,7 +37,7 @@ const traceableValue = (value: boolean | null) =>
             uiInput
             name="issuer"
             required
-            maxlength="200"
+            maxlength="300"
             [value]="e.issuer"
           />
         </ui-form-field>
@@ -80,11 +80,11 @@ const traceableValue = (value: boolean | null) =>
             }
           </select>
         </ui-form-field>
-        <ui-form-field label="730 row" hint="e.g. E1, E41">
+        <ui-form-field label="730 row" hint="e.g. E8, E61">
           <input
             uiInput
             name="frame730"
-            maxlength="20"
+            maxlength="100"
             [value]="e.frame730 ?? ''"
           />
         </ui-form-field>
@@ -206,7 +206,8 @@ export class ExpenseEdit {
       return;
     }
     const traceable = text('traceablePayment');
-    this.saved.emit({
+    const e = this.expense();
+    const edited: UpdateExpenseRequest = {
       issuer: text('issuer'),
       documentNumber: text('documentNumber') || null,
       date: text('date'),
@@ -217,6 +218,13 @@ export class ExpenseEdit {
       beneficiaryFiscalCode: fiscalCode || null,
       description: text('description') || null,
       notes: text('notes') || null,
-    });
+    };
+    // Only what you changed is sent: a value read from the document that
+    // the form would not accept as typed never blocks saving the rest.
+    const changes: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(edited))
+      if (value !== (e[key as keyof DossierExpenseDto] ?? null))
+        changes[key] = value;
+    this.saved.emit(changes as UpdateExpenseRequest);
   }
 }

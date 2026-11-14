@@ -294,9 +294,21 @@ export class DashboardPage {
   }
 
   private fail(error: unknown): void {
+    const body = (
+      error as {
+        error?: {
+          message?: string;
+          issues?: { path: string; message: string }[];
+        };
+      }
+    )?.error;
+    // Which field the service refused, not just "Invalid request".
+    const issues = body?.issues
+      ?.map((issue) => `${issue.path}: ${issue.message}`)
+      .join('; ');
     const message =
-      (error as { error?: { message?: string }; message?: string })?.error
-        ?.message ??
+      (issues ? `${body?.message ?? 'Invalid request'}: ${issues}` : null) ??
+      body?.message ??
       (error as { message?: string })?.message ??
       'Something went wrong';
     this.error.set(

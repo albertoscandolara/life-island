@@ -523,7 +523,7 @@ describe.skipIf(!configured)(
             date: `${year}-12-23`,
             amount: 40000.5,
             expenseType: 'energy_efficiency',
-            frame730: 'E61',
+            frame730: 'E1 - rigo E8-E10 codice 9',
             traceablePayment: false,
             beneficiaryFiscalCode: 'rssmra 80a01 h501u',
           }),
@@ -534,7 +534,7 @@ describe.skipIf(!configured)(
           date: `${year}-12-23`,
           amount: 40000.5,
           expenseType: 'energy_efficiency',
-          frame730: 'E61',
+          frame730: 'E1 - rigo E8-E10 codice 9',
           traceablePayment: false,
           beneficiaryFiscalCode: 'RSSMRA80A01H501U',
         });
