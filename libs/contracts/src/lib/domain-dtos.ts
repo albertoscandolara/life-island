@@ -202,11 +202,39 @@ export interface TaxYearDossierDto extends TaxYearDto {
 }
 
 /** Edit an expense's description or your note; null clears it. */
+/** A codice fiscale: 16 characters, letters and digits in the official pattern. */
+export const FISCAL_CODE =
+  /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/;
+
+/**
+ * Correct what was read from the document: every field can be edited. The
+ * date stays in the expense's tax year; a field left out keeps its value.
+ */
 export const updateExpenseRequestSchema = z.object({
+  expenseType: z.enum(TAX730_EXPENSE_TYPES).optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+    .optional(),
+  amount: z.number().positive().max(10_000_000).optional(),
+  issuer: z.string().trim().min(1).max(200).optional(),
+  documentNumber: z.string().trim().max(100).nullable().optional(),
+  traceablePayment: z.boolean().nullable().optional(),
+  frame730: z.string().trim().max(20).nullable().optional(),
+  beneficiaryFiscalCode: z
+    .string()
+    .transform((code) => code.replace(/\s/g, '').toUpperCase())
+    .refine(
+      (code) => !code || FISCAL_CODE.test(code),
+      'not a valid codice fiscale',
+    )
+    .nullable()
+    .optional(),
   description: z.string().trim().max(300).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
 });
 export type UpdateExpenseRequest = z.input<typeof updateExpenseRequestSchema>;
+export type UpdateExpenseChanges = z.output<typeof updateExpenseRequestSchema>;
 
 /** File a document with an expense (invoice, payment proof) or with a whole year. */
 export const addAttachmentRequestSchema = z.object({

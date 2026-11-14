@@ -328,19 +328,6 @@ tax-deductions-card {
   color: var(--text-secondary);
 }
 
-.edit {
-  display: grid;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-}
-
-.edit label {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.edit__actions,
 .expense__actions,
 .remove {
   display: flex;
