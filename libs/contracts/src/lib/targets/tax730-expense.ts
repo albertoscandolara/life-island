@@ -66,7 +66,9 @@ export const Tax730ExpenseV1 = z
     beneficiaryFiscalCode: z
       .string()
       .optional()
-      .describe('Codice fiscale of the beneficiary'),
+      .describe(
+        "Codice fiscale (16 characters) of the person the expense is for; never the supplier's partita IVA. Leave out when the document does not show it",
+      ),
     traceablePayment: z
       .boolean()
       .optional()

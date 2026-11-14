@@ -18,13 +18,14 @@ export const expenseLoader: RecordLoader<Tax730ExpenseV1> = {
       .where(eq(expenses.sourceStagingId, record.recordId));
     if (existing) return existing.id;
 
+    // The beneficiary is a person (16 characters). Anything else, such as the
+    // supplier's partita IVA read off the invoice, is not who the expense was
+    // for: the expense is kept without it, and you can add it by hand.
     const fiscalCode = expense.beneficiaryFiscalCode
       ?.replace(/\s/g, '')
       .toUpperCase();
-    if (fiscalCode && !FISCAL_CODE.test(fiscalCode))
-      throw new LoadRejectedError(
-        `beneficiaryFiscalCode: ${expense.beneficiaryFiscalCode} is not a valid codice fiscale`,
-      );
+    const beneficiary =
+      fiscalCode && FISCAL_CODE.test(fiscalCode) ? fiscalCode : null;
     if (expense.amount <= 0)
       throw new LoadRejectedError('amount: a deductible expense is positive');
 
@@ -42,7 +43,7 @@ export const expenseLoader: RecordLoader<Tax730ExpenseV1> = {
         frame730: expense.frame730 ?? null,
         date: expense.date,
         amount: expense.amount,
-        beneficiaryFiscalCode: fiscalCode ?? null,
+        beneficiaryFiscalCode: beneficiary,
         traceablePayment: expense.traceablePayment ?? null,
         issuer: expense.issuer,
         documentNumber: expense.documentNumber ?? null,
