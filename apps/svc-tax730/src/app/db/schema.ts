@@ -114,6 +114,8 @@ export const attachments = tax730.table(
     /** By id only: the document lives in ingestion. */
     uploadId: uuid('upload_id').notNull(),
     role: text('role').notNull(),
+    /** You filed it with this role yourself: it is shown as you chose, never guessed. */
+    chosen: boolean('chosen').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

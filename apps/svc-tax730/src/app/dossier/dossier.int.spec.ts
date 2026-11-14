@@ -458,6 +458,28 @@ describe.skipIf(!configured)(
           null,
         ]);
 
+        // Filed back as its invoice, whose description says how to pay it:
+        // still shown as its invoice.
+        await apply('upload.updated@1', {
+          ...uploaded(docs.invoice, '66 Edilrenso Fattura', {}),
+          description: 'Fattura n. 66, da pagare con bonifico',
+        });
+        await json(
+          await fetch(`${base}/expenses/${invoice.id}/attachments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ uploadId: docs.invoice, role: 'INVOICE' }),
+          }),
+        );
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/tax-years/${year}`),
+        );
+        expect(
+          dossier.expenses[0].attachments.find(
+            (a) => a.uploadId === docs.invoice,
+          )?.role,
+        ).toBe('INVOICE');
+
         // Removed: its payments count on their own again.
         dossier = await json<TaxYearDossierDto>(
           await fetch(`${base}/expenses/${invoice.id}`, { method: 'DELETE' }),
