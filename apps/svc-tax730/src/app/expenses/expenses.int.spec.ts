@@ -126,14 +126,25 @@ describe.skipIf(!configured)(
       ]);
     });
 
-    it('answers record.load_failed for an invalid codice fiscale, storing nothing', async () => {
+    it("keeps an expense whose beneficiary is not a person's codice fiscale, without it", async () => {
+      // The supplier's partita IVA, read off the invoice of a bank transfer.
       const reply = await deliver(
-        expense({ beneficiaryFiscalCode: 'NOT-A-CODE' }),
+        expense({ amount: 2800, beneficiaryFiscalCode: '04888410232' }),
       );
-      expect(reply.event_type).toBe('record.load_failed@1');
-      expect(reply.payload.error).toContain('codice fiscale');
+      expect(reply.event_type).toBe('record.loaded@1');
+      const page = (await (
+        await fetch(`${base}/expenses?taxYear=${taxYear}`)
+      ).json()) as Page<ExpenseDto>;
+      expect(
+        page.items.find((e) => e.id === reply.payload.domainRecordId),
+      ).toMatchObject({ amount: 2800, beneficiaryFiscalCode: null });
+    });
+
+    it('answers record.load_failed for an expense it cannot load, storing nothing', async () => {
       const mismatched = await deliver(expense({ date: '1999-01-01' }));
       expect(mismatched.event_type).toBe('record.load_failed@1');
+      const free = await deliver(expense({ amount: 0 }));
+      expect(free.event_type).toBe('record.load_failed@1');
     });
   },
 );
