@@ -623,6 +623,53 @@ describe.skipIf(!configured)(
       expect(again.status).toBe(422);
     });
 
+    it('reads a company the same however it is printed, and lets you edit it', async () => {
+      const name = `Arcoda${run}`;
+      await upload(['PAYSLIP'], { employer: `${name.toUpperCase()} S.R.L.` });
+      await upload(['PAYSLIP'], { employer: name.toLowerCase() });
+      await upload(['PAYSLIP'], { issuer: `${name} srl` }, 'CU');
+      // A typo in a long name is the same company: kept as one of its names.
+      const typo = `${name.slice(0, 3)}k${name.slice(4)} S.r.l.`;
+      await upload(['PAYSLIP'], { issuer: typo }, 'Letter');
+
+      let mine = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).filter(
+        (o) => /^arc.da/i.test(o.name) && o.name.toLowerCase().includes(run),
+      );
+      expect(mine).toHaveLength(1);
+      expect(mine[0]).toMatchObject({ documentCount: 4, status: 'PENDING' });
+      expect(mine[0].aliases).toContain(typo);
+
+      const edited = await json<OrganizationDto>(
+        await send('PATCH', `/organizations/${mine[0].id}`, {
+          name: `Arcoda ${run} (employer)`,
+          vatNumber: 'IT 01234567890',
+          roles: ['OTHER'],
+        }),
+      );
+      expect(edited).toMatchObject({
+        vatNumber: '01234567890',
+        roles: ['OTHER'],
+        documentCount: 4,
+      });
+      // The old name stays as one of its names, so its documents still find it.
+      expect(edited.aliases).toContain(mine[0].name);
+
+      // A copy made before (another spelling) merges into it on the next sync.
+      await svc.pool.query(
+        `insert into home.organizations (name, name_key, status) values ($1, $2, 'PENDING')`,
+        [`ARCODA ${run} spa`, `arcoda ${run}`],
+      );
+      await upload(['PAYSLIP'], { employer: name }, 'Payslip');
+      mine = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).filter(
+        (o) => /^arc.da/i.test(o.name) && o.name.toLowerCase().includes(run),
+      );
+      expect(mine.map((o) => o.id)).toEqual([edited.id]);
+    });
+
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
       const edil = `Edil${run}`;
       const invoice = await upload(

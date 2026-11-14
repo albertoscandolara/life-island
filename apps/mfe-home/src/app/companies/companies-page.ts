@@ -9,6 +9,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   entityParam,
+  ORGANIZATION_ROLES,
   type OrganizationDetailDto,
   type OrganizationDto,
   type OrganizationRole,
@@ -20,6 +21,7 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiInput,
   UiPageHeader,
 } from '@life-island/design-system';
 import { EntityDirectory, EntityLink } from '@life-island/entities-ui';
@@ -53,6 +55,7 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiInput,
     UiPageHeader,
   ],
   templateUrl: './companies-page.html',
@@ -71,6 +74,9 @@ export class CompaniesPage {
   /** For each pending company, the confirmed one you say it is. */
   protected readonly sameAs = signal<Record<string, string>>({});
   protected readonly showDismissed = signal(false);
+  protected readonly editing = signal(false);
+  protected readonly draftRoles = signal<OrganizationRole[]>([]);
+  protected readonly roles = ORGANIZATION_ROLES;
 
   protected readonly pending = computed(() =>
     (this.companies() ?? []).filter((c) => c.status === 'PENDING'),
@@ -104,6 +110,47 @@ export class CompaniesPage {
     });
   }
 
+  protected startEdit(company: OrganizationDetailDto): void {
+    this.draftRoles.set([...company.roles]);
+    this.editing.set(true);
+  }
+
+  protected toggleRole(role: OrganizationRole): void {
+    this.draftRoles.update((roles) =>
+      roles.includes(role) ? roles.filter((r) => r !== role) : [...roles, role],
+    );
+  }
+
+  protected save(
+    company: OrganizationDetailDto,
+    name: string,
+    vatNumber: string,
+    taxCode: string,
+    aliases: string,
+  ): void {
+    if (!name.trim()) return;
+    this.editing.set(false);
+    this.run(
+      company.id,
+      this.api.updateOrganization(company.id, {
+        name: name.trim(),
+        vatNumber: vatNumber.trim() || null,
+        taxCode: taxCode.trim() || null,
+        aliases: aliases
+          .split('\n')
+          .map((a) => a.trim())
+          .filter(Boolean),
+        roles: this.draftRoles(),
+      }),
+      'That did not save: another company may have this tax code.',
+    );
+  }
+
+  /** Merges the look-alike `from` into the company you are looking at. */
+  protected mergeInto(intoId: string, fromId: string): void {
+    this.run(intoId, this.api.mergeOrganization(intoId, fromId));
+  }
+
   protected pickSameAs(pendingId: string, targetId: string): void {
     this.sameAs.update((all) => ({ ...all, [pendingId]: targetId }));
   }
@@ -130,7 +177,11 @@ export class CompaniesPage {
     this.run('all', this.api.confirmPendingOrganizations());
   }
 
-  private run(key: string, call: Observable<unknown>): void {
+  private run(
+    key: string,
+    call: Observable<unknown>,
+    failure = 'That did not work. Please try again.',
+  ): void {
     this.busy.set(key);
     this.error.set(null);
     call.subscribe({
@@ -141,7 +192,7 @@ export class CompaniesPage {
       },
       error: () => {
         this.busy.set(null);
-        this.error.set('That did not work. Please try again.');
+        this.error.set(failure);
       },
     });
   }
@@ -162,6 +213,7 @@ export class CompaniesPage {
   }
 
   private open(id: string | null): void {
+    if (id !== this.selectedId()) this.editing.set(false);
     this.selectedId.set(id);
     if (!id) {
       this.detail.set(null);

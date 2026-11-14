@@ -616,6 +616,12 @@ export interface OrganizationDto {
   billCount: number;
   /** Documents whose issuer is this company. */
   documentCount: number;
+  /**
+   * Companies whose name is only a typo or two away from this one's: maybe
+   * the same company, for you to merge (names that differ only in case,
+   * accents, punctuation, legal form or spacing are merged on their own).
+   */
+  possibleDuplicates: { id: string; name: string }[];
 }
 
 /** A document a company issued, on the company's page. */
@@ -657,6 +663,9 @@ export const updateOrganizationRequestSchema = z.object({
   name: z.string().trim().min(1).max(160).optional(),
   taxCode: z.string().trim().max(32).nullable().optional(),
   vatNumber: z.string().trim().max(32).nullable().optional(),
+  /** Every other name documents print for it; replaces the list. */
+  aliases: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
+  roles: z.array(z.enum(ORGANIZATION_ROLES)).max(4).optional(),
 });
 export type UpdateOrganizationRequest = z.input<
   typeof updateOrganizationRequestSchema

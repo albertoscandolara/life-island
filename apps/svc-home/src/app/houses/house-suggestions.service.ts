@@ -1,3 +1,4 @@
+import { streetKey } from '@life-island/contracts';
 import {
   ConflictException,
   Inject,
@@ -263,7 +264,9 @@ export class HouseSuggestionsService {
         key = `info:${house.id}:${signature}`;
         reading.values = own.values;
       } else if (reading.address) {
-        key = `new:${normalizeText(reading.address.street)}`;
+        // One new house per street, with or without its number: "Via dei
+        // Bandi" and "Via dei Bandi, 9" are one suggestion.
+        key = `new:${streetKey(reading.address.street) ?? normalizeText(reading.address.street)}`;
       } else continue;
       const entry = byKey.get(key) ?? {
         readings: [],

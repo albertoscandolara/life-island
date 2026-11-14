@@ -24,6 +24,8 @@ export interface PropertyLike {
   matchTerms: string[];
   supplyCodes: string[];
   categoryIds: string[];
+  /** Street and number, when known: a document's address finds its house by it. */
+  address?: string | null;
 }
 
 /** A bill as its document reads, before it is tied to its supplier, supply point and contract. */

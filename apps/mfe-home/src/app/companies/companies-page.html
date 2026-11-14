@@ -25,8 +25,10 @@
         <strong>{{ c.name }}</strong>
         <span class="muted small">
           {{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
-          'documents' }} @if (c.billCount) { · {{ c.billCount }} {{ c.billCount
-          === 1 ? 'bill' : 'bills' }} } @if (c.vatNumber || c.taxCode) { ·
+          'documents' }} @if (c.possibleDuplicates.length) { · looks like {{
+          c.possibleDuplicates[0].name }} } @if (c.billCount) { · {{ c.billCount
+          }} {{ c.billCount === 1 ? 'bill' : 'bills' }} } @if (c.vatNumber ||
+          c.taxCode) { ·
           <span class="mono">{{ c.vatNumber || c.taxCode }}</span> }
         </span>
       </div>
@@ -124,6 +126,75 @@
   <section class="detail" aria-live="polite">
     @if (detail(); as d) {
     <ui-card [heading]="d.name">
+      @if (editing()) {
+      <form
+        class="edit"
+        (submit)="$event.preventDefault(); save(d, name.value, vat.value, tax.value, aliasText.value)"
+      >
+        <label class="edit__wide"
+          >Name <input #name uiInput required maxlength="160" [value]="d.name"
+        /></label>
+        <label
+          >VAT number
+          <input #vat uiInput maxlength="32" [value]="d.vatNumber ?? ''"
+        /></label>
+        <label
+          >Tax code
+          <input #tax uiInput maxlength="32" [value]="d.taxCode ?? ''"
+        /></label>
+        <fieldset class="edit__wide edit__roles">
+          <legend>Role</legend>
+          @for (r of roles; track r) {
+          <label class="check"
+            ><input
+              type="checkbox"
+              [checked]="draftRoles().includes(r)"
+              (change)="toggleRole(r)"
+            />
+            {{ roleLabel(r) }}</label
+          >
+          }
+        </fieldset>
+        <label class="edit__wide"
+          >Also printed as (one name per line)
+          <textarea
+            #aliasText
+            uiInput
+            rows="3"
+            [value]="d.aliases.join('\n')"
+          ></textarea>
+          <span class="muted small"
+            >Documents that print one of these names are this company's. The old
+            name is kept here when you rename it.</span
+          >
+        </label>
+        <div class="edit__wide edit__actions">
+          <button uiButton size="sm" type="submit" [disabled]="busy() !== null">
+            Save
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="editing.set(false)"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+      } @else {
+      <div class="card-top">
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="startEdit(d)"
+        >
+          <ui-icon name="edit" [size]="16" /> Edit
+        </button>
+      </div>
       <dl class="facts">
         <div>
           <dt>VAT number</dt>
@@ -159,6 +230,24 @@
         </div>
         }
       </dl>
+      } @for (dup of d.possibleDuplicates; track dup.id) {
+      <div class="dup">
+        <ui-icon name="alert" [size]="16" />
+        <span
+          >Looks like the same company as <strong>{{ dup.name }}</strong>.</span
+        >
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="mergeInto(d.id, dup.id)"
+        >
+          Merge it into this one
+        </button>
+      </div>
+      }
 
       <h3 class="sub">Documents</h3>
       @if (d.documents.length) {

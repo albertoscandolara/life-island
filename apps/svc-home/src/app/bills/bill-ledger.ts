@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  matchName,
   UTILITIES,
   UTILITY_KINDS,
   type OrganizationRole,
@@ -167,6 +168,16 @@ export async function syncBillsIn(db: Db): Promise<void> {
       const byName = orgsByKey.get(key);
       // A name match is the same company unless both print a different tax code.
       if (byName && (!taxCode || !byName.taxCode)) org = byName;
+    }
+    if (!org && name) {
+      // Printed a little differently ("BancaWidiba", "Elektrosistem").
+      const similar = matchName(
+        name,
+        [...new Set(orgsByKey.values())].filter((o) => !taxCode || !o.taxCode),
+        (o) => [o.name, ...o.aliases],
+        { prefer: (o) => o.status === 'CONFIRMED' },
+      );
+      if (similar) org = similar.found;
     }
     if (!org) {
       [org] = await db
