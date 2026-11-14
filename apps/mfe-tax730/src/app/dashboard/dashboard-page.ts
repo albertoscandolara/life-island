@@ -14,6 +14,7 @@ import type {
   Tax730AttachmentRole,
   TaxYearDossierDto,
   TaxYearDto,
+  UpdateExpenseRequest,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -29,6 +30,7 @@ import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
 import { Tax730Guide } from '../guide/tax730-guide';
 import { DeductionsCard } from './deductions-card';
+import { ExpenseEdit } from './expense-edit';
 import { ExpensePairs } from './expense-pairs';
 import { MonthChart } from './month-chart';
 import { YearComparison } from './year-comparison';
@@ -61,6 +63,7 @@ type PickerTarget =
     YearComparison,
     DeductionsCard,
     ExpensePairs,
+    ExpenseEdit,
     MonthChart,
     Tax730Guide,
     EntityLink,
@@ -81,6 +84,7 @@ export class DashboardPage {
   protected readonly error = signal<string | null>(null);
   protected readonly expanded = signal<string | null>(null);
   protected readonly editing = signal<string | null>(null);
+  protected readonly saving = signal(false);
   /** The expense whose removal waits for you to confirm it. */
   protected readonly removing = signal<string | null>(null);
   protected readonly picker = signal<PickerTarget | null>(null);
@@ -225,22 +229,21 @@ export class DashboardPage {
 
   protected save(
     expense: DossierExpenseDto,
-    description: string,
-    notes: string,
+    changes: UpdateExpenseRequest,
   ): void {
-    this.api
-      .updateExpense(expense.id, {
-        description: description.trim() || null,
-        notes: notes.trim() || null,
-      })
-      .subscribe({
-        next: () => {
-          this.editing.set(null);
-          const year = this.selectedYear();
-          if (year !== null) this.loadDossier(year);
-        },
-        error: (error) => this.fail(error),
-      });
+    this.saving.set(true);
+    this.api.updateExpense(expense.id, changes).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.editing.set(null);
+        const year = this.selectedYear();
+        if (year !== null) this.loadDossier(year);
+      },
+      error: (error) => {
+        this.saving.set(false);
+        this.fail(error);
+      },
+    });
   }
 
   protected attachmentTitle(attachment: Tax730AttachmentDto): string {

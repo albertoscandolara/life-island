@@ -486,6 +486,63 @@ describe.skipIf(!configured)(
         );
         expect(dossier.expenses.map((e) => e.amount)).toEqual([15000, 40000]);
         expect(dossier.expenses.every((e) => e.pairing === null)).toBe(true);
+
+        // A bank receipt is not who was paid: its transfer's other receipt
+        // names the supplier, and so does an invoice filed with it.
+        expect(dossier.expenses.map((e) => e.issuer)).toEqual([
+          'Edilrenso',
+          'Banca Widiba',
+        ]);
+        const transfer = dossier.expenses[1];
+        await apply(
+          'upload.updated@1',
+          uploaded(docs.invoice, '66 Edilrenso Fattura', {
+            issuer: 'EDILRENSO SNC',
+          }),
+        );
+        const withInvoice = await json<DossierExpenseDto>(
+          await fetch(`${base}/expenses/${transfer.id}/attachments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ uploadId: docs.invoice, role: 'INVOICE' }),
+          }),
+        );
+        expect(withInvoice.issuer).toBe('EDILRENSO SNC');
+
+        // Every field can be corrected.
+        const patch = (body: unknown) =>
+          fetch(`${base}/expenses/${transfer.id}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        const edited = await json<DossierExpenseDto>(
+          await patch({
+            issuer: 'Edilrenso',
+            documentNumber: '66',
+            date: `${year}-12-23`,
+            amount: 40000.5,
+            expenseType: 'energy_efficiency',
+            frame730: 'E61',
+            traceablePayment: false,
+            beneficiaryFiscalCode: 'rssmra 80a01 h501u',
+          }),
+        );
+        expect(edited).toMatchObject({
+          issuer: 'Edilrenso',
+          documentNumber: '66',
+          date: `${year}-12-23`,
+          amount: 40000.5,
+          expenseType: 'energy_efficiency',
+          frame730: 'E61',
+          traceablePayment: false,
+          beneficiaryFiscalCode: 'RSSMRA80A01H501U',
+        });
+        expect((await patch({ date: `${year + 1}-01-02` })).status).toBe(400);
+        expect((await patch({ beneficiaryFiscalCode: 'ABC' })).status).toBe(
+          400,
+        );
+        expect((await patch({ amount: 0 })).status).toBe(400);
       } finally {
         await svc.pool.query(
           `delete from tax730.attachments where tax_year = $1`,

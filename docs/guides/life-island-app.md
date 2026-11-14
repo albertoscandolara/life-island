@@ -85,21 +85,23 @@ A confirmed expense files the document it was read from as its invoice (or as it
 
 **Invoices and payments are paired, so each expense counts once.** Every approved document becomes an expense, so an invoice and the bank receipts of its transfers would count two or three times. `expense-pairing.ts` pairs them when the dossier is read: the "ricevuta" and "dettaglio" of one transfer (same year, amount, a few days apart, the same supplier named) become one payment, and an invoice takes the payments of its year, within 180 days, that name its supplier and add up to it (one or several, within 1% and at most 10 € for fees). Only the invoice (or the first receipt of a transfer with no invoice) is counted; the others show under it as "Same expense, counted once" with their documents. Automatic pairs are flagged to review: you confirm them, split one ("Not the same", stored as `pairing = SEPARATE`), or remove an expense that should not be there: its documents stay in your archive, ready to file with the right expense. Your decision always wins over the guess.
 
-| Endpoint (`/api/tax730/...`)              | Purpose                                                                                                                           |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `GET tax-years`                           | Totals per year and type, with how many expenses miss an invoice or a payment, the estimated deductions and the spending by month |
-| `GET tax-years/:year`                     | The year's expenses with their documents, and the year's own documents                                                            |
-| `POST/DELETE tax-years/:year/attachments` | File or remove a document of the whole year                                                                                       |
-| `PATCH expenses/:id`                      | Edit the description or the note                                                                                                  |
-| `DELETE expenses/:id`                     | Remove an expense from the 730; its documents stay, free to file with another expense                                             |
-| `POST/DELETE expenses/:id/attachments`    | File or remove an invoice, payment proof or other document                                                                        |
-| `PUT expenses/:id/pairing`                | Pair with another expense (`{ pairedWith }`) or keep it apart (`{ pairedWith: null }`)                                            |
-| `DELETE expenses/:id/pairing`             | Forget your decision: the expense is paired automatically again                                                                   |
-| `POST expenses/:id/pairing/confirm`       | Confirm the payments paired automatically with this expense                                                                       |
-| `GET documents?search=&forExpense=`       | Your documents, ranked for an expense when `forExpense` is set                                                                    |
-| `GET documents/:uploadId/preview`         | The original file, streamed from `svc-ingestion`                                                                                  |
-| `GET exports/deductions.xlsx?year=`       | "Riepilogo detrazioni": a `Detrazioni YYYY` and a `Riepilogo YYYY` sheet per year                                                 |
-| `GET tax-years/:year/export.zip`          | The folder for the commercialista                                                                                                 |
+**Who was paid, not the bank.** A transfer receipt is issued by the bank, so an expense read from one would show "Banca Widiba" as its issuer. The dossier shows instead the supplier: the issuer of another expense of its group, or of a document filed with it as invoice (its `issuer` field). Every field read from a document can be corrected from the expense's Edit form.
+
+| Endpoint (`/api/tax730/...`)              | Purpose                                                                                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET tax-years`                           | Totals per year and type, with how many expenses miss an invoice or a payment, the estimated deductions and the spending by month         |
+| `GET tax-years/:year`                     | The year's expenses with their documents, and the year's own documents                                                                    |
+| `POST/DELETE tax-years/:year/attachments` | File or remove a document of the whole year                                                                                               |
+| `PATCH expenses/:id`                      | Correct any field: issuer, invoice no., date (within its tax year), amount, type, 730 row, paid traceably, beneficiary, description, note |
+| `DELETE expenses/:id`                     | Remove an expense from the 730; its documents stay, free to file with another expense                                                     |
+| `POST/DELETE expenses/:id/attachments`    | File or remove an invoice, payment proof or other document                                                                                |
+| `PUT expenses/:id/pairing`                | Pair with another expense (`{ pairedWith }`) or keep it apart (`{ pairedWith: null }`)                                                    |
+| `DELETE expenses/:id/pairing`             | Forget your decision: the expense is paired automatically again                                                                           |
+| `POST expenses/:id/pairing/confirm`       | Confirm the payments paired automatically with this expense                                                                               |
+| `GET documents?search=&forExpense=`       | Your documents, ranked for an expense when `forExpense` is set                                                                            |
+| `GET documents/:uploadId/preview`         | The original file, streamed from `svc-ingestion`                                                                                          |
+| `GET exports/deductions.xlsx?year=`       | "Riepilogo detrazioni": a `Detrazioni YYYY` and a `Riepilogo YYYY` sheet per year                                                         |
+| `GET tax-years/:year/export.zip`          | The folder for the commercialista                                                                                                         |
 
 The Excel follows the commercialista's summary: Data, Fattura, Fornitore, Descrizione, Importo, Fattura (ok/ko), Dettaglio bonifico (ok/ko), Note, then Tipologia, and a `SUM` row. `Riepilogo YYYY` puts each kind of expense against its rule: 730 row, spent, paid in cash (left out), cap, franchigia, eligible, rate, instalments and the estimated deduction, then the instalments of earlier years' home bonuses and the estimated total.
 

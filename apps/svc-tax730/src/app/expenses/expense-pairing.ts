@@ -106,6 +106,11 @@ const INVOICE_WORDS = /fattura|invoice|parcella|preventivo/i;
 const BANK_ISSUER =
   /\bbanc[ao]\b|\bbank\b|widiba|intesa|unicredit|fineco|poste italiane|postepay|mediolanum|credem|paypal|revolut/i;
 
+/** Whether the name is a bank's: it issues the receipts of transfers, it is never the supplier. */
+export function isBankIssuer(issuer: string): boolean {
+  return BANK_ISSUER.test(issuer);
+}
+
 function normalize(text: string): string {
   return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }

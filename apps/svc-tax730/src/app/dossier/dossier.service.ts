@@ -20,7 +20,7 @@ import {
   type SetExpensePairingRequest,
   type TaxYearDossierDto,
   type TaxYearDto,
-  type UpdateExpenseRequest,
+  type UpdateExpenseChanges,
 } from '@life-island/contracts';
 import {
   and,
@@ -57,6 +57,7 @@ import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
 import {
   expenseKind,
+  isBankIssuer,
   pairExpenses,
   type PairableExpense,
   type PairingDecision,
@@ -94,6 +95,41 @@ function pairableOf(
     pairing: row.pairing as PairingDecision | null,
   };
 }
+/** Keys a document's issuer is read under, in order of preference. */
+const ISSUER_KEYS = [
+  'issuer',
+  'supplier_name',
+  'provider',
+  'merchant_name',
+] as const;
+
+/** Who issued a document, as its fields say; null when they don't. */
+export function documentIssuer(
+  document: Pick<DocumentRow, 'fields'> | undefined,
+): string | null {
+  for (const key of ISSUER_KEYS) {
+    const value = document?.fields?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+/**
+ * Who was paid. A transfer receipt is issued by the bank: the supplier is the
+ * first other name that is not a bank's (the invoice it pays, an expense of
+ * its group, a document filed with it as invoice).
+ */
+export function supplierOf(
+  issuer: string,
+  others: (string | null | undefined)[],
+): string {
+  if (!isBankIssuer(issuer)) return issuer;
+  return (
+    others.find((other): other is string => !!other && !isBankIssuer(other)) ??
+    issuer
+  );
+}
+
 const ROLE_ORDER = new Map(TAX730_ATTACHMENT_ROLES.map((role, i) => [role, i]));
 
 function byRole(a: Tax730AttachmentDto, b: Tax730AttachmentDto): number {
@@ -222,6 +258,12 @@ export class DossierService {
         ? true
         : row.traceablePayment;
 
+    // The issuer of each document read as an expense, as you approved it.
+    const issuerByUpload = new Map(
+      expenseRows
+        .filter((row) => !isBankIssuer(row.issuer))
+        .map((row) => [row.uploadId, row.issuer]),
+    );
     const primaries = expenseRows.filter((row) => !pairs.has(row.id));
     const estimated: EstimatedExpense[] = primaries.map((row) => ({
       taxYear: row.taxYear,
@@ -240,8 +282,18 @@ export class DossierService {
         .flatMap(filesOf)
         .filter((file) => !seen.has(file.uploadId) && seen.add(file.uploadId))
         .sort(byRole);
+      const invoiceUploads = files
+        .filter((file) => file.role === 'INVOICE')
+        .map((file) => file.uploadId);
       const dto: DossierExpenseDto = {
         ...toExpenseDto(row),
+        issuer: supplierOf(row.issuer, [
+          ...group.map((member) => member.issuer),
+          ...invoiceUploads.flatMap((id) => [
+            issuerByUpload.get(id),
+            documentIssuer(documentsById.get(id)),
+          ]),
+        ]),
         traceablePayment: traceable(row, group),
         // Until you write one, the invoice's title says what it was for.
         description: descriptionOf(row),
@@ -352,22 +404,40 @@ export class DossierService {
 
   async updateExpense(
     id: string,
-    request: UpdateExpenseRequest,
+    request: UpdateExpenseChanges,
   ): Promise<ExpenseDto> {
-    const changes: Partial<Pick<ExpenseRow, 'description' | 'notes'>> = {};
-    if (request.description !== undefined)
-      changes.description = request.description || null;
-    if (request.notes !== undefined) changes.notes = request.notes || null;
-    const row = Object.keys(changes).length
-      ? (
-          await this.svc.db
-            .update(expenses)
-            .set(changes)
-            .where(eq(expenses.id, id))
-            .returning()
-        )[0]
-      : await this.expense(id);
-    if (!row) throw new NotFoundException(`Expense ${id} not found`);
+    const current = await this.expense(id);
+    if (!current) throw new NotFoundException(`Expense ${id} not found`);
+    if (request.date !== undefined) {
+      if (Number.isNaN(Date.parse(request.date)))
+        throw new BadRequestException(`date: ${request.date} is not a day`);
+      if (Number(request.date.slice(0, 4)) !== current.taxYear)
+        throw new BadRequestException(
+          `date: ${request.date} is not in ${current.taxYear}, the expense's tax year`,
+        );
+    }
+    const blank = (value: string | null | undefined) =>
+      value === undefined ? undefined : value || null;
+    const changes: Partial<ExpenseRow> = {
+      expenseType: request.expenseType,
+      date: request.date,
+      amount: request.amount,
+      issuer: request.issuer,
+      documentNumber: blank(request.documentNumber),
+      traceablePayment: request.traceablePayment,
+      frame730: blank(request.frame730),
+      beneficiaryFiscalCode: blank(request.beneficiaryFiscalCode),
+      description: blank(request.description),
+      notes: blank(request.notes),
+    };
+    for (const key of Object.keys(changes) as (keyof ExpenseRow)[])
+      if (changes[key] === undefined) delete changes[key];
+    if (!Object.keys(changes).length) return toExpenseDto(current);
+    const [row] = await this.svc.db
+      .update(expenses)
+      .set(changes)
+      .where(eq(expenses.id, id))
+      .returning();
     return toExpenseDto(row);
   }
 
