@@ -67,9 +67,9 @@ const ENTITY_ROUTES: Record<
   house: { page: '/home', param: 'houses', confirm: '/home' },
   vehicle: { page: '/cars', param: 'car', confirm: '/cars' },
   organization: {
-    page: '/home/companies',
+    page: '/companies',
     param: 'company',
-    confirm: '/home/companies',
+    confirm: '/companies',
   },
   workplace: { page: '/work', param: 'workplace', confirm: '/work' },
 };

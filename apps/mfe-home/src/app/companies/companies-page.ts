@@ -32,7 +32,6 @@ import {
 import { EntityDirectory, EntityLink } from '@life-island/entities-ui';
 import type { Observable } from 'rxjs';
 import { HomeApi } from '../api/home-api';
-import { AreaNav } from '../shared/area-nav';
 import { formatDate, formatEuro } from '../shared/format';
 
 const ROLE_LABELS: Record<OrganizationRole, string> = {
@@ -72,7 +71,6 @@ const IMAGE_LABELS: Record<OrganizationImageKind, string> = {
   selector: 'home-companies-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    AreaNav,
     EntityLink,
     UiAlert,
     UiBadge,

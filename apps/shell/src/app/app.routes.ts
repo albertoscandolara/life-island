@@ -1,5 +1,6 @@
 import { loadRemoteModule } from '@angular-architects/native-federation';
-import type { Route, Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, type Route, type Routes } from '@angular/router';
 import { ModuleUnavailable } from './module-unavailable';
 
 /**
@@ -61,9 +62,22 @@ export const appRoutes: Route[] = [
     loadChildren: remote('mfe-tax730', './routes', 'TAX730_ROUTES'),
   },
   // Houses, with their renovations and bills: one remote, one service.
+  // Every company your documents name, whatever the area: its own place,
+  // kept by svc-home and served by the same remote. /home/companies, where
+  // it was, still leads here, with the company it named.
+  {
+    path: 'home/companies',
+    pathMatch: 'full',
+    redirectTo: ({ queryParams }) =>
+      inject(Router).createUrlTree(['/companies'], { queryParams }),
+  },
   {
     path: 'home',
     loadChildren: remote('mfe-home', './routes', 'HOME_ROUTES'),
+  },
+  {
+    path: 'companies',
+    loadChildren: remote('mfe-home', './companies', 'COMPANIES_ROUTES'),
   },
   { path: 'houses', pathMatch: 'full', redirectTo: 'home' },
   { path: 'bills', pathMatch: 'full', redirectTo: 'home/bills' },

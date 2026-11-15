@@ -6,10 +6,21 @@
     </a>
     <div class="topbar__end">
       <a class="topbar__link" [href]="documentsUrl">
-        <ui-icon name="upload" [size]="18" /> Documents
+        <ui-icon name="upload" [size]="18" />
+        <span class="topbar__label">Documents</span>
+      </a>
+      <a
+        class="topbar__link"
+        routerLink="/companies"
+        routerLinkActive="topbar__link--on"
+        ariaCurrentWhenActive="page"
+      >
+        <ui-icon name="layers" [size]="18" />
+        <span class="topbar__label">Companies</span>
       </a>
       <a class="topbar__link" routerLink="/settings">
-        <ui-icon name="sliders" [size]="18" /> Settings
+        <ui-icon name="sliders" [size]="18" />
+        <span class="topbar__label">Settings</span>
       </a>
       <ui-theme-toggle />
     </div>

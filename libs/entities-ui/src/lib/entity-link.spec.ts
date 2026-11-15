@@ -83,7 +83,7 @@ describe('EntityLink', () => {
     const { fixture } = await answered();
     const a = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
     expect(a.textContent?.trim()).toBe('Edilrenso');
-    expect(a.getAttribute('href')).toBe('/home/companies?company=o1');
+    expect(a.getAttribute('href')).toBe('/companies?company=o1');
   });
 
   it('links a house by id, with its own name when none is given', async () => {
@@ -103,7 +103,7 @@ describe('EntityLink', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('a')?.getAttribute('href')).toBe(
-      '/home/companies?review=entities',
+      '/companies?review=entities',
     );
     expect(el.textContent).toContain('to confirm');
   });
@@ -120,7 +120,7 @@ describe('EntityLink', () => {
   it('opens the Life Island app from another app', async () => {
     const { fixture } = await answered('http://localhost:4200/');
     expect(fixture.nativeElement.querySelector('a')?.getAttribute('href')).toBe(
-      'http://localhost:4200/home/companies?company=o1',
+      'http://localhost:4200/companies?company=o1',
     );
   });
 
