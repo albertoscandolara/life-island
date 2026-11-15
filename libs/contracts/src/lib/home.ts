@@ -639,7 +639,8 @@ export const listHomeDocumentsQuerySchema = z.object({
  * issues your payslips, Certificazione Unica or employment contract; BANK
  * for one whose name says it is a bank or that issues your bank statements;
  * INSURANCE for one whose name says it is an insurer or that issues your
- * insurance policies (car, house...).
+ * insurance policies (car, house...); PUBLIC_BODY for one whose name says it
+ * is a public body (a ministry, a town, an agency, INPS...).
  */
 export const ORGANIZATION_ROLES = [
   'ENERGY_SUPPLIER',
@@ -648,6 +649,7 @@ export const ORGANIZATION_ROLES = [
   'EMPLOYER',
   'BANK',
   'INSURANCE',
+  'PUBLIC_BODY',
   'OTHER',
 ] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];

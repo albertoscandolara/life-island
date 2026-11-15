@@ -115,9 +115,23 @@ export function issuedByInsurer(
 }
 
 /**
+ * A name that says it is a public body: a ministry ("Ministero delle
+ * Infrastrutture e dei Trasporti", or the misprint "MINISTRO AFFARI
+ * ESTERI"), a town, region or province, a prefecture or police HQ, an
+ * agency, a court, a health authority, INPS, INAIL, ACI, the Motorizzazione.
+ */
+const PUBLIC_BODY_NAME =
+  /^\s*(ministero|ministro|ministry|comune|citta metropolitana|citt\u00e0 metropolitana|regione|provincia|prefettura|questura|tribunale|procura|consolato|ambasciata)\b|\b(agenzia (delle|del|per|italiana|nazionale)|inps|inail|aci|motorizzazione|presidenza del consiglio|camera di commercio|azienda (sanitaria|ospedaliera)|asl|ats|ulss|ausl|guardia di finanza|carabinieri|polizia (di stato|locale|municipale))\b/i;
+
+/** Whether a company's name says it is a public body. */
+export function looksLikePublicBody(name: string): boolean {
+  return PUBLIC_BODY_NAME.test(name);
+}
+
+/**
  * The roles a document tells about the company that issued it: your
  * employer (payslips), your bank (statements, or a bank's name), your
- * insurer (policies, or an insurer's name).
+ * insurer (policies, or an insurer's name), a public body (its name).
  */
 function rolesFrom(
   doc: Pick<DocumentRow, 'fields' | 'categories'>,
@@ -129,6 +143,7 @@ function rolesFrom(
   if (looksLikeBank(issuer) || issuedByBank(doc, parentOf)) roles.push('BANK');
   if (looksLikeInsurer(issuer) || issuedByInsurer(doc, parentOf))
     roles.push('INSURANCE');
+  if (looksLikePublicBody(issuer)) roles.push('PUBLIC_BODY');
   return roles;
 }
 
@@ -190,6 +205,7 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
       // one, like a bill's issuer is a supplier.
       if (looksLikeBank(match.found.name)) roles.push('BANK');
       if (looksLikeInsurer(match.found.name)) roles.push('INSURANCE');
+      if (looksLikePublicBody(match.found.name)) roles.push('PUBLIC_BODY');
       const missing = roles.filter((r) => !match.found.roles.includes(r));
       if (missing.length) {
         match.found.roles = [...new Set([...match.found.roles, ...missing])];

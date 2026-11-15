@@ -872,6 +872,17 @@ describe.skipIf(!configured)(
       expect(after.find((o) => o.name === `Polizze${run}`)?.roles).toEqual([
         'INSURANCE',
       ]);
+      await upload(
+        ['PASSPORT'],
+        { issuer: `Ministero Affari Esteri ${run}` },
+        'Passport',
+      );
+      const bodies = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(
+        bodies.find((o) => o.name === `Ministero Affari Esteri ${run}`)?.roles,
+      ).toEqual(['PUBLIC_BODY']);
     });
 
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
