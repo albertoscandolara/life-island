@@ -1,0 +1,1 @@
+ALTER TABLE "home"."organizations" ADD COLUMN "merged_codes" text[] DEFAULT '{}' NOT NULL;

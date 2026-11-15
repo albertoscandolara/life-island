@@ -68,12 +68,17 @@ async function issuedDocuments(db: Db) {
   });
 }
 
-/** Which organization each key finds: the confirmed one first, then the rest. */
+/**
+ * Which organization each key finds: the confirmed one first, then the rest;
+ * between two of the same name, the older (so a copy never takes the
+ * documents of the company you had).
+ */
 function byKey(orgs: readonly OrganizationRow[]): Map<string, OrganizationRow> {
   const map = new Map<string, OrganizationRow>();
   const order = [...orgs].sort(
     (a, b) =>
-      Number(b.status === 'CONFIRMED') - Number(a.status === 'CONFIRMED'),
+      Number(b.status === 'CONFIRMED') - Number(a.status === 'CONFIRMED') ||
+      a.createdAt.getTime() - b.createdAt.getTime(),
   );
   for (const org of order)
     for (const key of organizationKeys(org))
