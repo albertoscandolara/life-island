@@ -18,6 +18,8 @@ export interface HomeConfig {
   linkPropertyCategories: boolean;
   /** svc-people, whose people are offered as house owners. */
   peopleUrl: string;
+  /** svc-tax730, whose home expenses (renovations, ecobonus) show under their house. */
+  tax730Url: string;
   /**
    * Object storage for the houses' 3D models and the companies' images, in
    * this service's own bucket; null when S3 is not configured (they cannot be
@@ -43,6 +45,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HomeConfig {
     peopleUrl: (
       env['PEOPLE_URL'] ??
       `http://localhost:${numberEnv('PEOPLE_PORT', 3006, env)}`
+    ).replace(/\/+$/, ''),
+    tax730Url: (
+      env['TAX730_URL'] ??
+      `http://localhost:${numberEnv('TAX730_PORT', 3004, env)}`
     ).replace(/\/+$/, ''),
     storage:
       env['S3_ENDPOINT'] && env['S3_ACCESS_KEY'] && env['S3_SECRET_KEY']

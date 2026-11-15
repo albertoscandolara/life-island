@@ -165,13 +165,21 @@
 
     @if (c.points.length) {
     <section class="points" aria-label="Supply points">
-      <h4 class="points__title">Supply points</h4>
+      <h4 class="points__title">Supply points, one per utility</h4>
       <ul class="points__list">
         @for (p of c.points; track p.id) {
         <ng-container *ngTemplateOutlet="pointRow; context: { $implicit: p }" />
         }
       </ul>
     </section>
+    } @if (c.internet.length || c.insurances.length) {
+    <home-house-services
+      [houseId]="c.house.id"
+      [internet]="c.internet"
+      [insurances]="c.insurances"
+      [houses]="store.properties() ?? []"
+      (changed)="services.set($event)"
+    />
     }
 
     <footer class="house__numbers">
@@ -208,6 +216,23 @@
     }
   </ul>
 </section>
+} @if (looseServices().internet.length || looseServices().insurances.length) {
+<section
+  class="points points--loose"
+  aria-label="Internet and insurances with no house"
+>
+  <h2 class="points__heading">Internet and insurances with no house</h2>
+  <p class="muted">
+    Your documents speak of these, but no house is matched yet. Pick the house
+    of each document, or say it is not about a house.
+  </p>
+  <home-house-services
+    [internet]="looseServices().internet"
+    [insurances]="looseServices().insurances"
+    [houses]="store.properties() ?? []"
+    (changed)="services.set($event)"
+  />
+</section>
 } } @if (pointError(); as message) {
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
 }
@@ -217,6 +242,9 @@
     <div class="point__what">
       <strong>{{ utilityLabel(p) }}</strong>
       <span class="mono">{{ p.code }}</span>
+      @if (p.propertyId && !inUse(p)) {
+      <ui-badge>Before</ui-badge>
+      }
     </div>
     <div class="point__who muted">
       @if (current(p); as k) { @if (k.supplierName) {

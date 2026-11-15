@@ -1,6 +1,9 @@
 import {
   HOUSE_FIELDS,
   matchName,
+  sameName,
+  SUPPLY_POINT_FIELDS,
+  supplyPointUtility,
   type HouseField,
   type HouseProposedChangeDto,
   type PropertyDto,
@@ -20,13 +23,22 @@ import {
   type PropertyLike,
 } from '../bills/bill-reader.js';
 
-/** The house data that is one value (the others, supply codes and owners, add to a list). */
-export type HouseScalarField = Exclude<HouseField, 'supplyCodes' | 'owners'>;
+/** The house data that is one value (owners add to a list). */
+export type HouseScalarField = Exclude<HouseField, 'owners'>;
 
 const NUMBER_FIELDS: ReadonlySet<HouseField> = new Set([
   'areaSqm',
   'rooms',
   'cadastralIncome',
+]);
+
+/** Company names: "Enel Energia" is "ENEL ENERGIA S.P.A.", never a change. */
+const NAME_FIELDS: ReadonlySet<HouseField> = new Set([
+  'electricitySupplier',
+  'gasSupplier',
+  'waterSupplier',
+  'condoManager',
+  'insurer',
 ]);
 
 const SUPPLIER_OF: Record<UtilityKind, HouseScalarField> = {
@@ -56,7 +68,6 @@ export interface HouseReading {
   utility: UtilityKind | null;
   address: ParsedAddress | null;
   values: Partial<Record<HouseScalarField, string>>;
-  supplyCodes: string[];
   owners: string[];
 }
 
@@ -230,7 +241,16 @@ export function readHouse(
         break;
       }
     }
-  const supplyCodes: string[] = [];
+  // An insurance that ended is not the house's insurer any more.
+  const ended = firstText(fields, [
+    'end_date',
+    'coverage_end',
+    'policy_end',
+    'expiry_date',
+    'expiration_date',
+  ]);
+  if (ended && ended.slice(0, 10) < new Date().toISOString().slice(0, 10))
+    delete values.insurer;
   if (utility) {
     const supplier = firstText(fields, [
       'provider',
@@ -241,8 +261,9 @@ export function readHouse(
     if (supplier) values[SUPPLIER_OF[utility]] = supplier;
     // Only the supply point (POD, PDR) is the house's. The customer code is
     // the supply contract's: a new supplier, subentro or voltura changes it.
+    // One supply point per utility: a gas bill's PDR never replaces the POD.
     const point = readBillFacts(fields, utility).supplyPointCode;
-    if (point) supplyCodes.push(point);
+    if (point) values[SUPPLY_POINT_FIELDS[utility] as HouseScalarField] = point;
   }
   const owners = Object.entries(fields)
     .filter(([key]) => OWNER_KEY.test(key))
@@ -250,8 +271,7 @@ export function readHouse(
     .filter((name) => name.length > 1)
     .map(tidyName);
 
-  if (!Object.keys(values).length && !supplyCodes.length && !owners.length)
-    return null;
+  if (!Object.keys(values).length && !owners.length) return null;
 
   const period = billingPeriod(fields);
   const uploadedAt =
@@ -272,9 +292,44 @@ export function readHouse(
     utility,
     address,
     values,
-    supplyCodes,
     owners,
   };
+}
+
+/** Where works are done, or what a policy insures: the house's address. */
+const WORK_ADDRESS_KEY =
+  /(work|site|cantiere|insured|risk|rischio|intervento|lavori|installation|installazione|line|linea|attivazione|activation)_?(address|indirizzo)?/;
+
+/** Who issued a document (the firm, the insurer): its address is theirs, never the house's. */
+const ISSUER_KEY =
+  /issuer|supplier|provider|vendor|seller|company|merchant|insurer|contractor|emittente|fornitore|compagnia|agenzia|agency|sede/;
+
+/**
+ * The house any document is about (an invoice for works, an insurance
+ * policy, an internet contract): its supply code, the property or supply
+ * address it prints, a category of the house, or a house's words in its
+ * other addresses. The issuer's own address never counts.
+ */
+export function documentHouse(
+  document: DocumentLike,
+  properties: readonly PropertyLike[],
+  parentOf: ParentOf,
+  override: OverrideLike | null,
+): string | null {
+  const fields: Fields = Object.fromEntries(
+    Object.entries(document.fields ?? {}).filter(
+      ([key]) => !ISSUER_KEY.test(key),
+    ),
+  );
+  const own = { ...document, fields };
+  let address: ParsedAddress | null = null;
+  for (const [key, value] of Object.entries(fields)) {
+    if (!HOUSE_ADDRESS_KEY.test(key) && !WORK_ADDRESS_KEY.test(key)) continue;
+    const printed = text(value);
+    address = printed ? parseAddress(printed) : null;
+    if (address) break;
+  }
+  return houseOf(own, address, properties, parentOf, override);
 }
 
 /**
@@ -318,6 +373,10 @@ export function sameValue(
 ): boolean {
   if (a === null || a === '') return false;
   if (NUMBER_FIELDS.has(field)) return toNumber(a) === toNumber(b);
+  if (supplyPointUtility(field))
+    return normalizeCode(String(a)) === normalizeCode(b);
+  if (NAME_FIELDS.has(field) || field === 'address')
+    return sameName(String(a), b);
   return normalizeText(String(a)) === normalizeText(b);
 }
 
@@ -326,17 +385,17 @@ export function houseValue(
   house: PropertyDto,
   field: HouseField,
 ): string | null {
-  if (field === 'supplyCodes') return house.supplyCodes.join(', ') || null;
+  const utility = supplyPointUtility(field);
+  if (utility) return house.supplyPoints?.[utility] ?? null;
   if (field === 'owners')
     return house.owners.map((o) => o.name).join(', ') || null;
-  const value = house[field];
+  const value = (house as unknown as Record<string, unknown>)[field];
   return value === null || value === undefined ? null : String(value);
 }
 
 /** The read values of several documents together: the newest wins a value, lists add up. */
 export interface HouseFacts {
   values: Partial<Record<HouseScalarField, string>>;
-  supplyCodes: string[];
   owners: string[];
 }
 
@@ -359,10 +418,6 @@ export function mergeReadings(readings: readonly HouseReading[]): HouseFacts {
   };
   return {
     values,
-    supplyCodes: unique(
-      newestFirst.flatMap((r) => r.supplyCodes),
-      normalizeCode,
-    ),
     owners: unique(
       newestFirst.flatMap((r) => r.owners),
       normalizeText,
@@ -377,13 +432,13 @@ export function proposeHouseChanges(
 ): HouseProposedChangeDto[] {
   const changes: HouseProposedChangeDto[] = [];
   for (const field of HOUSE_FIELDS) {
-    if (field === 'supplyCodes' || field === 'owners') {
-      const have =
-        field === 'supplyCodes'
-          ? new Set(house?.supplyCodes.map(normalizeCode) ?? [])
-          : new Set(house?.owners.map((o) => normalizeText(o.name)) ?? []);
-      const key = field === 'supplyCodes' ? normalizeCode : normalizeText;
-      const added = facts[field].filter((value) => !have.has(key(value)));
+    if (field === 'owners') {
+      const have = new Set(
+        house?.owners.map((o) => normalizeText(o.name)) ?? [],
+      );
+      const added = facts.owners.filter(
+        (value) => !have.has(normalizeText(value)),
+      );
       if (added.length)
         changes.push({
           field,
@@ -395,6 +450,15 @@ export function proposeHouseChanges(
     }
     const proposed = facts.values[field];
     if (!proposed) continue;
+    // A supply point the house already has (now or before) is not news.
+    if (
+      house &&
+      supplyPointUtility(field) &&
+      house.supplyCodes.some(
+        (c) => normalizeCode(c) === normalizeCode(proposed),
+      )
+    )
+      continue;
     const current = house ? houseValue(house, field) : null;
     if (current !== null && sameValue(field, current, proposed)) continue;
     changes.push({
@@ -410,3 +474,7 @@ export function proposeHouseChanges(
 /** The supplier field of a utility. */
 export const supplierField = (utility: UtilityKind): HouseScalarField =>
   SUPPLIER_OF[utility];
+
+/** The supply point field of a utility. */
+export const pointField = (utility: UtilityKind): HouseScalarField =>
+  SUPPLY_POINT_FIELDS[utility] as HouseScalarField;

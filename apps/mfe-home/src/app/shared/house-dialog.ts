@@ -24,6 +24,7 @@ import {
   type PropertyDto,
   type PropertyTenure,
   type PropertyType,
+  type UtilityKind,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -72,9 +73,38 @@ interface Draft {
   condoManager: string;
   insurer: string;
   matchTerms: string;
-  supplyCodes: string;
+  electricityPoint: string;
+  gasPoint: string;
+  waterPoint: string;
   notes: string;
 }
+
+/** The supply point inputs, one per utility. */
+const POINT_INPUTS: {
+  utility: UtilityKind;
+  key: 'electricityPoint' | 'gasPoint' | 'waterPoint';
+  label: string;
+  hint: string;
+}[] = [
+  {
+    utility: 'ELECTRICITY',
+    key: 'electricityPoint',
+    label: 'Electricity supply point (POD)',
+    hint: 'IT001E… printed on every electricity bill',
+  },
+  {
+    utility: 'GAS',
+    key: 'gasPoint',
+    label: 'Gas supply point (PDR)',
+    hint: '14 digits printed on every gas bill',
+  },
+  {
+    utility: 'WATER',
+    key: 'waterPoint',
+    label: 'Water supply code',
+    hint: 'The code of the water supply on its bills',
+  },
+];
 
 type TextKey = {
   [K in keyof Draft]: Draft[K] extends string ? K : never;
@@ -140,7 +170,9 @@ function draftOf(p: PropertyDto | null): Draft {
     condoManager: str(p?.condoManager),
     insurer: str(p?.insurer),
     matchTerms: (p?.matchTerms ?? []).join(', '),
-    supplyCodes: (p?.supplyCodes ?? []).join(', '),
+    electricityPoint: str(p?.supplyPoints?.ELECTRICITY),
+    gasPoint: str(p?.supplyPoints?.GAS),
+    waterPoint: str(p?.supplyPoints?.WATER),
     notes: str(p?.notes),
   };
 }
@@ -462,16 +494,23 @@ function draftOf(p: PropertyDto | null): Draft {
                 (input)="set('matchTerms', $event)"
               />
             </ui-form-field>
-            <ui-form-field
-              label="Supply points"
-              hint="POD (electricity), PDR (gas) or the water supply code, comma separated. Not the customer code: that belongs to a supply contract, read from the bills"
-            >
-              <input
-                uiInput
-                [value]="d.supplyCodes"
-                (input)="set('supplyCodes', $event)"
-              />
-            </ui-form-field>
+            <p class="muted points-hint">
+              One supply point per utility. Its bills find this house by it, and
+              a bill of the same supply never asks to change it. Not the
+              customer code: that belongs to a supply contract, read from the
+              bills.
+            </p>
+            @for (p of pointInputs; track p.key) {
+              <ui-form-field [label]="p.label" [hint]="p.hint">
+                <input
+                  uiInput
+                  class="mono"
+                  autocomplete="off"
+                  [value]="d[p.key]"
+                  (input)="set(p.key, $event)"
+                />
+              </ui-form-field>
+            }
             <ui-form-field label="Notes">
               <textarea
                 uiInput
@@ -582,6 +621,13 @@ function draftOf(p: PropertyDto | null): Draft {
     .error {
       margin-bottom: var(--space-4);
     }
+    .mono {
+      font-family: var(--font-mono, monospace);
+    }
+    .points-hint {
+      margin: 0;
+      font-size: var(--text-sm);
+    }
     .form {
       display: grid;
       gap: var(--space-4);
@@ -690,6 +736,7 @@ export class HouseDialog {
     COMPANY_LABELS,
   ) as PropertyCompanyField[];
   protected readonly companyLabels = COMPANY_LABELS;
+  protected readonly pointInputs = POINT_INPUTS;
   protected readonly maxMb = MODEL_MAX_BYTES / 1024 / 1024;
 
   protected readonly otherResidence = computed(
@@ -809,7 +856,7 @@ export class HouseDialog {
       waterSupplier: text(d.waterSupplier),
       condoManager: text(d.condoManager),
       insurer: text(d.insurer),
-      supplyCodes: list(d.supplyCodes),
+      ...this.changedPoints(d),
       notes: text(d.notes),
       // Empty on a new house: the service derives them from the address.
       ...(this.house() || d.matchTerms.trim()
@@ -830,6 +877,19 @@ export class HouseDialog {
       },
       error: (error) => this.fail(error),
     });
+  }
+
+  /** Only the supply points you changed: each moves its bills to this house. */
+  private changedPoints(d: Draft): Pick<CreatePropertyRequest, 'supplyPoints'> {
+    const before = this.house()?.supplyPoints;
+    const plain = (code: string | null | undefined) =>
+      (code ?? '').replace(/[\s\-./]/g, '').toUpperCase();
+    const changed: NonNullable<CreatePropertyRequest['supplyPoints']> = {};
+    for (const p of POINT_INPUTS) {
+      const now = plain(d[p.key]);
+      if (now !== plain(before?.[p.utility])) changed[p.utility] = now || null;
+    }
+    return Object.keys(changed).length ? { supplyPoints: changed } : {};
   }
 
   protected uploadModel(house: PropertyDto, event: Event): void {

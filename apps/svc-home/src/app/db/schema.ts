@@ -401,3 +401,52 @@ export const bills = home.table(
 );
 
 export type BillRow = typeof bills.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// What else your documents say about a house: its internet line (contracts
+// and bills) and its insurances. They are read from the documents mirrored
+// here; only your corrections are stored.
+
+/** Your corrections to which house an internet or insurance document is about. */
+export const houseDocumentOverrides = home.table('house_document_overrides', {
+  uploadId: uuid('upload_id').primaryKey(),
+  /** True when you picked the house (null house: on none). */
+  manualProperty: boolean('manual_property').notNull().default(false),
+  propertyId: uuid('property_id').references(() => properties.id, {
+    onDelete: 'set null',
+  }),
+  /** Not about a house at all (a car insurance read as a home one). */
+  excluded: boolean('excluded').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type HouseDocumentOverrideRow =
+  typeof houseDocumentOverrides.$inferSelect;
+
+/**
+ * A 730 home expense (renovation, energy efficiency, furniture) tied to a
+ * house and maybe one of its works. The expense lives in svc-tax730 (by id,
+ * no foreign key); only the link is this service's.
+ */
+export const taxExpenseLinks = home.table(
+  'tax_expense_links',
+  {
+    expenseId: uuid('expense_id').primaryKey(),
+    /** True when you picked the house (null house: on none). */
+    manualProperty: boolean('manual_property').notNull().default(false),
+    propertyId: uuid('property_id').references(() => properties.id, {
+      onDelete: 'set null',
+    }),
+    workId: uuid('work_id').references(() => works.id, {
+      onDelete: 'set null',
+    }),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('tax_expense_links_property_idx').on(table.propertyId)],
+);
+
+export type TaxExpenseLinkRow = typeof taxExpenseLinks.$inferSelect;

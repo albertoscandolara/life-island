@@ -52,6 +52,7 @@ function house(overrides: Partial<PropertyDto> = {}): PropertyDto {
     colorSlot: 1,
     matchTerms: ['dei bandi'],
     supplyCodes: ['IT001E36435004'],
+    supplyPoints: { ELECTRICITY: 'IT001E36435004', GAS: null, WATER: null },
     categoryIds: [],
     notes: null,
     model: null,
@@ -117,17 +118,20 @@ describe('readHouse', () => {
     expect(reading).toMatchObject({
       propertyId: 'p2',
       utility: 'ELECTRICITY',
-      supplyCodes: ['IT001E36435004'],
       values: {
         address: 'Via dei Bandi 10',
         city: 'Tregnago',
         electricitySupplier: 'Lene S.r.l.',
+        electricityPoint: 'IT001E36435004',
       },
     });
   });
 
   it("never takes a customer code as house data: it is the contract's", () => {
-    const gas = house({ supplyCodes: ['01680102015791'] });
+    const gas = house({
+      supplyCodes: ['01680102015791'],
+      supplyPoints: { ELECTRICITY: null, GAS: '01680102015791', WATER: null },
+    });
     const printed: Record<string, string>[] = [
       { customer_id: '1000007483' },
       { customer_code: '1000007483', supply_point_code: 'IT001E36435004' },
@@ -147,7 +151,7 @@ describe('readHouse', () => {
         parentOf,
         null,
       );
-      expect(reading?.supplyCodes).not.toContain('1000007483');
+      expect(Object.values(reading?.values ?? {})).not.toContain('1000007483');
       const changes = proposeHouseChanges(mergeReadings([reading!]), gas);
       expect(changes.map((c) => c.proposed).join(' ')).not.toContain(
         '1000007483',
@@ -212,6 +216,84 @@ describe('proposeHouseChanges', () => {
       ['province', 'new_value'],
       ['electricitySupplier', 'new_value'],
     ]);
+  });
+
+  const bill = (
+    fields: Record<string, string | number>,
+    categories: string[],
+  ) =>
+    mergeReadings([
+      readHouse(
+        doc(
+          {
+            supply_address: 'Via dei Bandi 10, 37039 Tregnago (VR)',
+            total_amount: 80,
+            ...fields,
+          },
+          categories,
+        ),
+        [bandi],
+        parentOf,
+        null,
+      )!,
+    ]);
+  const known = house({
+    address: 'Via dei Bandi 10',
+    postalCode: '37039',
+    city: 'Tregnago',
+    province: 'VR',
+    electricitySupplier: 'Enel Energia',
+    gasSupplier: 'Hera Comm',
+    supplyCodes: ['IT001E36435004', '01680102015791'],
+    supplyPoints: {
+      ELECTRICITY: 'IT001E36435004',
+      GAS: '01680102015791',
+      WATER: null,
+    },
+  });
+
+  it('asks nothing for a new bill of the same supplies, however the supplier is printed', () => {
+    expect(
+      proposeHouseChanges(
+        bill({ provider: 'ENEL ENERGIA S.P.A.', pod: 'IT 001 E 36435004' }, [
+          'ELECTRICITY_BILL',
+        ]),
+        known,
+      ),
+    ).toEqual([]);
+    expect(
+      proposeHouseChanges(
+        bill({ provider: 'HERA COMM SPA', pdr: '01680102015791' }, [
+          'GAS_BILL',
+        ]),
+        known,
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps one supply point per utility: a gas PDR never touches the electricity POD', () => {
+    const changes = proposeHouseChanges(
+      bill({ provider: 'Hera Comm', pdr: '09999999999999' }, ['GAS_BILL']),
+      known,
+    );
+    expect(changes).toEqual([
+      {
+        field: 'gasPoint',
+        kind: 'different_value',
+        current: '01680102015791',
+        proposed: '09999999999999',
+      },
+    ]);
+  });
+
+  it('never suggests again a supply point the house had before', () => {
+    const changes = proposeHouseChanges(
+      bill({ provider: 'Enel Energia', pod: 'IT001E99999999' }, [
+        'ELECTRICITY_BILL',
+      ]),
+      { ...known, supplyCodes: [...known.supplyCodes, 'IT001E99999999'] },
+    );
+    expect(changes).toEqual([]);
   });
 });
 

@@ -132,6 +132,14 @@
       </div>
     </header>
 
+    <home-tax-expenses
+      class="tax"
+      [scope]="scope()"
+      [houses]="store.properties() ?? []"
+      [works]="works() ?? []"
+      (workChanged)="onSaved($event)"
+    />
+
     @if (works() === null) {
     <p class="loading">Loading your works…</p>
     } @else if (!visible().length) {

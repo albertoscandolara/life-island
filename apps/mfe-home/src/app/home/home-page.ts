@@ -43,6 +43,7 @@ import { HouseDialog } from '../shared/house-dialog';
 import { PropertyStore } from '../shared/property-store';
 import { scopeHouses, selectedIds } from '../shared/selection';
 import { DocumentPicker } from './document-picker';
+import { TaxExpenses } from './tax-expenses';
 import { WorkDialog } from './work-dialog';
 
 const STATUS_TONES: Record<WorkStatus, UiTone> = {
@@ -90,6 +91,7 @@ export const workYear = (work: WorkDto): number | null => {
     HouseDialog,
     WorkDialog,
     DocumentPicker,
+    TaxExpenses,
   ],
   host: { 'data-character': 'bronto', class: 'home' },
   templateUrl: './home-page.html',

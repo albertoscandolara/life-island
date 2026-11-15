@@ -9,7 +9,9 @@ import type {
   BillDto,
   EntityRefDto,
   EventEnvelope,
+  HouseServicesDto,
   HouseSuggestionDto,
+  HouseTaxExpensesDto,
   KnownCompanyDto,
   OrganizationDetailDto,
   OrganizationDto,
@@ -68,6 +70,10 @@ describe.skipIf(!configured)(
           [uploads],
         );
         await svc?.pool.query(
+          'delete from home.house_document_overrides where upload_id = any($1)',
+          [uploads],
+        );
+        await svc?.pool.query(
           'delete from home.documents where upload_id = any($1)',
           [uploads],
         );
@@ -76,8 +82,8 @@ describe.skipIf(!configured)(
           [uploads],
         );
         await svc?.pool.query(
-          "delete from home.supply_points where code ilike '%' || $1 || '%'",
-          [run],
+          "delete from home.supply_points where code ilike '%' || $1 || '%' or code like '%' || $2 || '%'",
+          [run, runDigits],
         );
         await svc?.pool.query(
           "delete from home.organizations where name ilike '%' || $1 || '%'",
@@ -563,14 +569,14 @@ describe.skipIf(!configured)(
         'city',
         'province',
         'gasSupplier',
-        'supplyCodes',
+        'gasPoint',
       ]);
 
       const house = await json<PropertyDto>(
         await send('POST', '/houses/suggestions/approve', {
           uploadIds: [first],
           propertyId: null,
-          accept: ['address', 'city', 'gasSupplier', 'supplyCodes'],
+          accept: ['address', 'city', 'gasSupplier', 'gasPoint'],
         }),
       );
       createdProperties.push(house.id);
@@ -581,6 +587,11 @@ describe.skipIf(!configured)(
         postalCode: null,
         gasSupplier: 'Magis Energia',
         supplyCodes: [`0168${runDigits}01`],
+        supplyPoints: {
+          ELECTRICITY: null,
+          GAS: `0168${runDigits}01`,
+          WATER: null,
+        },
       });
 
       // A newer bill of the same house, from a new supplier.
@@ -760,6 +771,110 @@ describe.skipIf(!configured)(
         status: 'confirmed',
         aliases: expect.arrayContaining([`Via E${run} 9`, `Via E${run}`]),
       });
+    });
+
+    it('keeps one supply point per utility, and asks nothing for a new bill of it', async () => {
+      const street = `Via Unica${run}`;
+      const house = await createProperty(`${street} 3`, {
+        address: `${street} 3`,
+        postalCode: '37039',
+        city: 'Tregnago',
+        province: 'VR',
+        electricitySupplier: 'Enel Energia',
+        gasSupplier: 'Hera Comm',
+        supplyPoints: {
+          ELECTRICITY: `IT001E${run}`,
+          GAS: `0169${runDigits}01`,
+        },
+      });
+      expect(house.supplyPoints).toEqual({
+        ELECTRICITY: `IT001E${run}`.toUpperCase(),
+        GAS: `0169${runDigits}01`,
+        WATER: null,
+      });
+
+      const at = `${street} 3, 37039 Tregnago (VR)`;
+      const electricity = await upload(['ELECTRICITY_BILL'], {
+        provider: 'ENEL ENERGIA S.P.A.',
+        pod: `IT 001 E ${run}`,
+        supply_address: at,
+        billing_period: '2026-07-01/2026-08-31',
+        total_amount: 80,
+      });
+      const gas = await upload(['GAS_BILL'], {
+        provider: 'HERA COMM SPA',
+        pdr: `0169${runDigits}01`,
+        supply_address: at,
+        billing_period: '2026-07-01/2026-08-31',
+        total_amount: 40,
+      });
+      const suggestions = await json<HouseSuggestionDto[]>(
+        await send('GET', '/houses/suggestions'),
+      );
+      expect(
+        suggestions.filter((s) =>
+          s.documents.some(
+            (d) => d.uploadId === electricity || d.uploadId === gas,
+          ),
+        ),
+      ).toEqual([]);
+
+      // A new meter: only the electricity point changes, the gas one stays.
+      const updated = await json<PropertyDto>(
+        await send('PATCH', `/properties/${house.id}`, {
+          supplyPoints: { ELECTRICITY: `IT002E${run}` },
+        }),
+      );
+      expect(updated.supplyPoints.ELECTRICITY).toBe(
+        `IT002E${run}`.toUpperCase(),
+      );
+      expect(updated.supplyPoints.GAS).toBe(`0169${runDigits}01`);
+      expect(updated.supplyCodes).toContain(`IT001E${run}`.toUpperCase());
+    });
+
+    it('reads internet and insurance documents of a house', async () => {
+      const street = `Via Rete${run}`;
+      const house = await createProperty(`${street} 1`, {
+        address: `${street} 1`,
+      });
+      const line = await upload(['INTERNET_BILL'], {
+        provider: `Fibra${run}`,
+        billing_period: '2026-09-01/2026-09-30',
+        total_amount: 25,
+        supply_address: `${street} 1, Verona`,
+      });
+      await upload(['HOME_INSURANCE'], {
+        insurer: `Assicura${run}`,
+        policy_number: `P${run}`,
+        end_date: '2099-12-31',
+        insured_address: `${street} 1, Verona`,
+      });
+      const services = await json<HouseServicesDto>(
+        await send('GET', '/house-services'),
+      );
+      expect(
+        services.internet.find((l) => l.provider === `Fibra${run}`),
+      ).toMatchObject({ propertyId: house.id, status: 'ACTIVE' });
+      expect(
+        services.insurances.find((i) => i.insurer === `Assicura${run}`),
+      ).toMatchObject({ propertyId: house.id, status: 'ACTIVE' });
+
+      const moved = await json<HouseServicesDto>(
+        await send('PATCH', `/house-services/documents/${line}`, {
+          excluded: true,
+        }),
+      );
+      expect(moved.internet.some((l) => l.provider === `Fibra${run}`)).toBe(
+        false,
+      );
+    });
+
+    it('says when the 730 cannot be reached', async () => {
+      const expenses = await json<HouseTaxExpensesDto>(
+        await send('GET', '/tax-expenses'),
+      );
+      expect(typeof expenses.available).toBe('boolean');
+      if (!expenses.available) expect(expenses.expenses).toEqual([]);
     });
 
     it('keeps a 3D model per house in its own bucket', async () => {
