@@ -721,6 +721,52 @@ describe.skipIf(!configured)(
       );
     });
 
+    it('keeps a merged twin merged, though its bills print another code', async () => {
+      const name = `Lene M${run} S.r.l.`;
+      const [kept, other] = [`3${runDigits}03`, `4${runDigits}04`];
+      // The company you have (its logo, its code), and a bill of the same
+      // company printing another code: a second "Lene", flagged as the same.
+      await svc.pool.query(
+        `insert into home.organizations (name, name_key, status, tax_code) values ($1, $2, 'CONFIRMED', $3)`,
+        [name, `lene m${run}`, kept],
+      );
+      const bill = await upload(['ELECTRICITY_BILL'], {
+        provider: name,
+        supplier_tax_code: other,
+        invoice_number: `L-${run}-1`,
+        total_amount: 40,
+      });
+      const twins = async () =>
+        (
+          await json<OrganizationDto[]>(await send('GET', '/organizations'))
+        ).filter((o) => o.name === name);
+      const before = await twins();
+      expect(before).toHaveLength(2);
+      const mine = before.find((o) => o.taxCode === kept);
+      const copy = before.find((o) => o.taxCode === other);
+      expect(mine?.possibleDuplicates.map((d) => d.id)).toEqual([copy?.id]);
+
+      // You merge the copy into yours: it stays one company, after the next
+      // sync too, and the bills are yours.
+      const merged = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${mine?.id}/merge`, {
+          from: copy?.id,
+        }),
+      );
+      expect(merged.id).toBe(mine?.id);
+      await upload(['ELECTRICITY_BILL'], {
+        provider: name,
+        supplier_tax_code: other,
+        invoice_number: `L-${run}-2`,
+        total_amount: 41,
+      });
+      const after = await twins();
+      expect(after.map((o) => o.id)).toEqual([mine?.id]);
+      expect(after[0]).toMatchObject({ taxCode: kept, billCount: 2 });
+      const bills = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(bills.find((b) => b.uploadId === bill)?.supplierId).toBe(mine?.id);
+    });
+
     it('knows a bank by its name or by its statements', async () => {
       await upload(['INVOICE'], { issuer: `Banca Q${run} S.p.A.` }, 'Fees');
       await upload(['ESTRATTO_CONTO'], { issuer: `Widi${run}` }, 'Statement');

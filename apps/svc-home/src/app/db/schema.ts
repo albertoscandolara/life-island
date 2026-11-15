@@ -253,6 +253,11 @@ export const organizations = home.table(
     nameKey: text('name_key').notNull(),
     taxCode: text('tax_code'),
     vatNumber: text('vat_number'),
+    /**
+     * Tax codes and VAT numbers of the duplicates merged into it: documents
+     * that print them still find it, so a merge stays a merge.
+     */
+    mergedCodes: text('merged_codes').array().notNull().default([]),
     roles: text('roles')
       .array()
       .$type<OrganizationRole[]>()

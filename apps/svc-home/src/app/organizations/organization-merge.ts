@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { organizationKey } from '../bills/bill-reader.js';
+import { codesOf } from './organization-codes.js';
 import {
   bills,
   organizations,
@@ -14,7 +15,8 @@ type Db = Pick<NodePgDatabase, 'select' | 'update' | 'delete'>;
  * Moves everything of `fromId` to `intoId`: bills, supply contracts (joining
  * the contract the target already has for the same customer code and supply
  * point), supply points it distributes. Its name, aliases and missing tax
- * data go to the target, and it is removed. Runs inside a transaction.
+ * data go to the target, its other codes are kept as the target's merged
+ * codes (so its next bill finds the target), and it is removed. Runs inside a transaction.
  * The target keeps its own website, notes and images, and takes the
  * duplicate's where it has none. Returns the storage keys of the images no
  * company points to any more, for the caller to delete once committed.
@@ -73,14 +75,23 @@ export async function mergeOrganizations(
   const aliases = [
     ...new Set([...into.aliases, from.name, ...from.aliases]),
   ].filter((a) => organizationKey(a) !== organizationKey(into.name));
+  const taxCode = into.taxCode ?? from.taxCode;
+  const vatNumber = into.vatNumber ?? from.vatNumber;
+  // The duplicate's codes stay known: a bill printing them is this company's,
+  // and is never read as a new company again.
+  const mergedCodes = [...codesOf(into), ...codesOf(from)].filter(
+    (code, i, all) =>
+      code !== taxCode && code !== vatNumber && all.indexOf(code) === i,
+  );
   // The tax code is unique: free it before the target takes it.
   await db.delete(organizations).where(eq(organizations.id, fromId));
   await db
     .update(organizations)
     .set({
       aliases,
-      taxCode: into.taxCode ?? from.taxCode,
-      vatNumber: into.vatNumber ?? from.vatNumber,
+      taxCode,
+      vatNumber,
+      mergedCodes,
       roles: [...new Set([...into.roles, ...from.roles])],
       website: into.website ?? from.website,
       description: into.description ?? from.description,

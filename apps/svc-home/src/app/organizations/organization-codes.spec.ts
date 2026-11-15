@@ -24,4 +24,11 @@ describe('codesDiffer', () => {
       true,
     );
   });
+
+  it('knows a company by the codes of the duplicates merged into it', () => {
+    const merged = { ...c('02038940223'), mergedCodes: ['01234567890'] };
+    expect(codesDiffer(merged, c('01234567890'))).toBe(false);
+    expect(codesDiffer(c(null, '01234567890'), merged)).toBe(false);
+    expect(codesDiffer(merged, c('09999999999'))).toBe(true);
+  });
 });

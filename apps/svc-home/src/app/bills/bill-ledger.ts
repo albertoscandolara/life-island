@@ -24,7 +24,7 @@ import {
 } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { SERVICE_DB } from '../config.js';
-import { codesDiffer } from '../organizations/organization-codes.js';
+import { codesDiffer, codesOf } from '../organizations/organization-codes.js';
 import {
   ORGANIZATION_LOCK,
   syncOrganizationsIn,
@@ -149,6 +149,11 @@ export async function syncBillsIn(db: Db): Promise<void> {
 
   const orgsByTax = new Map<string, OrganizationRow>();
   const orgsByKey = new Map<string, OrganizationRow>();
+  // A company's own tax code first, then the codes of the duplicates merged
+  // into it: a merged copy's bills find the company it was merged into.
+  for (const o of orgs)
+    for (const code of o.mergedCodes)
+      if (!orgsByTax.has(code)) orgsByTax.set(code, o);
   for (const o of orgs) {
     if (o.taxCode) orgsByTax.set(o.taxCode, o);
     // Read every name again: the key may have improved since it was stored.
@@ -211,7 +216,9 @@ export async function syncBillsIn(db: Db): Promise<void> {
         .where(eq(organizations.id, org.id))
         .returning();
     }
-    if (org.taxCode) orgsByTax.set(org.taxCode, org);
+    for (const code of codesOf(org))
+      if (code === org.taxCode || !orgsByTax.has(code))
+        orgsByTax.set(code, org);
     for (const k of organizationKeys(org)) orgsByKey.set(k, org);
     return org;
   };

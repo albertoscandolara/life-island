@@ -43,6 +43,13 @@
       "when": 1794731778034,
       "tag": "0005_house_services_and_730",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794753515969,
+      "tag": "0006_company_merged_codes",
+      "breakpoints": true
     }
   ]
 }
