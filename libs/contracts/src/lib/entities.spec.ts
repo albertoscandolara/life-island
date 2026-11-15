@@ -125,6 +125,27 @@ describe('compareNames', () => {
     expect(compareNames('Città di Verona', 'CITTA DI VERONA')).toBe('same');
   });
 
+  it('tells two public bodies of one kind apart by the rest of their name', () => {
+    expect(
+      compareNames(
+        'Ministero delle Infrastrutture e dei Trasporti',
+        'MINISTERO AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE',
+      ),
+    ).toBeNull();
+    expect(compareNames('Comune di Verona', 'Comune di Verola')).toBeNull();
+    expect(
+      compareNames("Ministero dell'Interno", 'Ministero Interni'),
+    ).toBeNull();
+    // A misprint of the kind, or linking words left out, are the same body.
+    expect(
+      compareNames(
+        'MINISTRO AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE',
+        'Ministero degli Affari Esteri e della Cooperazione Internazionale',
+      ),
+    ).toBe('similar');
+    expect(compareNames('Comune di Verona', 'COMUNE VERONA')).toBe('similar');
+  });
+
   it('ignores spacing', () => {
     expect(compareNames('Banca Widiba', 'BancaWidiba')).toBe('compact');
     expect(compareNames('EJ 560 PZ', 'ej560pz')).toBe('compact');

@@ -165,6 +165,18 @@ export class CompaniesPage {
   /** The company a company with documents is merged into instead of deleted. */
   protected readonly mergeTarget = signal('');
 
+  /** The name you say is not this company, while you pick where it goes. */
+  protected readonly splitting = signal<string | null>(null);
+  /** Where that name goes: a company, or '' for its own. */
+  protected readonly splitTarget = signal('');
+  /** The companies other than the one you are looking at, to give a name to. */
+  protected readonly others = computed(() => {
+    const id = this.selectedId();
+    return (this.companies() ?? []).filter(
+      (c) => c.id !== id && c.status !== 'DISMISSED',
+    );
+  });
+
   protected readonly dismissed = computed(() =>
     (this.companies() ?? []).filter((c) => c.status === 'DISMISSED'),
   );
@@ -279,6 +291,40 @@ export class CompaniesPage {
       error: () => {
         this.busy.set(null);
         this.error.set('That did not work. Please try again.');
+      },
+    });
+  }
+
+  protected startSplit(name: string): void {
+    this.splitTarget.set('');
+    this.splitting.set(name);
+  }
+
+  /**
+   * Undoes a merge: `name` is not this company. It goes, with the documents
+   * and bills printed with it, to the company picked or to its own; then
+   * that company is shown.
+   */
+  protected split(company: OrganizationDetailDto, name: string): void {
+    const into = this.splitTarget() || null;
+    this.busy.set(company.id);
+    this.error.set(null);
+    this.api.splitOrganization(company.id, name, into).subscribe({
+      next: (target) => {
+        this.busy.set(null);
+        this.splitting.set(null);
+        void this.directory.refresh();
+        void this.router.navigate([], {
+          queryParams: { [entityParam('organization')]: target.id },
+          queryParamsHandling: 'merge',
+        });
+        this.load();
+      },
+      error: () => {
+        this.busy.set(null);
+        this.error.set(
+          'That name could not be moved: it may read the same as another name of this company.',
+        );
       },
     });
   }
@@ -435,7 +481,10 @@ export class CompaniesPage {
   }
 
   private open(id: string | null): void {
-    if (id !== this.selectedId()) this.editing.set(false);
+    if (id !== this.selectedId()) {
+      this.editing.set(false);
+      this.splitting.set(null);
+    }
     this.selectedId.set(id);
     if (!id) {
       this.detail.set(null);

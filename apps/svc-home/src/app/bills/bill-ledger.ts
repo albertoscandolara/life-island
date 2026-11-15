@@ -63,8 +63,12 @@ const BILL_ROOTS = [
   ...UTILITY_KINDS.map((k) => UTILITIES[k].categoryId),
 ];
 
-/** One sync at a time, across the API and the event consumer. */
-const LOCK = 'home.bill_ledger';
+/**
+ * One sync at a time, across the API and the event consumer. Taken before the
+ * organization lock, always in that order.
+ */
+export const BILL_LOCK = 'home.bill_ledger';
+const LOCK = BILL_LOCK;
 
 /** The hierarchy, and every category that is a bill or sits under one. */
 export async function billCategories(db: Db): Promise<{

@@ -196,6 +196,22 @@ export class HomeApi {
     );
   }
 
+  /**
+   * Undoes a merge: `name`, one of the names company `id` is also printed
+   * as, goes to company `into` (or to its own company, when null) with the
+   * documents and bills printed with it. Answers with that company.
+   */
+  splitOrganization(
+    id: string,
+    name: string,
+    into: string | null,
+  ): Observable<OrganizationDetailDto> {
+    return this.http.post<OrganizationDetailDto>(
+      `${HOME_API}/organizations/${id}/split`,
+      { name, into },
+    );
+  }
+
   /** Internet lines and insurances of your houses, read from your documents. */
   houseServices(): Observable<HouseServicesDto> {
     return this.http.get<HouseServicesDto>(`${HOME_API}/house-services`);

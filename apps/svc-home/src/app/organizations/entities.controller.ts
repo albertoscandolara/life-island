@@ -55,29 +55,37 @@ export class HomeEntitiesController {
       ...houses.map(houseEntity),
       ...suggestions
         .filter((s) => s.kind === 'new_house' && s.name)
-        .map((s): EntityRefDto => ({
-          kind: 'house',
-          id: s.key,
-          name: s.name ?? '',
-          status: 'pending',
-          detail: 'New house read from your documents',
-          aliases: cleanAliases(
-            s.name ?? '',
-            s.changes
-              .filter((c) => c.field === 'address')
-              .flatMap((c) => [c.proposed, streetOf(c.proposed)]),
-          ),
-        })),
+        .map(
+          (s): EntityRefDto => ({
+            kind: 'house',
+            id: s.key,
+            name: s.name ?? '',
+            status: 'pending',
+            detail: 'New house read from your documents',
+            aliases: cleanAliases(
+              s.name ?? '',
+              s.changes
+                .filter((c) => c.field === 'address')
+                .flatMap((c) => [c.proposed, streetOf(c.proposed)]),
+            ),
+          }),
+        ),
       ...orgs
         .filter((o) => o.status !== 'DISMISSED')
-        .map((o): EntityRefDto => ({
-          kind: 'organization',
-          id: o.id,
-          name: o.name,
-          status: o.status === 'CONFIRMED' ? 'confirmed' : 'pending',
-          detail: o.vatNumber ?? o.taxCode,
-          aliases: cleanAliases(o.name, [...o.aliases, o.taxCode, o.vatNumber]),
-        })),
+        .map(
+          (o): EntityRefDto => ({
+            kind: 'organization',
+            id: o.id,
+            name: o.name,
+            status: o.status === 'CONFIRMED' ? 'confirmed' : 'pending',
+            detail: o.vatNumber ?? o.taxCode,
+            aliases: cleanAliases(o.name, [
+              ...o.aliases,
+              o.taxCode,
+              o.vatNumber,
+            ]),
+          }),
+        ),
     ];
   }
 }

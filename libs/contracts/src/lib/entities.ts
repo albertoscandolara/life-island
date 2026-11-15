@@ -258,10 +258,82 @@ export function compareNames(a: string, b: string): NameMatch | null {
     return 'street';
   const digits = (k: string) => k.replace(/\D/g, '');
   if (digits(ca) !== digits(cb)) return null;
+  // Two public bodies of one kind differ by what follows: "Comune di Verona"
+  // is not "Comune di Verola", whatever a typo budget says.
+  const ta = publicBodyTail(ka);
+  const tb = publicBodyTail(kb);
+  if (ta !== null && tb !== null && ta.kind === tb.kind)
+    // "Ministero degli Affari Esteri" is "MINISTRO AFFARI ESTERI".
+    return ta.tail === tb.tail ? 'similar' : null;
   const allowed = typosAllowed(Math.min(ca.length, cb.length));
   if (allowed && Math.abs(ca.length - cb.length) <= allowed)
     if (editDistance(ca, cb) <= allowed) return 'similar';
   return null;
+}
+
+/**
+ * Words that open the name of a public body: the office that matters is in
+ * the words after them, so two ministries, two towns, two agencies are told
+ * apart by those alone.
+ */
+const PUBLIC_BODIES = [
+  'ministero',
+  'ministry',
+  'comune',
+  'citta',
+  'regione',
+  'provincia',
+  'prefettura',
+  'questura',
+  'agenzia',
+  'tribunale',
+  'procura',
+  'consolato',
+  'ambasciata',
+  'universita',
+  'istituto',
+  'ufficio',
+  'camera',
+  'azienda',
+];
+
+/** Small words the rest of a public body's name may print or leave out. */
+const LINKING_WORDS = new Set([
+  'di',
+  'del',
+  'dello',
+  'della',
+  'dei',
+  'degli',
+  'delle',
+  'd',
+  'dell',
+  'degl',
+  'e',
+  'ed',
+  'per',
+  'of',
+  'the',
+  'and',
+]);
+
+/**
+ * For a public body's name ("ministero affari esteri", or the misprint
+ * "ministro affari esteri"), which kind it is and the rest of its name
+ * without linking words; null for any other name.
+ */
+function publicBodyTail(key: string): { kind: string; tail: string } | null {
+  const [first, ...rest] = key.split(' ');
+  if (!first || !rest.length) return null;
+  const kind = PUBLIC_BODIES.find(
+    (word) =>
+      first === word || (first.length >= 6 && editDistance(first, word) <= 1),
+  );
+  if (!kind) return null;
+  return {
+    kind,
+    tail: rest.filter((w) => !LINKING_WORDS.has(w)).join(''),
+  };
 }
 
 /** Whether two names stand for the same thing, however slightly they differ. */

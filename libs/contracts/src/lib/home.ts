@@ -748,6 +748,20 @@ export type MergeOrganizationRequest = z.input<
   typeof mergeOrganizationRequestSchema
 >;
 
+/**
+ * Undoes a merge: `name`, one of the names a company is also printed as,
+ * is not that company. It goes to the company `into`, or to its own company
+ * (the one already called that, or a new one), with the documents, bills and
+ * codes printed with it.
+ */
+export const splitOrganizationRequestSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  into: z.uuid().nullable().optional(),
+});
+export type SplitOrganizationRequest = z.input<
+  typeof splitOrganizationRequestSchema
+>;
+
 export const updateOrganizationRequestSchema = z.object({
   name: z.string().trim().min(1).max(160).optional(),
   taxCode: z.string().trim().max(32).nullable().optional(),
