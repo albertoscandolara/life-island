@@ -3,6 +3,7 @@ import {
   issuedByInsurer,
   looksLikeBank,
   looksLikeInsurer,
+  looksLikeProfessional,
   looksLikePublicBody,
 } from './organization-ledger.js';
 
@@ -84,5 +85,32 @@ describe('public bodies', () => {
       'Allianz Direct',
     ])
       expect(looksLikePublicBody(name)).toBe(false);
+  });
+});
+
+describe('professional services', () => {
+  it('knows a professional service by its name', () => {
+    for (const name of [
+      'Notaio Chiliberti Avv. Giuseppe',
+      'Studio Legale Rossi & Associati',
+      'Avv. Maria Bianchi',
+      'Dott. Commercialista Luca Verdi',
+      'Studio Commerciale Neri',
+      'Agenzia Immobiliare Il Portico',
+      'Tecnocasa Verona Borgo Trento',
+      'RE/MAX Prestige',
+      'Geom. Paolo Gialli',
+      'Acme Consulting S.r.l.',
+    ])
+      expect(looksLikeProfessional(name)).toBe(true);
+    for (const name of [
+      'Arcoda',
+      'ING Bank',
+      'Banca Widiba',
+      'Ministero delle Infrastrutture e dei Trasporti',
+      'Leso Elettrodomestici',
+      'Unitycasa di Romio Eddy',
+    ])
+      expect(looksLikeProfessional(name)).toBe(false);
   });
 });
