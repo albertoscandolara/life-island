@@ -12,6 +12,7 @@ import type {
   ListBillsQuery,
   OrganizationDetailDto,
   OrganizationDto,
+  OrganizationImageKind,
   SupplyPointDto,
   UpdateOrganizationRequest,
   PropertyDto,
@@ -188,6 +189,37 @@ export class HomeApi {
       `${HOME_API}/organizations/${into}/merge`,
       { from },
     );
+  }
+
+  /** Uploads a company's logo or background image, replacing the one it had. */
+  uploadOrganizationImage(
+    id: string,
+    kind: OrganizationImageKind,
+    file: File,
+  ): Observable<OrganizationDetailDto> {
+    return this.http.put<OrganizationDetailDto>(
+      `${HOME_API}/organizations/${id}/images/${kind}`,
+      file,
+      { headers: { 'content-type': 'application/octet-stream' } },
+    );
+  }
+
+  deleteOrganizationImage(
+    id: string,
+    kind: OrganizationImageKind,
+  ): Observable<OrganizationDetailDto> {
+    return this.http.delete<OrganizationDetailDto>(
+      `${HOME_API}/organizations/${id}/images/${kind}`,
+    );
+  }
+
+  /** A company's image; `version` (when it last changed) busts the cache. */
+  organizationImageUrl(
+    id: string,
+    kind: OrganizationImageKind,
+    version: string,
+  ): string {
+    return `${HOME_API}/organizations/${id}/images/${kind}?v=${encodeURIComponent(version)}`;
   }
 
   works(property?: string): Observable<WorkDto[]> {

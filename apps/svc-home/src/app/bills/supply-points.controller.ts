@@ -138,7 +138,7 @@ export class SupplyPointsController {
     return listOrganizations(this.svc.db);
   }
 
-  /** Your fixes to a company: a clearer name, its tax code or VAT number, its other names and roles. */
+  /** Your fixes to a company: a clearer name, its tax code or VAT number, its other names and roles, its website and notes. */
   @Patch('organizations/:id')
   async updateOrganization(
     @Param('id', ParseUUIDPipe) id: string,
@@ -183,6 +183,10 @@ export class SupplyPointsController {
         : {}),
       ...(request.roles !== undefined
         ? { roles: [...new Set(request.roles)] }
+        : {}),
+      ...(request.website !== undefined ? { website: request.website } : {}),
+      ...(request.description !== undefined
+        ? { description: request.description }
         : {}),
     };
     if (Object.keys(set).length)

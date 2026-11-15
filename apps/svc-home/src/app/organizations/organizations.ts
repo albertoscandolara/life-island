@@ -151,6 +151,12 @@ function toDto(
     aliases: o.aliases,
     billCount,
     documentCount,
+    website: o.website,
+    description: o.description,
+    images: {
+      logo: o.logoKey ? (o.logoUpdatedAt?.toISOString() ?? '') : null,
+      cover: o.coverKey ? (o.coverUpdatedAt?.toISOString() ?? '') : null,
+    },
   };
 }
 

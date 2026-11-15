@@ -9,9 +9,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   entityParam,
+  ORGANIZATION_IMAGE_KINDS,
+  ORGANIZATION_IMAGE_MAX_BYTES,
+  ORGANIZATION_IMAGE_TYPES,
   ORGANIZATION_ROLES,
+  updateOrganizationRequestSchema,
   type OrganizationDetailDto,
   type OrganizationDto,
+  type OrganizationImageKind,
   type OrganizationRole,
 } from '@life-island/contracts';
 import {
@@ -37,11 +42,18 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
   OTHER: 'Other',
 };
 
+const IMAGE_LABELS: Record<OrganizationImageKind, string> = {
+  logo: 'Logo',
+  cover: 'Background',
+};
+
 /**
  * Companies as entities: every company your documents name (suppliers,
  * contractors, banks, shops). A new one waits for you: confirm it, say which
  * company it really is (merge), or that it is not a company. Once confirmed,
  * its name links here from every page of the island (`?company=<id>`).
+ * Its website, your notes, a logo and a background image make it easy to
+ * recognize.
  */
 @Component({
   selector: 'home-companies-page',
@@ -77,6 +89,9 @@ export class CompaniesPage {
   protected readonly editing = signal(false);
   protected readonly draftRoles = signal<OrganizationRole[]>([]);
   protected readonly roles = ORGANIZATION_ROLES;
+  protected readonly imageKinds = ORGANIZATION_IMAGE_KINDS;
+  protected readonly imageAccept = ORGANIZATION_IMAGE_TYPES.join(',');
+  protected readonly imageMaxMb = ORGANIZATION_IMAGE_MAX_BYTES / 1024 / 1024;
 
   protected readonly pending = computed(() =>
     (this.companies() ?? []).filter((c) => c.status === 'PENDING'),
@@ -103,6 +118,41 @@ export class CompaniesPage {
     return ROLE_LABELS[role];
   }
 
+  protected imageLabel(kind: OrganizationImageKind): string {
+    return IMAGE_LABELS[kind];
+  }
+
+  /** The URL of a company's logo or background, or null when it has none. */
+  protected imageUrl(
+    company: OrganizationDto,
+    kind: OrganizationImageKind,
+  ): string | null {
+    const version = company.images[kind];
+    return version === null
+      ? null
+      : this.api.organizationImageUrl(company.id, kind, version);
+  }
+
+  /** Up to two letters standing in for a company without a logo. */
+  protected initials(name: string): string {
+    const words = name
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    return (
+      words
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase() || '?'
+    );
+  }
+
+  /** The website without its scheme and trailing slash: "www.acme.it". */
+  protected websiteLabel(url: string): string {
+    return url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  }
+
   protected select(company: OrganizationDto): void {
     void this.router.navigate([], {
       queryParams: { [entityParam('organization')]: company.id, review: null },
@@ -127,8 +177,18 @@ export class CompaniesPage {
     vatNumber: string,
     taxCode: string,
     aliases: string,
+    websiteText: string,
+    description: string,
   ): void {
     if (!name.trim()) return;
+    const website =
+      updateOrganizationRequestSchema.shape.website.safeParse(websiteText);
+    if (!website.success) {
+      this.error.set(
+        'That website does not look right: try something like acme.it or https://www.acme.it.',
+      );
+      return;
+    }
     this.editing.set(false);
     this.run(
       company.id,
@@ -141,8 +201,45 @@ export class CompaniesPage {
           .map((a) => a.trim())
           .filter(Boolean),
         roles: this.draftRoles(),
+        website: website.data ?? null,
+        description: description.trim() || null,
       }),
       'That did not save: another company may have this tax code.',
+    );
+  }
+
+  /** Uploads the file just picked as the company's logo or background. */
+  protected uploadImage(
+    company: OrganizationDetailDto,
+    kind: OrganizationImageKind,
+    event: Event,
+  ): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!(ORGANIZATION_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      this.error.set('Pick a PNG, JPEG, WebP or GIF image.');
+      return;
+    }
+    if (file.size > ORGANIZATION_IMAGE_MAX_BYTES) {
+      this.error.set(`An image can be at most ${this.imageMaxMb} MB.`);
+      return;
+    }
+    this.run(
+      `${company.id}:${kind}`,
+      this.api.uploadOrganizationImage(company.id, kind, file),
+      'That image did not upload. Is the object storage running?',
+    );
+  }
+
+  protected removeImage(
+    company: OrganizationDetailDto,
+    kind: OrganizationImageKind,
+  ): void {
+    this.run(
+      `${company.id}:${kind}`,
+      this.api.deleteOrganizationImage(company.id, kind),
     );
   }
 

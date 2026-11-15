@@ -15,13 +15,16 @@ type Db = Pick<NodePgDatabase, 'select' | 'update' | 'delete'>;
  * the contract the target already has for the same customer code and supply
  * point), supply points it distributes. Its name, aliases and missing tax
  * data go to the target, and it is removed. Runs inside a transaction.
+ * The target keeps its own website, notes and images, and takes the
+ * duplicate's where it has none. Returns the storage keys of the images no
+ * company points to any more, for the caller to delete once committed.
  */
 export async function mergeOrganizations(
   db: Db,
   intoId: string,
   fromId: string,
   options: { confirm?: boolean } = {},
-): Promise<void> {
+): Promise<string[]> {
   const [[into], [from]] = await Promise.all([
     db.select().from(organizations).where(eq(organizations.id, intoId)),
     db.select().from(organizations).where(eq(organizations.id, fromId)),
@@ -79,6 +82,22 @@ export async function mergeOrganizations(
       taxCode: into.taxCode ?? from.taxCode,
       vatNumber: into.vatNumber ?? from.vatNumber,
       roles: [...new Set([...into.roles, ...from.roles])],
+      website: into.website ?? from.website,
+      description: into.description ?? from.description,
+      ...(into.logoKey
+        ? {}
+        : {
+            logoKey: from.logoKey,
+            logoType: from.logoType,
+            logoUpdatedAt: from.logoUpdatedAt,
+          }),
+      ...(into.coverKey
+        ? {}
+        : {
+            coverKey: from.coverKey,
+            coverType: from.coverType,
+            coverUpdatedAt: from.coverUpdatedAt,
+          }),
       // Your merge says what the company is: it is confirmed. An automatic
       // one (the same name printed differently) keeps the status it had.
       status:
@@ -89,4 +108,8 @@ export async function mergeOrganizations(
           : 'CONFIRMED',
     })
     .where(eq(organizations.id, intoId));
+  return [
+    into.logoKey ? from.logoKey : null,
+    into.coverKey ? from.coverKey : null,
+  ].filter((key): key is string => !!key);
 }
