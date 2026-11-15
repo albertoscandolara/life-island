@@ -3,6 +3,7 @@ import type {
   OrganizationDocumentDto,
   OrganizationDto,
   OrganizationHouseDto,
+  PossibleDuplicateDto,
   UtilityKind,
 } from '@life-island/contracts';
 import { compareNames, sameName, UTILITIES } from '@life-island/contracts';
@@ -120,28 +121,37 @@ export async function listOrganizations(db: Db): Promise<OrganizationDto[]> {
  * For each company, the others whose name (or a name it was printed as) is
  * close enough to be the same company: a typo or two apart. Two with
  * different codes only when their names are the same; never a dismissed one.
+ *
+ * When their own names do not match, only another name does, that name is
+ * said (`mine`, `theirs`): it is that name that sits in the wrong company,
+ * after a wrong merge, and merging the two whole companies would be wrong.
  */
 export function possibleDuplicates(
   orgs: readonly OrganizationRow[],
-): Map<string, { id: string; name: string }[]> {
+): Map<string, PossibleDuplicateDto[]> {
   const live = orgs.filter((o) => o.status !== 'DISMISSED');
-  const found = new Map<string, { id: string; name: string }[]>();
+  const found = new Map<string, PossibleDuplicateDto[]>();
   for (const a of live)
     for (const b of live) {
       if (a.id === b.id) continue;
-      const names = (o: OrganizationRow) => [o.name, ...o.aliases];
       // Different codes are different companies, unless the names are the
       // very same: then it is for you to say (a misread code, a branch).
-      const close = codesDiffer(a, b)
-        ? names(a).some((x) =>
-            names(b).some((y) => compareNames(x, y) === 'same'),
-          )
-        : names(a).some((x) => names(b).some((y) => sameName(x, y)));
-      if (close)
-        found.set(a.id, [
-          ...(found.get(a.id) ?? []),
-          { id: b.id, name: b.name },
-        ]);
+      const strict = codesDiffer(a, b);
+      const close = (x: string, y: string) =>
+        strict ? compareNames(x, y) === 'same' : sameName(x, y);
+      const pairs = [a.name, ...a.aliases].flatMap((x) =>
+        [b.name, ...b.aliases].filter((y) => close(x, y)).map((y) => [x, y]),
+      );
+      if (!pairs.length) continue;
+      const names = pairs.some(([x, y]) => x === a.name && y === b.name);
+      const mine = pairs.find(([x, y]) => x !== a.name && y === b.name)?.[0];
+      const theirs = pairs.find(([x, y]) => x === a.name && y !== b.name)?.[1];
+      const entry: PossibleDuplicateDto = { id: b.id, name: b.name };
+      if (!names) {
+        if (mine) entry.mine = mine;
+        else entry.theirs = theirs ?? pairs[0][1];
+      }
+      found.set(a.id, [...(found.get(a.id) ?? []), entry]);
     }
   return found;
 }

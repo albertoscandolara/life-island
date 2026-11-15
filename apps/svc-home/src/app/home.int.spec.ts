@@ -829,10 +829,23 @@ describe.skipIf(!configured)(
       expect((await find(abroad))?.billCount).toBe(2);
       expect((await find(road))?.billCount).toBe(0);
 
+      // The whole company merged the wrong way round comes apart the same way.
+      await send('POST', `/organizations/${split.id}/merge`, { from: mit?.id });
+      const back = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${split.id}/split`, { name: road }),
+      );
+      expect(back).toMatchObject({ name: road, status: 'CONFIRMED' });
+      expect(back.documents.map((d) => d.uploadId)).toEqual([booklet]);
+      const abroadNow = await json<OrganizationDetailDto>(
+        await send('GET', `/organizations/${split.id}`),
+      );
+      expect(abroadNow.aliases).not.toContain(road);
+      expect(abroadNow.documents.map((d) => d.uploadId)).toContain(passport);
+
       // Only a name it is also printed as can go.
       expect(
         (
-          await send('POST', `/organizations/${mit?.id}/split`, {
+          await send('POST', `/organizations/${back.id}/split`, {
             name: road,
           })
         ).status,

@@ -414,6 +414,19 @@ export class CompaniesPage {
     );
   }
 
+  /**
+   * Moves `name`, one of company `from`'s other names, with its documents
+   * and bills, to company `into`; you stay on company `stay`.
+   */
+  protected moveName(
+    from: string,
+    name: string,
+    into: string,
+    stay: string,
+  ): void {
+    this.run(stay, this.api.splitOrganization(from, name, into));
+  }
+
   /** Merges the look-alike `from` into the company you are looking at. */
   protected mergeInto(intoId: string, fromId: string): void {
     this.run(intoId, this.api.mergeOrganization(intoId, fromId));
