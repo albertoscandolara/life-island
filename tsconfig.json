@@ -55,6 +55,9 @@
       "path": "./apps/svc-fitness"
     },
     {
+      "path": "./apps/svc-dreams"
+    },
+    {
       "path": "./apps/svc-agenda"
     },
     {

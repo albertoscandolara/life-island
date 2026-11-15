@@ -29,6 +29,7 @@ jobs:
       SETTINGS_DATABASE_URL: postgres://settings_svc:dev_settings@localhost:5432/life_island
       STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@localhost:5432/life_island
       FITNESS_DATABASE_URL: postgres://fitness_svc:dev_fitness@localhost:5432/life_island
+      DREAMS_DATABASE_URL: postgres://dreams_svc:dev_dreams@localhost:5432/life_island
       TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@localhost:5432/life_island
       SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@localhost:5432/life_island
       HEALTH_DATABASE_URL: postgres://health_svc:dev_health@localhost:5432/life_island

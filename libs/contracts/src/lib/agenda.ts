@@ -85,6 +85,7 @@ export const DEADLINE_SOURCES = [
   },
   { module: 'travel', name: 'Travel', emblem: '✈️', path: '/travel' },
   { module: 'fitness', name: 'Fitness', emblem: '🏃', path: '/fitness' },
+  { module: 'dreams', name: 'Dreams', emblem: '🌄', path: '/dreams' },
 ] as const;
 export type DeadlineSourceId = (typeof DEADLINE_SOURCES)[number]['module'];
 

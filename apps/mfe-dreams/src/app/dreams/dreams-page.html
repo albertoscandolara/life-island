@@ -1,0 +1,792 @@
+<ui-page-header
+  emblem="🌄"
+  heading="Dreams"
+  subtitle="Something you would love to reach, and a careful way towards it: a few questions first, then one small step at a time, each one you can undo, at the pace you set."
+/>
+
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">
+  {{ message }}
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="error.set(null)"
+  >
+    Dismiss
+  </button>
+</ui-alert>
+} @if (!data() && !error()) {
+<p class="li-muted">Loading your dreams…</p>
+} @if (data(); as all) { @if (!all.dreams.length) {
+<section class="sky sky--welcome li-block" aria-labelledby="welcome-title">
+  <dreams-sky [done]="0" [next]="false" seed="welcome" />
+  <div class="sky__text">
+    <h2 class="sky__title" id="welcome-title">What would you love to reach?</h2>
+    <p class="sky__lead">
+      A new job, a trip, a body that feels strong, something you want to create.
+      Write it in your own words: nothing changes in your life until you decide.
+    </p>
+    <ol class="moves">
+      <li><strong>Write it</strong> as you would tell a friend.</li>
+      <li>
+        <strong>Answer a few questions</strong> about today and your fears.
+      </li>
+      <li><strong>Pick one small step</strong> you can undo.</li>
+      <li>
+        <strong>Say how it felt</strong>; the next steps follow your pace.
+      </li>
+    </ol>
+    <button uiButton type="button" (click)="addDream()">
+      <ui-icon name="plus" [size]="16" /> Write a dream
+    </button>
+  </div>
+</section>
+} @else {
+<div class="picker li-block" role="list" aria-label="Your dreams">
+  @for (x of openDreams(); track x.id) {
+  <button
+    type="button"
+    role="listitem"
+    class="picker__dream"
+    [class.picker__dream--on]="dream()?.id === x.id"
+    [attr.aria-current]="dream()?.id === x.id ? 'true' : null"
+    (click)="select(x)"
+  >
+    <span class="picker__emblem" aria-hidden="true"
+      >{{ areaEmblems[x.area] }}</span
+    >
+    <span class="picker__text">
+      <span class="picker__title">{{ x.title }}</span>
+      <span class="li-small li-muted"
+        >{{ statusLabels[x.status] }} · {{ x.doneSteps }} step{{ x.doneSteps ===
+        1 ? '' : 's' }} taken</span
+      >
+    </span>
+  </button>
+  }
+  <button type="button" class="picker__add" (click)="addDream()">
+    <ui-icon name="plus" [size]="16" /> New dream
+  </button>
+  @if (closedDreams().length) {
+  <button
+    type="button"
+    class="li-link li-small"
+    (click)="showClosed.set(!showClosed())"
+  >
+    {{ showClosed() ? 'Hide' : 'Show' }} reached and let go ({{
+    closedDreams().length }})
+  </button>
+  } @if (showClosed()) { @for (x of closedDreams(); track x.id) {
+  <button
+    type="button"
+    role="listitem"
+    class="picker__dream picker__dream--closed"
+    [class.picker__dream--on]="dream()?.id === x.id"
+    (click)="select(x)"
+  >
+    <span class="picker__emblem" aria-hidden="true"
+      >{{ x.status === 'reached' ? '🏆' : '🍃' }}</span
+    >
+    <span class="picker__text">
+      <span class="picker__title">{{ x.title }}</span>
+      <span class="li-small li-muted">{{ statusLabels[x.status] }}</span>
+    </span>
+  </button>
+  } }
+</div>
+
+@if (dream(); as d) {
+<section class="sky li-block" [attr.aria-label]="d.title">
+  <dreams-sky [done]="d.doneSteps" [next]="!!d.nextStep" [seed]="d.id" />
+  <div class="sky__text">
+    <span class="sky__area"
+      >{{ areaEmblems[d.area] }} {{ areaLabels[d.area] }} · {{
+      statusLabels[d.status] }}</span
+    >
+    <h2 class="sky__title">{{ d.title }}</h2>
+    @if (d.story || d.why) {
+    <p class="sky__quote">“{{ d.story || d.why }}”</p>
+    } @if (nowHint(); as hint) {
+    <button type="button" class="sky__now" (click)="setTab(hint.tab)">
+      <span aria-hidden="true">➜</span> {{ hint.text }}
+    </button>
+    }
+  </div>
+  <dl class="sky__stats">
+    <div>
+      <dt>Steps taken</dt>
+      <dd>{{ d.doneSteps }}</dd>
+    </div>
+    <div>
+      <dt>Reach now</dt>
+      <dd class="stretch">
+        <span class="dots" aria-hidden="true"
+          >@for (on of stretchDots(d.reach.maxStretch); track $index) {<span
+            class="dot"
+            [class.dot--on]="on"
+          ></span
+          >}</span
+        >
+        {{ stretchLabels[d.reach.maxStretch] }}
+      </dd>
+    </div>
+    <div>
+      <dt>Last check-in</dt>
+      <dd>
+        @if (d.checkIns[0]; as c) { {{ feelingOf(c.feeling).emblem }} {{
+        feelingOf(c.feeling).label }} } @else { — }
+      </dd>
+    </div>
+  </dl>
+  <button
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    class="sky__edit"
+    [attr.aria-label]="'Edit ' + d.title"
+    (click)="dreamEditor.edit(d)"
+  >
+    <ui-icon name="edit" [size]="16" />
+  </button>
+</section>
+
+<li-tabs
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($event)"
+  label="Dream"
+/>
+
+@switch (tab()) { @case ('dream') {
+<div class="words li-block">
+  @for (f of [ { key: 'story', label: 'In my own words', value: d.story }, {
+  key: 'why', label: 'Why it matters to me', value: d.why }, { key: 'today',
+  label: 'Where I am today', value: d.today }, { key: 'fears', label: 'What
+  scares me', value: d.fears }, { key: 'mustKeep', label: 'What I cannot put at
+  risk', value: d.mustKeep } ]; track f.key) {
+  <article class="word" [class.word--empty]="!f.value">
+    <h3 class="word__label">{{ f.label }}</h3>
+    @if (f.value) {
+    <p class="word__text">{{ f.value }}</p>
+    } @else {
+    <button
+      type="button"
+      class="li-link li-small"
+      (click)="dreamEditor.edit(d)"
+    >
+      Write it, when you are ready
+    </button>
+    }
+  </article>
+  }
+</div>
+<ui-card heading="Pace and status" class="li-block">
+  <p class="li-intro li-muted">
+    {{ paceLabels[d.pace] }}. {{ d.reach.reason }} You can change the pace in
+    Edit, or rest the dream: nothing is lost.
+  </p>
+  <div class="li-actions">
+    @if (d.status !== 'paused') {
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="setStatus(d, 'paused')"
+    >
+      Rest for now
+    </button>
+    } @else {
+    <button uiButton size="sm" type="button" (click)="setStatus(d, 'moving')">
+      Pick it up again
+    </button>
+    } @if (d.status !== 'reached') {
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="setStatus(d, 'reached')"
+    >
+      🏆 I reached it
+    </button>
+    } @if (d.status !== 'let-go') {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="setStatus(d, 'let-go')"
+    >
+      Let it go
+    </button>
+    }
+  </div>
+</ui-card>
+} @case ('questions') {
+<ui-ai-panel
+  heading="Questions first"
+  class="li-block"
+  [state]="asking() ? 'working' : 'idle'"
+  [offline]="!all.aiQuestions"
+>
+  <li-ai-tool uiAiPanelActions toolId="dreams.questions" />
+  <p class="li-muted li-intro">
+    @if (all.aiQuestions) { Claude reads the dream as you wrote it (why, today,
+    fears, what you cannot risk) and asks what it still needs to know. Nothing
+    from the other areas is sent here. } @else { Without a Claude API key, or
+    with the tool off in Settings → AI tools, the questions come from Life
+    Island's own list for this area of life. } Answer only what you feel like:
+    every answer makes the steps fit you better.
+  </p>
+  @if (d.opening) {
+  <p class="opening">{{ d.opening }}</p>
+  } @if (!d.questions.length) {
+  <button uiButton type="button" [loading]="asking()" (click)="ask()">
+    <ui-icon name="sparkles" [size]="16" /> Ask me a few questions
+  </button>
+  } @else {
+  <ol class="questions">
+    @for (q of d.questions; track q.id) {
+    <li class="question">
+      <label class="question__text" [for]="'answer-' + q.id"
+        >{{ q.question }}</label
+      >
+      @if (q.why) {
+      <span class="li-small li-muted">{{ q.why }}</span>
+      }
+      <textarea
+        class="ui-input"
+        rows="2"
+        maxlength="1500"
+        [id]="'answer-' + q.id"
+        [value]="answerOf(q)"
+        (input)="typeAnswer(q.id, $any($event.target).value)"
+        (blur)="saveAnswer(q)"
+      ></textarea>
+      @if (savedAnswer() === q.id) {
+      <span class="li-small li-good">Saved</span>
+      }
+    </li>
+    }
+  </ol>
+  <div class="li-actions">
+    <button
+      uiButton
+      type="button"
+      [disabled]="!!d.unansweredQuestions"
+      (click)="setTab('steps')"
+    >
+      Go to the small steps
+    </button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      [loading]="asking()"
+      (click)="ask()"
+    >
+      <ui-icon name="sparkles" [size]="14" /> Ask other questions
+    </button>
+    @if (asking()) {
+    <ui-ai-status state="working">Reading your dream…</ui-ai-status>
+    } @else if (d.unansweredQuestions) {
+    <span class="li-small li-muted"
+      >Answers save when you leave the box. You can also skip to the steps:
+      <button type="button" class="li-link" (click)="setTab('steps')">
+        go anyway</button
+      >.</span
+    >
+    }
+  </div>
+  }
+</ui-ai-panel>
+} @case ('steps') { @if (awaiting().length) {
+<ui-alert tone="info" class="li-block">
+  Before the next steps: how did “{{ awaiting()[0].title }}” feel?
+  <button
+    uiButton
+    size="sm"
+    type="button"
+    (click)="openCheckIn(awaiting()[0], null)"
+  >
+    Check in
+  </button>
+</ui-alert>
+} @if (chosen().length) {
+<h3 class="li-sub">Your next step{{ chosen().length > 1 ? 's' : '' }}</h3>
+<div class="steps li-block">
+  @for (s of chosen(); track s.id) {
+  <article class="step step--chosen">
+    <ng-container
+      *ngTemplateOutlet="stepBody; context: { $implicit: s }"
+    ></ng-container>
+    <div class="li-actions">
+      <button uiButton size="sm" type="button" (click)="openCheckIn(s, 'done')">
+        <ui-icon name="check" [size]="14" /> I did it
+      </button>
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="openCheckIn(s, 'skipped')"
+      >
+        Not this time
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="'Edit ' + s.title"
+        (click)="stepEditor.edit(s)"
+      >
+        <ui-icon name="edit" [size]="14" />
+      </button>
+    </div>
+  </article>
+  }
+</div>
+}
+
+<ui-ai-panel
+  heading="Small steps"
+  class="li-block"
+  [state]="suggesting() ? 'working' : 'idle'"
+  [offline]="!all.aiSteps"
+>
+  <li-ai-tool uiAiPanelActions toolId="dreams.steps" />
+  <p class="reach">
+    <span class="dots" aria-hidden="true"
+      >@for (on of stretchDots(d.reach.maxStretch); track $index) {<span
+        class="dot"
+        [class.dot--on]="on"
+      ></span
+      >}</span
+    >
+    <span
+      ><strong>Now: {{ stretchLabels[d.reach.maxStretch] }}</strong>, {{
+      d.reach.count }} ideas at a time. {{ d.reach.reason }}</span
+    >
+  </p>
+  <p class="li-muted li-intro">
+    @if (all.aiSteps) { Claude reads the dream, your answers, the steps you took
+    and how they felt, and only the areas you share in Safety net. } @else {
+    Without a Claude API key, or with the tool off in Settings → AI tools, the
+    ideas come from Life Island's own ladder: think, explore, prepare, try. }
+    Every idea says what it costs you and how to undo it. Nothing happens until
+    you pick one.
+  </p>
+  <form class="ask" (submit)="$event.preventDefault(); suggest()">
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="1000"
+      placeholder="Optional: “I only have weekends this month”"
+      [value]="note()"
+      (input)="note.set($any($event.target).value)"
+    ></textarea>
+    <div class="li-actions">
+      <button uiButton type="submit" [loading]="suggesting()">
+        <ui-icon name="sparkles" [size]="16" />
+        {{ suggested().length ? 'Other ideas' : 'Suggest small steps' }}
+      </button>
+      @if (suggesting()) {
+      <ui-ai-status state="working"
+        >Thinking about your next steps…</ui-ai-status
+      >
+      } @else if (suggestStatus() === 'done') {
+      <ui-ai-status state="done">Done</ui-ai-status>
+      } @else if (suggestStatus() === 'error') {
+      <ui-ai-status state="error">Ovi could not answer</ui-ai-status>
+      }
+      <button type="button" class="li-link li-small" (click)="addStep()">
+        + Write my own step
+      </button>
+    </div>
+  </form>
+</ui-ai-panel>
+
+@if (d.guidance; as g) {
+<ui-ai-panel
+  heading="Ideas for the next steps"
+  kind="result"
+  [offline]="g.source !== 'claude'"
+  class="li-block"
+>
+  <span uiAiPanelActions class="li-muted li-small"
+    >{{ dateText(g.createdAt) }}</span
+  >
+  <p>{{ g.reflection }}</p>
+  @if (g.care) {
+  <ui-alert tone="info" class="care-note">{{ g.care }}</ui-alert>
+  } @if (suggested().length) {
+  <div class="steps">
+    @for (s of suggested(); track s.id) {
+    <article class="step">
+      <ng-container
+        *ngTemplateOutlet="stepBody; context: { $implicit: s }"
+      ></ng-container>
+      <div class="li-actions">
+        <button uiButton size="sm" type="button" (click)="setStep(s, 'chosen')">
+          I'll do this one
+        </button>
+        @if (s.smaller) {
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="takeSmaller(s)"
+        >
+          Take the smaller one
+        </button>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="setStep(s, 'dismissed')"
+        >
+          Not for me
+        </button>
+      </div>
+    </article>
+    }
+  </div>
+  } @else {
+  <p class="li-muted li-small">
+    You went through these ideas. Ask for others when you are ready.
+  </p>
+  } @if (g.notYet.length) {
+  <h3 class="li-sub">Not yet, and that is fine</h3>
+  <ul class="not-yet">
+    @for (n of g.notYet; track $index) {
+    <li>
+      <strong>{{ n.move }}</strong>
+      <span class="li-muted"> · {{ n.when }}</span>
+    </li>
+    }
+  </ul>
+  }
+</ui-ai-panel>
+} @if (history().length) {
+<button type="button" class="li-link" (click)="showHistory.set(!showHistory())">
+  {{ showHistory() ? 'Hide' : 'Show' }} the steps behind you ({{
+  history().length }})
+</button>
+@if (showHistory()) {
+<ul class="li-list li-block">
+  @for (s of history(); track s.id) {
+  <li class="li-row">
+    <span>{{ s.status === 'done' ? '✓' : '↷' }} {{ s.title }}</span>
+    <span class="li-muted li-small"
+      >{{ s.status === 'done' ? 'Done ' + dateText(s.doneOn) : 'Set aside' }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="setStep(s, 'chosen')"
+      >
+        Again
+      </button>
+    </span>
+  </li>
+  }
+</ul>
+} } } @case ('check-ins') {
+<ui-card heading="How is it going?" class="li-block">
+  <p class="li-intro li-muted">
+    After a step, or any day, say how the dream feels. Ovi reads the last few:
+    two heavy ones in a row make the next steps tiny, and an easy one lets them
+    grow a little, only if you ask.
+  </p>
+  <div class="li-actions">
+    @for (s of awaiting(); track s.id) {
+    <button uiButton size="sm" type="button" (click)="openCheckIn(s, null)">
+      Check in on “{{ s.title }}”
+    </button>
+    }
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="openCheckIn(null, null)"
+    >
+      How the dream feels today
+    </button>
+  </div>
+</ui-card>
+@if (!d.checkIns.length) {
+<ui-empty-state icon="check" heading="No check-in yet">
+  Your first one comes after your first step. There is no wrong answer.
+</ui-empty-state>
+} @else {
+<ol class="timeline li-block">
+  @for (c of d.checkIns; track c.id) {
+  <li class="moment">
+    <span
+      class="moment__feeling"
+      [class]="'moment__feeling moment__feeling--' + c.feeling"
+      [title]="feelingOf(c.feeling).label"
+      >{{ feelingOf(c.feeling).emblem }}</span
+    >
+    <div class="moment__body">
+      <span class="moment__head">
+        <strong>{{ feelingOf(c.feeling).label }}</strong>
+        <span class="li-muted li-small"
+          >{{ dateText(c.createdAt) }} · {{ nextPaceLabels[c.nextPace] }}</span
+        >
+      </span>
+      @if (c.stepTitle) {
+      <span class="li-small"
+        >{{ c.outcome === 'skipped' ? 'Set aside' : 'After' }} “{{ c.stepTitle
+        }}”</span
+      >
+      } @if (c.note) {
+      <p class="moment__note">{{ c.note }}</p>
+      }
+    </div>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      aria-label="Remove this check-in"
+      (click)="removeCheckIn(c.id)"
+    >
+      <ui-icon name="trash" [size]="14" />
+    </button>
+  </li>
+  }
+</ol>
+} } @case ('safety') {
+<ui-card heading="What the dream may read" class="li-block">
+  <p class="li-intro li-muted">
+    A dream touches the rest of your life. Tick the areas whose summary Ovi may
+    read: the facts below are exactly what is sent with your steps request, and
+    only then. Names of companies, people and places never are.
+  </p>
+  <div class="li-chips" role="group" aria-label="Shared areas">
+    @for (a of contextAreas; track a) {
+    <button
+      type="button"
+      class="li-chip"
+      [class.li-chip--on]="d.contextAreas.includes(a)"
+      [attr.aria-pressed]="d.contextAreas.includes(a)"
+      [title]="contextSources[a].reads"
+      (click)="toggleArea(d, a)"
+    >
+      {{ contextSources[a].emblem }} {{ contextSources[a].name }}
+    </button>
+    }
+  </div>
+</ui-card>
+@if (loadingContext() && !context()) {
+<p class="li-muted">Reading the other areas…</p>
+} @if (context(); as ctx) { @if (ctx.safetyNet; as net) { @if (net.runwayMonths
+!== null) {
+<section
+  class="runway li-block"
+  [class]="'runway li-block runway--' + runwayTone(net.runwayMonths)"
+>
+  <span class="runway__value">{{ net.runwayMonths }}</span>
+  <span class="runway__unit">months of safety net</span>
+  <p class="runway__text">
+    Your savings ({{ euro(net.balance, false) }}) cover {{ net.runwayMonths }}
+    months of a usual month ({{ euro(net.monthlySpending, false) }}). @switch
+    (runwayTone(net.runwayMonths)) { @case ('good') { That is a solid cushion
+    for a change. } @case ('ok') { A reasonable cushion; a change is safer with
+    a new income lined up. } @default { A thin cushion: small, free steps first,
+    and saving is a good step too. } }
+  </p>
+</section>
+} } @if (!ctx.areas.length) {
+<ui-empty-state icon="home" heading="Nothing shared">
+  This dream reads nothing from the other areas. That is fine: tick one above if
+  it would help.
+</ui-empty-state>
+}
+<div class="li-cards li-block">
+  @for (a of ctx.areas; track a.area) {
+  <article class="li-item" [class.li-item--off]="!a.reachable">
+    <div class="li-item__head">
+      <span class="li-item__title">{{ a.emblem }} {{ a.name }}</span>
+    </div>
+    @if (!a.reachable) {
+    <span class="li-small li-muted">Not reachable now ({{ a.error }})</span>
+    } @else if (!a.facts.length) {
+    <span class="li-small li-muted">Nothing recorded there yet.</span>
+    } @else {
+    <dl class="facts">
+      @for (f of a.facts; track $index) {
+      <div>
+        <dt>{{ f.label }}</dt>
+        <dd>{{ f.value }}</dd>
+      </div>
+      }
+    </dl>
+    }
+  </article>
+  }
+</div>
+} } } } }
+
+<p class="promise">
+  🌙 Ovi suggests; you decide, always. Life Island helps you plan small steps;
+  it is not a coach or a therapist. If things feel heavy, talking to someone you
+  trust, or to a professional, can really help.
+</p>
+}
+
+<ng-template #stepBody let-s>
+  @let st = asStep(s);
+  <div class="step__head">
+    <span class="step__kind">{{ kindLabels[st.kind] }}</span>
+    <span class="dots" [title]="stretchLabels[st.stretch]"
+      >@for (on of stretchDots(st.stretch); track $index) {<span
+        class="dot"
+        [class.dot--on]="on"
+      ></span
+      >}<span class="ui-visually-hidden"
+        >{{ stretchLabels[st.stretch] }}</span
+      ></span
+    >
+  </div>
+  <strong class="step__title">{{ st.title }}</strong>
+  @if (st.why) {
+  <p class="step__why">{{ st.why }}</p>
+  }
+  <dl class="step__facts">
+    <div>
+      <dt>Costs</dt>
+      <dd>{{ costText(st) }}@if (st.cost) { · {{ st.cost }} }</dd>
+    </div>
+    @if (st.undo) {
+    <div>
+      <dt>Undo</dt>
+      <dd>{{ st.undo }}</dd>
+    </div>
+    } @if (st.smaller && st.status === 'suggested') {
+    <div>
+      <dt>Too much?</dt>
+      <dd>{{ st.smaller }}</dd>
+    </div>
+    } @if (st.dueDate) {
+    <div>
+      <dt>By</dt>
+      <dd>{{ dateText(st.dueDate) }}</dd>
+    </div>
+    }
+  </dl>
+</ng-template>
+
+<ui-dialog [(open)]="checkInOpen" heading="How did it feel?" size="sm">
+  @if (checkIn(); as c) {
+  <p class="li-muted">
+    @if (c.step) { {{ c.outcome === 'done' ? 'You did' : c.outcome === 'skipped'
+    ? 'You set aside' : 'About' }} “{{ c.step.title }}”. } @else { How the dream
+    feels today. } There is no wrong answer.
+  </p>
+  }
+  <fieldset class="feelings">
+    <legend>It felt</legend>
+    @for (f of feelings; track f.value) {
+    <button
+      type="button"
+      class="feeling"
+      [class.feeling--on]="feeling() === f.value"
+      [attr.aria-pressed]="feeling() === f.value"
+      (click)="feeling.set(f.value)"
+    >
+      <span class="feeling__emblem" aria-hidden="true">{{ f.emblem }}</span>
+      <span class="li-small">{{ f.label }}</span>
+    </button>
+    }
+  </fieldset>
+  <label class="field">
+    <span>Anything you noticed (optional)</span>
+    <textarea
+      class="ui-input"
+      rows="3"
+      maxlength="1500"
+      [value]="checkInNote()"
+      (input)="checkInNote.set($any($event.target).value)"
+    ></textarea>
+  </label>
+  <fieldset class="paces">
+    <legend>Next time</legend>
+    <div class="li-chips">
+      @for (p of nextPaces; track p) {
+      <button
+        type="button"
+        class="li-chip"
+        [class.li-chip--on]="nextPace() === p"
+        [attr.aria-pressed]="nextPace() === p"
+        (click)="nextPace.set(p)"
+      >
+        {{ nextPaceLabels[p] }}
+      </button>
+      }
+    </div>
+  </fieldset>
+  <div uiDialogFooter class="li-actions">
+    <button
+      uiButton
+      variant="ghost"
+      type="button"
+      (click)="checkInOpen.set(false)"
+    >
+      Cancel
+    </button>
+    <button
+      uiButton
+      type="button"
+      [disabled]="feeling() === null"
+      [loading]="savingCheckIn()"
+      (click)="saveCheckIn()"
+    >
+      Save
+    </button>
+  </div>
+</ui-dialog>
+
+<li-record-dialog
+  heading="A new dream"
+  [fields]="newDreamFields"
+  [(open)]="adding"
+  [value]="{ area: 'work', pace: 'gentle' }"
+  [saving]="creating()"
+  [error]="createError()"
+  (save)="createDream($event)"
+  intro="Write as much or as little as you like. Ovi will ask a few questions next, and nothing happens until you pick a step."
+/>
+<li-record-dialog
+  heading="Dream"
+  [fields]="editDreamFields"
+  [(open)]="dreamEditor.open"
+  [value]="dreamEditor.value()"
+  [saving]="dreamEditor.saving()"
+  [error]="dreamEditor.error()"
+  (save)="dreamEditor.save($event)"
+  (remove)="dreamEditor.remove()"
+  intro="Deleting a dream deletes its questions, steps and check-ins too."
+/>
+<li-record-dialog
+  heading="Step"
+  [fields]="stepFields"
+  [(open)]="stepEditor.open"
+  [value]="stepEditor.value()"
+  [saving]="stepEditor.saving()"
+  [error]="stepEditor.error()"
+  (save)="stepEditor.save($event)"
+  (remove)="stepEditor.remove()"
+/>

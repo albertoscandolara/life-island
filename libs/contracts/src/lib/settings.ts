@@ -183,6 +183,13 @@ export const AI_TOOL_MODULES = [
     character: 'galli',
     service: 'svc-fitness',
   },
+  {
+    id: 'dreams',
+    name: 'Dreams',
+    emblem: '🌄',
+    character: 'ovi',
+    service: 'svc-dreams',
+  },
 ] as const;
 export type AiToolModuleId = (typeof AI_TOOL_MODULES)[number]['id'];
 
@@ -761,6 +768,58 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
       },
     ],
   },
+  {
+    id: 'dreams.questions',
+    module: 'dreams',
+    name: 'Dream questions',
+    description:
+      'Reads a dream as you wrote it (why, where you are today, what scares you, what you cannot risk) and asks the few questions that help plan it before any step is suggested.',
+    unit: 'dream',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/dreams', label: 'Dreams · Questions' },
+    whenOff:
+      "The questions come from Life Island's own list for the dream's area of life.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'questions',
+        label: 'Ask first',
+        modelEnv: 'DREAMS_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 4000,
+        tools: [],
+        estimate: { inputTokens: 2500, outputTokens: 900 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: 'dreams.steps',
+    module: 'dreams',
+    name: 'Small steps',
+    description:
+      'Suggests the next two to four small, reversible steps towards a dream, each with what it costs you and how to undo it, at the pace your check-ins set. It reads your answers, the steps you took and how they felt, and only the areas you shared with the dream.',
+    unit: 'round of steps',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/dreams', label: 'Dreams · Next steps' },
+    whenOff:
+      "The steps come from Life Island's own ladder for the dream's area: think, explore, prepare, try, at the pace of your check-ins.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'steps',
+        label: 'Suggest small steps',
+        modelEnv: 'DREAMS_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        maxTokens: 8000,
+        tools: [],
+        estimate: { inputTokens: 5000, outputTokens: 2500 },
+        always: true,
+      },
+    ],
+  },
 ];
 
 export function aiTool(id: string): AiToolDefinition | undefined {
@@ -921,6 +980,7 @@ export const ISLAND_AREAS = [
   { id: 'subscriptions', emblem: '📑', name: 'Contracts & subscriptions' },
   { id: 'travel', emblem: '✈️', name: 'Travel' },
   { id: 'fitness', emblem: '🏃', name: 'Fitness' },
+  { id: 'dreams', emblem: '🌄', name: 'Dreams' },
 ] as const;
 
 /** The reminder windows: how many days before a renewal its warning starts. */
@@ -987,6 +1047,7 @@ const AI_SERVICES = [
   'svc-subscriptions',
   'svc-travel',
   'svc-fitness',
+  'svc-dreams',
 ] as const;
 
 export const APP_SETTINGS: readonly AppSettingDefinition[] = [

@@ -1,0 +1,12 @@
+{
+  "/api/dreams": {
+    "target": "http://localhost:3019",
+    "pathRewrite": { "^/api/dreams": "" },
+    "changeOrigin": true
+  },
+  "/api/settings": {
+    "target": "http://localhost:3009",
+    "pathRewrite": { "^/api/settings": "" },
+    "changeOrigin": true
+  }
+}

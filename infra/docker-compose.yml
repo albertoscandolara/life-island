@@ -100,6 +100,7 @@ services:
       SETTINGS_DATABASE_URL: postgres://settings_svc:dev_settings@postgres:5432/life_island
       STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@postgres:5432/life_island
       FITNESS_DATABASE_URL: postgres://fitness_svc:dev_fitness@postgres:5432/life_island
+      DREAMS_DATABASE_URL: postgres://dreams_svc:dev_dreams@postgres:5432/life_island
       TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@postgres:5432/life_island
       SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@postgres:5432/life_island
       HEALTH_DATABASE_URL: postgres://health_svc:dev_health@postgres:5432/life_island
@@ -229,6 +230,19 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
+  svc-dreams:
+    profiles: [apps]
+    build:
+      <<: *service-build
+      args: { SERVICE: svc-dreams }
+    environment:
+      <<: *service-env
+      # The dream guide uses the Claude API when the key is set; without, its own rules.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # The areas a dream may read for its safety net (only those you tick on the dream).
+      DREAMS_SOURCES: money=http://svc-money:3000,work=http://svc-work:3000,studies=http://svc-studies:3000,fitness=http://svc-fitness:3000,travel=http://svc-travel:3000,goals=http://svc-goals:3000
+    depends_on: *service-deps
+
   svc-travel:
     profiles: [apps]
     build:
@@ -293,7 +307,7 @@ services:
       <<: *service-env
       # The week brief uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000
+      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000,dreams=http://svc-dreams:3000
     depends_on: *service-deps
 
   svc-work:

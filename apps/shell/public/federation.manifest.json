@@ -13,5 +13,6 @@
   "mfe-health": "http://localhost:4213/remoteEntry.json",
   "mfe-subscriptions": "http://localhost:4214/remoteEntry.json",
   "mfe-travel": "http://localhost:4216/remoteEntry.json",
-  "mfe-fitness": "http://localhost:4217/remoteEntry.json"
+  "mfe-fitness": "http://localhost:4217/remoteEntry.json",
+  "mfe-dreams": "http://localhost:4218/remoteEntry.json"
 }
