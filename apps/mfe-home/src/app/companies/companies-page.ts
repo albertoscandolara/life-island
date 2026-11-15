@@ -39,6 +39,7 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
   ENERGY_SUPPLIER: 'Supplier',
   DISTRIBUTOR: 'Distributor',
   CONTRACTOR: 'Contractor',
+  EMPLOYER: 'Employer',
   OTHER: 'Other',
 };
 

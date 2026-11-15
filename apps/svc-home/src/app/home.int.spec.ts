@@ -649,7 +649,12 @@ describe.skipIf(!configured)(
         (o) => /^arc.da/i.test(o.name) && o.name.toLowerCase().includes(run),
       );
       expect(mine).toHaveLength(1);
-      expect(mine[0]).toMatchObject({ documentCount: 4, status: 'PENDING' });
+      // Its payslips name it as your employer.
+      expect(mine[0]).toMatchObject({
+        documentCount: 4,
+        status: 'PENDING',
+        roles: ['EMPLOYER'],
+      });
       expect(mine[0].aliases).toContain(typo);
 
       const edited = await json<OrganizationDto>(
@@ -679,6 +684,8 @@ describe.skipIf(!configured)(
         (o) => /^arc.da/i.test(o.name) && o.name.toLowerCase().includes(run),
       );
       expect(mine.map((o) => o.id)).toEqual([edited.id]);
+      // A new payslip says it again: it is your employer.
+      expect(mine[0].roles).toEqual(['OTHER', 'EMPLOYER']);
     });
 
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {

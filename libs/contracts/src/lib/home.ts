@@ -634,10 +634,15 @@ export const listHomeDocumentsQuerySchema = z.object({
 // with a supplier, and every bill points to its supply point and contract.
 // A bill reaches its house through its supply point, never by a copy.
 
+/**
+ * What a company is to you. EMPLOYER is set on its own for the company that
+ * issues your payslips, Certificazione Unica or employment contract.
+ */
 export const ORGANIZATION_ROLES = [
   'ENERGY_SUPPLIER',
   'DISTRIBUTOR',
   'CONTRACTOR',
+  'EMPLOYER',
   'OTHER',
 ] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
@@ -744,7 +749,10 @@ export const updateOrganizationRequestSchema = z.object({
   vatNumber: z.string().trim().max(32).nullable().optional(),
   /** Every other name documents print for it; replaces the list. */
   aliases: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
-  roles: z.array(z.enum(ORGANIZATION_ROLES)).max(4).optional(),
+  roles: z
+    .array(z.enum(ORGANIZATION_ROLES))
+    .max(ORGANIZATION_ROLES.length)
+    .optional(),
   /** "acme.it" is read as https://acme.it; empty clears it. */
   website: z
     .string()
