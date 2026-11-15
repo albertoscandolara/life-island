@@ -5,7 +5,7 @@ import type {
   OrganizationHouseDto,
   UtilityKind,
 } from '@life-island/contracts';
-import { sameName, UTILITIES } from '@life-island/contracts';
+import { compareNames, sameName, UTILITIES } from '@life-island/contracts';
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { organizationKey, organizationKeys } from '../bills/bill-reader.js';
@@ -19,6 +19,7 @@ import {
   works,
   type OrganizationRow,
 } from '../db/schema.js';
+import { codesDiffer } from './organization-codes.js';
 import { issuerOf } from './organization-ledger.js';
 
 type Db = Pick<NodePgDatabase, 'select' | 'insert' | 'update' | 'delete'>;
@@ -112,8 +113,8 @@ export async function listOrganizations(db: Db): Promise<OrganizationDto[]> {
 
 /**
  * For each company, the others whose name (or a name it was printed as) is
- * close enough to be the same company: a typo or two apart. Never two with
- * different tax codes, and never a dismissed one.
+ * close enough to be the same company: a typo or two apart. Two with
+ * different codes only when their names are the same; never a dismissed one.
  */
 export function possibleDuplicates(
   orgs: readonly OrganizationRow[],
@@ -123,10 +124,14 @@ export function possibleDuplicates(
   for (const a of live)
     for (const b of live) {
       if (a.id === b.id) continue;
-      if (a.taxCode && b.taxCode && a.taxCode !== b.taxCode) continue;
-      const close = [a.name, ...a.aliases].some((x) =>
-        [b.name, ...b.aliases].some((y) => sameName(x, y)),
-      );
+      const names = (o: OrganizationRow) => [o.name, ...o.aliases];
+      // Different codes are different companies, unless the names are the
+      // very same: then it is for you to say (a misread code, a branch).
+      const close = codesDiffer(a, b)
+        ? names(a).some((x) =>
+            names(b).some((y) => compareNames(x, y) === 'same'),
+          )
+        : names(a).some((x) => names(b).some((y) => sameName(x, y)));
       if (close)
         found.set(a.id, [
           ...(found.get(a.id) ?? []),

@@ -24,7 +24,11 @@ import {
 } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { SERVICE_DB } from '../config.js';
-import { syncOrganizationsIn } from '../organizations/organization-ledger.js';
+import { codesDiffer } from '../organizations/organization-codes.js';
+import {
+  ORGANIZATION_LOCK,
+  syncOrganizationsIn,
+} from '../organizations/organization-ledger.js';
 import {
   billOverrides,
   bills,
@@ -103,6 +107,11 @@ const sameValues = (row: BillRow, values: BillValues) =>
  */
 export async function syncBillsIn(db: Db): Promise<void> {
   await db.execute(sql`select pg_advisory_xact_lock(hashtext(${LOCK}))`);
+  // It adds companies too: never at the same time as the organization sync,
+  // or both would add the same company (always this lock order: bills first).
+  await db.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${ORGANIZATION_LOCK}))`,
+  );
   const { parentOf, billCategories: categories } = await billCategories(db);
   const [props, overrides, orgs, points, contracts, existing] =
     await Promise.all([
@@ -166,14 +175,17 @@ export async function syncBillsIn(db: Db): Promise<void> {
     let org = taxCode ? orgsByTax.get(taxCode) : undefined;
     if (!org && key) {
       const byName = orgsByKey.get(key);
-      // A name match is the same company unless both print a different tax code.
-      if (byName && (!taxCode || !byName.taxCode)) org = byName;
+      // A name match is the same company unless their codes say otherwise.
+      if (byName && !codesDiffer({ taxCode, vatNumber: null }, byName))
+        org = byName;
     }
     if (!org && name) {
       // Printed a little differently ("BancaWidiba", "Elektrosistem").
       const similar = matchName(
         name,
-        [...new Set(orgsByKey.values())].filter((o) => !taxCode || !o.taxCode),
+        [...new Set(orgsByKey.values())].filter(
+          (o) => !codesDiffer({ taxCode, vatNumber: null }, o),
+        ),
         (o) => [o.name, ...o.aliases],
         { prefer: (o) => o.status === 'CONFIRMED' },
       );

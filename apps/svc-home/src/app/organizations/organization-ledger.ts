@@ -18,6 +18,7 @@ import {
   type DocumentRow,
   type OrganizationRow,
 } from '../db/schema.js';
+import { codesDiffer } from './organization-codes.js';
 import { mergeOrganizations } from './organization-merge.js';
 
 type Db = Pick<
@@ -25,8 +26,13 @@ type Db = Pick<
   'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
-/** One sync at a time, across the API and the event consumer. */
-const LOCK = 'home.organization_ledger';
+/**
+ * One sync at a time, across the API and the event consumer. The bill sync
+ * takes it too before it adds a company, so two syncs never add the same
+ * company twice.
+ */
+export const ORGANIZATION_LOCK = 'home.organization_ledger';
+const LOCK = ORGANIZATION_LOCK;
 
 const ISSUER = CORE_FIELDS.find((f) => f.key === 'issuer');
 /** The fields a document prints its issuer in, in order of preference. */
@@ -222,7 +228,7 @@ async function mergeSameNames(
   for (const org of order) {
     const into = kept.find(
       (k) =>
-        !(k.taxCode && org.taxCode && k.taxCode !== org.taxCode) &&
+        !codesDiffer(k, org) &&
         (k.status === 'DISMISSED') === (org.status === 'DISMISSED') &&
         namesOf(k).some((a) =>
           namesOf(org).some((b) => {

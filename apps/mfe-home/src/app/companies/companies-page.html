@@ -101,34 +101,64 @@
   Load invoices, bills and receipts in the documents app: the companies that
   issued them show up here for you to confirm.
 </ui-empty-state>
-} @else if (confirmed().length) {
+} @else if (confirmed().length) { @if (roleCounts().length > 1) {
+<div class="seg roles" role="group" aria-label="Show companies by role">
+  <button
+    type="button"
+    class="seg__item"
+    [class.seg__item--on]="roleFilter() === 'ALL'"
+    [attr.aria-pressed]="roleFilter() === 'ALL'"
+    (click)="roleFilter.set('ALL')"
+  >
+    All {{ confirmed().length }}
+  </button>
+  @for (r of roleCounts(); track r.role) {
+  <button
+    type="button"
+    class="seg__item"
+    [class.seg__item--on]="roleFilter() === r.role"
+    [attr.aria-pressed]="roleFilter() === r.role"
+    (click)="roleFilter.set(r.role)"
+  >
+    {{ r.label }} {{ r.count }}
+  </button>
+  }
+</div>
+}
 <div class="layout">
-  <ul class="list" role="list" aria-label="Companies">
-    @for (c of confirmed(); track c.id) {
-    <li>
-      <button
-        type="button"
-        class="list__item"
-        [class.list__item--on]="selectedId() === c.id"
-        [attr.aria-current]="selectedId() === c.id ? 'true' : null"
-        (click)="select(c)"
-      >
-        <span class="logo" aria-hidden="true">
-          @if (imageUrl(c, 'logo'); as logo) {
-          <img [src]="logo" alt="" loading="lazy" />
-          } @else { {{ initials(c.name) }} }
-        </span>
-        <span class="list__text">
-          <span class="list__name">{{ c.name }}</span>
-          <span class="muted small"
-            >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
-            'documents' }}</span
+  <div class="groups">
+    @for (g of groups(); track g.label) {
+    <section class="group" [attr.aria-label]="g.label">
+      <h3 class="group__heading">{{ g.label }}</h3>
+      <ul class="list" role="list">
+        @for (c of g.companies; track c.id) {
+        <li>
+          <button
+            type="button"
+            class="list__item"
+            [class.list__item--on]="selectedId() === c.id"
+            [attr.aria-current]="selectedId() === c.id ? 'true' : null"
+            (click)="select(c)"
           >
-        </span>
-      </button>
-    </li>
+            <span class="logo" aria-hidden="true">
+              @if (imageUrl(c, 'logo'); as logo) {
+              <img [src]="logo" alt="" loading="lazy" />
+              } @else { {{ initials(c.name) }} }
+            </span>
+            <span class="list__text">
+              <span class="list__name">{{ c.name }}</span>
+              <span class="muted small"
+                >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
+                'documents' }}</span
+              >
+            </span>
+          </button>
+        </li>
+        }
+      </ul>
+    </section>
     }
-  </ul>
+  </div>
 
   <section class="detail" aria-live="polite">
     @if (detail(); as d) {
@@ -311,6 +341,78 @@
           </button>
         </div>
       </form>
+      <section class="danger" aria-label="Delete this company">
+        @if (deletable(d)) {
+        <p class="muted small">
+          No document, bill or house points to it: you can delete it.
+        </p>
+        @if (confirmingDelete()) {
+        <span class="danger__actions">
+          <strong>Delete {{ d.name }} for good?</strong>
+          <button
+            uiButton
+            variant="danger"
+            size="sm"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="remove(d)"
+          >
+            Delete
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="confirmingDelete.set(false)"
+          >
+            Keep it
+          </button>
+        </span>
+        } @else {
+        <button
+          uiButton
+          variant="danger"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="confirmingDelete.set(true)"
+        >
+          <ui-icon name="trash" [size]="14" /> Delete this company
+        </button>
+        } } @else {
+        <p class="muted small">
+          It has {{ d.documentCount }} {{ d.documentCount === 1 ? 'document' :
+          'documents' }}@if (d.billCount) {, {{ d.billCount }} {{ d.billCount
+          === 1 ? 'bill' : 'bills' }}}@if (d.houses.length) {, houses}: to get
+          rid of it, merge it into the company it really is. They all move
+          there.
+        </p>
+        <span class="danger__actions">
+          <select
+            class="ui-input compact"
+            aria-label="Company to merge it into"
+            [disabled]="busy() !== null"
+            (change)="mergeTarget.set($any($event.target).value)"
+          >
+            <option value="">Merge into…</option>
+            @for (t of confirmed(); track t.id) { @if (t.id !== d.id) {
+            <option [value]="t.id">{{ t.name }}</option>
+            } }
+          </select>
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="busy() !== null || !mergeTarget()"
+            (click)="mergeAway(d)"
+          >
+            Merge and remove this one
+          </button>
+        </span>
+        }
+      </section>
       } @else { @if (d.description) {
       <p class="about">{{ d.description }}</p>
       }

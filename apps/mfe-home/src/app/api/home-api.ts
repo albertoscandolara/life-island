@@ -247,6 +247,11 @@ export class HomeApi {
     );
   }
 
+  /** Deletes a company nothing points to (409 when it has documents or bills). */
+  deleteOrganization(id: string): Observable<void> {
+    return this.http.delete<void>(`${HOME_API}/organizations/${id}`);
+  }
+
   deleteOrganizationImage(
     id: string,
     kind: OrganizationImageKind,
