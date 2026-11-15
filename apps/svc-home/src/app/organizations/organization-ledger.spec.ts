@@ -3,6 +3,7 @@ import {
   issuedByInsurer,
   looksLikeBank,
   looksLikeInsurer,
+  looksLikePublicBody,
 } from './organization-ledger.js';
 
 describe('banks', () => {
@@ -59,5 +60,29 @@ describe('insurers', () => {
     );
     expect(issuedByInsurer({ categories: ['RCA_2026'] }, parentOf)).toBe(true);
     expect(issuedByInsurer({ categories: ['INVOICE'] }, parentOf)).toBe(false);
+  });
+});
+
+describe('public bodies', () => {
+  it('knows a public body by its name', () => {
+    for (const name of [
+      'Ministero delle Infrastrutture e dei Trasporti',
+      'MINISTRO AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE',
+      'Comune di Verona',
+      'Agenzia delle Entrate',
+      'INPS',
+      'Regione del Veneto',
+      'Azienda Sanitaria Locale',
+      'Motorizzazione Civile di Verona',
+    ])
+      expect(looksLikePublicBody(name)).toBe(true);
+    for (const name of [
+      'Arcoda',
+      'Banca Widiba',
+      'Agenzia Immobiliare Rossi',
+      'Pizzeria Comune',
+      'Allianz Direct',
+    ])
+      expect(looksLikePublicBody(name)).toBe(false);
   });
 });
