@@ -129,9 +129,25 @@ export function looksLikePublicBody(name: string): boolean {
 }
 
 /**
+ * A name that says it is a professional service: a notary ("Notaio Rossi"),
+ * a lawyer ("Avv. Bianchi", "Studio Legale"), an accountant
+ * ("Dott. Commercialista", "Studio Commerciale"), a real estate agent
+ * ("Agenzia Immobiliare", Tecnocasa), a surveyor, architect or engineering
+ * practice, a consultant.
+ */
+const PROFESSIONAL_NAME =
+  /\b(notai[oa]?|notaro|notary|notaries|avv|avvocat[oaie]|studio (legale|notarile|commerciale|associato|tecnico)|law firm|lawyers?|attorneys?|commercialist[ai]|ragionier[ea]|rag|accountants?|accounting|agenzia immobiliare|immobiliare|real estate|realtors?|tecnocasa|tempocasa|gabetti|re[ /]?max|geometra|geom|architett[oa]|consulent[ei]|consulenz[ae]|consulting|consultants?|advisory)\b/i;
+
+/** Whether a company's name says it is a professional service. */
+export function looksLikeProfessional(name: string): boolean {
+  return PROFESSIONAL_NAME.test(name);
+}
+
+/**
  * The roles a document tells about the company that issued it: your
  * employer (payslips), your bank (statements, or a bank's name), your
- * insurer (policies, or an insurer's name), a public body (its name).
+ * insurer (policies, or an insurer's name), a public body or a professional
+ * service (its name).
  */
 function rolesFrom(
   doc: Pick<DocumentRow, 'fields' | 'categories'>,
@@ -144,6 +160,7 @@ function rolesFrom(
   if (looksLikeInsurer(issuer) || issuedByInsurer(doc, parentOf))
     roles.push('INSURANCE');
   if (looksLikePublicBody(issuer)) roles.push('PUBLIC_BODY');
+  if (looksLikeProfessional(issuer)) roles.push('PROFESSIONAL');
   return roles;
 }
 
@@ -206,6 +223,7 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
       if (looksLikeBank(match.found.name)) roles.push('BANK');
       if (looksLikeInsurer(match.found.name)) roles.push('INSURANCE');
       if (looksLikePublicBody(match.found.name)) roles.push('PUBLIC_BODY');
+      if (looksLikeProfessional(match.found.name)) roles.push('PROFESSIONAL');
       const missing = roles.filter((r) => !match.found.roles.includes(r));
       if (missing.length) {
         match.found.roles = [...new Set([...match.found.roles, ...missing])];

@@ -883,6 +883,18 @@ describe.skipIf(!configured)(
       expect(
         bodies.find((o) => o.name === `Ministero Affari Esteri ${run}`)?.roles,
       ).toEqual(['PUBLIC_BODY']);
+      await upload(
+        ['INVOICE'],
+        { issuer: `Notaio Prova${run} Avv. Giuseppe` },
+        'Deed',
+      );
+      const notaries = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(
+        notaries.find((o) => o.name === `Notaio Prova${run} Avv. Giuseppe`)
+          ?.roles,
+      ).toEqual(['PROFESSIONAL']);
     });
 
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
