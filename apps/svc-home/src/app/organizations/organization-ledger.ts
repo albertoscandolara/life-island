@@ -1,4 +1,9 @@
-import { compareNames, CORE_FIELDS, matchName } from '@life-island/contracts';
+import {
+  compareNames,
+  CORE_FIELDS,
+  matchName,
+  type OrganizationRole,
+} from '@life-island/contracts';
 import { eq, isNotNull, isNull, and, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
@@ -53,6 +58,48 @@ export function issuedByEmployer(
   return EMPLOYER_CATEGORIES.some((c) => all.has(c));
 }
 
+/**
+ * A name that says it is a bank: "Banca Widiba", "Banco BPM", "FinecoBank",
+ * "BCC di Roma", "Cassa di Risparmio di Asti", "Credito Emiliano", "Poste
+ * Italiane - BancoPosta".
+ */
+const BANK_NAME =
+  /\b(banca|banco|bancaria|bancoposta|bank|bcc)\b|bank\b|\bcassa (di risparmio|rurale)|\bcredito (cooperativo|emiliano|valtellinese)/i;
+
+/** Whether a company's name says it is a bank. */
+export function looksLikeBank(name: string): boolean {
+  return BANK_NAME.test(name);
+}
+
+/** Categories of bank statements (estratto conto), however you named them. */
+const BANK_STATEMENT_CATEGORY =
+  /^(BANK_STATEMENT|BANK_ACCOUNT_STATEMENT|ESTRATTO_CONTO|CONTO_CORRENTE|BANK_ACCOUNT)$/;
+
+/** Whether a document is a statement of your bank account: its issuer is your bank. */
+export function issuedByBank(
+  doc: Pick<DocumentRow, 'categories'>,
+  parentOf: ParentOf,
+): boolean {
+  return [...expandCategories(doc.categories, parentOf)].some((c) =>
+    BANK_STATEMENT_CATEGORY.test(c),
+  );
+}
+
+/**
+ * The roles a document tells about the company that issued it: your
+ * employer (payslips), your bank (statements, or a bank's name).
+ */
+function rolesFrom(
+  doc: Pick<DocumentRow, 'fields' | 'categories'>,
+  issuer: string,
+  parentOf: ParentOf,
+): OrganizationRole[] {
+  const roles: OrganizationRole[] = [];
+  if (issuedByEmployer(doc, parentOf)) roles.push('EMPLOYER');
+  if (looksLikeBank(issuer) || issuedByBank(doc, parentOf)) roles.push('BANK');
+  return roles;
+}
+
 /** Who issued a document, as printed; null when nothing was read. */
 export function issuerOf(fields: DocumentRow['fields']): string | null {
   if (!fields) return null;
@@ -104,12 +151,15 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
     const { fields } = doc;
     const issuer = issuerOf(fields);
     if (!issuer || !organizationKey(issuer)) continue;
-    const employer = issuedByEmployer(doc, parentOf);
+    const roles = rolesFrom(doc, issuer, parentOf);
     const match = matchName(issuer, orgs, namesOf, { prefer: isConfirmed });
     if (match) {
-      // Your payslips name your employer: it is one, like a bill's supplier.
-      if (employer && !match.found.roles.includes('EMPLOYER')) {
-        match.found.roles = [...match.found.roles, 'EMPLOYER'];
+      // Your payslips name your employer, your statements your bank: it is
+      // one, like a bill's issuer is a supplier.
+      if (looksLikeBank(match.found.name)) roles.push('BANK');
+      const missing = roles.filter((r) => !match.found.roles.includes(r));
+      if (missing.length) {
+        match.found.roles = [...new Set([...match.found.roles, ...missing])];
         await db
           .update(organizations)
           .set({ roles: match.found.roles })
@@ -132,7 +182,7 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
         name: issuer,
         nameKey: organizationKey(issuer),
         status: 'PENDING',
-        roles: employer ? ['EMPLOYER'] : [],
+        roles,
       })
       .returning();
     orgs.push(row);

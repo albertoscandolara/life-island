@@ -688,6 +688,21 @@ describe.skipIf(!configured)(
       expect(mine[0].roles).toEqual(['OTHER', 'EMPLOYER']);
     });
 
+    it('knows a bank by its name or by its statements', async () => {
+      await upload(['INVOICE'], { issuer: `Banca Q${run} S.p.A.` }, 'Fees');
+      await upload(['ESTRATTO_CONTO'], { issuer: `Widi${run}` }, 'Statement');
+      await upload(['INVOICE'], { issuer: `Shop${run}` }, 'Invoice');
+      const all = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      const roles = (name: string) =>
+        all.find((o) => o.name.toLowerCase().includes(name.toLowerCase()))
+          ?.roles;
+      expect(roles(`Banca Q${run}`)).toEqual(['BANK']);
+      expect(roles(`Widi${run}`)).toEqual(['BANK']);
+      expect(roles(`Shop${run}`)).toEqual([]);
+    });
+
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
       const edil = `Edil${run}`;
       const invoice = await upload(
