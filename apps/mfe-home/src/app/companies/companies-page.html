@@ -510,6 +510,39 @@
       } @for (dup of d.possibleDuplicates; track dup.id) {
       <div class="dup">
         <ui-icon name="alert" [size]="16" />
+        @if (dup.mine) {
+        <span
+          >This company is also printed as <strong>{{ dup.mine }}</strong>,
+          which looks like <strong>{{ dup.name }}</strong>. Only that name may
+          belong there.</span
+        >
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="moveName(d.id, dup.mine, dup.id, d.id)"
+        >
+          Move that name to {{ dup.name }}
+        </button>
+        } @else if (dup.theirs) {
+        <span
+          ><strong>{{ dup.name }}</strong> is also printed as
+          <strong>{{ dup.theirs }}</strong>, which looks like this company. Only
+          that name may belong here.</span
+        >
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="busy() !== null"
+          (click)="moveName(dup.id, dup.theirs, d.id, d.id)"
+        >
+          Move that name here
+        </button>
+        } @else {
         <span
           >Looks like the same company as <strong>{{ dup.name }}</strong>.</span
         >
@@ -523,6 +556,7 @@
         >
           Merge it into this one
         </button>
+        }
       </div>
       }
 

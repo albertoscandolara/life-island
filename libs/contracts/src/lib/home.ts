@@ -665,6 +665,20 @@ export const ORGANIZATION_STATUSES = [
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
 
 /** A company or public office, whatever its role: one row, referenced by id. */
+/**
+ * A company that looks like another. When only a name one of them is also
+ * printed as looks like the other, that name is said: it is the name that is
+ * in the wrong company (a wrong merge), not the whole company.
+ */
+export interface PossibleDuplicateDto {
+  id: string;
+  name: string;
+  /** This company's other name that looks like that company: it may belong there. */
+  mine?: string;
+  /** That company's other name that looks like this company: it may belong here. */
+  theirs?: string;
+}
+
 export interface OrganizationDto {
   id: string;
   name: string;
@@ -683,7 +697,7 @@ export interface OrganizationDto {
    * the same company, for you to merge (names that differ only in case,
    * accents, punctuation, legal form or spacing are merged on their own).
    */
-  possibleDuplicates: { id: string; name: string }[];
+  possibleDuplicates: PossibleDuplicateDto[];
   /** Its website, as you typed it (always http or https). */
   website: string | null;
   /** A few words of your own on it: what it does for you, a branch, a contact. */
