@@ -41,6 +41,17 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
   CONTRACTOR: 'Contractor',
   EMPLOYER: 'Employer',
   BANK: 'Bank',
+  INSURANCE: 'Insurance',
+  OTHER: 'Other',
+};
+
+const ROLE_PLURALS: Record<OrganizationRole, string> = {
+  ENERGY_SUPPLIER: 'Suppliers',
+  DISTRIBUTOR: 'Distributors',
+  CONTRACTOR: 'Contractors',
+  EMPLOYER: 'Employers',
+  BANK: 'Banks',
+  INSURANCE: 'Insurers',
   OTHER: 'Other',
 };
 
@@ -101,6 +112,61 @@ export class CompaniesPage {
   protected readonly confirmed = computed(() =>
     (this.companies() ?? []).filter((c) => c.status === 'CONFIRMED'),
   );
+  /** The role the list shows: every company, one role, or those with none. */
+  protected readonly roleFilter = signal<OrganizationRole | 'ALL' | 'NONE'>(
+    'ALL',
+  );
+  /** Each role with how many confirmed companies have it, for the filter. */
+  protected readonly roleCounts = computed(() => {
+    const confirmed = this.confirmed();
+    return [
+      ...ORGANIZATION_ROLES.map((role) => ({
+        role: role as OrganizationRole | 'NONE',
+        label: ROLE_PLURALS[role],
+        count: confirmed.filter((c) => c.roles.includes(role)).length,
+      })),
+      {
+        role: 'NONE' as const,
+        label: 'No role',
+        count: confirmed.filter((c) => !c.roles.length).length,
+      },
+    ].filter((r) => r.count > 0);
+  });
+  /**
+   * The list, in groups: with every role, each company under its first role
+   * (in the order of the roles); with one role, the companies that have it.
+   */
+  protected readonly groups = computed(() => {
+    const filter = this.roleFilter();
+    const confirmed = this.confirmed();
+    if (filter === 'NONE')
+      return [
+        {
+          label: 'No role',
+          companies: confirmed.filter((c) => !c.roles.length),
+        },
+      ];
+    if (filter !== 'ALL')
+      return [
+        {
+          label: ROLE_PLURALS[filter],
+          companies: confirmed.filter((c) => c.roles.includes(filter)),
+        },
+      ];
+    const first = (c: OrganizationDto) =>
+      ORGANIZATION_ROLES.find((r) => c.roles.includes(r)) ?? null;
+    return [...ORGANIZATION_ROLES, null]
+      .map((role) => ({
+        label: role ? ROLE_PLURALS[role] : 'No role',
+        companies: confirmed.filter((c) => first(c) === role),
+      }))
+      .filter((g) => g.companies.length);
+  });
+  /** Before a delete, the question "are you sure?" is open. */
+  protected readonly confirmingDelete = signal(false);
+  /** The company a company with documents is merged into instead of deleted. */
+  protected readonly mergeTarget = signal('');
+
   protected readonly dismissed = computed(() =>
     (this.companies() ?? []).filter((c) => c.status === 'DISMISSED'),
   );
@@ -162,7 +228,66 @@ export class CompaniesPage {
     });
   }
 
+  /** Whether nothing points to the company, so it can simply be deleted. */
+  protected deletable(company: OrganizationDetailDto): boolean {
+    return (
+      !company.documentCount && !company.billCount && !company.houses.length
+    );
+  }
+
+  /** Deletes a company nothing points to, then shows no company. */
+  protected remove(company: OrganizationDetailDto): void {
+    this.confirmingDelete.set(false);
+    this.editing.set(false);
+    this.busy.set(company.id);
+    this.error.set(null);
+    this.api.deleteOrganization(company.id).subscribe({
+      next: () => {
+        this.busy.set(null);
+        void this.directory.refresh();
+        void this.router.navigate([], {
+          queryParams: { [entityParam('organization')]: null },
+          queryParamsHandling: 'merge',
+        });
+        this.load();
+      },
+      error: () => {
+        this.busy.set(null);
+        this.error.set(
+          'That company has documents, bills or houses: merge it into the company it really is instead.',
+        );
+      },
+    });
+  }
+
+  /** Merges this company into the one picked, then shows that one. */
+  protected mergeAway(company: OrganizationDetailDto): void {
+    const into = this.mergeTarget();
+    if (!into || into === company.id) return;
+    this.editing.set(false);
+    this.busy.set(company.id);
+    this.error.set(null);
+    this.api.mergeOrganization(into, company.id).subscribe({
+      next: () => {
+        this.busy.set(null);
+        this.mergeTarget.set('');
+        void this.directory.refresh();
+        void this.router.navigate([], {
+          queryParams: { [entityParam('organization')]: into },
+          queryParamsHandling: 'merge',
+        });
+        this.load();
+      },
+      error: () => {
+        this.busy.set(null);
+        this.error.set('That did not work. Please try again.');
+      },
+    });
+  }
+
   protected startEdit(company: OrganizationDetailDto): void {
+    this.confirmingDelete.set(false);
+    this.mergeTarget.set('');
     this.draftRoles.set([...company.roles]);
     this.editing.set(true);
   }

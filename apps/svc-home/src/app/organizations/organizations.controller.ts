@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -27,7 +28,7 @@ import {
 } from '@life-island/contracts';
 import { eq, inArray } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
-import { organizations } from '../db/schema.js';
+import { organizations, supplyContracts } from '../db/schema.js';
 import { OrganizationImages } from './organization-images.js';
 import { mergeOrganizations } from './organization-merge.js';
 import { organizationDetail } from './organizations.js';
@@ -52,6 +53,37 @@ export class OrganizationsController {
     const found = await organizationDetail(this.svc.db, id);
     if (!found) throw new NotFoundException(`Organization ${id} not found`);
     return found;
+  }
+
+  /**
+   * Deletes a company that nothing points to: no document names it, and it
+   * has no bills, contracts or houses. One that has them is merged into the
+   * company it really is instead, so nothing loses its company.
+   */
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const found = await organizationDetail(this.svc.db, id);
+    if (!found) throw new NotFoundException(`Organization ${id} not found`);
+    const contracts = await this.svc.db
+      .select({ id: supplyContracts.id })
+      .from(supplyContracts)
+      .where(eq(supplyContracts.supplierId, id));
+    if (
+      found.documentCount ||
+      found.billCount ||
+      found.houses.length ||
+      contracts.length
+    )
+      throw new ConflictException(
+        'This company has documents, bills or houses: merge it into the company it really is instead',
+      );
+    const [row] = await this.svc.db
+      .delete(organizations)
+      .where(eq(organizations.id, id))
+      .returning();
+    for (const key of [row?.logoKey, row?.coverKey])
+      if (key) await this.images.forget(key);
   }
 
   @Post(':id/confirm')

@@ -688,6 +688,39 @@ describe.skipIf(!configured)(
       expect(mine[0].roles).toEqual(['OTHER', 'EMPLOYER']);
     });
 
+    it('deletes an empty company, and flags twins with different codes', async () => {
+      const twin = `Twin${run} S.r.l.`;
+      await svc.pool.query(
+        `insert into home.organizations (name, name_key, status, tax_code) values ($1, $2, 'CONFIRMED', $3), ($1, $2, 'CONFIRMED', $4)`,
+        [twin, `twin${run}`, `1${runDigits}01`, `2${runDigits}02`],
+      );
+      let twins = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).filter((o) => o.name === twin);
+      expect(twins).toHaveLength(2);
+      // The same name: shown as maybe the same company, though the codes differ.
+      expect(twins[0].possibleDuplicates.map((d) => d.id)).toEqual([
+        twins[1].id,
+      ]);
+      expect(
+        (await send('DELETE', `/organizations/${twins[1].id}`)).status,
+      ).toBe(204);
+      twins = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).filter((o) => o.name === twin);
+      expect(twins.map((o) => o.id)).toEqual([twins[0].id]);
+      await send('DELETE', `/organizations/${twins[0].id}`);
+
+      // One that issued documents is merged, never deleted.
+      await upload(['INVOICE'], { issuer: `Busy${run}` }, 'Invoice');
+      const busy = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).find((o) => o.name === `Busy${run}`);
+      expect((await send('DELETE', `/organizations/${busy?.id}`)).status).toBe(
+        409,
+      );
+    });
+
     it('knows a bank by its name or by its statements', async () => {
       await upload(['INVOICE'], { issuer: `Banca Q${run} S.p.A.` }, 'Fees');
       await upload(['ESTRATTO_CONTO'], { issuer: `Widi${run}` }, 'Statement');
@@ -701,6 +734,13 @@ describe.skipIf(!configured)(
       expect(roles(`Banca Q${run}`)).toEqual(['BANK']);
       expect(roles(`Widi${run}`)).toEqual(['BANK']);
       expect(roles(`Shop${run}`)).toEqual([]);
+      await upload(['CAR_INSURANCE'], { issuer: `Polizze${run}` }, 'Policy');
+      const after = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(after.find((o) => o.name === `Polizze${run}`)?.roles).toEqual([
+        'INSURANCE',
+      ]);
     });
 
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {
