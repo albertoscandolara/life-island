@@ -79,6 +79,8 @@ export function buildCertificates(
       grossTax: cu.grossTax,
       totalDeductions: cu.totalDeductions,
       netTax: cu.netTax,
+      pensionFundDeducted: cu.pensionFundDeducted,
+      pensionFundNotDeducted: cu.pensionFundNotDeducted,
       payslips: own.length,
       missingMonths: own.length
         ? monthsOfYear(cu.year, workplace).filter((m) => !have.has(m))

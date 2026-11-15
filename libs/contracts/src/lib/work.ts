@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PensionOverviewDto } from './pension-fund.js';
 import type {
   JobApplicationDto,
   JobSearchStatsDto,
@@ -377,6 +378,10 @@ export const TAX_CERTIFICATE_KEYS = {
   deductibleByEmployer: 'deductible_expenses_by_employer',
   /** Punto 441. */
   healthFund: 'health_fund_contributions',
+  /** Punto 412: pension fund contributions the employer already took off your taxable income. */
+  pensionFundDeducted: 'pension_fund_deducted',
+  /** Punto 413: pension fund contributions the employer did not take off (over the limit, or not through it). */
+  pensionFundNotDeducted: 'pension_fund_not_deducted',
   /** Punto 571. */
   productivityBonus: 'productivity_bonus',
   /** Punto 576. */
@@ -566,6 +571,8 @@ export interface YearStatsDto {
   contributions: number;
   welfare: number;
   severance: number;
+  /** Paid into a pension fund: yours, the employer's and the TFR sent there. */
+  pensionFund: number;
   averageNet: number;
   /** Gross of the payslips that pay only an extra month (tredicesima, quattordicesima, bonus). */
   extraPay: number;
@@ -592,6 +599,9 @@ export interface TaxCertificateDto {
   grossTax: number | null;
   totalDeductions: number | null;
   netTax: number | null;
+  /** Pension fund contributions deducted by the employer (punto 412) and not (punto 413). */
+  pensionFundDeducted: number | null;
+  pensionFundNotDeducted: number | null;
   /** The payslips of the same workplace and year (each counted once). */
   payslips: number;
   /** Months of the year without a monthly payslip (YYYY-MM). */
@@ -933,6 +943,8 @@ export interface WorkOverviewDto {
   /** Why the net changed from each monthly payslip to the next, newest first. */
   netChanges: NetChangeDto[];
   tfr: TfrDto;
+  /** Your pension fund: contributions year by year against the deduction limit, its value and what the 730 needs. */
+  pension: PensionOverviewDto;
   /** Your job applications, active first, newest first. */
   applications: JobApplicationDto[];
   jobSearch: JobSearchStatsDto;

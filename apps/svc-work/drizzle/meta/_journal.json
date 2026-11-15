@@ -29,6 +29,13 @@
       "when": 1794332939421,
       "tag": "0003_settings_replica",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794739758357,
+      "tag": "0004_pension_fund",
+      "breakpoints": true
     }
   ]
 }

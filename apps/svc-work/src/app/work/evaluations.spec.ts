@@ -105,6 +105,7 @@ describe('buildEvaluationStats', () => {
         contributions: 2800,
         welfare: 0,
         severance: 2000,
+        pensionFund: 0,
         averageNet: 1750,
         extraPay: 0,
       },

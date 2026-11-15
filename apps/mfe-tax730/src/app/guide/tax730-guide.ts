@@ -6,6 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import {
+  pensionDeductionLimit,
   tax730DeductionRules,
   type Tax730DeductionRule,
 } from '@life-island/contracts';
@@ -31,6 +32,9 @@ export class Tax730Guide {
 
   protected readonly open = signal(false);
   protected readonly filingYear = computed(() => this.taxYear() + 1);
+  protected readonly pensionLimit = computed(() =>
+    pensionDeductionLimit(this.taxYear()),
+  );
   protected readonly rules = computed(() =>
     tax730DeductionRules(this.taxYear()),
   );

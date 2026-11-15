@@ -17,6 +17,9 @@ import type {
   GoalStatus,
   JobApplicationStatus,
   MarketCheckOutput,
+  PensionFundKind,
+  PensionFundStatus,
+  PensionPaymentKind,
   PlatformStatus,
   WorkplaceField,
   WorkplaceStatus,
@@ -252,6 +255,113 @@ export const jobApplications = work.table('job_applications', {
 });
 
 export type JobApplicationRow = typeof jobApplications.$inferSelect;
+
+// ---- pension fund ------------------------------------------------------------
+
+const money = (name: string) =>
+  numeric(name, { precision: 12, scale: 2, mode: 'number' });
+
+/** A pension fund you belong to (fondo pensione, previdenza complementare). */
+export const pensionFunds = work.table('pension_funds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  kind: text('kind').$type<PensionFundKind>().notNull().default('negotiated'),
+  memberSince: date('member_since', { mode: 'string' }),
+  investmentLine: text('investment_line'),
+  employeePct: numeric('employee_pct', {
+    precision: 5,
+    scale: 2,
+    mode: 'number',
+  }),
+  employerPct: numeric('employer_pct', {
+    precision: 5,
+    scale: 2,
+    mode: 'number',
+  }),
+  tfrPct: numeric('tfr_pct', { precision: 5, scale: 2, mode: 'number' }),
+  firstJob: boolean('first_job').notNull().default(false),
+  memberCode: text('member_code'),
+  url: text('url'),
+  notes: text('notes'),
+  status: text('status').$type<PensionFundStatus>().notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export type PensionFundRow = typeof pensionFunds.$inferSelect;
+
+/**
+ * What your position was worth on a date, typed by you or confirmed from a
+ * statement you uploaded (then `source_upload_id` is that document, once).
+ */
+export const pensionStatements = work.table(
+  'pension_statements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fundId: uuid('fund_id')
+      .notNull()
+      .references(() => pensionFunds.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    value: money('value').notNull(),
+    paidIn: money('paid_in'),
+    employee: money('employee'),
+    employer: money('employer'),
+    tfr: money('tfr'),
+    returnPct: numeric('return_pct', {
+      precision: 6,
+      scale: 2,
+      mode: 'number',
+    }),
+    sourceUploadId: uuid('source_upload_id').unique(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('pension_statements_fund_idx').on(t.fundId)],
+);
+export type PensionStatementRow = typeof pensionStatements.$inferSelect;
+
+/** A payment you made to a fund yourself, outside the payslip. */
+export const pensionPayments = work.table(
+  'pension_payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fundId: uuid('fund_id')
+      .notNull()
+      .references(() => pensionFunds.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    amount: money('amount').notNull(),
+    kind: text('kind').$type<PensionPaymentKind>().notNull().default('direct'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('pension_payments_fund_idx').on(t.fundId)],
+);
+export type PensionPaymentRow = typeof pensionPayments.$inferSelect;
+
+/** A tax year you told the fund what you did not deduct (comunicazione dei contributi non dedotti). */
+export const pensionNotices = work.table('pension_notices', {
+  year: integer('year').primaryKey(),
+  sentAt: date('sent_at', { mode: 'string' }).notNull(),
+});
+export type PensionNoticeRow = typeof pensionNotices.$inferSelect;
+
+/** A fund statement document you chose not to use. */
+export const pensionDismissedDocuments = work.table(
+  'pension_dismissed_documents',
+  {
+    uploadId: uuid('upload_id').primaryKey(),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
 
 /**
  * svc-work's copy of the settings it reads, kept by its consumer of

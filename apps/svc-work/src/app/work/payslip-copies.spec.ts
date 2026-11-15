@@ -146,6 +146,8 @@ describe('Certificazione Unica', () => {
       grossTax: 4800,
       totalDeductions: 1300,
       netTax: 3500,
+      pensionFundDeducted: null,
+      pensionFundNotDeducted: null,
     });
     expect(cu.values).toEqual({ employerName: 'ESEMPIO LAVORI S.R.L.' });
   });

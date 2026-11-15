@@ -6,14 +6,23 @@ import {
   HttpCode,
   Inject,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveWorkReviewRequestSchema,
+  deadlinesQuerySchema,
+  pensionConfirmStatementRequestSchema,
+  pensionFundRequestSchema,
+  pensionNoticeRequestSchema,
+  pensionPaymentRequestSchema,
+  pensionStatementRequestSchema,
+  type DeadlineDto,
   careerEventRequestSchema,
   careerFeedbackRequestSchema,
   createWorkplaceRequestSchema,
@@ -192,5 +201,96 @@ export class WorkController {
   @HttpCode(204)
   removeFeedback(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.work.removeFeedback(id);
+  }
+
+  // ---- pension fund ----------------------------------------------------------
+
+  /** The pension fund's dates (last day to top up, the non-deducted notice), for the Agenda. */
+  @Get('deadlines')
+  deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
+    return this.work.deadlines(parseOrThrow(deadlinesQuerySchema, query));
+  }
+
+  @Post('pension/funds')
+  addFund(@Body() body: unknown): Promise<{ id: string }> {
+    return this.work.addFund(parseOrThrow(pensionFundRequestSchema, body));
+  }
+
+  @Put('pension/funds/:id')
+  @HttpCode(204)
+  updateFund(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.work.updateFund(
+      id,
+      parseOrThrow(pensionFundRequestSchema, body),
+    );
+  }
+
+  /** Removes the fund with its statements and payments. */
+  @Delete('pension/funds/:id')
+  @HttpCode(204)
+  removeFund(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.work.removeFund(id);
+  }
+
+  @Post('pension/statements')
+  addStatement(@Body() body: unknown): Promise<{ id: string }> {
+    return this.work.addStatement(
+      parseOrThrow(pensionStatementRequestSchema, body),
+    );
+  }
+
+  @Delete('pension/statements/:id')
+  @HttpCode(204)
+  removeStatement(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.work.removeStatement(id);
+  }
+
+  @Post('pension/payments')
+  addPayment(@Body() body: unknown): Promise<{ id: string }> {
+    return this.work.addPayment(
+      parseOrThrow(pensionPaymentRequestSchema, body),
+    );
+  }
+
+  @Delete('pension/payments/:id')
+  @HttpCode(204)
+  removePayment(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.work.removePayment(id);
+  }
+
+  /** The day you told the fund what you did not deduct in a year (null clears it). */
+  @Put('pension/notices/:year')
+  @HttpCode(204)
+  setNotice(
+    @Param('year', ParseIntPipe) year: number,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.work.setNotice(
+      year,
+      parseOrThrow(pensionNoticeRequestSchema, body ?? {}),
+    );
+  }
+
+  /** Takes the figures of a fund statement you uploaded. */
+  @Post('pension/documents/:uploadId/confirm')
+  confirmStatement(
+    @Param('uploadId', ParseUUIDPipe) uploadId: string,
+    @Body() body: unknown,
+  ): Promise<{ id: string; fundId: string }> {
+    return this.work.confirmStatement(
+      uploadId,
+      parseOrThrow(pensionConfirmStatementRequestSchema, body ?? {}),
+    );
+  }
+
+  @Post('pension/documents/:uploadId/dismiss')
+  @HttpCode(204)
+  dismissStatement(
+    @Param('uploadId', ParseUUIDPipe) uploadId: string,
+  ): Promise<void> {
+    return this.work.dismissStatement(uploadId);
   }
 }

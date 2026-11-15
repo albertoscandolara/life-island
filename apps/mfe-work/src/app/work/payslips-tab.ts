@@ -44,6 +44,18 @@ export class PayslipsTab {
   protected readonly pct = pct;
   protected readonly hours = hours;
 
+  /** Whether any year's payslips pay into a pension fund. */
+  protected readonly hasPensionFund = computed(() =>
+    this.stats().years.some((y) => y.pensionFund > 0),
+  );
+  /** Whether any CU prints the pension fund points (412, 413). */
+  protected readonly cuPensionFund = computed(() =>
+    this.certificates().some(
+      (c) =>
+        c.pensionFundDeducted !== null || c.pensionFundNotDeducted !== null,
+    ),
+  );
+
   protected previewUrl(uploadId: string): string {
     return this.api.previewUrl(uploadId);
   }

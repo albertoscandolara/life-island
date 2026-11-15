@@ -105,6 +105,9 @@ const CATEGORY_WORDS: Record<string, RegExp> = {
     /(total|totale|importo|€|eur\b|receipt|scontrino|fattura|bolletta|invoice)/i,
   PAYSLIP: PAYSLIP_WORDS,
   ...WORK_WORDS,
+  // A pension fund's yearly statement (a payslip prints "fondo pensione" too).
+  PENSION_FUND_STATEMENT:
+    /(comunicazione periodica|estratto conto (della posizione|previdenziale)|valore della posizione individuale|pension fund statement)/i,
   INCOME: new RegExp(
     `${PAYSLIP_WORDS.source}|\\b(stipendio|salary|pensione|pension|rimborso|refund)\\b`,
     'i',

@@ -1,0 +1,930 @@
+@if (error()) {
+<p class="error" role="alert">{{ error() }}</p>
+}
+
+<!-- What a fund is, first for whoever has none yet. -->
+@if (newcomer()) {
+<ui-card class="block">
+  <ui-empty-state heading="No pension fund on record yet" icon="info">
+    <p class="muted">
+      A pension fund (fondo pensione) is retirement savings on top of your INPS
+      pension: you, your employer and your TFR pay in, and what you pay comes
+      off your taxes. Read how it works below. Already a member? Add your fund,
+      or approve a payslip that shows it.
+    </p>
+    <div class="actions">
+      <button uiButton size="sm" type="button" (click)="startFund()">
+        <ui-icon name="plus" [size]="16" /> Add your fund
+      </button>
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="showTfr.emit()"
+      >
+        <ui-icon name="chart" [size]="16" /> Company or fund? Compare
+      </button>
+    </div>
+  </ui-empty-state>
+</ui-card>
+} @else {
+<section class="tiles" aria-label="Your pension fund">
+  <div class="tile tile--lead">
+    <span class="tile__label">Your position is worth</span>
+    <strong class="tile__value">
+      @if (pension().totalValue !== null) { {{ euro(pension().totalValue) }} }
+      @else { – }
+    </strong>
+    <span class="tile__hint">
+      @if (pension().totalValue !== null) { From the latest statement of each
+      fund } @else { Add the value from your fund's statement }
+    </span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Paid in</span>
+    <strong class="tile__value">{{ euro(pension().totalPaidIn) }}</strong>
+    <span class="tile__hint">Yours, the employer's and the TFR</span>
+  </div>
+  <div class="tile">
+    <span class="tile__label">Gain</span>
+    <strong
+      class="tile__value"
+      [class.up]="(gain() ?? 0) > 0"
+      [class.down]="(gain() ?? 0) < 0"
+      >{{ signed(gain()) }}</strong
+    >
+    <span class="tile__hint">Value less what was paid in</span>
+  </div>
+  @if (pension().thisYear; as t) {
+  <div class="tile">
+    <span class="tile__label">Deduction used in {{ t.year }}</span>
+    <strong class="tile__value">{{ usedPct() }}%</strong>
+    <span class="tile__hint">{{ euro(t.counted) }} of {{ euro(t.limit) }}</span>
+  </div>
+  } @if (longest(); as f) {
+  <div class="tile">
+    <span class="tile__label">Tax when you retire</span>
+    <strong class="tile__value">{{ f.exitTaxPct }}%</strong>
+    <span class="tile__hint"
+      >After {{ f.yearsMember }} year{{ f.yearsMember === 1 ? '' : 's' }} in a
+      fund; 9% after 35</span
+    >
+  </div>
+  }
+</section>
+
+<div class="grid">
+  <!-- This year's deduction --------------------------------------------- -->
+  @if (pension().thisYear; as t) {
+  <ui-card [heading]="'This year’s deduction, ' + t.year">
+    <p class="muted intro">
+      What you and your employer pay in comes off your taxable income, up to {{
+      euro(t.limit) }} a year. The TFR does not count.
+    </p>
+    <div class="meter">
+      <div class="row">
+        <span>So far: <strong>{{ euro(t.counted) }}</strong></span>
+        <span class="muted">limit {{ euro(t.limit) }}</span>
+      </div>
+      <ui-progress-bar
+        [value]="usedPct()"
+        [label]="'Deduction used: ' + usedPct() + '%'"
+      />
+      @if (t.projected > t.counted) {
+      <p class="small muted">
+        By December, at this pace: {{ euro(t.projected) }} ({{ projectedPct()
+        }}% of the limit).
+      </p>
+      }
+    </div>
+    @if (t.room > 0) {
+    <p>
+      About <strong>{{ euro(t.room) }}</strong> of deduction is still free this
+      year. @if (t.saving !== null) { Paying it into your fund before {{
+      periodText(t.deadline) }} would save about
+      <strong>{{ euro(t.saving) }}</strong> of IRPEF ({{ t.marginalRatePct }}%
+      is your top rate), deducted in next year's 730. }
+    </p>
+    <div class="actions">
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="startPayment(t.room)"
+      >
+        <ui-icon name="plus" [size]="16" /> Record a transfer to the fund
+      </button>
+    </div>
+    } @else {
+    <p>
+      <ui-badge tone="success">Limit reached</ui-badge> Anything more this year
+      is not deductible: tell the fund by {{ (t.year + 1) }}-12-31 so it is not
+      taxed again at the end.
+    </p>
+    }
+  </ui-card>
+  }
+
+  <!-- Your funds -------------------------------------------------------- -->
+  <ui-card heading="Your funds">
+    <div uiCardActions class="actions">
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="startFund()"
+      >
+        <ui-icon name="plus" [size]="16" /> Add one
+      </button>
+    </div>
+    @if (!funds().length) {
+    <p class="muted">
+      Your payslips show a pension fund: add it here with the day you joined (it
+      sets the tax at the end) and your investment line.
+    </p>
+    }
+    <ul class="plain funds">
+      @for (f of funds(); track f.id) {
+      <li class="fund">
+        <div class="row">
+          <strong>{{ f.name }}</strong>
+          <span class="actions">
+            @if (f.status === 'closed') {
+            <ui-badge tone="neutral">Closed</ui-badge>
+            }
+            <ui-badge tone="info">{{ kindLabels[f.kind] }}</ui-badge>
+          </span>
+        </div>
+        <p class="small muted">
+          @if (f.memberSince) { Member since {{ periodText(f.memberSince) }} · }
+          @if (f.investmentLine) { {{ f.investmentLine }} · } @if (f.employeePct
+          !== null) { You {{ f.employeePct }}% } @if (f.employerPct !== null) {
+          · employer {{ f.employerPct }}% } @if (f.tfrPct !== null) { · TFR {{
+          f.tfrPct }}% }
+        </p>
+        <p class="small">
+          @if (f.value !== null) { Worth {{ euro(f.value) }} on {{
+          periodText(f.valueDate) }} @if (f.gain !== null) { ·
+          <span [class.up]="f.gain > 0" [class.down]="f.gain < 0"
+            >{{ signed(f.gain) }}</span
+          >
+          on {{ euro(f.paidIn) }} paid in } } @else if (f.paidIn !== null) { {{
+          euro(f.paidIn) }} paid in on record } @if (f.exitTaxPct !== null) { ·
+          {{ f.exitTaxPct }}% tax at the end today }
+        </p>
+        @if (f.firstJob) {
+        <p class="small muted">
+          First job after 2007: from the 6th year you can deduct up to 2.582,29
+          € a year more, for 20 years.
+        </p>
+        }
+        <div class="actions">
+          @if (f.url && safeUrl(f.url); as link) {
+          <a
+            uiButton
+            variant="ghost"
+            size="sm"
+            [href]="link"
+            target="_blank"
+            rel="noopener"
+            ><ui-icon name="external" [size]="16" /> Member area</a
+          >
+          }
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="startFund(f)"
+          >
+            <ui-icon name="edit" [size]="16" /> Edit
+          </button>
+          @if (removing() === f.id) {
+          <button
+            uiButton
+            variant="danger"
+            size="sm"
+            type="button"
+            [disabled]="busy() === f.id"
+            (click)="removeFund(f)"
+          >
+            Delete it, with its statements and transfers
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="removing.set(null)"
+          >
+            Keep it
+          </button>
+          } @else {
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="removing.set(f.id)"
+          >
+            <ui-icon name="trash" [size]="16" /> Delete
+          </button>
+          }
+        </div>
+      </li>
+      }
+    </ul>
+  </ui-card>
+</div>
+}
+
+<!-- The fund form, for both cases. -->
+@if (fundDraft(); as d) {
+<ui-card
+  [heading]="d.id ? 'Edit ' + d.name : 'Add a pension fund'"
+  class="block"
+>
+  <form class="form" (submit)="$event.preventDefault(); saveFund()">
+    <label class="form__wide">
+      <span>Name</span>
+      <input
+        class="ui-input"
+        placeholder="Fondo Cometa"
+        [value]="d.name"
+        (input)="setFund({ name: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Kind</span>
+      <select
+        class="ui-input"
+        [value]="d.kind"
+        (change)="setFund({ kind: $any($event.target).value })"
+      >
+        @for (k of kinds; track k) {
+        <option [value]="k" [selected]="k === d.kind">
+          {{ kindLabels[k] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>First day in a pension fund</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.memberSince"
+        (input)="setFund({ memberSince: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Investment line (comparto)</span>
+      <input
+        class="ui-input"
+        placeholder="Reddito, Crescita…"
+        [value]="d.investmentLine"
+        (input)="setFund({ investmentLine: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Your contribution, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.employeePct"
+        (input)="setFund({ employeePct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Employer contribution, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.employerPct"
+        (input)="setFund({ employerPct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>TFR to the fund, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.tfrPct"
+        (input)="setFund({ tfrPct: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Member number</span>
+      <input
+        class="ui-input"
+        [value]="d.memberCode"
+        (input)="setFund({ memberCode: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Member area link</span>
+      <input
+        class="ui-input"
+        type="url"
+        placeholder="https://"
+        [value]="d.url"
+        (input)="setFund({ url: $any($event.target).value })"
+      />
+    </label>
+    <label class="check">
+      <input
+        type="checkbox"
+        [checked]="d.firstJob"
+        (change)="setFund({ firstJob: $any($event.target).checked })"
+      />
+      <span>My first job started after 1 January 2007</span>
+    </label>
+    <label class="check">
+      <input
+        type="checkbox"
+        [checked]="d.active"
+        (change)="setFund({ active: $any($event.target).checked })"
+      />
+      <span>Still paying into it</span>
+    </label>
+    <label class="form__wide">
+      <span>Notes</span>
+      <textarea
+        class="ui-input"
+        rows="2"
+        [value]="d.notes"
+        (input)="setFund({ notes: $any($event.target).value })"
+      ></textarea>
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        size="sm"
+        type="submit"
+        [disabled]="!d.name.trim() || busy() !== null"
+      >
+        Save
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="fundDraft.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+</ui-card>
+}
+
+<!-- Year by year ----------------------------------------------------------- -->
+@if (pension().years.length) {
+<ui-card heading="Year by year: what went in and what you deduct" class="block">
+  <p class="muted intro">
+    From your payslips, your own transfers and the Certificazione Unica. Your
+    contributions and the employer's count against the limit, the TFR does not.
+    The last two columns are what goes in rigo E27 of the following year's 730.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          <th scope="col" class="num">Yours</th>
+          <th scope="col" class="num">Employer</th>
+          <th scope="col" class="num">Your transfers</th>
+          <th scope="col" class="num">TFR</th>
+          <th scope="col" class="num">Counts / limit</th>
+          <th scope="col" class="num">Tax saved</th>
+          <th scope="col" class="num">E27 col. 1</th>
+          <th scope="col" class="num">E27 col. 2</th>
+          <th scope="col">Over the limit</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (y of pension().years; track y.year) {
+        <tr>
+          <th scope="row">
+            {{ y.year }} @if (y.running) {
+            <span class="muted small">so far</span>
+            }
+          </th>
+          <td class="num">{{ euro(y.employee) }}</td>
+          <td class="num">{{ euro(y.employer) }}</td>
+          <td class="num">
+            {{ y.direct + y.family ? euro(y.direct + y.family) : '–' }}
+          </td>
+          <td class="num">{{ y.tfr ? euro(y.tfr) : '–' }}</td>
+          <td class="num">
+            {{ euro(y.counted) }}
+            <span class="muted small">/ {{ euro(y.limit) }}</span>
+          </td>
+          <td class="num">
+            @if (y.taxSaved !== null) { {{ euro(y.taxSaved) }}
+            <span class="muted small">at {{ y.marginalRatePct }}%</span> } @else
+            { – }
+          </td>
+          <td class="num">
+            {{ euro(y.e27Deducted) }} @if (y.cuDeducted !== null) {
+            <span class="muted small">CU 412</span> }
+          </td>
+          <td class="num">
+            {{ y.e27NotDeducted ? euro(y.e27NotDeducted) : '–' }}
+          </td>
+          <td class="notice">
+            @if (y.over > 0) { @if (y.noticeSentAt) {
+            <ui-badge tone="success"
+              >{{ euro(y.over) }} · told the fund {{ periodText(y.noticeSentAt)
+              }}</ui-badge
+            >
+            <button
+              type="button"
+              class="link small"
+              [disabled]="busy() === 'notice-' + y.year"
+              (click)="clearNotice(y.year)"
+            >
+              Undo
+            </button>
+            } @else if (noticeDraft()?.year === y.year) {
+            <span class="actions">
+              <input
+                class="ui-input notice-date"
+                type="date"
+                aria-label="Day you told the fund"
+                [value]="noticeDraft()?.date"
+                (input)="noticeDraft.set({ year: y.year, date: $any($event.target).value })"
+              />
+              <button
+                uiButton
+                size="sm"
+                type="button"
+                [disabled]="busy() !== null"
+                (click)="saveNotice()"
+              >
+                Save
+              </button>
+            </span>
+            } @else {
+            <ui-badge tone="warning">{{ euro(y.over) }} over</ui-badge>
+            <span class="small block-line"
+              >Tell the fund by {{ periodText(y.noticeDue) }}.
+              <button type="button" class="link small" (click)="startNotice(y)">
+                Done it
+              </button></span
+            >
+            } } @else { – }
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="note muted">
+    "Tax saved" is an estimate at your top IRPEF rate for that year. When a CU
+    shows the pension fund (punti 412 and 413), it wins over the payslips: it is
+    what the employer declared.
+  </p>
+</ui-card>
+}
+
+<!-- Statements: the value of your position --------------------------------- -->
+@if (funds().length || pension().pending.length) {
+<ui-card heading="What your fund is worth" class="block">
+  <div uiCardActions class="actions">
+    @if (funds().length) {
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="startStatement()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add a statement
+    </button>
+    }
+  </div>
+  <p class="muted intro">
+    Every spring the fund sends a statement (comunicazione periodica) with the
+    value of your position on 31 December. Upload it in the documents app and
+    confirm its figures here, or type them in.
+  </p>
+
+  @for (p of pension().pending; track p.uploadId) {
+  <div class="pending">
+    <div class="row">
+      <span>
+        <ui-badge tone="info">From a document</ui-badge>
+        <a [href]="previewUrl(p.uploadId)" target="_blank" rel="noopener"
+          >{{ p.title }}</a
+        >
+      </span>
+      <span class="muted small">{{ p.fundName ?? 'Fund not named' }}</span>
+    </div>
+    <p class="small">
+      {{ p.date ? periodText(p.date) : 'No date' }} · value {{ euro(p.value) }}
+      @if (p.paidIn !== null) { · paid in {{ euro(p.paidIn) }} } @if
+      (p.investmentLine) { · {{ p.investmentLine }} }
+    </p>
+    @if (p.missing.length) {
+    <p class="small muted">
+      It does not show {{ p.missing.join(' or ') }}: fill it in the documents
+      app, or type the statement here.
+    </p>
+    }
+    <div class="actions">
+      <label class="inline">
+        <span class="ui-visually-hidden">Fund</span>
+        <select
+          class="ui-input"
+          [value]="pendingChoice(p)"
+          (change)="choosePending(p.uploadId, $any($event.target).value)"
+        >
+          <option value="">
+            {{ p.fundName ? 'A new fund: ' + p.fundName : 'Choose a fund' }}
+          </option>
+          @for (f of funds(); track f.id) {
+          <option [value]="f.id" [selected]="f.id === pendingChoice(p)">
+            {{ f.name }}
+          </option>
+          }
+        </select>
+      </label>
+      <button
+        uiButton
+        size="sm"
+        type="button"
+        [disabled]="p.missing.length > 0 || busy() === p.uploadId || (!pendingChoice(p) && !p.fundName)"
+        (click)="confirm(p)"
+      >
+        <ui-icon name="check" [size]="16" /> Use these figures
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() === p.uploadId"
+        (click)="dismiss(p)"
+      >
+        Not a statement
+      </button>
+    </div>
+  </div>
+  } @if (statementDraft(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); saveStatement()">
+    <label>
+      <span>Fund</span>
+      <select
+        class="ui-input"
+        [value]="d.fundId"
+        (change)="setStatement({ fundId: $any($event.target).value })"
+      >
+        @for (f of funds(); track f.id) {
+        <option [value]="f.id" [selected]="f.id === d.fundId">
+          {{ f.name }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Value on</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.date"
+        (input)="setStatement({ date: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Position value</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.value"
+        (input)="setStatement({ value: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Paid in since joining</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.paidIn"
+        (input)="setStatement({ paidIn: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Yours in the year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.employee"
+        (input)="setStatement({ employee: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Employer's in the year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.employer"
+        (input)="setStatement({ employer: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>TFR in the year</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.tfr"
+        (input)="setStatement({ tfr: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Return of the year, %</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.returnPct"
+        (input)="setStatement({ returnPct: $any($event.target).value })"
+      />
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        size="sm"
+        type="submit"
+        [disabled]="!d.fundId || !d.date || !d.value.trim() || busy() !== null"
+      >
+        Save
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="statementDraft.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (pension().statements.length) {
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Fund</th>
+          <th scope="col" class="num">Value</th>
+          <th scope="col" class="num">Paid in</th>
+          <th scope="col" class="num">Gain</th>
+          <th scope="col" class="num">Return</th>
+          <th scope="col" aria-label="Actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of pension().statements; track s.id) {
+        <tr>
+          <th scope="row">{{ periodText(s.date) }}</th>
+          <td>
+            {{ s.fundName }} @if (s.sourceUploadId) {
+            <a
+              class="small"
+              [href]="previewUrl(s.sourceUploadId)"
+              target="_blank"
+              rel="noopener"
+              >document</a
+            >
+            }
+          </td>
+          <td class="num">{{ euro(s.value) }}</td>
+          <td class="num">{{ euro(s.paidIn) }}</td>
+          <td class="num">
+            <span
+              [class.up]="(s.gain ?? 0) > 0"
+              [class.down]="(s.gain ?? 0) < 0"
+              >{{ signed(s.gain) }}</span
+            >
+          </td>
+          <td class="num">
+            {{ s.returnPct !== null ? s.returnPct + '%' : '–' }}
+          </td>
+          <td>
+            @if (removing() === s.id) {
+            <button
+              type="button"
+              class="link small danger"
+              [disabled]="busy() === s.id"
+              (click)="removeStatement(s.id)"
+            >
+              Delete it
+            </button>
+            } @else {
+            <button
+              type="button"
+              class="link small"
+              (click)="removing.set(s.id)"
+            >
+              Delete
+            </button>
+            }
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  } @else if (!statementDraft() && !pension().pending.length) {
+  <p class="muted">No statement yet.</p>
+  }
+</ui-card>
+}
+
+<!-- Your own transfers ----------------------------------------------------- -->
+@if (funds().length) {
+<ui-card heading="What you paid in yourself" class="block">
+  <div uiCardActions class="actions">
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="startPayment()"
+    >
+      <ui-icon name="plus" [size]="16" /> Add a transfer
+    </button>
+  </div>
+  <p class="muted intro">
+    Transfers to the fund outside the payslip: the employer does not know them,
+    so you deduct them in the 730 (rigo E27, column 2). Keep the receipt.
+  </p>
+  @if (paymentDraft(); as d) {
+  <form class="form" (submit)="$event.preventDefault(); savePayment()">
+    <label>
+      <span>Fund</span>
+      <select
+        class="ui-input"
+        [value]="d.fundId"
+        (change)="setPayment({ fundId: $any($event.target).value })"
+      >
+        @for (f of funds(); track f.id) {
+        <option [value]="f.id" [selected]="f.id === d.fundId">
+          {{ f.name }}
+        </option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Date</span>
+      <input
+        class="ui-input"
+        type="date"
+        [value]="d.date"
+        (input)="setPayment({ date: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Amount</span>
+      <input
+        class="ui-input"
+        inputmode="decimal"
+        [value]="d.amount"
+        (input)="setPayment({ amount: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>For</span>
+      <select
+        class="ui-input"
+        [value]="d.kind"
+        (change)="setPayment({ kind: $any($event.target).value })"
+      >
+        @for (k of paymentKinds; track k) {
+        <option [value]="k" [selected]="k === d.kind">
+          {{ paymentKindLabels[k] }}
+        </option>
+        }
+      </select>
+    </label>
+    <label class="form__wide">
+      <span>Note</span>
+      <input
+        class="ui-input"
+        [value]="d.note"
+        (input)="setPayment({ note: $any($event.target).value })"
+      />
+    </label>
+    <div class="form__buttons">
+      <button
+        uiButton
+        size="sm"
+        type="submit"
+        [disabled]="!d.fundId || !d.date || !d.amount.trim() || busy() !== null"
+      >
+        Save
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="paymentDraft.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @if (pension().payments.length) {
+  <ul class="plain">
+    @for (p of pension().payments; track p.id) {
+    <li class="row">
+      <span>
+        <strong>{{ euro(p.amount) }}</strong> on {{ periodText(p.date) }} to {{
+        p.fundName }} @if (p.kind === 'family') {
+        <ui-badge tone="neutral">{{ paymentKindLabels[p.kind] }}</ui-badge>
+        } @if (p.note) {
+        <span class="muted small">· {{ p.note }}</span>
+        }
+      </span>
+      @if (removing() === p.id) {
+      <button
+        type="button"
+        class="link small danger"
+        [disabled]="busy() === p.id"
+        (click)="removePayment(p.id)"
+      >
+        Delete it
+      </button>
+      } @else {
+      <button type="button" class="link small" (click)="removing.set(p.id)">
+        Delete
+      </button>
+      }
+    </li>
+    }
+  </ul>
+  } @else if (!paymentDraft()) {
+  <p class="muted">None on record: everything went through the payslip.</p>
+  }
+</ui-card>
+}
+
+<!-- Documents -------------------------------------------------------------- -->
+@if (pension().documents.length) {
+<ui-card heading="Documents" class="block">
+  <ul class="plain">
+    @for (d of pension().documents; track d.uploadId) {
+    <li>
+      <ui-badge
+        [tone]="d.kind === 'statement' ? 'success' : d.kind === 'certificate' ? 'info' : 'neutral'"
+        >{{ d.kind === 'statement' ? 'Statement' : d.kind === 'certificate' ?
+        'CU' : 'Payslip' }}</ui-badge
+      >
+      <a [href]="previewUrl(d.uploadId)" target="_blank" rel="noopener"
+        >{{ d.title }}</a
+      >
+      <span class="muted small">· {{ d.summary }}</span>
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+
+<!-- How it works ----------------------------------------------------------- -->
+<ui-card heading="How a pension fund works" class="block">
+  <p class="muted intro">
+    In plain words, at the rules of 2026. The figures above are estimates for
+    planning: your fund and your CAF have the last word.
+  </p>
+  <div class="guide">
+    @for (s of guide; track s.id; let first = $first) {
+    <details class="guide__section" [open]="first && newcomer()">
+      <summary>{{ s.title }}</summary>
+      @for (p of s.body; track $index) {
+      <p>{{ text(p) }}</p>
+      } @if (s.points?.length) {
+      <ul class="bullets">
+        @for (p of s.points; track $index) {
+        <li>{{ text(p) }}</li>
+        }
+      </ul>
+      } @if (s.id === 'worth') {
+      <button type="button" class="link" (click)="showTfr.emit()">
+        Open the comparison in the TFR tab
+      </button>
+      }
+    </details>
+    }
+  </div>
+  <p class="note muted">
+    Sources: @for (s of pension().sources; track s.url; let last = $last) {
+    <a [href]="s.url" target="_blank" rel="noopener">{{ s.label }}</a>{{ last ?
+    '' : ' · ' }} }
+  </p>
+</ui-card>

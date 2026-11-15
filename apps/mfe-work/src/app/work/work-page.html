@@ -992,7 +992,19 @@
 }
 <!-- =================================================================== tfr -->
 @case ('tfr') {
-<work-tfr [tfr]="data.tfr" />
+<work-tfr
+  [tfr]="data.tfr"
+  [pension]="data.pension"
+  (showPension)="setTab('pension')"
+/>
+}
+<!-- =============================================================== pension -->
+@case ('pension') {
+<work-pension
+  [pension]="data.pension"
+  (changed)="load()"
+  (showTfr)="setTab('tfr')"
+/>
 }
 <!-- ================================================================== jobs -->
 @case ('jobs') {
