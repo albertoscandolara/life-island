@@ -260,7 +260,9 @@
           ></textarea>
           <span class="muted small"
             >Documents that print one of these names are this company's. The old
-            name is kept here when you rename it.</span
+            name is kept here when you rename it. A name merged here by mistake?
+            Save, then use “Not this company…” beside it: its documents and
+            bills go back to their own company.</span
           >
         </label>
         <fieldset class="edit__wide pictures">
@@ -384,7 +386,8 @@
           'documents' }}@if (d.billCount) {, {{ d.billCount }} {{ d.billCount
           === 1 ? 'bill' : 'bills' }}}@if (d.houses.length) {, houses}: to get
           rid of it, merge it into the company it really is. They all move
-          there.
+          there, and its name is listed there as “Also printed as”: a wrong
+          merge is undone from that list with “Not this company…”.
         </p>
         <span class="danger__actions">
           <select
@@ -433,7 +436,62 @@
         @if (d.aliases.length) {
         <div class="wide">
           <dt>Also printed as</dt>
-          <dd>{{ d.aliases.join(' · ') }}</dd>
+          <dd>
+            <ul class="aliases" role="list">
+              @for (a of d.aliases; track a) {
+              <li class="alias">
+                <span class="alias__name">{{ a }}</span>
+                @if (splitting() === a) {
+                <span class="alias__split">
+                  <span class="muted small"
+                    >Not this company: its documents and bills move to</span
+                  >
+                  <select
+                    class="ui-input compact"
+                    [attr.aria-label]="'Company that ' + a + ' really is'"
+                    [disabled]="busy() !== null"
+                    (change)="splitTarget.set($any($event.target).value)"
+                  >
+                    <option value="">Its own company</option>
+                    @for (t of others(); track t.id) {
+                    <option [value]="t.id">{{ t.name }}</option>
+                    }
+                  </select>
+                  <button
+                    uiButton
+                    size="sm"
+                    type="button"
+                    [disabled]="busy() !== null"
+                    (click)="split(d, a)"
+                  >
+                    Move
+                  </button>
+                  <button
+                    uiButton
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    (click)="splitting.set(null)"
+                  >
+                    Cancel
+                  </button>
+                </span>
+                } @else {
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="busy() !== null"
+                  (click)="startSplit(a)"
+                >
+                  Not this company…
+                </button>
+                }
+              </li>
+              }
+            </ul>
+          </dd>
         </div>
         } @if (d.houses.length) {
         <div class="wide">

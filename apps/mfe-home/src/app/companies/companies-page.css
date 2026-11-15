@@ -118,6 +118,33 @@
   grid-column: 1 / -1;
 }
 
+/* The names a company is also printed as, each one can go back to its own company. */
+.aliases {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.alias__name {
+  overflow-wrap: anywhere;
+}
+
+.alias__split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .house {
   display: inline-flex;
   align-items: baseline;

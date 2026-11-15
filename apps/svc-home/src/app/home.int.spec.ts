@@ -767,6 +767,78 @@ describe.skipIf(!configured)(
       expect(bills.find((b) => b.uploadId === bill)?.supplierId).toBe(mine?.id);
     });
 
+    it('undoes a wrong merge: a name goes back to its own company', async () => {
+      // Two companies you have, merged by mistake: the documents and bills of
+      // the second now show under the first.
+      const [road, abroad] = [`Strade ${run}`, `Esteri ${run}`];
+      const code = `5${runDigits}05`;
+      const passport = await upload(
+        ['PASSPORT'],
+        { issuer: abroad },
+        'Passport',
+      );
+      const booklet = await upload(['INVOICE'], { issuer: road }, 'Booklet');
+      const bill = await upload(['ELECTRICITY_BILL'], {
+        provider: abroad,
+        supplier_tax_code: code,
+        invoice_number: `E-${run}-1`,
+        total_amount: 30,
+      });
+      const find = async (name: string) =>
+        (
+          await json<OrganizationDto[]>(await send('GET', '/organizations'))
+        ).find((o) => o.name === name);
+      const [mit, maeci] = [await find(road), await find(abroad)];
+      const merged = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${mit?.id}/merge`, {
+          from: maeci?.id,
+        }),
+      );
+      expect(merged.aliases).toContain(abroad);
+      expect(merged.documents.map((d) => d.uploadId)).toContain(passport);
+
+      // Its name is not this company: it gets its own again, with what it printed.
+      const split = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${mit?.id}/split`, { name: abroad }),
+      );
+      expect(split).toMatchObject({
+        name: abroad,
+        status: 'CONFIRMED',
+        taxCode: code,
+        billCount: 1,
+      });
+      expect(split.documents.map((d) => d.uploadId)).toEqual(
+        expect.arrayContaining([passport]),
+      );
+      const left = await json<OrganizationDetailDto>(
+        await send('GET', `/organizations/${mit?.id}`),
+      );
+      expect(left.aliases).not.toContain(abroad);
+      expect(left.billCount).toBe(0);
+      expect(left.documents.map((d) => d.uploadId)).toEqual([booklet]);
+      const bills = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(bills.find((b) => b.uploadId === bill)?.supplierId).toBe(split.id);
+
+      // And it stays split on the next sync.
+      await upload(['ELECTRICITY_BILL'], {
+        provider: abroad,
+        supplier_tax_code: code,
+        invoice_number: `E-${run}-2`,
+        total_amount: 31,
+      });
+      expect((await find(abroad))?.billCount).toBe(2);
+      expect((await find(road))?.billCount).toBe(0);
+
+      // Only a name it is also printed as can go.
+      expect(
+        (
+          await send('POST', `/organizations/${mit?.id}/split`, {
+            name: road,
+          })
+        ).status,
+      ).toBe(400);
+    });
+
     it('knows a bank by its name or by its statements', async () => {
       await upload(['INVOICE'], { issuer: `Banca Q${run} S.p.A.` }, 'Fees');
       await upload(['ESTRATTO_CONTO'], { issuer: `Widi${run}` }, 'Statement');

@@ -21,6 +21,7 @@ import type { ServiceDb } from '@life-island/be-common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   mergeOrganizationRequestSchema,
+  splitOrganizationRequestSchema,
   ORGANIZATION_IMAGE_KINDS,
   type OrganizationDetailDto,
   type OrganizationImageKind,
@@ -31,6 +32,7 @@ import { SERVICE_DB } from '../config.js';
 import { organizations, supplyContracts } from '../db/schema.js';
 import { OrganizationImages } from './organization-images.js';
 import { mergeOrganizations } from './organization-merge.js';
+import { SplitError, splitOrganization } from './organization-split.js';
 import { organizationDetail } from './organizations.js';
 
 /**
@@ -136,6 +138,30 @@ export class OrganizationsController {
     );
     for (const key of orphans) await this.images.forget(key);
     return this.detail(id);
+  }
+
+  /**
+   * Undoes a merge: one of the names this company is also printed as is
+   * another company. It goes to `into`, or to its own company, with the
+   * documents, bills and codes printed with it. Returns that company.
+   */
+  @Post(':id/split')
+  async split(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<OrganizationDetailDto> {
+    const { name, into } = parseOrThrow(splitOrganizationRequestSchema, body);
+    try {
+      const target = await this.svc.db.transaction((tx) =>
+        splitOrganization(tx, id, name, into ?? null),
+      );
+      return await this.detail(target);
+    } catch (error) {
+      if (!(error instanceof SplitError)) throw error;
+      if (error.reason === 'not-found')
+        throw new NotFoundException(error.message);
+      throw new BadRequestException(error.message);
+    }
   }
 
   /**
