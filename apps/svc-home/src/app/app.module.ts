@@ -20,6 +20,10 @@ import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { HouseSuggestionsService } from './houses/house-suggestions.service.js';
 import { HousesController } from './houses/houses.controller.js';
+import { HouseServicesController } from './houses/house-services.controller.js';
+import { HouseServicesService } from './houses/house-services.service.js';
+import { HouseTaxExpensesController } from './tax730/house-tax-expenses.controller.js';
+import { HouseTaxExpensesService } from './tax730/house-tax-expenses.service.js';
 import { HomeEntitiesController } from './organizations/entities.controller.js';
 import { OrganizationsController } from './organizations/organizations.controller.js';
 import { HomePeople } from './properties/home-people.js';
@@ -55,6 +59,8 @@ export class AppModule {
         SupplyPointsController,
         OrganizationsController,
         HomeEntitiesController,
+        HouseServicesController,
+        HouseTaxExpensesController,
       ],
       providers: [
         { provide: CONFIG, useValue: config },
@@ -68,6 +74,8 @@ export class AppModule {
         HouseModels,
         HomePeople,
         HouseSuggestionsService,
+        HouseServicesService,
+        HouseTaxExpensesService,
         ...(options.events === false
           ? []
           : [

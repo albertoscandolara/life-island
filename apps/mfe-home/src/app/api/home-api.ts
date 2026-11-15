@@ -4,8 +4,13 @@ import type {
   ApproveHouseSuggestionRequest,
   BillDto,
   HomePeopleDto,
+  HouseServicesDto,
   HouseSuggestionDto,
+  HouseTaxExpenseDto,
+  HouseTaxExpensesDto,
   KnownCompanyDto,
+  UpdateHouseServiceDocumentRequest,
+  UpdateHouseTaxExpenseRequest,
   CreatePropertyRequest,
   CreateWorkRequest,
   HomeDocumentDto,
@@ -187,6 +192,44 @@ export class HomeApi {
     return this.http.post<OrganizationDetailDto>(
       `${HOME_API}/organizations/${into}/merge`,
       { from },
+    );
+  }
+
+  /** Internet lines and insurances of your houses, read from your documents. */
+  houseServices(): Observable<HouseServicesDto> {
+    return this.http.get<HouseServicesDto>(`${HOME_API}/house-services`);
+  }
+
+  updateHouseServiceDocument(
+    uploadId: string,
+    request: UpdateHouseServiceDocumentRequest,
+  ): Observable<HouseServicesDto> {
+    return this.http.patch<HouseServicesDto>(
+      `${HOME_API}/house-services/documents/${uploadId}`,
+      request,
+    );
+  }
+
+  /** The 730 home expenses (renovations, ecobonus, bonus mobili) and their house. */
+  taxExpenses(): Observable<HouseTaxExpensesDto> {
+    return this.http.get<HouseTaxExpensesDto>(`${HOME_API}/tax-expenses`);
+  }
+
+  updateTaxExpense(
+    id: string,
+    request: UpdateHouseTaxExpenseRequest,
+  ): Observable<HouseTaxExpenseDto> {
+    return this.http.patch<HouseTaxExpenseDto>(
+      `${HOME_API}/tax-expenses/${id}`,
+      request,
+    );
+  }
+
+  /** Makes a work of a 730 expense, with its invoice and payment. */
+  workFromTaxExpense(id: string, propertyId?: string): Observable<WorkDto> {
+    return this.http.post<WorkDto>(
+      `${HOME_API}/tax-expenses/${id}/work`,
+      propertyId ? { propertyId } : {},
     );
   }
 

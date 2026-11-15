@@ -1,4 +1,4 @@
-import { streetKey } from '@life-island/contracts';
+import { streetKey, supplyPointUtility } from '@life-island/contracts';
 import {
   ConflictException,
   Inject,
@@ -26,10 +26,10 @@ import { normalizeCode, normalizeText } from '../bills/bill-reader.js';
 import {
   defaultMatchTerms,
   PropertiesService,
-  toPropertyDto,
 } from '../properties/properties.service.js';
 import {
   mergeReadings,
+  pointField,
   proposeHouseChanges,
   readHouse,
   supplierField,
@@ -90,7 +90,7 @@ export class HouseSuggestionsService {
       });
       created = true;
     } else {
-      house = toPropertyDto(await this.properties.get(propertyId));
+      house = await this.properties.dto(await this.properties.get(propertyId));
     }
 
     const proposed = proposeHouseChanges(group.facts, created ? null : house);
@@ -171,11 +171,13 @@ export class HouseSuggestionsService {
     const update: UpdatePropertyRequest = {};
     for (const change of changes) {
       const field = change.field;
-      if (field === 'supplyCodes') {
-        update.supplyCodes = [
-          ...(house?.supplyCodes ?? []),
-          ...change.proposed.split(', '),
-        ];
+      const utility = supplyPointUtility(field);
+      if (utility) {
+        // The house's point of that utility: its bills follow the code.
+        update.supplyPoints = {
+          ...update.supplyPoints,
+          [utility]: change.proposed,
+        };
       } else if (field === 'owners') {
         update.owners = [
           ...(house?.owners ?? []),
@@ -190,7 +192,7 @@ export class HouseSuggestionsService {
       ) {
         update[field] = Number(change.proposed);
       } else {
-        update[field] = change.proposed;
+        (update as Record<string, unknown>)[field] = change.proposed;
       }
     }
     return update;
@@ -311,7 +313,11 @@ export class HouseSuggestionsService {
       );
   }
 
-  /** The reading without its supplier, unless it is the newest bill of its utility. */
+  /**
+   * The reading without its supplier and supply point, unless it is the
+   * newest bill of its utility: an old bill never brings back the supplier
+   * you left, or the meter that was replaced.
+   */
   private withoutOldSupplier(
     reading: HouseReading,
     newest: Map<string, HouseReading>,
@@ -321,10 +327,13 @@ export class HouseSuggestionsService {
       return reading;
     const values = { ...reading.values };
     delete values[supplierField(reading.utility)];
+    delete values[pointField(reading.utility)];
     return { ...reading, values };
   }
 }
 
 function normalizeValue(field: HouseField, value: string): string {
-  return field === 'supplyCodes' ? normalizeCode(value) : normalizeText(value);
+  return supplyPointUtility(field)
+    ? normalizeCode(value)
+    : normalizeText(value);
 }

@@ -13,6 +13,7 @@ import {
   PROPERTY_TYPE_LABELS,
   type BillDto,
   type HomePersonDto,
+  type HouseServicesDto,
   type PropertyDto,
   type SupplyPointDto,
   type WorkDto,
@@ -43,6 +44,7 @@ import {
 import { HouseDialog } from '../shared/house-dialog';
 import { PropertyStore } from '../shared/property-store';
 import { scopeHouses, selectedIds, selectionParams } from '../shared/selection';
+import { HouseServices } from './house-services';
 import { HouseSuggestions } from './house-suggestions';
 import { HousesView } from './houses-view';
 
@@ -67,6 +69,7 @@ import { HousesView } from './houses-view';
     HousesView,
     HouseDialog,
     HouseSuggestions,
+    HouseServices,
     Sparkline,
     NgTemplateOutlet,
   ],
@@ -94,6 +97,11 @@ export class HousesPage {
   protected readonly moving = signal<string | null>(null);
   protected readonly pointError = signal<string | null>(null);
   protected readonly people = signal<HomePersonDto[]>([]);
+  /** Internet lines and insurances, read from your documents. */
+  protected readonly services = signal<HouseServicesDto>({
+    internet: [],
+    insurances: [],
+  });
   protected readonly editorOpen = signal(false);
   /** The house being edited; null while adding one. */
   protected readonly editingId = signal<string | null>(null);
@@ -136,6 +144,12 @@ export class HousesPage {
       return {
         house,
         points,
+        internet: this.services().internet.filter(
+          (l) => l.propertyId === house.id,
+        ),
+        insurances: this.services().insurances.filter(
+          (i) => i.propertyId === house.id,
+        ),
         // Codes you typed that no bill has shown yet.
         otherCodes: house.supplyCodes.filter((c) => !known.has(normalize(c))),
         address: fullAddress(house),
@@ -175,6 +189,24 @@ export class HousesPage {
       };
     }),
   );
+
+  /** Internet and insurance documents no house is matched to yet. */
+  protected readonly looseServices = computed(() => ({
+    internet: this.services().internet.filter((l) => !l.propertyId),
+    insurances: this.services().insurances.filter((i) => !i.propertyId),
+  }));
+
+  /** Whether a supply point is its house's point of that utility now (the others were before). */
+  protected inUse(point: SupplyPointDto): boolean {
+    const house = this.store
+      .properties()
+      ?.find((h) => h.id === point.propertyId);
+    return (
+      !house ||
+      normalize(house.supplyPoints?.[point.utility] ?? '') ===
+        normalize(point.code)
+    );
+  }
 
   /** Supply points no house has yet: pick one for them. */
   protected readonly loosePoints = computed(() =>
@@ -222,6 +254,10 @@ export class HousesPage {
     this.api.works().subscribe({
       next: (works) => this.works.set(works),
       error: () => this.works.set([]),
+    });
+    this.api.houseServices().subscribe({
+      next: (services) => this.services.set(services),
+      error: () => this.services.set({ internet: [], insurances: [] }),
     });
   }
 

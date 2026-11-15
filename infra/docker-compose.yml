@@ -189,6 +189,10 @@ services:
       <<: *service-env
       # Previews of bills and work invoices are streamed from svc-ingestion's API.
       INGESTION_URL: http://svc-ingestion:3000
+      # House owners can be people of People, read from svc-people's API.
+      PEOPLE_URL: http://svc-people:3000
+      # 730 home expenses (renovations, ecobonus) show under their house, read from svc-tax730's API.
+      TAX730_URL: http://svc-tax730:3000
     depends_on: *service-deps
 
   svc-people:

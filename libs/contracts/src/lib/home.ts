@@ -169,10 +169,17 @@ export interface PropertyDto {
    */
   matchTerms: string[];
   /**
-   * Its supply point codes: POD (electricity), PDR (gas), the water supply
-   * code. Never a customer code: that belongs to a supply contract.
+   * Every supply point code it has had: POD (electricity), PDR (gas), the
+   * water supply code, typed by you or read from its bills. Never a
+   * customer code: that belongs to a supply contract.
    */
   supplyCodes: string[];
+  /**
+   * Its supply point of each utility, one each: the one its newest bill of
+   * that utility is for, else the code you typed. A new bill of the same
+   * supply never asks again; only a different code is suggested.
+   */
+  supplyPoints: Record<UtilityKind, string | null>;
   /** Document categories (usually of the PROPERTY dimension) that mean "this home". */
   categoryIds: string[];
   notes: string | null;
@@ -186,6 +193,12 @@ const terms = z
   .transform((values) => [...new Set(values)]);
 const optionalText = (max: number) =>
   z.string().trim().max(max).nullable().optional();
+const supplyCode = z
+  .string()
+  .trim()
+  .min(6, 'a supply point code has at least 6 characters')
+  .max(40)
+  .nullable();
 const optionalNumber = (max: number) =>
   z.number().min(0).max(max).nullable().optional();
 
@@ -229,6 +242,18 @@ export const createPropertyRequestSchema = z.object({
   insurer: optionalText(160),
   matchTerms: terms.optional(),
   supplyCodes: terms.optional(),
+  /**
+   * Its supply point of a utility (POD, PDR, water code); null takes the
+   * current one off the house. Its bills, past and future, follow the code.
+   */
+  supplyPoints: z
+    .object({
+      ELECTRICITY: supplyCode,
+      GAS: supplyCode,
+      WATER: supplyCode,
+    })
+    .partial()
+    .optional(),
   categoryIds: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
   notes: optionalText(2000),
 });
@@ -293,16 +318,41 @@ export const HOUSE_FIELDS = [
   'waterSupplier',
   'condoManager',
   'insurer',
-  'supplyCodes',
+  'electricityPoint',
+  'gasPoint',
+  'waterPoint',
   'owners',
 ] as const;
 export type HouseField = (typeof HOUSE_FIELDS)[number];
 
 /** Fields that add to a list rather than replace a value. */
-export const HOUSE_LIST_FIELDS: readonly HouseField[] = [
-  'supplyCodes',
-  'owners',
-];
+export const HOUSE_LIST_FIELDS: readonly HouseField[] = ['owners'];
+
+/** The house field holding the supply point of each utility: one each. */
+export const SUPPLY_POINT_FIELDS: Record<UtilityKind, HouseField> = {
+  ELECTRICITY: 'electricityPoint',
+  GAS: 'gasPoint',
+  WATER: 'waterPoint',
+};
+
+/** The utility of a supply point field, or null for another field. */
+export function supplyPointUtility(field: HouseField): UtilityKind | null {
+  return (
+    UTILITY_KINDS.find((kind) => SUPPLY_POINT_FIELDS[kind] === field) ?? null
+  );
+}
+
+/**
+ * The utility a supply code is for, by its shape: a POD is IT, 3 digits, E
+ * and more (IT001E12345678), a PDR is 14 digits. A water code has no fixed
+ * shape: null.
+ */
+export function supplyCodeUtility(code: string): UtilityKind | null {
+  const plain = code.replace(/[\s\-./]/g, '').toUpperCase();
+  if (/^IT\d{3}E[0-9A-Z]{5,}$/.test(plain)) return 'ELECTRICITY';
+  if (/^\d{14}$/.test(plain)) return 'GAS';
+  return null;
+}
 
 export const HOUSE_FIELD_LABELS: Record<HouseField, string> = {
   address: 'Address',
@@ -321,7 +371,9 @@ export const HOUSE_FIELD_LABELS: Record<HouseField, string> = {
   waterSupplier: 'Water supplier',
   condoManager: 'Condominium manager',
   insurer: 'Insurer',
-  supplyCodes: 'Supply point (POD/PDR)',
+  electricityPoint: 'Electricity supply point (POD)',
+  gasPoint: 'Gas supply point (PDR)',
+  waterPoint: 'Water supply code',
   owners: 'Owner',
 };
 
@@ -721,4 +773,161 @@ export const updateSupplyPointRequestSchema = z.object({
 });
 export type UpdateSupplyPointRequest = z.input<
   typeof updateSupplyPointRequestSchema
+>;
+
+// ---------------------------------------------------------------------------
+// What else your documents say about a house: its internet line and its
+// insurances. Read from the documents you uploaded (an internet contract or
+// bill, a home insurance policy), never typed: you only correct the house.
+
+/** Whether a document about a house service is its contract (or policy) or a bill of it. */
+export const HOUSE_SERVICE_DOCUMENT_ROLES = ['CONTRACT', 'BILL'] as const;
+export type HouseServiceDocumentRole =
+  (typeof HOUSE_SERVICE_DOCUMENT_ROLES)[number];
+
+export interface HouseServiceDocumentDto {
+  uploadId: string;
+  title: string;
+  role: HouseServiceDocumentRole;
+  /** The day it speaks of: its period end, issue date, else its upload. */
+  date: string;
+  amount: number | null;
+  /** You picked its house by hand. */
+  manual: boolean;
+}
+
+/** One internet line of a house: a provider and its customer or line code. */
+export interface HouseInternetDto {
+  /** Stable while the same provider and code: provider key | code. */
+  key: string;
+  propertyId: string | null;
+  provider: string | null;
+  /** The offer, e.g. "Fibra 2.5 Giga". */
+  offerName: string | null;
+  /** Customer code, line number or contract number, as printed. */
+  customerCode: string | null;
+  /** The phone number of the line, when printed. */
+  lineNumber: string | null;
+  /** The monthly fee of the contract, else of its last bill period. */
+  monthlyCost: number | null;
+  firstDay: string;
+  lastDay: string;
+  /** The line billed last on its house; the others ended (you changed provider). */
+  status: 'ACTIVE' | 'ENDED';
+  lastBill: { date: string; amount: number } | null;
+  /** What its bills cost in the last 12 months. */
+  yearCost: number;
+  documents: HouseServiceDocumentDto[];
+}
+
+/** One insurance policy of a house (home, fire, theft, family liability). */
+export interface HouseInsuranceDto {
+  /** Stable while the same insurer and policy number. */
+  key: string;
+  propertyId: string | null;
+  insurer: string | null;
+  policyNumber: string | null;
+  /** What it covers, as printed: "Incendio e furto", "Responsabilità civile". */
+  coverage: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  /** The yearly premium, else the last amount paid. */
+  premium: number | null;
+  /** ACTIVE until its end date; UNKNOWN when no end date is printed. */
+  status: 'ACTIVE' | 'EXPIRED' | 'UNKNOWN';
+  documents: HouseServiceDocumentDto[];
+}
+
+export interface HouseServicesDto {
+  internet: HouseInternetDto[];
+  insurances: HouseInsuranceDto[];
+}
+
+/**
+ * Your correction to an internet or insurance document: `propertyId` puts
+ * it on a house (null: on none), `automaticProperty` matches it again,
+ * `excluded` says it is not about a house (a car insurance).
+ */
+export const updateHouseServiceDocumentRequestSchema = z.object({
+  propertyId: z.uuid().nullable().optional(),
+  automaticProperty: z.literal(true).optional(),
+  excluded: z.boolean().optional(),
+});
+export type UpdateHouseServiceDocumentRequest = z.input<
+  typeof updateHouseServiceDocumentRequestSchema
+>;
+
+// ---------------------------------------------------------------------------
+// 730 home expenses: renovations, energy efficiency and furniture you claim
+// in the 730 (svc-tax730), shown under Renovations of their house.
+
+/** The 730 expense types that are work on a house. */
+export const HOUSE_TAX_EXPENSE_TYPES = [
+  'renovation',
+  'energy_efficiency',
+  'furniture',
+] as const;
+export type HouseTaxExpenseType = (typeof HOUSE_TAX_EXPENSE_TYPES)[number];
+
+export const HOUSE_TAX_EXPENSE_LABELS: Record<HouseTaxExpenseType, string> = {
+  renovation: 'Renovation (bonus casa)',
+  energy_efficiency: 'Energy efficiency (ecobonus)',
+  furniture: 'Furniture and appliances (bonus mobili)',
+};
+
+/** Why a 730 expense sits under its house. */
+export const HOUSE_TAX_EXPENSE_MATCHES = [
+  'MANUAL', // you picked it
+  'WORK', // one of its documents is filed under a work of the house
+  'DOCUMENT', // its invoice names the house (address, supply code, category)
+  'ONLY_HOUSE', // you have one house only
+] as const;
+export type HouseTaxExpenseMatch = (typeof HOUSE_TAX_EXPENSE_MATCHES)[number];
+
+export interface HouseTaxExpenseDto {
+  /** The expense in svc-tax730. */
+  expenseId: string;
+  taxYear: number;
+  expenseType: HouseTaxExpenseType;
+  date: string;
+  amount: number;
+  issuer: string;
+  description: string | null;
+  documentNumber: string | null;
+  /** Paid by bank transfer or card: home bonuses need a "bonifico parlante". */
+  traceablePayment: boolean | null;
+  /** The invoice and payments: its own and those of the expenses paired with it. */
+  documents: { uploadId: string; title: string | null; role: string }[];
+  propertyId: string | null;
+  match: HouseTaxExpenseMatch | null;
+  /** The work it is part of, when it is one. */
+  workId: string | null;
+}
+
+export interface HouseTaxExpensesDto {
+  /** False when the 730 service could not be reached. */
+  available: boolean;
+  expenses: HouseTaxExpenseDto[];
+}
+
+/** Put a 730 expense on a house and maybe a work of it; `automaticProperty` matches it again. */
+export const updateHouseTaxExpenseRequestSchema = z.object({
+  propertyId: z.uuid().nullable().optional(),
+  automaticProperty: z.literal(true).optional(),
+  workId: z.uuid().nullable().optional(),
+});
+export type UpdateHouseTaxExpenseRequest = z.input<
+  typeof updateHouseTaxExpenseRequestSchema
+>;
+
+export const listHouseTaxExpensesQuerySchema = z.object({
+  property: z.uuid().optional(),
+});
+
+/** Makes a work of a 730 expense, on its house unless another is given. */
+export const createWorkFromTaxExpenseRequestSchema = z.object({
+  propertyId: z.uuid().optional(),
+});
+export type CreateWorkFromTaxExpenseRequest = z.input<
+  typeof createWorkFromTaxExpenseRequestSchema
 >;

@@ -2,15 +2,24 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
   createPropertyRequestSchema,
+  supplyCodeUtility,
   updatePropertyRequestSchema,
+  UTILITY_KINDS,
   type PropertyDto,
+  type UtilityKind,
 } from '@life-island/contracts';
 import { and, asc, eq, ne } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
-import { properties, type PropertyRow } from '../db/schema.js';
+import { properties, supplyPoints, type PropertyRow } from '../db/schema.js';
 import { BillLedger } from '../bills/bill-ledger.js';
-import { normalizeText } from '../bills/bill-reader.js';
+import { normalizeCode, normalizeText } from '../bills/bill-reader.js';
+import {
+  houseSupply,
+  loadHouseSupply,
+  withSupply,
+} from './house-supply-points.js';
 import { PropertyCategories } from './property-categories.js';
 
 type CreateProperty = z.output<typeof createPropertyRequestSchema>;
@@ -47,6 +56,8 @@ export function toPropertyDto(row: PropertyRow): PropertyDto {
     colorSlot: row.colorSlot,
     matchTerms: row.matchTerms,
     supplyCodes: row.supplyCodes,
+    // Only what you typed: the service fills in the points billed (withSupply).
+    supplyPoints: houseSupply(row.supplyCodes, []).points,
     categoryIds: row.categoryIds,
     notes: row.notes,
     model:
@@ -101,7 +112,16 @@ export class PropertiesService {
       .select()
       .from(properties)
       .orderBy(asc(properties.colorSlot), asc(properties.createdAt));
-    return rows.map(toPropertyDto);
+    const supply = await loadHouseSupply(this.svc.db, rows);
+    return rows.map((row) =>
+      withSupply(toPropertyDto(row), supply.get(row.id)),
+    );
+  }
+
+  /** A house as the API shows it, with its supply points. */
+  async dto(row: PropertyRow): Promise<PropertyDto> {
+    const supply = await loadHouseSupply(this.svc.db, [row]);
+    return withSupply(toPropertyDto(row), supply.get(row.id));
   }
 
   async get(id: string): Promise<PropertyRow> {
@@ -114,6 +134,8 @@ export class PropertiesService {
   }
 
   async create(request: CreateProperty): Promise<PropertyDto> {
+    const { supplyPoints: points, ...fields } = request;
+    request = fields;
     const row = await this.svc.db.transaction(async (tx) => {
       const taken = await tx
         .select({ slot: properties.colorSlot })
@@ -138,14 +160,16 @@ export class PropertiesService {
       return created;
     });
     // A new home shows up in the review inbox as a property at once.
-    const dto = toPropertyDto(await this.links.ensure(row));
+    let saved = await this.links.ensure(row);
+    if (points) saved = await setSupplyPoints(this.svc.db, saved, points);
     // Its bills (and supply points with no house yet) find it.
     await this.ledger.sync();
-    return dto;
+    return this.dto(saved);
   }
 
   async update(id: string, request: UpdateProperty): Promise<PropertyDto> {
-    const changes = defined(request);
+    const { supplyPoints: points, ...fields } = request;
+    const changes = defined(fields);
     const row = await this.svc.db.transaction(async (tx) => {
       if (changes.isResidence)
         await tx
@@ -162,10 +186,13 @@ export class PropertiesService {
       return updated;
     });
     if (!row) throw new NotFoundException(`Property ${id} not found`);
+    const saved = points
+      ? await setSupplyPoints(this.svc.db, row, points)
+      : row;
     // New match terms or supply codes can bring bills to it.
-    if (changes.matchTerms || changes.supplyCodes || changes.address)
+    if (points || changes.matchTerms || changes.supplyCodes || changes.address)
       await this.ledger.sync();
-    return toPropertyDto(row);
+    return this.dto(saved);
   }
 
   /** Deletes a property with its works; its supply points and bills go back to unassigned. */
@@ -186,4 +213,76 @@ export class PropertiesService {
       .where(eq(properties.id, id));
     return !!row;
   }
+}
+
+/**
+ * Sets a house's supply point of each utility given: the point with that
+ * code comes to this house with its bills (it is created when no bill named
+ * it yet), and the code is the house's. Null takes the current point of
+ * that utility off the house. Other houses lose a code that is now this one's.
+ */
+export async function setSupplyPoints(
+  db: NodePgDatabase,
+  house: PropertyRow,
+  wanted: Partial<Record<UtilityKind, string | null>>,
+): Promise<PropertyRow> {
+  const current = (await loadHouseSupply(db, [house])).get(house.id);
+  let typed = [...house.supplyCodes];
+  for (const utility of UTILITY_KINDS) {
+    if (!(utility in wanted)) continue;
+    const raw = wanted[utility];
+    const code = raw ? normalizeCode(raw) : null;
+    const before = current?.points[utility] ?? null;
+    if (code && before && normalizeCode(before) === code) continue;
+    // The typed codes of this utility make way for the new one.
+    typed = typed.filter(
+      (c) =>
+        (supplyCodeUtility(c) ?? 'WATER') !== utility &&
+        normalizeCode(c) !== before,
+    );
+    if (before && !code)
+      await db
+        .update(supplyPoints)
+        .set({ propertyId: null })
+        .where(
+          and(
+            eq(supplyPoints.propertyId, house.id),
+            eq(supplyPoints.code, normalizeCode(before)),
+          ),
+        );
+    if (!code) continue;
+    typed.push(code);
+    const [point] = await db
+      .select()
+      .from(supplyPoints)
+      .where(eq(supplyPoints.code, code));
+    if (point)
+      await db
+        .update(supplyPoints)
+        .set({ propertyId: house.id })
+        .where(eq(supplyPoints.id, point.id));
+    else
+      await db
+        .insert(supplyPoints)
+        .values({ utility, code, propertyId: house.id });
+    // The code is this house's now: another house that had it lets it go.
+    const others = await db
+      .select({ id: properties.id, supplyCodes: properties.supplyCodes })
+      .from(properties)
+      .where(ne(properties.id, house.id));
+    for (const other of others) {
+      const kept = other.supplyCodes.filter((c) => normalizeCode(c) !== code);
+      if (kept.length !== other.supplyCodes.length)
+        await db
+          .update(properties)
+          .set({ supplyCodes: kept })
+          .where(eq(properties.id, other.id));
+    }
+  }
+  const [updated] = await db
+    .update(properties)
+    .set({ supplyCodes: [...new Set(typed)] })
+    .where(eq(properties.id, house.id))
+    .returning();
+  return updated;
 }

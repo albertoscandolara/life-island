@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import {
   HOUSE_FIELD_LABELS,
+  supplyPointUtility,
   type HouseField,
   type HouseProposedChangeDto,
   type HouseSuggestionDto,
@@ -44,10 +45,11 @@ const same = (a: string | null, b: string) =>
 
 /** What a house has in a field, as the service compares it. */
 function currentOf(house: PropertyDto, field: HouseField): string | null {
-  if (field === 'supplyCodes') return house.supplyCodes.join(', ') || null;
+  const utility = supplyPointUtility(field);
+  if (utility) return house.supplyPoints?.[utility] ?? null;
   if (field === 'owners')
     return house.owners.map((o) => o.name).join(', ') || null;
-  const value = house[field];
+  const value = (house as unknown as Record<string, unknown>)[field];
   return value === null || value === undefined ? null : String(value);
 }
 
