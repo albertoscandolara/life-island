@@ -3,12 +3,14 @@ import {
   Component,
   computed,
   input,
+  output,
   signal,
 } from '@angular/core';
 import {
   compareTfrChoice,
   PENSION_FUND_SOURCE,
   pensionDeductionLimit,
+  type PensionOverviewDto,
   type TfrChoiceResult,
   type TfrDto,
 } from '@life-island/contracts';
@@ -54,7 +56,7 @@ export function tfrChoice(
 }
 
 /**
- * TFR and pension: the TFR your payslips set aside year by year, revalued
+ * TFR: the TFR your payslips set aside year by year, revalued
  * as the law says (1.5% + 75% of inflation, taxed 17%), and an estimate of
  * leaving it with the company against sending it to a pension fund.
  */
@@ -67,6 +69,9 @@ export function tfrChoice(
 })
 export class TfrTab {
   readonly tfr = input.required<TfrDto>();
+  readonly pension = input<PensionOverviewDto | null>(null);
+  /** Opens the Pension fund tab. */
+  readonly showPension = output<void>();
 
   protected readonly euro = euro;
   protected readonly periodText = periodText;

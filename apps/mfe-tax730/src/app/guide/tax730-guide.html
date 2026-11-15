@@ -111,8 +111,16 @@
         </li>
         <li>
           A <strong>deduzione</strong> (onere deducibile) lowers the income the
-          tax is computed on: pension fund contributions up to €5,164.57,
-          domestic workers' contributions up to €1,549.37, donations, alimony.
+          tax is computed on: pension fund contributions up to {{
+          formatEuro(pensionLimit()) }} in {{ taxYear() }}, domestic workers'
+          contributions up to €1,549.37, donations, alimony.
+        </li>
+        <li>
+          <strong>Pension fund</strong> (rigo E27): what you pay through the
+          payslip is already deducted by your employer (CU punto 412); what it
+          did not deduct (punto 413) and what you paid the fund yourself go in
+          column 2. Over the limit, tell the fund by 31 December {{ filingYear()
+          }}. <a href="/work?tab=pension">How a pension fund works</a>
         </li>
         <li>
           A detrazione can only take back tax you paid: if your tax is lower,
@@ -167,6 +175,10 @@
       <h3>Documents to keep</h3>
       <ul>
         <li>The Certificazione Unica of every employer or pension.</li>
+        <li>
+          Pension fund: the receipts of any transfer you made yourself, and the
+          fund's yearly statement.
+        </li>
         <li>
           Every invoice or receipt with your codice fiscale (scontrino parlante
           at the pharmacy), and its payment proof.

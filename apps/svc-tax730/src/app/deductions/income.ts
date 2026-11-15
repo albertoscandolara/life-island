@@ -1,5 +1,7 @@
 import {
   parseNumber,
+  pensionDeductionLimit,
+  pensionNoticeDeadline,
   TAX730_HIGH_INCOME_LIMIT,
   TAX730_INCOME_LIMIT,
   TAX_CERTIFICATE_KEYS,
@@ -7,6 +9,7 @@ import {
   type Tax730CertificateDto,
   type Tax730DeductionLineDto,
   type Tax730IncomeDto,
+  type Tax730PensionFundDto,
 } from '@life-island/contracts';
 
 /*
@@ -86,12 +89,60 @@ export function certificatesOf(
       income: amount(fields[K.employmentIncome]),
       irpefWithheld: amount(fields[K.irpefWithheld]),
       netTax: amount(fields[K.netTax]),
+      pensionFundDeducted: amount(fields[K.pensionFundDeducted]),
+      pensionFundNotDeducted: amount(fields[K.pensionFundNotDeducted]),
     };
   });
 }
 
 const sum = (values: (number | null)[]) =>
   round(values.reduce<number>((total, v) => total + (v ?? 0), 0));
+
+/**
+ * Rigo E27 of the 730 from the CUs of the year: what the employers already
+ * deducted (punto 412) and what they did not (punto 413), against the limit.
+ * Null when no CU prints a pension fund.
+ */
+export function pensionFundOf(
+  taxYear: number,
+  certificates: readonly Tax730CertificateDto[],
+): Tax730PensionFundDto | null {
+  const withFund = certificates.filter(
+    (c) => c.pensionFundDeducted !== null || c.pensionFundNotDeducted !== null,
+  );
+  if (!withFund.length) return null;
+  const deducted = sum(withFund.map((c) => c.pensionFundDeducted));
+  const notDeducted = sum(withFund.map((c) => c.pensionFundNotDeducted));
+  const limit = pensionDeductionLimit(taxYear);
+  const over = round(Math.max(0, deducted + notDeducted - limit));
+  const notes = [
+    `Column 1 of rigo E27 is ${euro(deducted)}, already taken off your income by the employer: nothing more comes back from it, it is there so the 730 checks the limit.`,
+  ];
+  if (notDeducted > 0)
+    notes.push(
+      `Column 2 is ${euro(notDeducted)} the employer did not deduct, plus anything you paid the fund yourself: the 730 deducts it up to the ${euro(limit)} limit.`,
+    );
+  else
+    notes.push(
+      'Paid the fund yourself (a transfer, not through the payslip)? Add it to column 2: the 730 deducts it up to the limit.',
+    );
+  if (over > 0)
+    notes.push(
+      `${euro(over)} is over the ${euro(limit)} limit: tell the fund by ${pensionNoticeDeadline(taxYear)} that you did not deduct it, so it is not taxed again when the fund pays out.`,
+    );
+  if (withFund.length > 1)
+    notes.push(
+      'More than one CU prints a pension fund: the limit is one for the whole year, across every employer.',
+    );
+  return {
+    deducted,
+    notDeducted,
+    limit,
+    over,
+    noticeDue: pensionNoticeDeadline(taxYear),
+    notes,
+  };
+}
 
 /**
  * Your income and tax of the year against what the deductions give back:
@@ -158,6 +209,7 @@ export function incomeOf(
     band,
     refund,
     lost,
+    pensionFund: pensionFundOf(taxYear, certificates),
     notes,
   };
 }

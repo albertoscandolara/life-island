@@ -356,6 +356,26 @@ export interface Tax730CertificateDto {
   irpefWithheld: number | null;
   /** Imposta netta (punto 375): the IRPEF left after the employment tax credits. */
   netTax: number | null;
+  /** Pension fund contributions the employer deducted (punto 412) and did not (punto 413). */
+  pensionFundDeducted: number | null;
+  pensionFundNotDeducted: number | null;
+}
+
+/**
+ * The pension fund in this 730 (rigo E27, contributi a deducibilità
+ * ordinaria): column 1 is what the employers already deducted (punto 412 of
+ * the CUs), column 2 what they did not (punto 413) plus what you paid the
+ * fund yourself, which only the 730 can deduct. Both count against the
+ * yearly limit.
+ */
+export interface Tax730PensionFundDto {
+  deducted: number;
+  notDeducted: number;
+  limit: number;
+  /** Contributions over the limit: tell the fund by `noticeDue` that you did not deduct them. */
+  over: number;
+  noticeDue: string;
+  notes: string[];
 }
 
 /**
@@ -375,6 +395,8 @@ export interface Tax730IncomeDto {
   refund: number;
   /** Deductions that do not fit in the tax you owe: lost, never carried over. */
   lost: number;
+  /** Rigo E27, from the CUs; null when no CU prints a pension fund. */
+  pensionFund: Tax730PensionFundDto | null;
   notes: string[];
 }
 

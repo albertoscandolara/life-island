@@ -47,6 +47,7 @@ export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {
   cars: 'http://localhost:3007',
   home: 'http://localhost:3005',
   studies: 'http://localhost:3010',
+  work: 'http://localhost:3008',
   money: 'http://localhost:3012',
   goals: 'http://localhost:3013',
   health: 'http://localhost:3014',

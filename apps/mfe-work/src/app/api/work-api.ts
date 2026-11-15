@@ -10,6 +10,11 @@ import type {
   JobApplicationRequest,
   MarketCheckDto,
   MarketCheckRequest,
+  PensionConfirmStatementRequest,
+  PensionFundRequest,
+  PensionNoticeRequest,
+  PensionPaymentRequest,
+  PensionStatementRequest,
   UpdateWorkplaceRequest,
   WorkOverviewDto,
 } from '@life-island/contracts';
@@ -117,6 +122,63 @@ export class WorkApi {
 
   removeApplication(id: string): Observable<void> {
     return this.http.delete<void>(`${WORK_API}/applications/${id}`);
+  }
+
+  // ---- pension fund --------------------------------------------------------
+
+  addFund(request: PensionFundRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${WORK_API}/pension/funds`, request);
+  }
+
+  updateFund(id: string, request: PensionFundRequest): Observable<void> {
+    return this.http.put<void>(`${WORK_API}/pension/funds/${id}`, request);
+  }
+
+  removeFund(id: string): Observable<void> {
+    return this.http.delete<void>(`${WORK_API}/pension/funds/${id}`);
+  }
+
+  addStatement(request: PensionStatementRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(
+      `${WORK_API}/pension/statements`,
+      request,
+    );
+  }
+
+  removeStatement(id: string): Observable<void> {
+    return this.http.delete<void>(`${WORK_API}/pension/statements/${id}`);
+  }
+
+  addPayment(request: PensionPaymentRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(
+      `${WORK_API}/pension/payments`,
+      request,
+    );
+  }
+
+  removePayment(id: string): Observable<void> {
+    return this.http.delete<void>(`${WORK_API}/pension/payments/${id}`);
+  }
+
+  setNotice(year: number, request: PensionNoticeRequest): Observable<void> {
+    return this.http.put<void>(`${WORK_API}/pension/notices/${year}`, request);
+  }
+
+  confirmStatement(
+    uploadId: string,
+    request: PensionConfirmStatementRequest,
+  ): Observable<{ id: string; fundId: string }> {
+    return this.http.post<{ id: string; fundId: string }>(
+      `${WORK_API}/pension/documents/${uploadId}/confirm`,
+      request,
+    );
+  }
+
+  dismissStatement(uploadId: string): Observable<void> {
+    return this.http.post<void>(
+      `${WORK_API}/pension/documents/${uploadId}/dismiss`,
+      {},
+    );
   }
 
   previewUrl(uploadId: string): string {

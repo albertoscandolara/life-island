@@ -276,18 +276,26 @@ Pachy's zone (`/work`, `mfe-work` and `svc-work`) keeps every **workplace** you 
 
 **Feedback.** **Give me a feedback** (or **Ask**, with a question of yours) sends a summary of your career (workplaces, events, pay, evaluations with their trends and each employer's rules; never tax codes, employee codes or addresses) to Claude (`ANTHROPIC_API_KEY`, model `WORK_FEEDBACK_MODEL`) and keeps the answer: a summary, strengths, watch-outs and suggestions. Without a key, an offline set of rules answers instead, and says so.
 
+**Pension fund.** The **Pension fund** tab follows your fondo pensione (previdenza complementare), next to the **TFR** tab and its company-or-fund comparison. It explains in plain words how a fund works (who pays in, the deduction, CU and 730, investment lines, taking money out early, retirement, what changed in 2026) and keeps the tools: your funds (`work.pension_funds`, with the day you first joined, which sets the 15% to 9% tax at the end), what each year's payslips paid in (yours, the employer's, the TFR) plus your own transfers (`work.pension_payments`) against the yearly deduction limit (`pensionDeductionLimit`: €5,164.57, €5,300 from 2026), the estimated IRPEF saved, the room left this year with what a transfer before 31 December would save, rigo E27 of the next 730 (column 1 the CU's punto 412, column 2 punto 413 plus your transfers), and the "contributi non dedotti" notice due by 31 December of the following year (`work.pension_notices`). The value of your position comes from the fund's statements (`work.pension_statements`): typed in, or read from a document filed as `PENSION_FUND_STATEMENT` (svc-ingestion `0027`, which also adds punti 412 and 413 to the CU) and confirmed in the tab, once per document (`source_upload_id`), or set aside (`work.pension_dismissed_documents`). svc-work answers `GET /deadlines` with the top-up day and the pending notices, so they show in the Agenda. The Payslips tab shows each year's pension fund total and the CU's deducted amount; the 730 shows rigo E27 from the CUs and links back here.
+
 **Hiring platforms.** The platforms you signed up to (LinkedIn, Indeed, InfoJobs… or any other), with your profile link, the account you use, notes, a status and when you last updated your profile; one older than 180 days is flagged. Only `http(s)` links open.
 
-| Endpoint (`/api/work/...`)                                            | Purpose                                                                                   |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /overview`                                                       | Workplaces, timeline, stats, CUs, documents to review, rejected ones, platforms, feedback |
-| `POST /workplaces`, `PATCH /workplaces/:id`, `DELETE /workplaces/:id` | Add a workplace by hand, correct it, remove it (its documents go back to review)          |
-| `POST /reviews/:uploadId/approve`                                     | `{workplaceId, accept: [fields], label?}`; `workplaceId: null` adds a new workplace       |
-| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`    | Not about my work, and back to review                                                     |
-| `POST /events`, `DELETE /events/:id`                                  | A career event you add by hand                                                            |
-| `POST /platforms`, `PUT /platforms/:id`, `DELETE /platforms/:id`      | Hiring platforms                                                                          |
-| `POST /feedback`, `DELETE /feedback/:id`                              | Ask for career feedback (optional `question`), forget one                                 |
-| `GET /documents/:uploadId/preview`                                    | The original file (from svc-ingestion)                                                    |
+| Endpoint (`/api/work/...`)                                                   | Purpose                                                                                        |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GET /overview`                                                              | Workplaces, timeline, stats, CUs, documents to review, rejected ones, platforms, feedback      |
+| `POST /workplaces`, `PATCH /workplaces/:id`, `DELETE /workplaces/:id`        | Add a workplace by hand, correct it, remove it (its documents go back to review)               |
+| `POST /reviews/:uploadId/approve`                                            | `{workplaceId, accept: [fields], label?}`; `workplaceId: null` adds a new workplace            |
+| `POST /reviews/:uploadId/reject`, `POST /reviews/:uploadId/reopen`           | Not about my work, and back to review                                                          |
+| `POST /events`, `DELETE /events/:id`                                         | A career event you add by hand                                                                 |
+| `POST /platforms`, `PUT /platforms/:id`, `DELETE /platforms/:id`             | Hiring platforms                                                                               |
+| `POST /feedback`, `DELETE /feedback/:id`                                     | Ask for career feedback (optional `question`), forget one                                      |
+| `GET /documents/:uploadId/preview`                                           | The original file (from svc-ingestion)                                                         |
+| `POST /pension/funds`, `PUT /pension/funds/:id`, `DELETE /pension/funds/:id` | Your pension funds (deleting one removes its statements and transfers)                         |
+| `POST /pension/statements`, `DELETE /pension/statements/:id`                 | The value of your position on a date                                                           |
+| `POST /pension/payments`, `DELETE /pension/payments/:id`                     | Transfers you made to a fund yourself                                                          |
+| `PUT /pension/notices/:year`                                                 | `{sentAt}`: the day you told the fund what you did not deduct (null clears it)                 |
+| `POST /pension/documents/:uploadId/confirm`, `.../dismiss`                   | Take a statement document's figures (`{fundId}`, null adds the fund it names), or set it aside |
+| `GET /deadlines`                                                             | The pension fund's dates, for the Agenda                                                       |
 
 A database created before this area existed gets its schema and role from svc-work itself at startup, with the local defaults; `npm run db:upgrade` does the same (`infra/postgres/upgrades/004-work-schema.sql`).
 

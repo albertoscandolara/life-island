@@ -55,6 +55,7 @@ import { EvaluationsTab } from './evaluations-tab';
 import { JobsTab } from './jobs-tab';
 import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
+import { PensionTab } from './pension-tab';
 import { TfrTab } from './tfr-tab';
 import { ToolsTab, type OfferDraft } from './tools-tab';
 import {
@@ -85,6 +86,7 @@ export type WorkTab =
   | 'feedback'
   | 'audit'
   | 'tfr'
+  | 'pension'
   | 'tools'
   | 'jobs'
   | 'platforms';
@@ -102,7 +104,8 @@ const TABS: {
   { id: 'workplaces', label: 'Workplaces', icon: 'home' },
   { id: 'feedback', label: 'Career feedback', icon: 'info' },
   { id: 'audit', label: 'Payslip audit', icon: 'alert' },
-  { id: 'tfr', label: 'TFR and pension', icon: 'calendar' },
+  { id: 'tfr', label: 'TFR', icon: 'calendar' },
+  { id: 'pension', label: 'Pension fund', icon: 'layers' },
   { id: 'tools', label: 'Tools', icon: 'wrench' },
   { id: 'jobs', label: 'Job search', icon: 'search' },
   { id: 'platforms', label: 'Hiring platforms', icon: 'external' },
@@ -176,6 +179,7 @@ const today = () => new Date().toISOString().slice(0, 10);
     JobsTab,
     PayAnalysisTab,
     PayslipsTab,
+    PensionTab,
     TfrTab,
     ToolsTab,
     UiAiPanel,
@@ -408,6 +412,14 @@ export class WorkPage {
           .length || null
       );
     if (tab === 'jobs') return this.overview()?.jobSearch.stale || null;
+    if (tab === 'pension') {
+      const p = this.overview()?.pension;
+      return (
+        (p?.pending.length ?? 0) +
+          (p?.years.filter((y) => y.noticeDue && !y.noticeSentAt && !y.running)
+            .length ?? 0) || null
+      );
+    }
     return null;
   }
 

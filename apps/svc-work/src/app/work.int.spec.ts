@@ -357,6 +357,103 @@ describe.skipIf(!configured)(
       await send('DELETE', `/feedback/${feedback.id}`);
     });
 
+    it('follows a pension fund: transfers, a statement read from a document, the notice and the Agenda', async () => {
+      await deliver('category.changed@1', {
+        id: 'PENSION_FUND_STATEMENT',
+        title: 'Pension fund statement',
+        parentId: null,
+        dimension: 'DOCUMENT_TYPE',
+        deleted: false,
+        changedAt: new Date().toISOString(),
+      });
+      const fundName = `Fondo Prova ${run}`;
+      const fund = await json<{ id: string }>(
+        await send('POST', '/pension/funds', {
+          name: fundName,
+          memberSince: '2016-03-01',
+          employeePct: 1.2,
+          employerPct: 2,
+        }),
+      );
+      try {
+        const year = new Date().getFullYear();
+        await json(
+          await send('POST', '/pension/payments', {
+            fundId: fund.id,
+            date: `${year}-06-20`,
+            amount: 6000,
+          }),
+        );
+        // A statement document of the fund, confirmed once.
+        const statement = await upload(['PENSION_FUND_STATEMENT'], {
+          fund_name: fundName.toUpperCase(),
+          statement_year: year - 1,
+          position_value: '12.400,00',
+          total_paid_in: 11000,
+          investment_line: 'Bilanciato',
+        });
+        let all = await overview();
+        const pending = all.pension.pending.find(
+          (p) => p.uploadId === statement,
+        );
+        expect(pending).toMatchObject({ fundId: fund.id, value: 12400 });
+        await json(
+          await send('POST', `/pension/documents/${statement}/confirm`, {
+            fundId: null,
+          }),
+        );
+        expect(
+          (
+            await send('POST', `/pension/documents/${statement}/confirm`, {
+              fundId: fund.id,
+            })
+          ).status,
+        ).toBe(409);
+
+        all = await overview();
+        const mine = all.pension.funds.find((f) => f.id === fund.id);
+        expect(mine).toMatchObject({
+          value: 12400,
+          paidIn: 11000,
+          gain: 1400,
+          investmentLine: 'Bilanciato',
+          exitTaxPct: 15,
+        });
+        expect(all.pension.pending.some((p) => p.uploadId === statement)).toBe(
+          false,
+        );
+        const now = all.pension.years.find((y) => y.year === year);
+        expect(now?.direct).toBe(6000);
+        expect(now?.over).toBeGreaterThan(0);
+        expect(all.pension.thisYear?.room).toBe(0);
+
+        // The non-deducted notice of a past year is due only once the year is over.
+        expect(
+          (
+            await send('PUT', `/pension/notices/${year}`, {
+              sentAt: `${year}-12-01`,
+            })
+          ).status,
+        ).toBe(204);
+        all = await overview();
+        expect(
+          all.pension.years.find((y) => y.year === year)?.noticeSentAt,
+        ).toBe(`${year}-12-01`);
+        await send('PUT', `/pension/notices/${year}`, { sentAt: null });
+
+        const dates = await json<{ kind: string }[]>(
+          await fetch(`${base}/deadlines`),
+        );
+        expect(Array.isArray(dates)).toBe(true);
+      } finally {
+        expect((await send('DELETE', `/pension/funds/${fund.id}`)).status).toBe(
+          204,
+        );
+      }
+      const after = await overview();
+      expect(after.pension.funds.some((f) => f.id === fund.id)).toBe(false);
+    });
+
     it('removes a workplace and sends its documents back to review', async () => {
       expect((await send('DELETE', `/workplaces/${workplaceId}`)).status).toBe(
         204,

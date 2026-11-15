@@ -7,7 +7,17 @@ import {
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  deadlineWindow,
+  PENSION_STATEMENT_CATEGORY,
   PLATFORM_STALE_DAYS,
+  type DeadlineDto,
+  type DeadlinesQuery,
+  type PensionConfirmStatementRequest,
+  type PensionFundRequest,
+  type PensionNoticeRequest,
+  type PensionOverviewDto,
+  type PensionPaymentRequest,
+  type PensionStatementRequest,
   type ApproveWorkReviewRequest,
   type CareerEventRequest,
   type CareerFeedbackDto,
@@ -27,7 +37,7 @@ import {
   type WorkplaceField,
   type WorkplaceValue,
 } from '@life-island/contracts';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import {
   careerEvents,
@@ -38,6 +48,11 @@ import {
   hiringPlatforms,
   jobApplications,
   marketChecks,
+  pensionDismissedDocuments,
+  pensionFunds,
+  pensionNotices,
+  pensionPayments,
+  pensionStatements,
   reviews,
   workplaces,
   type CareerFeedbackRow,
@@ -72,6 +87,13 @@ import {
 } from './checks.js';
 import { buildEvaluationStats } from './evaluations.js';
 import {
+  buildPension,
+  matchFund,
+  pensionDeadlines,
+  readStatement,
+  type StatementDocument,
+} from './pension.js';
+import {
   buildBrief,
   buildGoals,
   buildInsights,
@@ -88,6 +110,7 @@ import {
   proposeWorkplaceChanges,
   readWorkDocument,
   todayIso,
+  withAncestors,
   workDocumentType,
   type ParentOf,
   type StoredValues,
@@ -331,9 +354,244 @@ export class WorkService {
         insights.offer.ral,
         today,
       ),
+      pension: await this.pension(career.approved, today),
       applications,
       jobSearch: buildJobSearchStats(applications),
     };
+  }
+
+  // ---- pension fund --------------------------------------------------------
+
+  /** The pension fund section: what your payslips, CUs, payments and statements say. */
+  async pension(
+    approved: ReturnType<WorkService['career']>['approved'],
+    today = todayIso(),
+  ): Promise<PensionOverviewDto> {
+    const [funds, statements, payments, notices, dismissed, statementDocs] =
+      await Promise.all([
+        this.svc.db.select().from(pensionFunds),
+        this.svc.db.select().from(pensionStatements),
+        this.svc.db.select().from(pensionPayments),
+        this.svc.db.select().from(pensionNotices),
+        this.svc.db.select().from(pensionDismissedDocuments),
+        this.statementDocuments(),
+      ]);
+    return buildPension({
+      funds,
+      statements,
+      payments,
+      notices,
+      approved,
+      statementDocuments: statementDocs,
+      dismissed: new Set(dismissed.map((d) => d.uploadId)),
+      today,
+    });
+  }
+
+  /** The pension fund's dates, for the Agenda. */
+  async deadlines(query: DeadlinesQuery): Promise<DeadlineDto[]> {
+    const today = todayIso();
+    const overview = await this.overview(today);
+    return pensionDeadlines(overview.pension, deadlineWindow(query, today));
+  }
+
+  async addFund(request: PensionFundRequest): Promise<{ id: string }> {
+    const [created] = await this.svc.db
+      .insert(pensionFunds)
+      .values(fundValues(request))
+      .returning({ id: pensionFunds.id });
+    return created;
+  }
+
+  async updateFund(id: string, request: PensionFundRequest): Promise<void> {
+    const updated = await this.svc.db
+      .update(pensionFunds)
+      .set({ ...fundValues(request), updatedAt: new Date() })
+      .where(eq(pensionFunds.id, id))
+      .returning({ id: pensionFunds.id });
+    if (!updated.length) throw new NotFoundException('Pension fund not found');
+  }
+
+  /** Removes the fund with its statements and payments; statement documents go back to waiting. */
+  async removeFund(id: string): Promise<void> {
+    const deleted = await this.svc.db
+      .delete(pensionFunds)
+      .where(eq(pensionFunds.id, id))
+      .returning({ id: pensionFunds.id });
+    if (!deleted.length) throw new NotFoundException('Pension fund not found');
+  }
+
+  async addStatement(
+    request: PensionStatementRequest,
+  ): Promise<{ id: string }> {
+    await this.assertFund(request.fundId);
+    const [created] = await this.svc.db
+      .insert(pensionStatements)
+      .values(statementValues(request))
+      .returning({ id: pensionStatements.id });
+    return created;
+  }
+
+  async removeStatement(id: string): Promise<void> {
+    const deleted = await this.svc.db
+      .delete(pensionStatements)
+      .where(eq(pensionStatements.id, id))
+      .returning({ id: pensionStatements.id });
+    if (!deleted.length) throw new NotFoundException('Statement not found');
+  }
+
+  async addPayment(request: PensionPaymentRequest): Promise<{ id: string }> {
+    await this.assertFund(request.fundId);
+    const [created] = await this.svc.db
+      .insert(pensionPayments)
+      .values({
+        fundId: request.fundId,
+        date: request.date,
+        amount: request.amount,
+        kind: request.kind ?? 'direct',
+        note: request.note ?? null,
+      })
+      .returning({ id: pensionPayments.id });
+    return created;
+  }
+
+  async removePayment(id: string): Promise<void> {
+    const deleted = await this.svc.db
+      .delete(pensionPayments)
+      .where(eq(pensionPayments.id, id))
+      .returning({ id: pensionPayments.id });
+    if (!deleted.length) throw new NotFoundException('Payment not found');
+  }
+
+  /** Records (or clears) the day you told the fund what you did not deduct in `year`. */
+  async setNotice(year: number, request: PensionNoticeRequest): Promise<void> {
+    if (!request.sentAt) {
+      await this.svc.db
+        .delete(pensionNotices)
+        .where(eq(pensionNotices.year, year));
+      return;
+    }
+    await this.svc.db
+      .insert(pensionNotices)
+      .values({ year, sentAt: request.sentAt })
+      .onConflictDoUpdate({
+        target: pensionNotices.year,
+        set: { sentAt: request.sentAt },
+      });
+  }
+
+  /**
+   * Takes the figures of a fund statement document: under the fund you
+   * choose, or a new one named as the statement prints it. Once per document.
+   */
+  async confirmStatement(
+    uploadId: string,
+    request: PensionConfirmStatementRequest,
+  ): Promise<{ id: string; fundId: string }> {
+    const doc = (await this.statementDocuments()).find(
+      (d) => d.uploadId === uploadId,
+    );
+    if (!doc)
+      throw new NotFoundException('No pension fund statement with this id');
+    const read = readStatement(doc);
+    if (!read.date || read.value === null)
+      throw new UnprocessableEntityException(
+        'The statement shows no date or no value: fill them in the documents app, or type the statement here',
+      );
+    return this.svc.db.transaction(async (tx) => {
+      let fundId = request.fundId;
+      if (fundId) {
+        const [fund] = await tx
+          .select({ id: pensionFunds.id })
+          .from(pensionFunds)
+          .where(eq(pensionFunds.id, fundId));
+        if (!fund) throw new NotFoundException('Pension fund not found');
+      } else {
+        const funds = await tx.select().from(pensionFunds);
+        const match = matchFund(read.fundName, funds);
+        if (match && read.fundName) fundId = match.id;
+        else {
+          if (!read.fundName)
+            throw new UnprocessableEntityException(
+              'The statement does not name its fund: choose one of yours',
+            );
+          const [created] = await tx
+            .insert(pensionFunds)
+            .values({
+              name: read.fundName,
+              memberSince: read.memberSince,
+              investmentLine: read.investmentLine,
+            })
+            .returning({ id: pensionFunds.id });
+          fundId = created.id;
+        }
+      }
+      const [created] = await tx
+        .insert(pensionStatements)
+        .values({
+          fundId,
+          date: read.date!,
+          value: read.value!,
+          paidIn: read.paidIn,
+          employee: read.employee,
+          employer: read.employer,
+          tfr: read.tfr,
+          returnPct: read.returnPct,
+          sourceUploadId: uploadId,
+        })
+        .onConflictDoNothing({ target: pensionStatements.sourceUploadId })
+        .returning({ id: pensionStatements.id });
+      if (!created)
+        throw new ConflictException('This statement is already on record');
+      // Fill in what the fund does not have yet.
+      await tx
+        .update(pensionFunds)
+        .set({
+          memberSince: sql`coalesce(${pensionFunds.memberSince}, ${read.memberSince})`,
+          investmentLine: sql`coalesce(${pensionFunds.investmentLine}, ${read.investmentLine})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(pensionFunds.id, fundId));
+      await tx
+        .delete(pensionDismissedDocuments)
+        .where(eq(pensionDismissedDocuments.uploadId, uploadId));
+      return { id: created.id, fundId };
+    });
+  }
+
+  async dismissStatement(uploadId: string): Promise<void> {
+    await this.svc.db
+      .insert(pensionDismissedDocuments)
+      .values({ uploadId })
+      .onConflictDoNothing();
+  }
+
+  private async assertFund(id: string): Promise<void> {
+    const [row] = await this.svc.db
+      .select({ id: pensionFunds.id })
+      .from(pensionFunds)
+      .where(eq(pensionFunds.id, id));
+    if (!row) throw new NotFoundException('Pension fund not found');
+  }
+
+  /** Documents filed as a pension fund statement (or under one). */
+  private async statementDocuments(): Promise<StatementDocument[]> {
+    const [parentOf, rows] = await Promise.all([
+      this.parentOf(),
+      this.svc.db.select().from(documents).where(isNull(documents.deletedAt)),
+    ]);
+    return rows
+      .filter((row) =>
+        row.categories.some((id) =>
+          withAncestors(id, parentOf).includes(PENSION_STATEMENT_CATEGORY),
+        ),
+      )
+      .map((row) => ({
+        uploadId: row.uploadId,
+        title: row.title,
+        fields: row.fields,
+        uploadedAt: row.uploadedAt,
+      }));
   }
 
   /**
@@ -938,6 +1196,37 @@ export class WorkService {
     if (!doc) throw new NotFoundException('No work document with this id');
     return doc;
   }
+}
+
+function fundValues(request: PensionFundRequest) {
+  return {
+    name: request.name.trim(),
+    kind: request.kind ?? 'negotiated',
+    memberSince: request.memberSince ?? null,
+    investmentLine: request.investmentLine ?? null,
+    employeePct: request.employeePct ?? null,
+    employerPct: request.employerPct ?? null,
+    tfrPct: request.tfrPct ?? null,
+    firstJob: request.firstJob ?? false,
+    memberCode: request.memberCode ?? null,
+    url: request.url?.trim() || null,
+    notes: request.notes ?? null,
+    status: request.status ?? 'active',
+  } as const;
+}
+
+function statementValues(request: PensionStatementRequest) {
+  return {
+    fundId: request.fundId,
+    date: request.date,
+    value: request.value,
+    paidIn: request.paidIn ?? null,
+    employee: request.employee ?? null,
+    employer: request.employer ?? null,
+    tfr: request.tfr ?? null,
+    returnPct: request.returnPct ?? null,
+    notes: request.notes ?? null,
+  };
 }
 
 function platformValues(request: HiringPlatformRequest) {

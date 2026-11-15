@@ -112,6 +112,18 @@ export function workFacts(work: WorkOverviewDto): DreamContextFactDto[] {
     });
   if (stats.currentLevel)
     facts.push({ label: 'Contract level', value: stats.currentLevel });
+  // A pension fund is savings tied up until retirement: part of the net, not of the cash.
+  const pension = work.pension;
+  if (pension?.totalValue != null)
+    facts.push({
+      label: 'Pension fund (tied up until retirement)',
+      value: euroText(pension.totalValue),
+    });
+  else if (pension?.onPayslips)
+    facts.push({
+      label: 'Pension fund',
+      value: `${euroText(pension.totalPaidIn)} paid in on record, tied up until retirement`,
+    });
   if (jobSearch.total)
     facts.push({
       label: 'Job applications',

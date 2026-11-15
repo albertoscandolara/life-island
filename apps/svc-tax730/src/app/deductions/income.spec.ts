@@ -105,3 +105,39 @@ describe('estimateDeductions with the income', () => {
     expect(over120?.notes.join(' ')).toContain('above 120.000,00 €');
   });
 });
+
+describe('pensionFundOf (rigo E27)', () => {
+  it('is null when no CU prints a pension fund', () => {
+    expect(
+      estimateDeductions(2025, [], certificatesOf(2025, [cu('cu', {})])).income
+        ?.pensionFund,
+    ).toBe(null);
+  });
+
+  it('adds punti 412 and 413 of every CU against the limit', () => {
+    const fund = estimateDeductions(
+      2025,
+      [],
+      certificatesOf(2025, [
+        cu('cu', {
+          pension_fund_deducted: '4.800,00',
+          pension_fund_not_deducted: 0,
+        }),
+        cu('second-job', {
+          employer: 'Altro Datore S.p.A.',
+          employer_tax_code: '09876543210',
+          pension_fund_deducted: 600,
+        }),
+      ]),
+    ).income?.pensionFund;
+    expect(fund).toMatchObject({
+      deducted: 5400,
+      notDeducted: 0,
+      limit: 5164.57,
+      over: 235.43,
+      noticeDue: '2026-12-31',
+    });
+    expect(fund?.notes.join(' ')).toContain('tell the fund by 2026-12-31');
+    expect(fund?.notes.join(' ')).toContain('one for the whole year');
+  });
+});

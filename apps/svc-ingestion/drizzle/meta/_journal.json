@@ -190,6 +190,13 @@
       "when": 1794333107785,
       "tag": "0026_merge_certificazione_unica",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794333167785,
+      "tag": "0027_pension_fund_fields",
+      "breakpoints": true
     }
   ]
 }

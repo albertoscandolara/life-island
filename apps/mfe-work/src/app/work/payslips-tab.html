@@ -105,6 +105,9 @@
           <th scope="col" class="num">Contributions</th>
           <th scope="col" class="num">Welfare</th>
           <th scope="col" class="num">TFR accrued</th>
+          @if (hasPensionFund()) {
+          <th scope="col" class="num">Pension fund</th>
+          }
           <th scope="col" class="num">Average net</th>
         </tr>
       </thead>
@@ -120,12 +123,22 @@
           <td class="num">{{ euro(y.contributions) }}</td>
           <td class="num">{{ y.welfare ? euro(y.welfare) : '–' }}</td>
           <td class="num">{{ y.severance ? euro(y.severance) : '–' }}</td>
+          @if (hasPensionFund()) {
+          <td class="num">{{ y.pensionFund ? euro(y.pensionFund) : '–' }}</td>
+          }
           <td class="num">{{ euro(y.averageNet) }}</td>
         </tr>
         }
       </tbody>
     </table>
   </div>
+  @if (hasPensionFund()) {
+  <p class="note muted">
+    Pension fund: your contribution, the employer's and the TFR sent to the
+    fund, from the payslips. The Pension fund tab follows them against the
+    yearly deduction limit.
+  </p>
+  }
 </ui-card>
 } }
 
@@ -150,6 +163,9 @@
           <th scope="col" class="num">Your payslips</th>
           <th scope="col" class="num">Difference</th>
           <th scope="col" class="num">Net tax</th>
+          @if (cuPensionFund()) {
+          <th scope="col" class="num">Pension fund deducted</th>
+          }
         </tr>
       </thead>
       <tbody>
@@ -171,6 +187,15 @@
             {{ gap(c.taxGap) }}
           </td>
           <td class="num">{{ euro(c.netTax) }}</td>
+          @if (cuPensionFund()) {
+          <td class="num">
+            {{ euro(c.pensionFundDeducted) }} @if (c.pensionFundNotDeducted) {
+            <span class="muted small"
+              >+ {{ euro(c.pensionFundNotDeducted) }} not</span
+            >
+            }
+          </td>
+          }
         </tr>
         }
       </tbody>

@@ -287,6 +287,9 @@ export interface CertificateReading {
   grossTax: number | null;
   totalDeductions: number | null;
   netTax: number | null;
+  /** Pension fund contributions the employer deducted (punto 412) and did not (punto 413). */
+  pensionFundDeducted: number | null;
+  pensionFundNotDeducted: number | null;
 }
 
 /**
@@ -707,6 +710,8 @@ export function readWorkDocument(
         totalDeductions:
           num(K.totalDeductions) ?? sum(K.workDeductions, K.familyDeductions),
         netTax: num(K.netTax),
+        pensionFundDeducted: num(K.pensionFundDeducted),
+        pensionFundNotDeducted: num(K.pensionFundNotDeducted),
       };
       reading.certificate = certificate;
       reading.date =
@@ -721,6 +726,11 @@ export function readWorkDocument(
       amountFact('Gross tax', certificate.grossTax);
       amountFact('Tax credits', certificate.totalDeductions);
       amountFact('Net tax', certificate.netTax);
+      amountFact('Pension fund, deducted', certificate.pensionFundDeducted);
+      amountFact(
+        'Pension fund, not deducted',
+        certificate.pensionFundNotDeducted,
+      );
       break;
     }
     case 'EMPLOYMENT_CONTRACT': {

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import type {
   Tax730DeductionLineDto,
+  Tax730PensionFundDto,
   TaxYearDossierDto,
 } from '@life-island/contracts';
 import { UiBadge, UiCard } from '@life-island/design-system';
@@ -168,6 +169,53 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
           }
         </ul>
       }
+      <h3 class="sub">Pension fund (oneri deducibili, rigo E27)</h3>
+      @if (d.income?.pensionFund; as fund) {
+        <div class="fund">
+          <div class="fund__cols">
+            <span
+              >Column 1, deducted by the employer:
+              <strong>{{ formatEuro(fund.deducted) }}</strong></span
+            >
+            <span
+              >Column 2, not deducted:
+              <strong>{{ formatEuro(fund.notDeducted) }}</strong></span
+            >
+            <span class="muted">limit {{ formatEuro(fund.limit) }}</span>
+          </div>
+          <span
+            class="track"
+            role="meter"
+            aria-label="Pension fund deduction limit used"
+            aria-valuemin="0"
+            [attr.aria-valuemax]="fund.limit"
+            [attr.aria-valuenow]="fund.deducted + fund.notDeducted"
+          >
+            <span
+              class="fill"
+              [class.fill--over]="fund.over > 0"
+              [style.width.%]="fundWidth(fund)"
+            ></span>
+          </span>
+          <ul class="fund__notes" role="list">
+            @for (n of fund.notes; track n) {
+              <li>{{ n }}</li>
+            }
+          </ul>
+        </div>
+      } @else {
+        <p class="muted income-hint">
+          Paying into a pension fund (fondo pensione)? Its contributions come
+          off your income, not your tax: the CU shows them in punti 412 and 413,
+          and they go in rigo E27.
+        </p>
+      }
+      <p class="income-hint">
+        <a href="/work?tab=pension"
+          >Follow your pension fund in Work: how it works, the yearly limit and
+          your own transfers</a
+        >
+      </p>
       <p class="foot">
         An estimate for planning: home bonuses at the main-home rate, never more
         than the tax your Certificazioni Uniche show you owe, before the income
@@ -311,6 +359,24 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
       margin: var(--space-2) 0 0;
       padding-left: var(--space-5);
     }
+    .fund {
+      display: grid;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+      font-size: var(--text-sm);
+    }
+    .fund__cols {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-5);
+    }
+    .fund__notes {
+      display: grid;
+      gap: var(--space-1);
+      margin: 0;
+      padding-left: var(--space-5);
+      color: var(--text-secondary);
+    }
     .sub {
       margin: var(--space-5) 0 var(--space-2);
       font-size: var(--text-base);
@@ -358,6 +424,14 @@ export class DeductionsCard {
   readonly dossier = input.required<TaxYearDossierDto>();
 
   protected readonly formatEuro = formatEuro;
+
+  /** How full the pension fund limit is, in percent of the bar. */
+  protected fundWidth(fund: Tax730PensionFundDto): number {
+    return Math.min(
+      100,
+      ((fund.deducted + fund.notDeducted) / fund.limit) * 100,
+    );
+  }
 
   protected ruleText(line: Tax730DeductionLineDto): string {
     if (line.rate === null) return 'not estimated';
