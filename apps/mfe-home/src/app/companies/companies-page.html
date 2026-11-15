@@ -153,8 +153,8 @@
               [href]="d.website"
               target="_blank"
               rel="noopener noreferrer"
-              ><ui-icon name="external" [size]="14" />
-              {{ websiteLabel(d.website) }}</a
+              ><ui-icon name="external" [size]="14" /> {{
+              websiteLabel(d.website) }}</a
             >
             }
           </div>
@@ -311,8 +311,7 @@
           </button>
         </div>
       </form>
-      } @else {
-      @if (d.description) {
+      } @else { @if (d.description) {
       <p class="about">{{ d.description }}</p>
       }
       <dl class="facts">
