@@ -6,9 +6,11 @@ import {
 export default withNativeFederation({
   name: 'mfe-home',
 
-  // The shell mounts these routes at /home: Bills at /home/bills, Home at /home (apps/shell/src/app/app.routes.ts).
+  // The shell mounts these routes at /home: Bills at /home/bills, Home at
+  // /home; and the companies at /companies (apps/shell/src/app/app.routes.ts).
   exposes: {
     './routes': './apps/mfe-home/src/app/home.routes.ts',
+    './companies': './apps/mfe-home/src/app/companies.routes.ts',
   },
 
   //shareScope: autoShareScope({level: 'minor'}),

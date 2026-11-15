@@ -15,13 +15,13 @@ People, houses, cars, companies and workplaces are **entities**: the things docu
 | `detail`  | One line under the name: an address, a plate, a tax code                                     |
 | `aliases` | Other ways documents print it: tax code, plate, VIN, address, street, category, former names |
 
-| Kind           | Owner      | Page                           | Confirmed through                                  |
-| -------------- | ---------- | ------------------------------ | -------------------------------------------------- |
-| `person`       | svc-people | `/people?person=<id>`          | the ID document review                             |
-| `house`        | svc-home   | `/home?houses=<id>`            | the house suggestions                              |
-| `vehicle`      | svc-cars   | `/cars?car=<id>`               | the car document review                            |
-| `organization` | svc-home   | `/home/companies?company=<id>` | Houses → Companies (confirm, merge, not a company) |
-| `workplace`    | svc-work   | `/work?workplace=<id>`         | the work document review                           |
+| Kind           | Owner      | Page                      | Confirmed through                                                 |
+| -------------- | ---------- | ------------------------- | ----------------------------------------------------------------- |
+| `person`       | svc-people | `/people?person=<id>`     | the ID document review                                            |
+| `house`        | svc-home   | `/home?houses=<id>`       | the house suggestions                                             |
+| `vehicle`      | svc-cars   | `/cars?car=<id>`          | the car document review                                           |
+| `organization` | svc-home   | `/companies?company=<id>` | Companies, in the top bar (confirm, merge, not a company, delete) |
+| `workplace`    | svc-work   | `/work?workplace=<id>`    | the work document review                                          |
 
 ## Publishing
 
@@ -43,3 +43,5 @@ A confirmed entity links to its page; a pending one is marked "to confirm" and l
 ## Companies
 
 svc-home reads the issuer of every document (`issuer` or its aliases in `CORE_FIELDS`). A name no company has becomes a `PENDING` organization; you confirm it, merge it into the company it really is (its bills, contracts and supply points move, its name stays as an alias) or dismiss it, and a dismissed name is never suggested again.
+
+The Companies page is not part of Houses: every area names companies (suppliers, employers, banks, insurers), so it has its own place at `/companies`, linked from the top bar. svc-home still keeps them and mfe-home serves the page, exposed as `./companies` (`COMPANIES_ROUTES`); `/home/companies` redirects there with its query.

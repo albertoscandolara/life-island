@@ -1,4 +1,5 @@
-import type { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, type Routes } from '@angular/router';
 
 /**
  * What this remote exposes as `./routes`; the shell mounts it at /home.
@@ -22,10 +23,11 @@ export const HOME_ROUTES: Routes = [
     loadComponent: () => import('./bills/bills-page').then((m) => m.BillsPage),
     title: 'Bills · Life Island',
   },
+  // Companies moved to their own place (/companies, COMPANIES_ROUTES): old
+  // links still find them.
   {
     path: 'companies',
-    loadComponent: () =>
-      import('./companies/companies-page').then((m) => m.CompaniesPage),
-    title: 'Companies · Life Island',
+    redirectTo: ({ queryParams }) =>
+      inject(Router).createUrlTree(['/companies'], { queryParams }),
   },
 ];

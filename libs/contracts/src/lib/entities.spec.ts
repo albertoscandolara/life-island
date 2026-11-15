@@ -91,7 +91,7 @@ describe('entityPath', () => {
   it('opens a confirmed entity on its page', () => {
     expect(entityPath(ref('house', 'h1', 'x'))).toBe('/home?houses=h1');
     expect(entityPath(ref('organization', 'o1', 'x'))).toBe(
-      '/home/companies?company=o1',
+      '/companies?company=o1',
     );
     expect(entityPath(ref('person', 'p1', 'x'))).toBe('/people?person=p1');
     expect(entityPath(ref('vehicle', 'v1', 'x'))).toBe('/cars?car=v1');
@@ -99,7 +99,7 @@ describe('entityPath', () => {
 
   it('sends a pending one where it is confirmed', () => {
     expect(entityPath(ref('organization', 'o1', 'x', [], 'pending'))).toBe(
-      '/home/companies?review=entities',
+      '/companies?review=entities',
     );
   });
 });
