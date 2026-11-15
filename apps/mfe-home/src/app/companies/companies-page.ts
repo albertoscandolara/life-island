@@ -40,6 +40,7 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
   DISTRIBUTOR: 'Distributor',
   CONTRACTOR: 'Contractor',
   EMPLOYER: 'Employer',
+  BANK: 'Bank',
   OTHER: 'Other',
 };
 

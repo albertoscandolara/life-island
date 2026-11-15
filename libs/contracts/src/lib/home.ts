@@ -636,13 +636,15 @@ export const listHomeDocumentsQuerySchema = z.object({
 
 /**
  * What a company is to you. EMPLOYER is set on its own for the company that
- * issues your payslips, Certificazione Unica or employment contract.
+ * issues your payslips, Certificazione Unica or employment contract; BANK
+ * for one whose name says it is a bank or that issues your bank statements.
  */
 export const ORGANIZATION_ROLES = [
   'ENERGY_SUPPLIER',
   'DISTRIBUTOR',
   'CONTRACTOR',
   'EMPLOYER',
+  'BANK',
   'OTHER',
 ] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
