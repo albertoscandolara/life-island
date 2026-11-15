@@ -23,6 +23,7 @@ import { HousesController } from './houses/houses.controller.js';
 import { HomeEntitiesController } from './organizations/entities.controller.js';
 import { OrganizationsController } from './organizations/organizations.controller.js';
 import { HomePeople } from './properties/home-people.js';
+import { OrganizationImages } from './organizations/organization-images.js';
 import { HouseModels } from './properties/house-models.js';
 import { PropertiesController } from './properties/properties.controller.js';
 import { PropertiesService } from './properties/properties.service.js';
@@ -66,6 +67,7 @@ export class AppModule {
         WorksService,
         IngestionFiles,
         HouseModels,
+        OrganizationImages,
         HomePeople,
         HouseSuggestionsService,
         ...(options.events === false

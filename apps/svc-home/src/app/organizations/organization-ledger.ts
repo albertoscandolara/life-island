@@ -140,6 +140,7 @@ async function mergeSameNames(
       kept.push(org);
       continue;
     }
+    // Copies read from documents have no images of their own: nothing to delete.
     await mergeOrganizations(db, into.id, org.id, { confirm: false });
     const [fresh] = await db
       .select()

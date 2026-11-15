@@ -797,5 +797,99 @@ describe.skipIf(!configured)(
       );
       expect(removed.model).toBeNull();
     });
+
+    it('keeps a website, notes, a logo and a background per company', async () => {
+      await upload(['PAYSLIP'], { employer: `Pixelia${run} srl` });
+      const [company] = (
+        await json<OrganizationDto[]>(await send('GET', '/organizations'))
+      ).filter((o) => o.name.toLowerCase().includes(`pixelia${run}`));
+      expect(company).toMatchObject({
+        website: null,
+        description: null,
+        images: { logo: null, cover: null },
+      });
+
+      const edited = await json<OrganizationDto>(
+        await send('PATCH', `/organizations/${company.id}`, {
+          website: 'pixelia.example.it',
+          description: 'Our web agency',
+        }),
+      );
+      expect(edited).toMatchObject({
+        website: 'https://pixelia.example.it',
+        description: 'Our web agency',
+      });
+      expect(
+        (
+          await send('PATCH', `/organizations/${company.id}`, {
+            website: 'javascript:alert(1)',
+          })
+        ).status,
+      ).toBe(400);
+
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.alloc(16, 1),
+      ]);
+      const withLogo = await json<OrganizationDetailDto>(
+        await fetch(`${base}/organizations/${company.id}/images/logo`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/octet-stream' },
+          body: png,
+        }),
+      );
+      expect(withLogo.images.logo).toEqual(expect.any(String));
+      expect(withLogo.images.cover).toBeNull();
+      const file = await fetch(
+        `${base}/organizations/${company.id}/images/logo`,
+      );
+      expect(file.headers.get('content-type')).toBe('image/png');
+      expect(file.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(Buffer.from(await file.arrayBuffer()).equals(png)).toBe(true);
+
+      const svg = await fetch(
+        `${base}/organizations/${company.id}/images/cover`,
+        { method: 'PUT', body: '<svg xmlns="http://www.w3.org/2000/svg"/>' },
+      );
+      expect(svg.status).toBe(400);
+      expect(
+        (
+          await fetch(`${base}/organizations/${company.id}/images/banner`, {
+            method: 'PUT',
+            body: png,
+          })
+        ).status,
+      ).toBe(400);
+
+      // A merged duplicate's logo moves to the company it is merged into.
+      await svc.pool.query(
+        `insert into home.organizations (name, name_key, status) values ($1, $2, 'CONFIRMED')`,
+        [`Studio Q${run}`, `studio q${run}`],
+      );
+      const { rows } = await svc.pool.query<{ id: string }>(
+        'select id from home.organizations where name = $1',
+        [`Studio Q${run}`],
+      );
+      const merged = await json<OrganizationDetailDto>(
+        await send('POST', `/organizations/${rows[0].id}/merge`, {
+          from: company.id,
+        }),
+      );
+      expect(merged).toMatchObject({
+        website: 'https://pixelia.example.it',
+        images: { logo: withLogo.images.logo },
+      });
+
+      const removed = await json<OrganizationDetailDto>(
+        await send('DELETE', `/organizations/${merged.id}/images/logo`),
+      );
+      expect(removed.images.logo).toBeNull();
+      expect(
+        (await fetch(`${base}/organizations/${merged.id}/images/logo`)).status,
+      ).toBe(404);
+      await svc.pool.query('delete from home.organizations where id = $1', [
+        merged.id,
+      ]);
+    });
   },
 );

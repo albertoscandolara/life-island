@@ -113,11 +113,18 @@
         [attr.aria-current]="selectedId() === c.id ? 'true' : null"
         (click)="select(c)"
       >
-        <span class="list__name">{{ c.name }}</span>
-        <span class="muted small"
-          >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
-          'documents' }}</span
-        >
+        <span class="logo" aria-hidden="true">
+          @if (imageUrl(c, 'logo'); as logo) {
+          <img [src]="logo" alt="" loading="lazy" />
+          } @else { {{ initials(c.name) }} }
+        </span>
+        <span class="list__text">
+          <span class="list__name">{{ c.name }}</span>
+          <span class="muted small"
+            >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
+            'documents' }}</span
+          >
+        </span>
       </button>
     </li>
     }
@@ -125,11 +132,50 @@
 
   <section class="detail" aria-live="polite">
     @if (detail(); as d) {
-    <ui-card [heading]="d.name">
+    <ui-card class="company">
+      <header class="hero" [class.hero--cover]="d.images.cover !== null">
+        @if (imageUrl(d, 'cover'); as cover) {
+        <img class="hero__cover" [src]="cover" alt="" />
+        }
+        <div class="hero__id">
+          <span class="logo logo--lg">
+            @if (imageUrl(d, 'logo'); as logo) {
+            <img [src]="logo" [alt]="d.name + ' logo'" />
+            } @else {
+            <span aria-hidden="true">{{ initials(d.name) }}</span>
+            }
+          </span>
+          <div class="hero__text">
+            <h2 class="hero__name">{{ d.name }}</h2>
+            @if (d.website) {
+            <a
+              class="hero__site"
+              [href]="d.website"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><ui-icon name="external" [size]="14" />
+              {{ websiteLabel(d.website) }}</a
+            >
+            }
+          </div>
+          @if (!editing()) {
+          <button
+            uiButton
+            class="hero__edit"
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="startEdit(d)"
+          >
+            <ui-icon name="edit" [size]="16" /> Edit
+          </button>
+          }
+        </div>
+      </header>
       @if (editing()) {
       <form
         class="edit"
-        (submit)="$event.preventDefault(); save(d, name.value, vat.value, tax.value, aliasText.value)"
+        (submit)="$event.preventDefault(); save(d, name.value, vat.value, tax.value, aliasText.value, site.value, notes.value)"
       >
         <label class="edit__wide"
           >Name <input #name uiInput required maxlength="160" [value]="d.name"
@@ -142,6 +188,27 @@
           >Tax code
           <input #tax uiInput maxlength="32" [value]="d.taxCode ?? ''"
         /></label>
+        <label class="edit__wide"
+          >Website
+          <input
+            #site
+            uiInput
+            inputmode="url"
+            maxlength="300"
+            placeholder="acme.it"
+            [value]="d.website ?? ''"
+        /></label>
+        <label class="edit__wide"
+          >Notes
+          <textarea
+            #notes
+            uiInput
+            rows="2"
+            maxlength="1000"
+            placeholder="What it does for you, a branch, a contact…"
+            [value]="d.description ?? ''"
+          ></textarea>
+        </label>
         <fieldset class="edit__wide edit__roles">
           <legend>Role</legend>
           @for (r of roles; track r) {
@@ -168,6 +235,67 @@
             name is kept here when you rename it.</span
           >
         </label>
+        <fieldset class="edit__wide pictures">
+          <legend>Pictures</legend>
+          @for (k of imageKinds; track k) {
+          <div class="picture">
+            <span
+              class="picture__preview"
+              [class.picture__preview--cover]="k === 'cover'"
+            >
+              @if (imageUrl(d, k); as url) {
+              <img [src]="url" [alt]="imageLabel(k) + ' of ' + d.name" />
+              } @else {
+              <ui-icon name="camera" [size]="20" />
+              }
+            </span>
+            <span class="picture__what">
+              <strong>{{ imageLabel(k) }}</strong>
+              <span class="muted small"
+                >{{ k === 'logo' ? 'Square, shown beside its name.' : 'Wide,
+                shown behind its name on this page.' }}</span
+              >
+              <span class="picture__actions">
+                <input
+                  #file
+                  type="file"
+                  class="file"
+                  [accept]="imageAccept"
+                  (change)="uploadImage(d, k, $event)"
+                />
+                <button
+                  uiButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [loading]="busy() === d.id + ':' + k"
+                  [disabled]="busy() !== null"
+                  (click)="file.click()"
+                >
+                  <ui-icon name="upload" [size]="14" />
+                  {{ d.images[k] ? 'Replace' : 'Load an image' }}
+                </button>
+                @if (d.images[k]) {
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="busy() !== null"
+                  (click)="removeImage(d, k)"
+                >
+                  <ui-icon name="trash" [size]="14" /> Remove
+                </button>
+                }
+              </span>
+            </span>
+          </div>
+          }
+          <span class="muted small"
+            >PNG, JPEG, WebP or GIF, up to {{ imageMaxMb }} MB. A picture is
+            saved as soon as you pick it.</span
+          >
+        </fieldset>
         <div class="edit__wide edit__actions">
           <button uiButton size="sm" type="submit" [disabled]="busy() !== null">
             Save
@@ -184,17 +312,9 @@
         </div>
       </form>
       } @else {
-      <div class="card-top">
-        <button
-          uiButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="startEdit(d)"
-        >
-          <ui-icon name="edit" [size]="16" /> Edit
-        </button>
-      </div>
+      @if (d.description) {
+      <p class="about">{{ d.description }}</p>
+      }
       <dl class="facts">
         <div>
           <dt>VAT number</dt>

@@ -2,6 +2,7 @@ import type {
   BillAssignment,
   HouseField,
   ModelFormat,
+  OrganizationImageType,
   OrganizationRole,
   OrganizationStatus,
   UtilityKind,
@@ -268,6 +269,18 @@ export const organizations = home.table(
       .default('PENDING'),
     /** Other names documents print for it (kept when you merge a duplicate in). */
     aliases: text('aliases').array().notNull().default([]),
+    /** Its website, as you typed it. */
+    website: text('website'),
+    /** A few words of your own on it. */
+    description: text('description'),
+    /** Its logo in this service's bucket (the file never comes here). */
+    logoKey: text('logo_key'),
+    logoType: text('logo_type').$type<OrganizationImageType>(),
+    logoUpdatedAt: timestamp('logo_updated_at', { withTimezone: true }),
+    /** Its background (cover) image in this service's bucket. */
+    coverKey: text('cover_key'),
+    coverType: text('cover_type').$type<OrganizationImageType>(),
+    coverUpdatedAt: timestamp('cover_updated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

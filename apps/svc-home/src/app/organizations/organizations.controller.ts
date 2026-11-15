@@ -2,24 +2,33 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  Header,
   HttpCode,
   Inject,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
+  Req,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Readable } from 'node:stream';
 import type { ServiceDb } from '@life-island/be-common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   mergeOrganizationRequestSchema,
+  ORGANIZATION_IMAGE_KINDS,
   type OrganizationDetailDto,
+  type OrganizationImageKind,
   type OrganizationStatus,
 } from '@life-island/contracts';
 import { eq, inArray } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import { organizations } from '../db/schema.js';
+import { OrganizationImages } from './organization-images.js';
 import { mergeOrganizations } from './organization-merge.js';
 import { organizationDetail } from './organizations.js';
 
@@ -30,7 +39,10 @@ import { organizationDetail } from './organizations.js';
  */
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
+  constructor(
+    @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+    @Inject(OrganizationImages) private readonly images: OrganizationImages,
+  ) {}
 
   /** A company's page: its data, the documents it issued and its houses. */
   @Get(':id')
@@ -87,7 +99,47 @@ export class OrganizationsController {
       .where(inArray(organizations.id, [id, from]));
     if (found.length !== 2)
       throw new NotFoundException('Both companies must exist');
-    await this.svc.db.transaction((tx) => mergeOrganizations(tx, id, from));
+    const orphans = await this.svc.db.transaction((tx) =>
+      mergeOrganizations(tx, id, from),
+    );
+    for (const key of orphans) await this.images.forget(key);
+    return this.detail(id);
+  }
+
+  /**
+   * Uploads the company's logo or background image (`kind`: logo or cover):
+   * the file itself is the request body (application/octet-stream). It
+   * replaces the image it had.
+   */
+  @Put(':id/images/:kind')
+  async uploadImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+    @Req() request: Readable,
+  ): Promise<OrganizationDetailDto> {
+    await this.images.upload(id, imageKind(kind), request);
+    return this.detail(id);
+  }
+
+  @Get(':id/images/:kind')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async image(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+  ): Promise<StreamableFile> {
+    const file = await this.images.open(id, imageKind(kind));
+    return new StreamableFile(file.body, {
+      type: file.contentType,
+      length: file.size,
+    });
+  }
+
+  @Delete(':id/images/:kind')
+  async removeImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind') kind: string,
+  ): Promise<OrganizationDetailDto> {
+    await this.images.remove(id, imageKind(kind));
     return this.detail(id);
   }
 
@@ -103,4 +155,10 @@ export class OrganizationsController {
     if (!rows.length)
       throw new NotFoundException(`Organization ${id} not found`);
   }
+}
+
+function imageKind(kind: string): OrganizationImageKind {
+  if (!(ORGANIZATION_IMAGE_KINDS as readonly string[]).includes(kind))
+    throw new BadRequestException('The image is a logo or a cover');
+  return kind as OrganizationImageKind;
 }
