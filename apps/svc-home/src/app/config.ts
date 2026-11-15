@@ -21,8 +21,9 @@ export interface HomeConfig {
   /** svc-tax730, whose home expenses (renovations, ecobonus) show under their house. */
   tax730Url: string;
   /**
-   * Object storage for the houses' 3D models, in this service's own bucket;
-   * null when S3 is not configured (models cannot be uploaded then).
+   * Object storage for the houses' 3D models and the companies' images, in
+   * this service's own bucket; null when S3 is not configured (they cannot be
+   * uploaded then).
    */
   storage: StorageOptions | null;
 }

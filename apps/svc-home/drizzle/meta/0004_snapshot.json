@@ -1,5 +1,5 @@
 {
-  "id": "0f1cccde-a8c9-44fd-a000-3f3fb0303897",
+  "id": "cb639ce3-2edf-43eb-8245-708f9dd3dd7c",
   "prevId": "2176e8ea-4115-4e51-bc2a-432130194313",
   "version": "7",
   "dialect": "postgresql",
@@ -441,63 +441,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "home.house_document_overrides": {
-      "name": "house_document_overrides",
-      "schema": "home",
-      "columns": {
-        "upload_id": {
-          "name": "upload_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "manual_property": {
-          "name": "manual_property",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "property_id": {
-          "name": "property_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "excluded": {
-          "name": "excluded",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "house_document_overrides_property_id_properties_id_fk": {
-          "name": "house_document_overrides_property_id_properties_id_fk",
-          "tableFrom": "house_document_overrides",
-          "tableTo": "properties",
-          "schemaTo": "home",
-          "columnsFrom": ["property_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "home.house_reviews": {
       "name": "house_reviews",
       "schema": "home",
@@ -632,6 +575,54 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'"
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_key": {
+          "name": "logo_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_type": {
+          "name": "logo_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_updated_at": {
+          "name": "logo_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_key": {
+          "name": "cover_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_type": {
+          "name": "cover_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_updated_at": {
+          "name": "cover_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1132,88 +1123,6 @@
           "columns": ["code"]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "home.tax_expense_links": {
-      "name": "tax_expense_links",
-      "schema": "home",
-      "columns": {
-        "expense_id": {
-          "name": "expense_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "manual_property": {
-          "name": "manual_property",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "property_id": {
-          "name": "property_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "tax_expense_links_property_idx": {
-          "name": "tax_expense_links_property_idx",
-          "columns": [
-            {
-              "expression": "property_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "tax_expense_links_property_id_properties_id_fk": {
-          "name": "tax_expense_links_property_id_properties_id_fk",
-          "tableFrom": "tax_expense_links",
-          "tableTo": "properties",
-          "schemaTo": "home",
-          "columnsFrom": ["property_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "tax_expense_links_work_id_works_id_fk": {
-          "name": "tax_expense_links_work_id_works_id_fk",
-          "tableFrom": "tax_expense_links",
-          "tableTo": "works",
-          "schemaTo": "home",
-          "columnsFrom": ["work_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

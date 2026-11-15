@@ -64,7 +64,9 @@
 
 .list__item {
   display: grid;
-  gap: var(--space-1);
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
@@ -83,6 +85,12 @@
 .list__item--on {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.list__text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .list__name {
@@ -170,12 +178,6 @@
   }
 }
 
-.card-top {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-2);
-}
-
 .edit {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
@@ -231,4 +233,159 @@
   border-radius: var(--radius-md);
   background: var(--tone-warning-soft);
   color: var(--text-primary);
+}
+
+/* The logo beside a company's name, or its initials when it has none. */
+.logo {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--surface-card);
+}
+
+.logo--lg {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-xl);
+}
+
+/* The company's heading, with its background image behind it when it has one. */
+.hero {
+  margin-bottom: var(--space-4);
+}
+
+.hero__cover {
+  display: block;
+  width: calc(100% + 2 * var(--space-6));
+  height: 9rem;
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-6)) 0;
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+  object-fit: cover;
+}
+
+.hero__id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.hero--cover .hero__id {
+  align-items: flex-start;
+  margin-top: calc(-1 * var(--space-8));
+}
+
+/* Over a background, the name starts below it, beside the logo. */
+.hero--cover .hero__text {
+  padding-top: calc(var(--space-8) + var(--space-2));
+}
+
+.hero__edit {
+  margin-left: auto;
+}
+
+.hero--cover .hero__edit {
+  margin-top: calc(var(--space-8) + var(--space-2));
+}
+
+.hero__text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.hero__name {
+  margin: 0;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+
+.hero__site {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.about {
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+.pictures {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pictures legend {
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.picture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.picture__preview {
+  display: inline-grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  overflow: hidden;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
+.picture__preview--cover {
+  width: 10rem;
+}
+
+.picture__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.picture__what {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.picture__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.file {
+  display: none;
 }

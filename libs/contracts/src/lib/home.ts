@@ -674,7 +674,34 @@ export interface OrganizationDto {
    * accents, punctuation, legal form or spacing are merged on their own).
    */
   possibleDuplicates: { id: string; name: string }[];
+  /** Its website, as you typed it (always http or https). */
+  website: string | null;
+  /** A few words of your own on it: what it does for you, a branch, a contact. */
+  description: string | null;
+  /**
+   * Its logo and background (cover) image: when each was last changed, to
+   * bust the cache of its URL, or null when it has none.
+   */
+  images: Record<OrganizationImageKind, string | null>;
 }
+
+/**
+ * The pictures that make a company recognizable at a glance: a logo (square,
+ * shown beside its name) and a background image (wide, behind its page's
+ * heading). Uploaded by you, kept in svc-home's bucket, never in the database.
+ */
+export const ORGANIZATION_IMAGE_KINDS = ['logo', 'cover'] as const;
+export type OrganizationImageKind = (typeof ORGANIZATION_IMAGE_KINDS)[number];
+/** Image types accepted (no SVG: it can carry scripts). */
+export const ORGANIZATION_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+] as const;
+export type OrganizationImageType = (typeof ORGANIZATION_IMAGE_TYPES)[number];
+/** Largest image accepted, in bytes. */
+export const ORGANIZATION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 /** A document a company issued, on the company's page. */
 export interface OrganizationDocumentDto {
@@ -718,6 +745,31 @@ export const updateOrganizationRequestSchema = z.object({
   /** Every other name documents print for it; replaces the list. */
   aliases: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
   roles: z.array(z.enum(ORGANIZATION_ROLES)).max(4).optional(),
+  /** "acme.it" is read as https://acme.it; empty clears it. */
+  website: z
+    .string()
+    .trim()
+    .max(300)
+    .transform((v) =>
+      v && !/^[a-z][a-z0-9+.-]*:/i.test(v) ? `https://${v}` : v,
+    )
+    .pipe(
+      z.union([
+        z.literal(''),
+        z.url({ protocol: /^https?$/, hostname: /^[^.\s]+(\.[^.\s]+)+$/ }),
+      ]),
+    )
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  /** Empty clears it. */
+  description: z
+    .string()
+    .trim()
+    .max(1000)
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
 });
 export type UpdateOrganizationRequest = z.input<
   typeof updateOrganizationRequestSchema
