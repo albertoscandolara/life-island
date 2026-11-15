@@ -1,8 +1,13 @@
 import { compareNames, CORE_FIELDS, matchName } from '@life-island/contracts';
 import { eq, isNotNull, isNull, and, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { organizationKey } from '../bills/bill-reader.js';
 import {
+  expandCategories,
+  organizationKey,
+  type ParentOf,
+} from '../bills/bill-reader.js';
+import {
+  categoryTree,
   documents,
   organizations,
   type DocumentRow,
@@ -21,6 +26,32 @@ const LOCK = 'home.organization_ledger';
 const ISSUER = CORE_FIELDS.find((f) => f.key === 'issuer');
 /** The fields a document prints its issuer in, in order of preference. */
 const ISSUER_KEYS = ['issuer', ...(ISSUER?.aliases ?? [])];
+
+/**
+ * Documents only your employer issues: their issuer is your employer, also
+ * when filed under a subcategory of these.
+ */
+const EMPLOYER_CATEGORIES = [
+  'PAYSLIP',
+  'CERTIFICAZIONE_UNICA',
+  'EMPLOYMENT_CONTRACT',
+];
+
+/** Whether a document's issuer is your employer: it prints it as such, or it is a payslip, CU or employment contract. */
+export function issuedByEmployer(
+  doc: Pick<DocumentRow, 'fields' | 'categories'>,
+  parentOf: ParentOf,
+): boolean {
+  const employer = doc.fields?.['employer'];
+  if (
+    issuerOf(doc.fields) &&
+    typeof employer === 'string' &&
+    employer.trim() === issuerOf(doc.fields)
+  )
+    return true;
+  const all = expandCategories(doc.categories, parentOf);
+  return EMPLOYER_CATEGORIES.some((c) => all.has(c));
+}
 
 /** Who issued a document, as printed; null when nothing was read. */
 export function issuerOf(fields: DocumentRow['fields']): string | null {
@@ -45,13 +76,17 @@ export function issuerOf(fields: DocumentRow['fields']): string | null {
  */
 export async function syncOrganizationsIn(db: Db): Promise<number> {
   await db.execute(sql`select pg_advisory_xact_lock(hashtext(${LOCK}))`);
-  const [rows, docs] = await Promise.all([
+  const [rows, docs, tree] = await Promise.all([
     db.select().from(organizations),
     db
-      .select({ fields: documents.fields })
+      .select({ fields: documents.fields, categories: documents.categories })
       .from(documents)
       .where(and(isNull(documents.deletedAt), isNotNull(documents.fields))),
+    db
+      .select({ id: categoryTree.id, parentId: categoryTree.parentId })
+      .from(categoryTree),
   ]);
+  const parentOf: ParentOf = new Map(tree.map((c) => [c.id, c.parentId]));
   for (const org of rows) {
     const key = organizationKey(org.name);
     if (key && key !== org.nameKey) {
@@ -65,11 +100,21 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
   const orgs = await mergeSameNames(db, rows);
 
   let added = 0;
-  for (const { fields } of docs) {
+  for (const doc of docs) {
+    const { fields } = doc;
     const issuer = issuerOf(fields);
     if (!issuer || !organizationKey(issuer)) continue;
+    const employer = issuedByEmployer(doc, parentOf);
     const match = matchName(issuer, orgs, namesOf, { prefer: isConfirmed });
     if (match) {
+      // Your payslips name your employer: it is one, like a bill's supplier.
+      if (employer && !match.found.roles.includes('EMPLOYER')) {
+        match.found.roles = [...match.found.roles, 'EMPLOYER'];
+        await db
+          .update(organizations)
+          .set({ roles: match.found.roles })
+          .where(eq(organizations.id, match.found.id));
+      }
       // The same company printed a little differently ("Arcoda", "ARKODA
       // srl"): it keeps the new spelling, so its documents find it.
       if (match.how !== 'same' && !namesOf(match.found).includes(issuer)) {
@@ -87,7 +132,7 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
         name: issuer,
         nameKey: organizationKey(issuer),
         status: 'PENDING',
-        roles: [],
+        roles: employer ? ['EMPLOYER'] : [],
       })
       .returning();
     orgs.push(row);
