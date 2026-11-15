@@ -92,8 +92,32 @@ export function issuedByBank(
 }
 
 /**
+ * A name that says it is an insurer: "Generali Italia", "UnipolSai
+ * Assicurazioni", "Allianz Direct", "AXA", "Zurich", "Reale Mutua", "Genertel",
+ * "Prima Assicurazioni", "Verti", "Quixa", "Groupama", "Helvetia".
+ */
+const INSURER_NAME =
+  /assicura|\b(insurance|assurance|assurances|versicherung)\b|\b(generali|allianz|unipol|unipolsai|axa|zurich|reale mutua|cattolica|groupama|helvetia|genertel|genialloyd|verti|quixa|linear|conte\.it|direct line|itas|hdi|bene assicurazioni)\b/i;
+
+/** Whether a company's name says it is an insurer. */
+export function looksLikeInsurer(name: string): boolean {
+  return INSURER_NAME.test(name);
+}
+
+/** Whether a document is an insurance policy (car, house...): its issuer is the insurer. */
+export function issuedByInsurer(
+  doc: Pick<DocumentRow, 'categories'>,
+  parentOf: ParentOf,
+): boolean {
+  return [...expandCategories(doc.categories, parentOf)].some((c) =>
+    /INSURANCE|POLIZZA|ASSICURAZION/.test(c),
+  );
+}
+
+/**
  * The roles a document tells about the company that issued it: your
- * employer (payslips), your bank (statements, or a bank's name).
+ * employer (payslips), your bank (statements, or a bank's name), your
+ * insurer (policies, or an insurer's name).
  */
 function rolesFrom(
   doc: Pick<DocumentRow, 'fields' | 'categories'>,
@@ -103,6 +127,8 @@ function rolesFrom(
   const roles: OrganizationRole[] = [];
   if (issuedByEmployer(doc, parentOf)) roles.push('EMPLOYER');
   if (looksLikeBank(issuer) || issuedByBank(doc, parentOf)) roles.push('BANK');
+  if (looksLikeInsurer(issuer) || issuedByInsurer(doc, parentOf))
+    roles.push('INSURANCE');
   return roles;
 }
 
@@ -163,6 +189,7 @@ export async function syncOrganizationsIn(db: Db): Promise<number> {
       // Your payslips name your employer, your statements your bank: it is
       // one, like a bill's issuer is a supplier.
       if (looksLikeBank(match.found.name)) roles.push('BANK');
+      if (looksLikeInsurer(match.found.name)) roles.push('INSURANCE');
       const missing = roles.filter((r) => !match.found.roles.includes(r));
       if (missing.length) {
         match.found.roles = [...new Set([...match.found.roles, ...missing])];

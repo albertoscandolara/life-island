@@ -734,6 +734,13 @@ describe.skipIf(!configured)(
       expect(roles(`Banca Q${run}`)).toEqual(['BANK']);
       expect(roles(`Widi${run}`)).toEqual(['BANK']);
       expect(roles(`Shop${run}`)).toEqual([]);
+      await upload(['CAR_INSURANCE'], { issuer: `Polizze${run}` }, 'Policy');
+      const after = await json<OrganizationDto[]>(
+        await send('GET', '/organizations'),
+      );
+      expect(after.find((o) => o.name === `Polizze${run}`)?.roles).toEqual([
+        'INSURANCE',
+      ]);
     });
 
     it('suggests the companies documents name, to confirm, merge or dismiss', async () => {

@@ -1,4 +1,9 @@
-import { issuedByBank, looksLikeBank } from './organization-ledger.js';
+import {
+  issuedByBank,
+  issuedByInsurer,
+  looksLikeBank,
+  looksLikeInsurer,
+} from './organization-ledger.js';
 
 describe('banks', () => {
   it('knows a bank by its name', () => {
@@ -27,5 +32,32 @@ describe('banks', () => {
       true,
     );
     expect(issuedByBank({ categories: ['INVOICE'] }, parentOf)).toBe(false);
+  });
+});
+
+describe('insurers', () => {
+  it('knows an insurer by its name', () => {
+    for (const name of [
+      'Generali Italia S.p.A.',
+      'UnipolSai Assicurazioni',
+      'Allianz Direct',
+      'AXA Assicurazioni',
+      'Reale Mutua',
+      'Prima Assicurazioni',
+      'Zurich Insurance',
+      'Genertel',
+    ])
+      expect(looksLikeInsurer(name)).toBe(true);
+    for (const name of ['Arcoda', 'Banca Widiba', 'Edilnord', 'Luce Verde'])
+      expect(looksLikeInsurer(name)).toBe(false);
+  });
+
+  it('knows a policy, car or house, also filed under a subcategory', () => {
+    const parentOf = new Map([['RCA_2026', 'CAR_INSURANCE']]);
+    expect(issuedByInsurer({ categories: ['HOME_INSURANCE'] }, parentOf)).toBe(
+      true,
+    );
+    expect(issuedByInsurer({ categories: ['RCA_2026'] }, parentOf)).toBe(true);
+    expect(issuedByInsurer({ categories: ['INVOICE'] }, parentOf)).toBe(false);
   });
 });

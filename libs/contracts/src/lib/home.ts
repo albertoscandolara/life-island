@@ -637,7 +637,9 @@ export const listHomeDocumentsQuerySchema = z.object({
 /**
  * What a company is to you. EMPLOYER is set on its own for the company that
  * issues your payslips, Certificazione Unica or employment contract; BANK
- * for one whose name says it is a bank or that issues your bank statements.
+ * for one whose name says it is a bank or that issues your bank statements;
+ * INSURANCE for one whose name says it is an insurer or that issues your
+ * insurance policies (car, house...).
  */
 export const ORGANIZATION_ROLES = [
   'ENERGY_SUPPLIER',
@@ -645,6 +647,7 @@ export const ORGANIZATION_ROLES = [
   'CONTRACTOR',
   'EMPLOYER',
   'BANK',
+  'INSURANCE',
   'OTHER',
 ] as const;
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];

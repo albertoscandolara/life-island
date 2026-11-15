@@ -41,6 +41,7 @@ const ROLE_LABELS: Record<OrganizationRole, string> = {
   CONTRACTOR: 'Contractor',
   EMPLOYER: 'Employer',
   BANK: 'Bank',
+  INSURANCE: 'Insurance',
   OTHER: 'Other',
 };
 
@@ -50,6 +51,7 @@ const ROLE_PLURALS: Record<OrganizationRole, string> = {
   CONTRACTOR: 'Contractors',
   EMPLOYER: 'Employers',
   BANK: 'Banks',
+  INSURANCE: 'Insurers',
   OTHER: 'Other',
 };
 
