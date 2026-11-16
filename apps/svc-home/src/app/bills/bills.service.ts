@@ -18,9 +18,11 @@ import {
   bills,
   documents,
   properties,
+  supplyContracts,
   supplyPoints,
   type BillRow,
 } from '../db/schema.js';
+import { contractDirectDebit, isAutoPaid } from './auto-pay.js';
 import { BillLedger } from './bill-ledger.js';
 import { billSpan, normalizeCode } from './bill-reader.js';
 
@@ -31,6 +33,7 @@ type UpdateBill = z.output<typeof updateBillRequestSchema>;
 export function toBillDto(
   row: BillRow,
   pointHouse: string | null | undefined,
+  autoPaid = false,
 ): BillDto {
   const viaPoint = !row.manualProperty && row.supplyPointId !== null;
   const propertyId = viaPoint ? (pointHouse ?? null) : row.propertyId;
@@ -65,6 +68,8 @@ export function toBillDto(
     supplierId: row.supplierId,
     supplyPointId: row.supplyPointId,
     contractId: row.contractId,
+    directDebit: row.directDebit,
+    autoPaid,
   };
 }
 
@@ -80,15 +85,37 @@ export class BillsService {
     @Inject(BillLedger) private readonly ledger: BillLedger,
   ) {}
 
-  /** Every bill counted (a second copy of an invoice is not), newest first. */
-  async list(query: ListBills): Promise<BillDto[]> {
+  /** Every bill, with its house and whether it is paid on its own. */
+  private async all(): Promise<{ bill: BillDto; counted: boolean }[]> {
     const rows = await this.svc.db
-      .select({ bill: bills, pointHouse: supplyPoints.propertyId })
+      .select({
+        bill: bills,
+        pointHouse: supplyPoints.propertyId,
+        autoPay: supplyContracts.autoPay,
+      })
       .from(bills)
       .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
-      .where(isNull(bills.duplicateOf));
-    return rows
-      .map((r) => toBillDto(r.bill, r.pointHouse))
+      .leftJoin(supplyContracts, eq(bills.contractId, supplyContracts.id));
+    const detected = contractDirectDebit(rows.map((r) => r.bill));
+    return rows.map((r) => ({
+      bill: toBillDto(
+        r.bill,
+        r.pointHouse,
+        isAutoPaid(
+          r.bill,
+          r.autoPay,
+          r.bill.contractId ? detected.get(r.bill.contractId) : undefined,
+        ),
+      ),
+      counted: r.bill.duplicateOf === null,
+    }));
+  }
+
+  /** Every bill counted (a second copy of an invoice is not), newest first. */
+  async list(query: ListBills): Promise<BillDto[]> {
+    return (await this.all())
+      .filter((r) => r.counted)
+      .map((r) => r.bill)
       .filter((bill) => matches(bill, query))
       .sort(
         (a, b) =>
@@ -155,12 +182,9 @@ export class BillsService {
   }
 
   private async get(uploadId: string): Promise<BillDto | null> {
-    const [row] = await this.svc.db
-      .select({ bill: bills, pointHouse: supplyPoints.propertyId })
-      .from(bills)
-      .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
-      .where(eq(bills.uploadId, uploadId));
-    return row ? toBillDto(row.bill, row.pointHouse) : null;
+    return (
+      (await this.all()).find((r) => r.bill.uploadId === uploadId)?.bill ?? null
+    );
   }
 
   /**

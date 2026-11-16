@@ -263,7 +263,29 @@
       />
       } · {{ p.billCount }} {{ p.billCount === 1 ? 'bill' : 'bills' }}
     </div>
-    @if (ended(p).length) {
+    @if (current(p); as k) {
+    <label class="point__pay">
+      <span class="muted">Paid</span>
+      <select
+        class="ui-input compact"
+        [attr.aria-label]="'How the bills of ' + p.code + ' are paid'"
+        [disabled]="moving() !== null"
+        (change)="setAutoPay(k.id, $any($event.target).value)"
+      >
+        <option value="" [selected]="k.autoPay === null">
+          As the bills say{{ k.directDebit === true ? ': direct debit' :
+          k.directDebit === false ? ': by me' : '' }}
+        </option>
+        <option value="yes" [selected]="k.autoPay === true">
+          By direct debit, automatically
+        </option>
+        <option value="no" [selected]="k.autoPay === false">By me</option>
+      </select>
+      @if (k.autoPaid) {
+      <ui-badge tone="success">No due warnings</ui-badge>
+      }
+    </label>
+    } @if (ended(p).length) {
     <ul class="point__history muted">
       @for (k of ended(p); track k.id) {
       <li>

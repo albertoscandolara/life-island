@@ -37,6 +37,8 @@ export type ReadBill = Omit<
   | 'supplierId'
   | 'supplyPointId'
   | 'contractId'
+  | 'directDebit'
+  | 'autoPaid'
 >;
 
 export interface OverrideLike {
@@ -344,6 +346,34 @@ export interface BillFacts {
   customerCode: string | null;
   distributorName: string | null;
   offerName: string | null;
+  /** Paid by direct debit (true), another way (false), or not printed (null). */
+  directDebit: boolean | null;
+}
+
+/** Keys of the field that says how a bill is paid. */
+const PAYMENT_KEY = /payment|pagamento/;
+/**
+ * How Italian bills print a direct debit: "Domiciliazione bancaria",
+ * "Addebito diretto SEPA (SDD)", "Addebito su conto corrente", the old "RID".
+ * Read on normalised text (lower case, no accents, single spaces).
+ */
+const DIRECT_DEBIT =
+  /domicili|addebito (diretto|automatico|(in|su) (c|conto))|\bsdd\b|\bsepa\b|\brid\b|direct debit/;
+
+/**
+ * Whether a bill is paid by direct debit, from the field that says how it is
+ * paid (`payment_method`, `metodo_pagamento`…): null when it prints none.
+ */
+export function readDirectDebit(fields: Fields): boolean | null {
+  let other = false;
+  for (const [key, value] of Object.entries(fields)) {
+    if (!PAYMENT_KEY.test(key) || /date|due|status|amount/.test(key)) continue;
+    const text = asText(value);
+    if (!text) continue;
+    if (DIRECT_DEBIT.test(normalizeText(text))) return true;
+    other = true;
+  }
+  return other ? false : null;
 }
 
 const POD = /^IT\d{3}E[0-9A-Z]{5,}$/;
@@ -435,5 +465,6 @@ export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
       asText,
     ),
     offerName: firstOf(fields, ['offer_name', 'offer'], asText),
+    directDebit: readDirectDebit(fields),
   };
 }

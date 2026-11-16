@@ -18,7 +18,11 @@ import { areaOf } from './areas';
   template: `
     <ul class="li-list">
       @for (e of entries(); track e.key) {
-        <li class="line" [class.line--done]="e.handled">
+        <li
+          class="line"
+          [class.line--done]="e.handled"
+          [class.line--auto]="e.autoPaid"
+        >
           <span class="date" [class.date--late]="!e.handled && e.daysLeft < 0">
             <span class="date__day">{{ day(e.date) }}</span>
             <span class="date__month">{{ month(e.date) }}</span>
@@ -44,7 +48,13 @@ import { areaOf } from './areas';
             }
           </span>
           <span class="side">
-            @if (!e.handled) {
+            @if (e.autoPaid) {
+              <span
+                class="li-good li-small"
+                title="Paid on its own by direct debit or a card on file: nothing to do"
+                >Paid automatically</span
+              >
+            } @else if (!e.handled) {
               <li-due [days]="e.daysLeft" [warnDays]="7" />
             } @else {
               <span class="li-good li-small">Handled</span>
@@ -74,17 +84,22 @@ import { areaOf } from './areas';
                   <ui-icon name="edit" [size]="16" />
                 </button>
               }
-              <button
-                uiButton
-                [variant]="e.handled ? 'ghost' : 'secondary'"
-                size="sm"
-                type="button"
-                [title]="e.handled ? 'Mark as not done' : 'Mark as done'"
-                (click)="toggleDone.emit(e)"
-              >
-                <ui-icon [name]="e.handled ? 'refresh' : 'check'" [size]="16" />
-                {{ e.handled ? 'Undo' : 'Done' }}
-              </button>
+              @if (!e.autoPaid) {
+                <button
+                  uiButton
+                  [variant]="e.handled ? 'ghost' : 'secondary'"
+                  size="sm"
+                  type="button"
+                  [title]="e.handled ? 'Mark as not done' : 'Mark as done'"
+                  (click)="toggleDone.emit(e)"
+                >
+                  <ui-icon
+                    [name]="e.handled ? 'refresh' : 'check'"
+                    [size]="16"
+                  />
+                  {{ e.handled ? 'Undo' : 'Done' }}
+                </button>
+              }
             </span>
           </span>
         </li>
@@ -107,6 +122,9 @@ import { areaOf } from './areas';
     }
     .line--done .title {
       text-decoration: line-through;
+    }
+    .line--auto .title {
+      text-decoration: none;
     }
     .date {
       display: grid;

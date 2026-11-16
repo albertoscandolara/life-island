@@ -201,6 +201,8 @@ export class MoneyService implements OnApplicationBootstrap {
         date: r.nextDate,
         amount: r.amount,
         path: '/money?tab=recurring',
+        // Seen leaving your account on its own every month: nothing to do.
+        autoPaid: true,
       }));
   }
 

@@ -285,6 +285,7 @@ describe.skipIf(!configured)(
         invoice_number: `F-${run}-1`,
         offer_name: 'Old offer',
         billing_period: '2026-01-01/2026-01-31',
+        payment_method: 'Domiciliazione bancaria',
         total_amount: 70,
       });
       // Printed without the tax code and with another legal form: the same company.
@@ -345,6 +346,31 @@ describe.skipIf(!configured)(
           billCount: 2,
         }),
       ]);
+
+      // January prints a direct debit: February, printing nothing, inherits it.
+      expect(point.contracts[0]).toMatchObject({
+        autoPay: null,
+        directDebit: true,
+        autoPaid: true,
+      });
+      expect(ours.map((bill) => bill.autoPaid)).toEqual([true, true]);
+      // Your choice on the contract wins for every bill of it.
+      expect(
+        (
+          await send('PATCH', `/supply-contracts/${a.contractId}`, {
+            autoPay: false,
+          })
+        ).status,
+      ).toBe(200);
+      const paidByMe = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(
+        paidByMe
+          .filter((bill) => bill.contractId === a.contractId)
+          .map((bill) => bill.autoPaid),
+      ).toEqual([false, false]);
+      await send('PATCH', `/supply-contracts/${a.contractId}`, {
+        autoPay: null,
+      });
 
       const orgs = await json<OrganizationDto[]>(
         await send('GET', '/organizations'),

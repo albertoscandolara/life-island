@@ -106,6 +106,12 @@ export const subscriptionRequestSchema = z.object({
   /** The next renewal (or the trial's end). */
   renewsOn: lifeOptionalDate,
   autoRenew: z.boolean().optional(),
+  /**
+   * Charged on its own (a card on file, a direct debit on your bank
+   * account): its renewals show in the agenda as paid automatically, never
+   * as something to do.
+   */
+  autoPay: z.boolean().optional(),
   /** Days of notice the contract asks before a renewal. */
   noticeDays: z.number().int().min(0).max(365).optional(),
   /** The end of a minimum term (vincolo), when cancelling costs a fee. */
@@ -133,6 +139,7 @@ export type SubscriptionDto = LifeRecord<{
   startOn: string | null;
   renewsOn: string | null;
   autoRenew: boolean;
+  autoPay: boolean;
   noticeDays: number;
   lockedUntil: string | null;
   status: SubscriptionStatus;

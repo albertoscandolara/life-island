@@ -198,11 +198,15 @@ export class SubscriptionsService implements OnApplicationBootstrap {
               ? `${i.name}: the free trial ends`
               : `${i.name} renews`,
           detail: i.autoRenew
-            ? 'It renews on its own.'
+            ? i.autoPay && i.status !== 'trial'
+              ? `It renews and is charged on its own${i.paidWith ? ` (${i.paidWith})` : ''}: nothing to do.`
+              : 'It renews on its own.'
             : 'It does not renew on its own.',
           date: i.nextRenewal,
           amount: i.cost,
           path: '/subscriptions',
+          // A trial's end is a choice to make, never a payment to skip.
+          autoPaid: i.autoRenew && i.autoPay && i.status !== 'trial',
         });
       if (i.lockedUntil && inDeadlineWindow(i.lockedUntil, window))
         out.push({

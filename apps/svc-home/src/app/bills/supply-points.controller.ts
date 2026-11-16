@@ -14,6 +14,7 @@ import type { ServiceDb } from '@life-island/be-common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   updateOrganizationRequestSchema,
+  updateSupplyContractRequestSchema,
   updateSupplyPointRequestSchema,
   type OrganizationDto,
   type SupplyPointDto,
@@ -28,6 +29,7 @@ import {
   supplyPoints,
 } from '../db/schema.js';
 import { listOrganizations } from '../organizations/organizations.js';
+import { contractDirectDebit } from './auto-pay.js';
 import { normalizeTaxCode, organizationKey } from './bill-reader.js';
 import { BillsService } from './bills.service.js';
 
@@ -44,7 +46,7 @@ export class SupplyPointsController {
 
   @Get('supply-points')
   async list(): Promise<SupplyPointDto[]> {
-    const [points, contracts, orgs, counts] = await Promise.all([
+    const [points, contracts, orgs, counts, payments] = await Promise.all([
       this.svc.db.select().from(supplyPoints),
       this.svc.db.select().from(supplyContracts),
       this.svc.db.select().from(organizations),
@@ -63,8 +65,18 @@ export class SupplyPointsController {
         .from(bills)
         .where(sql`${bills.duplicateOf} is null`)
         .groupBy(bills.contractId, bills.supplyPointId),
+      this.svc.db
+        .select({
+          contractId: bills.contractId,
+          directDebit: bills.directDebit,
+          issueDate: bills.issueDate,
+          periodEnd: bills.periodEnd,
+          dueDate: bills.dueDate,
+        })
+        .from(bills),
     ]);
     const nameOf = new Map(orgs.map((o) => [o.id, o.name]));
+    const detected = contractDirectDebit(payments);
     return points
       .map((p) => {
         const own = counts.filter((c) => c.pointId === p.id);
@@ -98,6 +110,9 @@ export class SupplyPointsController {
                 firstDay: days('first')[0] ?? null,
                 lastDay: days('last').at(-1) ?? null,
                 billCount: used.reduce((sum, u) => sum + u.count, 0),
+                autoPay: c.autoPay,
+                directDebit: detected.get(c.id) ?? null,
+                autoPaid: c.autoPay ?? detected.get(c.id) ?? false,
               };
             })
             .sort((a, b) => (b.lastDay ?? '').localeCompare(a.lastDay ?? ''))
@@ -130,6 +145,27 @@ export class SupplyPointsController {
         throw new BadRequestException(`Property ${propertyId} not found`);
     }
     await this.bills.moveSupplyPoint(id, propertyId);
+    return { ok: true };
+  }
+
+  /**
+   * Whether a supply contract's bills are paid on their own (domiciliazione,
+   * SDD): true or false is your choice for every bill of it, past and new;
+   * null follows what the bills print.
+   */
+  @Patch('supply-contracts/:id')
+  async updateContract(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true }> {
+    const { autoPay } = parseOrThrow(updateSupplyContractRequestSchema, body);
+    const [contract] = await this.svc.db
+      .update(supplyContracts)
+      .set({ autoPay })
+      .where(eq(supplyContracts.id, id))
+      .returning({ id: supplyContracts.id });
+    if (!contract)
+      throw new NotFoundException(`Supply contract ${id} not found`);
     return { ok: true };
   }
 

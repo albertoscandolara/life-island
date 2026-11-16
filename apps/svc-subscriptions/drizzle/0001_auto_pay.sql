@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions"."contracts" ADD COLUMN "auto_pay" boolean DEFAULT true NOT NULL;

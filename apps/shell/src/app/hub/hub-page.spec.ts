@@ -77,6 +77,7 @@ describe('HubPage', () => {
             daysLeft: -2,
             urgency: 'overdue',
             handled: false,
+            autoPaid: false,
             itemId: null,
             category: null,
           },

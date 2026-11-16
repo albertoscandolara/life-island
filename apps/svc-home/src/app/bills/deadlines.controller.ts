@@ -36,12 +36,18 @@ export class HomeDeadlinesController {
               module: 'home',
               kind: 'bill',
               title: `${UTILITY_NAMES[bill.utility]} bill due${bill.provider ? ` · ${bill.provider}` : ''}`,
-              detail: bill.invoiceNumber
-                ? `Invoice ${bill.invoiceNumber}. Nothing to do if it is paid by direct debit.`
-                : 'Nothing to do if it is paid by direct debit.',
+              detail: [
+                bill.invoiceNumber ? `Invoice ${bill.invoiceNumber}.` : null,
+                bill.autoPaid
+                  ? 'Paid by direct debit on your bank account: nothing to do.'
+                  : 'Nothing to do if it is paid by direct debit: say so on its supply contract in Houses → Bills.',
+              ]
+                .filter(Boolean)
+                .join(' '),
               date: bill.dueDate,
               amount: bill.totalDue ?? bill.amount,
               path: '/home',
+              autoPaid: bill.autoPaid,
             },
           ]
         : [],

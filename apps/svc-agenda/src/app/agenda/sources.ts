@@ -43,7 +43,11 @@ export async function readDeadlines(
         const body = (await response.json()) as unknown;
         const deadlines = (Array.isArray(body) ? body : [])
           .filter(isDeadline)
-          .map((d) => ({ ...d, module: source.module }));
+          .map((d) => ({
+            ...d,
+            module: source.module,
+            autoPaid: d.autoPaid === true,
+          }));
         status.ok = true;
         status.count = deadlines.length;
         return { status, deadlines };
