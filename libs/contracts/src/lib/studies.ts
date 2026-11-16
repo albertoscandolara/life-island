@@ -83,14 +83,21 @@ export const TRAINING_PLATFORM_PRESETS: readonly TrainingPlatformPreset[] = [
     name: 'Udemy',
     url: 'https://www.udemy.com/',
     plan: 'per-course',
-    topics: ['ai', 'frameworks', 'infrastructure', 'leadership', '3d'],
+    topics: [
+      'ai',
+      'frameworks',
+      'infrastructure',
+      'leadership',
+      '3d',
+      'finance',
+    ],
     note: 'Every topic; buy courses on sale, check the reviews and the update date.',
   },
   {
     name: 'Coursera',
     url: 'https://www.coursera.org/',
     plan: 'subscription',
-    topics: ['ai', 'infrastructure', 'leadership'],
+    topics: ['ai', 'infrastructure', 'leadership', 'finance'],
     note: 'University and company programmes with certificates.',
   },
   {
@@ -169,6 +176,20 @@ export const TRAINING_PLATFORM_PRESETS: readonly TrainingPlatformPreset[] = [
     plan: 'subscription',
     topics: ['frameworks'],
     note: 'Short, focused lessons on React, TypeScript and tools.',
+  },
+  {
+    name: 'Quello che conta',
+    url: 'https://www.quellocheconta.gov.it/',
+    plan: 'free',
+    topics: ['finance'],
+    note: 'The national financial education portal: budget, saving, pension, taxes, in Italian.',
+  },
+  {
+    name: 'Banca d’Italia, L’economia per tutti',
+    url: 'https://economiapertutti.bancaditalia.it/',
+    plan: 'free',
+    topics: ['finance'],
+    note: 'Free guides on accounts, loans, mortgages and investing.',
   },
 ];
 

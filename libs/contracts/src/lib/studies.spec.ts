@@ -45,7 +45,7 @@ describe('learning paths', () => {
     }
   });
 
-  it('cover what Studies was asked for: AI coding, frameworks, infrastructure, leadership and 3D', () => {
+  it('cover what Studies was asked for: AI coding, frameworks, infrastructure, leadership, 3D and finance', () => {
     expect(LEARNING_PATHS.map((p) => p.topic)).toEqual(
       expect.arrayContaining([
         'ai',
@@ -53,6 +53,7 @@ describe('learning paths', () => {
         'infrastructure',
         'leadership',
         '3d',
+        'finance',
       ]),
     );
     expect(LEARNING_PATHS.every((p) => p.level === 'beginner')).toBe(true);
