@@ -149,9 +149,24 @@ export interface Tax730AttachmentDto {
   document: Tax730DocumentDto | null;
   /**
    * Found by the 730 itself (a Certificazione Unica of the year in your
-   * documents), not filed by you: there is nothing to remove.
+   * documents, or a transfer that paid this invoice together with others),
+   * not filed by you: there is nothing to remove.
    */
   automatic?: boolean;
+  /**
+   * A payment proof that paid other expenses too, in one transfer: those
+   * expenses. Each is counted with its own amount.
+   */
+  paysToo?: SharedPaymentExpenseDto[];
+}
+
+/** Another expense paid with the same transfer. */
+export interface SharedPaymentExpenseDto {
+  id: string;
+  date: string;
+  amount: number;
+  issuer: string;
+  description: string | null;
 }
 
 /** An expense with the documents that prove it. */
@@ -173,6 +188,8 @@ export interface PairedExpenseDto {
   kind: Tax730ExpenseKind;
   /** Paired by the 730 area, not confirmed by you yet. */
   automatic: boolean;
+  /** The other expenses this same payment paid (one transfer, several invoices). */
+  paysToo: SharedPaymentExpenseDto[];
 }
 
 export interface DossierExpenseDto extends ExpenseDto {
@@ -185,6 +202,8 @@ export interface DossierExpenseDto extends ExpenseDto {
   pairing: Tax730PairingDecision | null;
   /** The payments (or second receipts) that are this same expense. Only this one is counted. */
   paired: PairedExpenseDto[];
+  /** The other expenses paid with one of its payments: one transfer, several invoices. */
+  paidTogetherWith: SharedPaymentExpenseDto[];
 }
 
 /**

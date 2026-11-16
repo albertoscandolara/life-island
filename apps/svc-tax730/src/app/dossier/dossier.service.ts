@@ -25,6 +25,7 @@ import {
   type Tax730DocumentDto,
   type Tax730PairingDecision,
   type SetExpensePairingRequest,
+  type SharedPaymentExpenseDto,
   type TaxYearDossierDto,
   type TaxYearDto,
   type UpdateExpenseChanges,
@@ -67,7 +68,8 @@ import {
   returnsOf,
   taxReturnOf,
 } from '../deductions/returns.js';
-import { toDocumentDto } from '../documents/document-view.js';
+import { documentAmount, toDocumentDto } from '../documents/document-view.js';
+import { sharePayments } from '../expenses/shared-payments.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
 import {
@@ -113,6 +115,7 @@ function pairableOf(
     details: [row.description, source?.description].filter(Boolean).join(' '),
     pairedWith: row.pairedWith,
     pairing: row.pairing as PairingDecision | null,
+    paysToo: row.paysToo,
   };
 }
 /** Keys a document's issuer is read under, in order of preference. */
@@ -258,11 +261,13 @@ export class DossierService {
     for (const row of expenseRows) {
       const pair = pairs.get(row.id);
       if (!pair) continue;
-      members.set(pair.primaryId, [
-        ...(members.get(pair.primaryId) ?? []),
-        row,
-      ]);
+      // One transfer for several invoices: it is shown with each of them.
+      for (const primaryId of [pair.primaryId, ...pair.alsoPays]) {
+        if (primaryId !== pair.primaryId && pairs.has(primaryId)) continue;
+        members.set(primaryId, [...(members.get(primaryId) ?? []), row]);
+      }
     }
+    const rowsById = new Map(expenseRows.map((row) => [row.id, row]));
     const kindOf = (row: ExpenseRow) => kinds.get(row.id) ?? 'INVOICE';
     // The document an expense was read from is its invoice, or its payment
     // proof when it was read from a transfer receipt; a role you chose wins.
@@ -280,6 +285,28 @@ export class DossierService {
       return (
         row.description ?? (source && !source.deletedAt ? source.title : null)
       );
+    };
+    const sharedDto = (id: string): SharedPaymentExpenseDto[] => {
+      const row = rowsById.get(id);
+      return row
+        ? [
+            {
+              id: row.id,
+              date: row.date,
+              amount: row.amount,
+              issuer: row.issuer,
+              description: descriptionOf(row),
+            },
+          ]
+        : [];
+    };
+    /** The other invoices a payment paid, seen from one of them. */
+    const paysTooOf = (paymentId: string, seenFrom: string) => {
+      const pair = pairs.get(paymentId);
+      if (!pair?.alsoPays.length) return [];
+      return [pair.primaryId, ...pair.alsoPays]
+        .filter((id) => id !== seenFrom)
+        .flatMap(sharedDto);
     };
     const traceable = (row: ExpenseRow, group: ExpenseRow[]) =>
       [row, ...group].some((e) => kindOf(e) === 'PAYMENT')
@@ -338,12 +365,18 @@ export class DossierService {
           description: descriptionOf(member),
           kind: kindOf(member),
           automatic: pairs.get(member.id)?.automatic ?? true,
+          paysToo: paysTooOf(member.id, row.id),
         })),
+        paidTogetherWith: [],
       };
       const list = expensesByYear.get(row.taxYear) ?? [];
       list.push(dto);
       expensesByYear.set(row.taxYear, list);
     }
+
+    // One transfer filed as the payment proof of several invoices.
+    for (const list of expensesByYear.values())
+      this.sharePaymentDocuments(list, documentsById);
 
     // A year shows once it has an expense, a document of its own, a CU, a
     // return or a payslip (its return is then forecast).
@@ -387,6 +420,88 @@ export class DossierService {
           returns,
         ),
       );
+  }
+
+  /**
+   * Shows a payment document that paid several expenses with each of them:
+   * filed with several by you, or offered to the invoices it adds up with.
+   * Sets `paidTogetherWith` from these and from shared payment expenses.
+   */
+  private sharePaymentDocuments(
+    list: DossierExpenseDto[],
+    documentsById: Map<string, DocumentRow>,
+  ): void {
+    const byId = new Map(list.map((e) => [e.id, e]));
+    const shared = sharePayments(
+      list.map((e) => ({
+        id: e.id,
+        date: e.date,
+        amount: e.amount,
+        issuer: e.issuer,
+        text: [e.description, e.documentNumber].filter(Boolean).join(' '),
+        paymentUploads: e.attachments
+          .filter((a) => a.role === 'PAYMENT')
+          .map((a) => a.uploadId),
+      })),
+      (uploadId) => {
+        const document = documentsById.get(uploadId);
+        if (!document || document.deletedAt) return undefined;
+        return {
+          amount: documentAmount(document.fields),
+          text: [
+            document.title,
+            document.originalFilename,
+            documentIssuer(document) ?? '',
+          ].join(' '),
+        };
+      },
+    );
+    const summary = (e: DossierExpenseDto): SharedPaymentExpenseDto => ({
+      id: e.id,
+      date: e.date,
+      amount: e.amount,
+      issuer: e.issuer,
+      description: e.description,
+    });
+    for (const payment of shared) {
+      const document = documentsById.get(payment.uploadId);
+      for (const id of payment.expenseIds) {
+        const expense = byId.get(id);
+        if (!expense) continue;
+        const paysToo = payment.expenseIds
+          .filter((other) => other !== id)
+          .flatMap((other) => {
+            const e = byId.get(other);
+            return e ? [summary(e)] : [];
+          });
+        const filed = expense.attachments.find(
+          (a) => a.uploadId === payment.uploadId,
+        );
+        if (filed)
+          expense.attachments = expense.attachments.map((a) =>
+            a.uploadId === payment.uploadId ? { ...a, paysToo } : a,
+          );
+        else
+          expense.attachments = [
+            ...expense.attachments,
+            {
+              uploadId: payment.uploadId,
+              role: 'PAYMENT' as const,
+              document: document ? toDocumentDto(document) : null,
+              automatic: true,
+              paysToo,
+            },
+          ].sort(byRole);
+        expense.hasPaymentProof = true;
+      }
+    }
+    for (const expense of list) {
+      const seen = new Set<string>([expense.id]);
+      expense.paidTogetherWith = [
+        ...expense.attachments.flatMap((a) => a.paysToo ?? []),
+        ...expense.paired.flatMap((p) => p.paysToo),
+      ].filter((e) => !seen.has(e.id) && seen.add(e.id));
+    }
   }
 
   /** The filing deadline of each year (and the Redditi PF second advance), for the Agenda. */
@@ -479,8 +594,10 @@ export class DossierService {
       missingInvoiceCount: yearExpenses.filter((e) => !e.hasInvoice).length,
       missingPaymentCount: yearExpenses.filter((e) => !e.hasPaymentProof)
         .length,
-      pairsToReviewCount: yearExpenses.filter((e) =>
-        e.paired.some((p) => p.automatic),
+      pairsToReviewCount: yearExpenses.filter(
+        (e) =>
+          e.paired.some((p) => p.automatic) ||
+          e.attachments.some((a) => a.automatic && a.paysToo?.length),
       ).length,
       deductions,
       byMonth,
@@ -602,7 +719,7 @@ export class DossierService {
     if (request.pairedWith === null) {
       await this.svc.db
         .update(expenses)
-        .set({ pairedWith: null, pairing: 'SEPARATE' })
+        .set({ pairedWith: null, pairing: 'SEPARATE', paysToo: [] })
         .where(eq(expenses.id, id));
       return this.dossier(expense.taxYear);
     }
@@ -632,7 +749,7 @@ export class DossierService {
       // The target was one of this expense's payments: it becomes the one counted.
       await tx
         .update(expenses)
-        .set({ pairedWith: null, pairing: null })
+        .set({ pairedWith: null, pairing: null, paysToo: [] })
         .where(and(eq(expenses.id, targetId), eq(expenses.pairedWith, id)));
       await tx
         .update(expenses)
@@ -642,7 +759,7 @@ export class DossierService {
         );
       await tx
         .update(expenses)
-        .set({ pairedWith: targetId, pairing: 'CONFIRMED' })
+        .set({ pairedWith: targetId, pairing: 'CONFIRMED', paysToo: [] })
         .where(eq(expenses.id, id));
     });
     return this.dossier(expense.taxYear);
@@ -655,10 +772,27 @@ export class DossierService {
    */
   async removeExpense(id: string): Promise<TaxYearDossierDto> {
     const row = await this.svc.db.transaction(async (tx) => {
-      // Its confirmed payments go back to being paired automatically.
+      // A transfer that paid it with other invoices keeps paying the others.
       await tx
         .update(expenses)
-        .set({ pairedWith: null, pairing: null })
+        .set({ paysToo: sql`array_remove(${expenses.paysToo}, ${id}::uuid)` })
+        .where(sql`${id}::uuid = any(${expenses.paysToo})`);
+      await tx
+        .update(expenses)
+        .set({
+          pairedWith: sql`${expenses.paysToo}[1]`,
+          paysToo: sql`${expenses.paysToo}[2:]`,
+        })
+        .where(
+          and(
+            eq(expenses.pairedWith, id),
+            sql`cardinality(${expenses.paysToo}) > 0`,
+          ),
+        );
+      // Its other confirmed payments go back to being paired automatically.
+      await tx
+        .update(expenses)
+        .set({ pairedWith: null, pairing: null, paysToo: [] })
         .where(eq(expenses.pairedWith, id));
       const [deleted] = await tx
         .delete(expenses)
@@ -674,7 +808,7 @@ export class DossierService {
   async resetPairing(id: string): Promise<TaxYearDossierDto> {
     const [row] = await this.svc.db
       .update(expenses)
-      .set({ pairedWith: null, pairing: null })
+      .set({ pairedWith: null, pairing: null, paysToo: [] })
       .where(eq(expenses.id, id))
       .returning();
     if (!row) throw new NotFoundException(`Expense ${id} not found`);
@@ -686,12 +820,31 @@ export class DossierService {
     const expense = await this.expense(id);
     if (!expense) throw new NotFoundException(`Expense ${id} not found`);
     const group = await this.dossierExpense(expense);
-    const automatic = group.paired.filter((p) => p.automatic).map((p) => p.id);
-    if (automatic.length)
-      await this.svc.db
-        .update(expenses)
-        .set({ pairedWith: group.id, pairing: 'CONFIRMED' })
-        .where(inArray(expenses.id, automatic));
+    const automatic = group.paired.filter((p) => p.automatic);
+    await this.svc.db.transaction(async (tx) => {
+      // A transfer that paid other invoices too keeps paying them.
+      for (const payment of automatic)
+        await tx
+          .update(expenses)
+          .set({
+            pairedWith: group.id,
+            pairing: 'CONFIRMED',
+            paysToo: payment.paysToo.map((other) => other.id),
+          })
+          .where(eq(expenses.id, payment.id));
+      // A transfer offered to this invoice is filed with it.
+      for (const attachment of group.attachments.filter((a) => a.automatic))
+        await tx
+          .insert(attachments)
+          .values({
+            taxYear: expense.taxYear,
+            expenseId: group.id,
+            uploadId: attachment.uploadId,
+            role: attachment.role,
+            chosen: true,
+          })
+          .onConflictDoNothing();
+    });
     return this.dossier(expense.taxYear);
   }
 

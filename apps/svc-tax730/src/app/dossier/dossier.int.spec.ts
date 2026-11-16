@@ -618,6 +618,191 @@ describe.skipIf(!configured)(
       }
     });
 
+    it('shows one transfer that paid several invoices with each of them', async () => {
+      // Before every other test's years, so none shares it.
+      const year = 1800 + Math.floor(Math.random() * 90);
+      const docs = {
+        fridge: randomUUID(),
+        washer: randomUUID(),
+        transfer: randomUUID(),
+        oven: randomUUID(),
+        ovenTransfer: randomUUID(),
+      };
+      const approve = async (
+        uploadId: string,
+        title: string,
+        date: string,
+        amount: number,
+        issuer: string,
+      ) => {
+        await apply('upload.updated@1', uploaded(uploadId, title, {}));
+        await apply(
+          'record.approved@1',
+          {
+            recordId: randomUUID(),
+            uploadId,
+            category: 'tax730',
+            targetKey: 'tax730.expense@1',
+            payload: {
+              taxYear: year,
+              expenseType: 'furniture',
+              date: `${year}-${date}`,
+              amount,
+              issuer,
+            },
+            approvedAt: new Date().toISOString(),
+          } satisfies RecordApprovedV1,
+          handle,
+        );
+      };
+      const LESO = 'LESO ELETTRODOMESTICI S.R.L.';
+      try {
+        await approve(
+          docs.fridge,
+          '0117 000319 LESO Frigo Ponzilovo Fattura',
+          '05-06',
+          550,
+          LESO,
+        );
+        await approve(
+          docs.washer,
+          '0117 000292 LESO Lavatrice Ponzilovo Fattura',
+          '05-25',
+          304,
+          LESO,
+        );
+        // The transfer is an archived document, not an expense: you file it
+        // with the washer, and the fridge is offered it too.
+        await apply(
+          'upload.updated@1',
+          uploaded(docs.transfer, 'LESO Lavatrice e Frigo Ponzilovo', {
+            total_amount: 854,
+          }),
+        );
+        let dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/tax-years/${year}`),
+        );
+        const [fridge, washer] = dossier.expenses;
+        await json(
+          await fetch(`${base}/expenses/${washer.id}/attachments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ uploadId: docs.transfer, role: 'PAYMENT' }),
+          }),
+        );
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/tax-years/${year}`),
+        );
+        expect(dossier).toMatchObject({
+          total: 854,
+          expenseCount: 2,
+          missingPaymentCount: 0,
+          pairsToReviewCount: 1,
+        });
+        const shownWithFridge = dossier.expenses[0].attachments.find(
+          (a) => a.uploadId === docs.transfer,
+        );
+        expect(shownWithFridge).toMatchObject({
+          role: 'PAYMENT',
+          automatic: true,
+        });
+        expect(shownWithFridge?.paysToo?.map((e) => e.id)).toEqual([washer.id]);
+        expect(
+          dossier.expenses[1].paidTogetherWith.map((e) => e.amount),
+        ).toEqual([550]);
+
+        // Confirmed: it is filed with the fridge too.
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${fridge.id}/pairing/confirm`, {
+            method: 'POST',
+          }),
+        );
+        expect(dossier.pairsToReviewCount).toBe(0);
+        const filedWithFridge = dossier.expenses[0].attachments.find(
+          (a) => a.uploadId === docs.transfer,
+        );
+        expect(filedWithFridge?.automatic).toBeUndefined();
+        expect(filedWithFridge?.paysToo?.map((e) => e.id)).toEqual([washer.id]);
+
+        // A bank receipt read as an expense: paired with both invoices it
+        // adds up to, counted through them only.
+        await approve(
+          docs.oven,
+          '0117 000256 LESO Forno induzione Fattura',
+          '06-14',
+          400,
+          LESO,
+        );
+        await approve(
+          docs.ovenTransfer,
+          'LESO Forno e Lavastoviglie Bonifico',
+          '06-15',
+          900,
+          'Banca Widiba',
+        );
+        const dishwasher = randomUUID();
+        Object.assign(docs, { dishwasher });
+        await approve(
+          dishwasher,
+          '0117 000257 LESO Lavastoviglie Fattura',
+          '06-14',
+          500,
+          LESO,
+        );
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/tax-years/${year}`),
+        );
+        expect(dossier.total).toBe(1754);
+        const oven = dossier.expenses.find((e) => e.amount === 400)!;
+        const dish = dossier.expenses.find((e) => e.amount === 500)!;
+        expect(oven.hasPaymentProof && dish.hasPaymentProof).toBe(true);
+        expect(oven.paired.map((p) => p.amount)).toEqual([900]);
+        expect(oven.paired[0].paysToo.map((e) => e.id)).toEqual([dish.id]);
+        expect(dish.paidTogetherWith.map((e) => e.id)).toEqual([oven.id]);
+
+        // Confirming it from one invoice keeps it paying the other.
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${dish.id}/pairing/confirm`, {
+            method: 'POST',
+          }),
+        );
+        const confirmed = dossier.expenses.find((e) => e.id === oven.id)!;
+        expect(confirmed.paired.map((p) => [p.amount, p.automatic])).toEqual([
+          [900, false],
+        ]);
+        expect(dossier.total).toBe(1754);
+        expect(dossier.pairsToReviewCount).toBe(0);
+
+        // The dishwasher removed: the transfer still pays the oven.
+        dossier = await json<TaxYearDossierDto>(
+          await fetch(`${base}/expenses/${dish.id}`, { method: 'DELETE' }),
+        );
+        const left = dossier.expenses.find((e) => e.id === oven.id)!;
+        expect(left.paired.map((p) => [p.amount, p.automatic])).toEqual([
+          [900, false],
+        ]);
+        expect(left.paired[0].paysToo).toEqual([]);
+        expect(dossier.total).toBe(1254);
+      } finally {
+        await svc.pool.query(
+          `delete from tax730.attachments where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.expenses where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.tax_years where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.documents where upload_id = any($1)`,
+          [Object.values(docs)],
+        );
+      }
+    });
+
     it('keeps the newest snapshot of a document and remembers deletions', async () => {
       const id = randomUUID();
       const newer = uploaded(id, 'Newer title', {});

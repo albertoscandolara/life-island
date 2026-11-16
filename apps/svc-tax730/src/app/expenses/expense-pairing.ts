@@ -28,6 +28,11 @@ export interface PairableExpense {
   details?: string;
   pairedWith: string | null;
   pairing: PairingDecision | null;
+  /**
+   * The other invoices this payment paid too, beyond `pairedWith`, when you
+   * confirmed that one transfer paid several invoices.
+   */
+  paysToo?: readonly string[];
 }
 
 export interface Pairing {
@@ -35,6 +40,11 @@ export interface Pairing {
   primaryId: string;
   /** False once you confirmed it. */
   automatic: boolean;
+  /**
+   * The other invoices the same payment paid: one transfer for several
+   * invoices. Each invoice is counted with its own amount; the payment is not.
+   */
+  alsoPays: string[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -192,11 +202,22 @@ export function pairExpenses(
     if (expense.pairing !== 'CONFIRMED' || !expense.pairedWith) continue;
     const root = rootOf(expense);
     if (root && root.id !== expense.id)
-      result.set(expense.id, { primaryId: root.id, automatic: false });
+      result.set(expense.id, {
+        primaryId: root.id,
+        automatic: false,
+        alsoPays: [...new Set(expense.paysToo ?? [])].filter(
+          (id) => id !== root.id && byId.has(id),
+        ),
+      });
   }
   const confirmedPrimaries = new Set(
     [...result.values()].map((pairing) => pairing.primaryId),
   );
+  // Invoices a confirmed payment already pays: never paid again automatically.
+  const paidInvoices = new Set([
+    ...confirmedPrimaries,
+    ...[...result.values()].flatMap((pairing) => pairing.alsoPays),
+  ]);
 
   // Only an expense with no decision of yours is ever paired automatically.
   const free = expenses.filter((e) => !e.pairing && !result.has(e.id));
@@ -271,38 +292,85 @@ export function pairExpenses(
       .slice(0, MAX_CANDIDATES);
     const best = bestSubset(candidates, invoice.amount);
     if (!best) continue;
+    paidInvoices.add(invoice.id);
     for (const cluster of best) {
       used.add(cluster);
       for (const payment of [cluster.head, ...cluster.members])
-        result.set(payment.id, { primaryId: invoice.id, automatic: true });
+        result.set(payment.id, {
+          primaryId: invoice.id,
+          automatic: true,
+          alsoPays: [],
+        });
     }
+  }
+
+  // 3b. One transfer that paid several invoices of the same supplier at once:
+  // 854 € for a fridge of 550 € and a washing machine of 304 €. Each invoice
+  // is counted with its own amount, the transfer proves them all.
+  for (const cluster of clusters) {
+    if (used.has(cluster) || !movable(cluster)) continue;
+    const candidates = invoices
+      .filter(
+        (invoice) =>
+          !paidInvoices.has(invoice.id) &&
+          invoice.taxYear === cluster.head.taxYear &&
+          invoice.amount < cluster.amount &&
+          days(cluster.head.date, invoice.date) <= PAYS_INVOICE_DAYS &&
+          shareAWord(cluster.words, words.get(invoice.id) ?? new Set()),
+      )
+      .sort(
+        (a, b) =>
+          days(a.date, cluster.head.date) - days(b.date, cluster.head.date),
+      )
+      .slice(0, MAX_CANDIDATES);
+    const best = bestSubset(candidates, cluster.amount, 2);
+    if (!best) continue;
+    used.add(cluster);
+    const [primary, ...others] = [...best].sort(byDate);
+    for (const invoice of best) paidInvoices.add(invoice.id);
+    for (const payment of [cluster.head, ...cluster.members])
+      result.set(payment.id, {
+        primaryId: primary.id,
+        automatic: true,
+        alsoPays: others.map((invoice) => invoice.id),
+      });
   }
 
   // 4. A transfer with no invoice counts once, through its first receipt.
   for (const cluster of clusters) {
     if (used.has(cluster)) continue;
     for (const member of cluster.members)
-      result.set(member.id, { primaryId: cluster.head.id, automatic: true });
+      result.set(member.id, {
+        primaryId: cluster.head.id,
+        automatic: true,
+        alsoPays: [],
+      });
   }
   return result;
 }
 
-/** The transfers that add up to the invoice, fewest first; null when none do. */
-function bestSubset(candidates: Cluster[], amount: number): Cluster[] | null {
-  let best: { clusters: Cluster[]; gap: number } | null = null;
+/**
+ * The items (transfers, or invoices) that add up to the amount, fewest first;
+ * null when none do. `minSize` asks for at least that many items.
+ */
+export function bestSubset<T extends { amount: number }>(
+  candidates: readonly T[],
+  amount: number,
+  minSize = 1,
+): T[] | null {
+  let best: { items: T[]; gap: number } | null = null;
   const limit = tolerance(amount);
   for (let mask = 1; mask < 1 << candidates.length; mask++) {
-    const clusters = candidates.filter((_, i) => mask & (1 << i));
-    const gap = Math.abs(
-      clusters.reduce((sum, c) => sum + c.amount, 0) - amount,
-    );
+    const items = candidates.filter((_, i) => mask & (1 << i));
+    if (items.length < minSize) continue;
+    const gap = Math.abs(items.reduce((sum, c) => sum + c.amount, 0) - amount);
     if (gap > limit) continue;
     if (
       !best ||
-      clusters.length < best.clusters.length ||
-      (clusters.length === best.clusters.length && gap < best.gap)
+      items.length < best.items.length ||
+      (items.length === best.items.length && gap < best.gap)
     )
-      best = { clusters, gap };
+      best = { items, gap };
   }
-  return best?.clusters ?? null;
+  return best?.items ?? null;
 }

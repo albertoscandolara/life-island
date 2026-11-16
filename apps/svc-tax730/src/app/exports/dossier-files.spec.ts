@@ -50,6 +50,7 @@ const expense = (
   kind: 'INVOICE',
   pairing: null,
   paired: [],
+  paidTogetherWith: [],
   ...overrides,
 });
 

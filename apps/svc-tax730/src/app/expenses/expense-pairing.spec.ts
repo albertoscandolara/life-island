@@ -162,6 +162,7 @@ describe('pairing expenses', () => {
       expect(pairs.get(payment.id)).toEqual({
         primaryId: e.edilrensoInvoice.id,
         automatic: true,
+        alsoPays: [],
       });
     // Two receipts of one transfer, no invoice: counted once.
     expect(pairs.get(e.idrotermDetail.id)?.primaryId).toBe(
@@ -205,6 +206,7 @@ describe('pairing expenses', () => {
     expect(pairs.get(e.lesoWasher.id)).toEqual({
       primaryId: e.lesoInvoice.id,
       automatic: false,
+      alsoPays: [],
     });
   });
 
@@ -229,5 +231,85 @@ describe('pairing expenses', () => {
       1000,
     );
     expect(pairExpenses([invoice, nextYear, other]).size).toBe(0);
+  });
+});
+
+describe('one transfer that paid several invoices', () => {
+  function ponzilovo() {
+    next = 100;
+    return {
+      fridge: expense(
+        '2026-05-06',
+        'LESO ELETTRODOMESTICI S.R.L.',
+        '0117-000319 2026 05 06 0117 000319 LESO Frigo Ponzilovo Fattura',
+        550,
+      ),
+      washer: expense(
+        '2026-05-25',
+        'LESO ELETTRODOMESTICI S.R.L.',
+        '0117-000292 2026 05 25 0117 000292 LESO Lavatrice Ponzilovo Fattura',
+        304,
+      ),
+      transfer: expense(
+        '2026-05-26',
+        'Banca Widiba',
+        'LESO Lavatrice e Frigo Ponzilovo Bonifico',
+        854,
+      ),
+    };
+  }
+
+  it('pairs the transfer with every invoice it adds up to', () => {
+    const { fridge, washer, transfer } = ponzilovo();
+    const pairs = pairExpenses([fridge, washer, transfer]);
+    expect(pairs.get(transfer.id)).toEqual({
+      primaryId: fridge.id,
+      automatic: true,
+      alsoPays: [washer.id],
+    });
+    // Both invoices are counted, each with its own amount.
+    expect(pairs.has(fridge.id)).toBe(false);
+    expect(pairs.has(washer.id)).toBe(false);
+  });
+
+  it('prefers a transfer of the same amount as one invoice', () => {
+    const { fridge, washer, transfer } = ponzilovo();
+    const washerTransfer = expense(
+      '2026-05-25',
+      'Banca Widiba',
+      'LESO Lavatrice Ponzilovo Bonifico',
+      304,
+    );
+    const pairs = pairExpenses([fridge, washer, washerTransfer, transfer]);
+    expect(pairs.get(washerTransfer.id)?.primaryId).toBe(washer.id);
+    // The washer is paid, so 854 € no longer adds up: it stays on its own.
+    expect(pairs.has(transfer.id)).toBe(false);
+  });
+
+  it('does not pair invoices of another supplier', () => {
+    const { fridge, transfer } = ponzilovo();
+    const other = expense(
+      '2026-05-20',
+      'Idroterm di Caloi Alessandro',
+      'FPR 21 26 Idroterm Lavori idraulici Fattura',
+      304,
+    );
+    const pairs = pairExpenses([fridge, other, transfer]);
+    expect(pairs.has(transfer.id)).toBe(false);
+  });
+
+  it('keeps what you confirmed, with the other invoices it paid', () => {
+    const { fridge, washer, transfer } = ponzilovo();
+    const confirmed = {
+      ...transfer,
+      pairedWith: washer.id,
+      pairing: 'CONFIRMED' as const,
+      paysToo: [fridge.id, 'gone'],
+    };
+    expect(pairExpenses([fridge, washer, confirmed]).get(transfer.id)).toEqual({
+      primaryId: washer.id,
+      automatic: false,
+      alsoPays: [fridge.id],
+    });
   });
 });

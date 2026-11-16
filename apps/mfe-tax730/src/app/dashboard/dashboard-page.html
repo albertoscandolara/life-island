@@ -231,6 +231,11 @@
             <ui-badge tone="warning">To review</ui-badge>
             }
           </span>
+          } @if (e.paidTogetherWith.length) {
+          <span class="expense__paired">
+            <ui-icon name="layers" [size]="12" />
+            {{ paidTogetherSummary(e) }}
+          </span>
           }
         </span>
         <span class="expense__type">{{ typeLabel(e.expenseType) }}</span>
@@ -332,6 +337,23 @@
             <ui-badge [tone]="a.role === 'PAYMENT' ? 'info' : 'neutral'"
               >{{ roleLabels[a.role] }}</ui-badge
             >
+            @if (a.paysToo?.length) {
+            <span class="doc__shared">
+              One transfer, also paid: {{ sharedList(a.paysToo!) }}
+            </span>
+            } @if (a.automatic) {
+            <ui-badge tone="warning">Suggested</ui-badge>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [attr.aria-label]="'Keep ' + attachmentTitle(a) + ' as its payment proof'"
+              (click)="confirmPairing(e)"
+            >
+              <ui-icon name="check" [size]="16" /> Keep
+            </button>
+            } @else {
             <button
               uiButton
               variant="ghost"
@@ -343,6 +365,7 @@
             >
               <ui-icon name="x" [size]="16" />
             </button>
+            }
           </li>
           }
         </ul>
