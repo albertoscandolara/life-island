@@ -6,8 +6,15 @@ import {
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  deadlineWindow,
+  isoToday,
+  PAYSLIP_KEYS,
   TAX730_ATTACHMENT_ROLES,
   TAX_CERTIFICATE_KEYS,
+  TAX_RETURN_CATEGORY,
+  type DeadlineDto,
+  type DeadlinesQuery,
+  type Tax730FiledReturnDto,
   type AddAttachmentRequest,
   type DossierExpenseDto,
   type ExpenseDto,
@@ -24,7 +31,7 @@ import {
 } from '@life-island/contracts';
 import {
   and,
-  arrayContains,
+  arrayOverlaps,
   asc,
   desc,
   eq,
@@ -52,6 +59,14 @@ import {
   certificatesOf,
   type CertificateSource,
 } from '../deductions/income.js';
+import {
+  deadlinesOf,
+  forecastOf,
+  PAYSLIP_CATEGORY,
+  payslipsOf,
+  returnsOf,
+  taxReturnOf,
+} from '../deductions/returns.js';
 import { toDocumentDto } from '../documents/document-view.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
@@ -64,6 +79,11 @@ import {
 } from '../expenses/expense-pairing.js';
 
 type ListDocuments = z.output<typeof listTax730DocumentsQuerySchema>;
+
+/** Today in Italy, where the deadlines are. */
+export function today(): string {
+  return isoToday(process.env['SETTINGS_TIMEZONE'] || 'Europe/Rome');
+}
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
@@ -172,7 +192,8 @@ export class DossierService {
         .from(attachments)
         .where(years.length ? inArray(attachments.taxYear, years) : undefined)
         .orderBy(asc(attachments.createdAt)),
-      // Your Certificazioni Uniche: the income and tax of each year.
+      // Your Certificazioni Uniche, returns and payslips: the income and
+      // tax of each year, filed or forecast.
       db
         .select({
           uploadId: documents.uploadId,
@@ -185,15 +206,22 @@ export class DossierService {
         .where(
           and(
             isNull(documents.deletedAt),
-            arrayContains(documents.categories, [CERTIFICATE_CATEGORY]),
+            arrayOverlaps(documents.categories, [
+              CERTIFICATE_CATEGORY,
+              TAX_RETURN_CATEGORY,
+              PAYSLIP_CATEGORY,
+            ]),
           ),
         ),
     ]);
     const documentsById = await this.documentsById([
       ...expenseRows.map((row) => row.uploadId),
       ...attachmentRows.map((row) => row.uploadId),
-      ...certificateRows.map((row) => row.uploadId),
+      ...certificateRows
+        .filter((row) => !row.categories.includes(PAYSLIP_CATEGORY))
+        .map((row) => row.uploadId),
     ]);
+    const returns = returnsOf(certificateRows);
     const attachmentDto = (row: AttachmentRow): Tax730AttachmentDto => {
       const document = documentsById.get(row.uploadId);
       return {
@@ -317,17 +345,31 @@ export class DossierService {
       expensesByYear.set(row.taxYear, list);
     }
 
-    // A year shows once it has an expense, a document of its own or a CU.
+    // A year shows once it has an expense, a document of its own, a CU, a
+    // return or a payslip (its return is then forecast).
     const certificateYears = certificateRows
-      .map((row) => Number(row.fields?.[TAX_CERTIFICATE_KEYS.incomeYear]))
+      .map((row) =>
+        row.categories.includes(CERTIFICATE_CATEGORY)
+          ? Number(row.fields?.[TAX_CERTIFICATE_KEYS.incomeYear])
+          : row.categories.includes(PAYSLIP_CATEGORY)
+            ? Number(
+                String(row.fields?.[PAYSLIP_KEYS.period] ?? '').slice(0, 4),
+              )
+            : NaN,
+      )
       .filter(
         (year) =>
-          Number.isInteger(year) && (!years.length || years.includes(year)),
+          Number.isInteger(year) &&
+          year > 0 &&
+          (!years.length || years.includes(year)),
       );
     const allYears = new Set<number>([
       ...expensesByYear.keys(),
       ...byYear.keys(),
       ...certificateYears,
+      ...[...returns.keys()].filter(
+        (year) => !years.length || years.includes(year),
+      ),
     ]);
     return [...allYears]
       .sort((a, b) => b - a)
@@ -342,8 +384,29 @@ export class DossierService {
             const document = documentsById.get(uploadId);
             return document ? toDocumentDto(document) : null;
           },
+          returns,
         ),
       );
+  }
+
+  /** The filing deadline of each year (and the Redditi PF second advance), for the Agenda. */
+  async deadlines(query: DeadlinesQuery): Promise<DeadlineDto[]> {
+    const rows = await this.svc.db
+      .select({
+        uploadId: documents.uploadId,
+        title: documents.title,
+        categories: documents.categories,
+        fields: documents.fields,
+        uploadedAt: documents.uploadedAt,
+      })
+      .from(documents)
+      .where(
+        and(
+          isNull(documents.deletedAt),
+          arrayOverlaps(documents.categories, [TAX_RETURN_CATEGORY]),
+        ),
+      );
+    return deadlinesOf(deadlineWindow(query, today()), returnsOf(rows));
   }
 
   private summarize(
@@ -353,8 +416,10 @@ export class DossierService {
     estimated: EstimatedExpense[],
     certificateRows: CertificateSource[] = [],
     documentOf: (uploadId: string) => Tax730DocumentDto | null = () => null,
+    returns: ReadonlyMap<number, Tax730FiledReturnDto> = new Map(),
   ): TaxYearDossierDto {
     const certificates = certificatesOf(taxYear, certificateRows);
+    const filedReturn = returns.get(taxYear) ?? null;
     // The CUs the estimate uses are documents of the year too, with no need
     // to file them by hand (and nothing to remove: they come from Documents).
     const filed = new Set(yearDocuments.map((a) => a.uploadId));
@@ -366,6 +431,14 @@ export class DossierService {
         document: documentOf(c.uploadId),
         automatic: true,
       }));
+    // So is the year's return, once you upload it.
+    if (filedReturn && !filed.has(filedReturn.uploadId))
+      found.push({
+        uploadId: filedReturn.uploadId,
+        role: 'RETURN',
+        document: documentOf(filedReturn.uploadId),
+        automatic: true,
+      });
     const byMonth = Array.from({ length: 12 }, () => 0);
     for (const expense of yearExpenses) {
       const month = Number(expense.date.slice(5, 7)) - 1;
@@ -379,6 +452,20 @@ export class DossierService {
       entry.count++;
       byType.set(expense.expenseType, entry);
     }
+    const deductions = estimateDeductions(taxYear, estimated, certificates);
+    const payslips = certificates.length
+      ? []
+      : payslipsOf(taxYear, certificateRows);
+    const now = today();
+    const forecast = forecastOf({
+      taxYear,
+      currentYear: Number(now.slice(0, 4)),
+      certificates,
+      payslips,
+      deductions,
+      expenseCount: yearExpenses.length,
+      previousReturn: returns.get(taxYear - 1) ?? null,
+    });
     return {
       taxYear,
       filingYear: taxYear + 1,
@@ -395,8 +482,16 @@ export class DossierService {
       pairsToReviewCount: yearExpenses.filter((e) =>
         e.paired.some((p) => p.automatic),
       ).length,
-      deductions: estimateDeductions(taxYear, estimated, certificates),
+      deductions,
       byMonth,
+      taxReturn: taxReturnOf({
+        taxYear,
+        today: now,
+        returns,
+        forecast,
+        hasCertificates: certificates.length > 0,
+        payslipOnly: !certificates.length && payslips.length > 0,
+      }),
       expenses: yearExpenses,
       yearDocuments: [...found, ...yearDocuments].sort(byRole),
     };
@@ -448,9 +543,9 @@ export class DossierService {
   ): Promise<DossierExpenseDto> {
     const expense = await this.expense(expenseId);
     if (!expense) throw new NotFoundException(`Expense ${expenseId} not found`);
-    if (request.role === 'CERTIFICATION')
+    if (request.role === 'CERTIFICATION' || request.role === 'RETURN')
       throw new BadRequestException(
-        'A certification belongs to the whole year, not to one expense',
+        'A certification or a return belongs to the whole year, not to one expense',
       );
     await this.requireDocument(request.uploadId);
     await this.svc.db

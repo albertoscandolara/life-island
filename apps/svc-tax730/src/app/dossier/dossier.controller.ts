@@ -16,10 +16,12 @@ import {
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   addAttachmentRequestSchema,
+  deadlinesQuerySchema,
   exportQuerySchema,
   listTax730DocumentsQuerySchema,
   setExpensePairingRequestSchema,
   updateExpenseRequestSchema,
+  type DeadlineDto,
   type DossierExpenseDto,
   type ExpenseDto,
   type Tax730DocumentCandidateDto,
@@ -43,6 +45,12 @@ export class DossierController {
     @Inject(ExportsService) private readonly exports: ExportsService,
     @Inject(IngestionFiles) private readonly files: IngestionFiles,
   ) {}
+
+  /** The filing deadline of each year, done once its return is uploaded (read by the Agenda). */
+  @Get('deadlines')
+  deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
+    return this.dossier.deadlines(parseOrThrow(deadlinesQuerySchema, query));
+  }
 
   /** Totals per tax year, by expense type, with what is still missing. */
   @Get('tax-years')

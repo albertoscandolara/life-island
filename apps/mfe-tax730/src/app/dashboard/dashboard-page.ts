@@ -30,6 +30,7 @@ import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
 import { Tax730Guide } from '../guide/tax730-guide';
 import { DeductionsCard } from './deductions-card';
+import { ReturnCard } from './return-card';
 import { ExpenseEdit } from './expense-edit';
 import { ExpensePairs } from './expense-pairs';
 import { MonthChart } from './month-chart';
@@ -62,6 +63,7 @@ type PickerTarget =
     DocumentPicker,
     YearComparison,
     DeductionsCard,
+    ReturnCard,
     ExpensePairs,
     ExpenseEdit,
     MonthChart,

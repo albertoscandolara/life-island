@@ -47,6 +47,7 @@ export async function readDeadlines(
             ...d,
             module: source.module,
             autoPaid: d.autoPaid === true,
+            done: d.done === true,
           }));
         status.ok = true;
         status.count = deadlines.length;

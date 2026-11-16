@@ -19,6 +19,7 @@ export * from './lib/work-checks.js';
 export * from './lib/pension-fund.js';
 export * from './lib/document-links.js';
 export * from './lib/tax730-deductions.js';
+export * from './lib/tax730-returns.js';
 export * from './lib/settings.js';
 export * from './lib/studies-paths.js';
 export * from './lib/studies-scout.js';

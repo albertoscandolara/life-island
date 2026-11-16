@@ -359,6 +359,9 @@ export interface Tax730CertificateDto {
   /** Pension fund contributions the employer deducted (punto 412) and did not (punto 413). */
   pensionFundDeducted: number | null;
   pensionFundNotDeducted: number | null;
+  /** Employment tax credits (punti 367 + 368) and family ones (punto 362), for the forecast. */
+  workDeductions?: number | null;
+  familyDeductions?: number | null;
 }
 
 /**

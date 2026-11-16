@@ -44,6 +44,11 @@ export interface DeadlineDto {
    * "Coming up". Left out means false.
    */
   autoPaid?: boolean;
+  /**
+   * Already done, as the area knows from its own data (the year's tax
+   * return is uploaded): the agenda lists it as handled. Left out means false.
+   */
+  done?: boolean;
 }
 
 /** `GET /deadlines?from&to` on every area that has dates. */
@@ -93,6 +98,7 @@ export const DEADLINE_SOURCES = [
   { module: 'travel', name: 'Travel', emblem: '✈️', path: '/travel' },
   { module: 'fitness', name: 'Fitness', emblem: '🏃', path: '/fitness' },
   { module: 'dreams', name: 'Dreams', emblem: '🌄', path: '/dreams' },
+  { module: 'taxes', name: '730 & taxes', emblem: '🦖', path: '/taxes/730' },
 ] as const;
 export type DeadlineSourceId = (typeof DEADLINE_SOURCES)[number]['module'];
 
@@ -183,6 +189,12 @@ export interface CalendarDate {
   /** The area it is about, for its link. */
   module: string;
   path: string | null;
+  /**
+   * The area that publishes this date itself, better informed (the 730 area
+   * knows which form you file and whether it is filed): while that area
+   * answers, the calendar leaves the date to it.
+   */
+  replacedBy?: DeadlineSourceId;
 }
 
 /**
@@ -240,6 +252,7 @@ export const ITALIAN_CALENDAR: readonly CalendarDate[] = [
       'Last day to send the 730, on your own or through a CAF or the commercialista.',
     module: 'taxes',
     path: '/taxes/730',
+    replacedBy: 'taxes',
   },
   {
     id: 'winter-tyres',

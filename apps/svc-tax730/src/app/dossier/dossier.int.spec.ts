@@ -7,6 +7,7 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import type {
+  DeadlineDto,
   DossierExpenseDto,
   EventEnvelope,
   RecordApprovedV1,
@@ -40,6 +41,7 @@ describe.skipIf(!configured)(
     const transferId = randomUUID();
     const certificationId = randomUUID();
     const cuId = randomUUID();
+    const returnId = randomUUID();
     // Before any taxYear above, so the two tests never share a year.
     const cuYear = 1950 + Math.floor(Math.random() * 40);
 
@@ -81,7 +83,7 @@ describe.skipIf(!configured)(
       );
       await svc?.pool.query(
         `delete from tax730.documents where upload_id = any($1)`,
-        [[invoiceId, transferId, certificationId, cuId]],
+        [[invoiceId, transferId, certificationId, cuId, returnId]],
       );
       await svc?.close();
       await app?.close();
@@ -306,6 +308,59 @@ describe.skipIf(!configured)(
         }),
       ]);
       expect(year.deductions.income?.certificates).toHaveLength(1);
+    });
+
+    it('reads the return of the year: certain figures, compared with the forecast, deadline done', async () => {
+      await apply(
+        'upload.updated@1',
+        uploaded(
+          returnId,
+          `Redditi PF ${cuYear + 1}`,
+          {
+            form_type: 'redditi_pf',
+            tax_year: cuYear,
+            filed_on: `${cuYear + 1}-09-11`,
+            total_income: 27997,
+            taxable_income: 27997,
+            irpef_withheld: 4464,
+            net_tax: 4868,
+            irpef_due: 404,
+          },
+          ['TAX_RETURN'],
+        ),
+      );
+      const year = await json<TaxYearDossierDto>(
+        await fetch(`${base}/tax-years/${cuYear}`),
+      );
+      expect(year.taxReturn).toMatchObject({
+        form: 'redditi_pf',
+        status: 'filed',
+        filed: { uploadId: returnId, irpefDue: 404, result: 404 },
+      });
+      // The CU of the year (the test above) gives the forecast to compare.
+      expect(
+        year.taxReturn.comparison?.lines.find((l) => l.key === 'income'),
+      ).toMatchObject({ filed: 27997, forecast: 27997.47, matches: true });
+      expect(year.yearDocuments).toContainEqual(
+        expect.objectContaining({
+          uploadId: returnId,
+          role: 'RETURN',
+          automatic: true,
+        }),
+      );
+
+      const deadlines = await json<DeadlineDto[]>(
+        await fetch(
+          `${base}/deadlines?from=${cuYear + 1}-01-01&to=${cuYear + 2}-12-31`,
+        ),
+      );
+      expect(deadlines.find((d) => d.id === `return-${cuYear}`)).toMatchObject({
+        done: true,
+        kind: 'tax-return',
+      });
+      expect(
+        deadlines.find((d) => d.id === `return-${cuYear + 1}`),
+      ).toMatchObject({ title: `Redditi PF deadline (${cuYear + 1} income)` });
     });
 
     it('pairs an invoice with the transfers that paid it, so it is counted once', async () => {

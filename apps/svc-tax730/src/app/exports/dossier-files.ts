@@ -26,6 +26,7 @@ const ROLE_SUFFIX: Record<Tax730AttachmentDto['role'], string> = {
   INVOICE: 'Fattura',
   PAYMENT: 'Dettaglio bonifico',
   CERTIFICATION: 'Certificazione',
+  RETURN: 'Dichiarazione',
   OTHER: 'Documento',
 };
 
