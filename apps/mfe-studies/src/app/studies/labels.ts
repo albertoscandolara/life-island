@@ -64,6 +64,7 @@ export const TOPIC_COLORS: Record<StudyTopic, string> = {
   infrastructure: 'var(--viz-part-3)',
   leadership: 'var(--viz-part-4)',
   '3d': 'var(--viz-property-2)',
+  finance: 'var(--viz-property-3)',
   other: 'var(--viz-other)',
 };
 

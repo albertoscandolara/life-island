@@ -167,6 +167,35 @@ describe('ClaudeParser', () => {
     );
   });
 
+  it('never files a tax return as a 730 expense, even when it lists renovation instalments', async () => {
+    const { client } = fakeClient([
+      {
+        text: JSON.stringify({
+          ...classification,
+          documentType: 'Modello Redditi Persone Fisiche 2026',
+          categories: [
+            { id: 'TAX_RETURN', evidence: 'PERSONE FISICHE 2026, quadro RN' },
+          ],
+          targetKey: 'tax730.expense@1',
+        }),
+      },
+    ]);
+    const { result } = await new ClaudeParser(client, models).classify(input, [
+      ...categories,
+      {
+        id: 'TAX_RETURN',
+        title: 'Tax return',
+        description: 'A filed 730 or Redditi PF',
+        template: { fields: [] },
+      },
+    ]);
+    expect(result).toMatchObject({
+      categoryIds: ['TAX_RETURN'],
+      targetKey: 'general.document@1',
+      category: 'other',
+    });
+  });
+
   it('extracts the merged template fields once each and keeps what is missing as missing', async () => {
     const plan = buildExtractionPlan(
       categories.slice(0, 2),

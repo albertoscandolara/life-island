@@ -38,7 +38,7 @@ export const TARGET_CATALOG: readonly TargetDefinition[] = [
     category: 'tax730',
     label: '730 deductible expense',
     description:
-      'A document proving an expense that can be deducted in the Italian 730 tax return: medical visits, medicines (pharmacy receipts with a codice fiscale), school fees, kids sport, insurance, mortgage interest, renovations, energy-efficiency works, furniture and appliances for a renovated home, estate agent fees.',
+      'A document proving an expense that can be deducted in the Italian 730 tax return: medical visits, medicines (pharmacy receipts with a codice fiscale), school fees, kids sport, insurance, mortgage interest, renovations, energy-efficiency works, furniture and appliances for a renovated home, estate agent fees. Only the invoice, receipt or payment of one expense: never a tax return itself (Modello 730, 730-3, Redditi PF or Unico, which list expenses and building bonus instalments already declared), a Certificazione Unica, a payslip or an F24.',
     schema: Tax730ExpenseV1,
   },
   {
@@ -48,6 +48,18 @@ export const TARGET_CATALOG: readonly TargetDefinition[] = [
     description: 'Anything that does not fit the targets above.',
     schema: GeneralDocumentV1,
   },
+];
+
+/**
+ * Document types that are never one deductible expense, whatever the
+ * classifier says: a tax return lists expenses (and the building bonus
+ * instalments, RP41) already declared, a CU or a payslip lists income.
+ * Classified as one of these, a document goes to the general target.
+ */
+export const NOT_AN_EXPENSE_CATEGORIES: readonly string[] = [
+  'TAX_RETURN',
+  'CERTIFICAZIONE_UNICA',
+  'PAYSLIP',
 ];
 
 export const CATEGORIES = [...new Set(TARGET_CATALOG.map((t) => t.category))];

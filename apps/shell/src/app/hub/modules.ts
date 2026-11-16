@@ -127,7 +127,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     emblem: '📚',
     name: 'Studies',
     mission:
-      'Learning paths for AI coding, other frameworks, Docker and Kubernetes, team leadership and 3D, with your progress step by step; courses, exams and the training platforms you use, what they cost, your study time against a weekly goal, and a coach that plans your week.',
+      'Learning paths for AI coding, other frameworks, Docker and Kubernetes, team leadership, 3D and financial education, with your progress step by step; courses, exams and the training platforms you use, what they cost, your study time against a weekly goal, and a coach that plans your week.',
     path: '/studies',
     attentionUrl: '/api/studies/attention',
     landmark: 'library',
