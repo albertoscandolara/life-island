@@ -202,6 +202,17 @@ export const IRPEF_BRACKETS: readonly {
   brackets: readonly TaxBracket[];
 }[] = [
   {
+    // Until 2021: five brackets.
+    from: 0,
+    brackets: [
+      { upTo: 15000, ratePct: 23 },
+      { upTo: 28000, ratePct: 27 },
+      { upTo: 55000, ratePct: 38 },
+      { upTo: 75000, ratePct: 41 },
+      { upTo: null, ratePct: 43 },
+    ],
+  },
+  {
     from: 2022,
     brackets: [
       { upTo: 15000, ratePct: 23 },

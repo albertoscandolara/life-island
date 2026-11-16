@@ -369,3 +369,79 @@ tax-return-card {
     grid-row: 2;
   }
 }
+
+/* Views of the year: the tax explained, the expenses, the glossary. */
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-glass);
+  box-shadow: var(--shadow-card);
+}
+
+.view {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.view:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.view--on,
+.view--on:hover {
+  background: var(--accent-gradient);
+  box-shadow: var(--accent-glow);
+  color: var(--accent-contrast);
+}
+
+.block {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.explain-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.explain-side {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (max-width: 64rem) {
+  .explain-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 40rem) {
+  .view {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+  }
+}

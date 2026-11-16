@@ -1,3 +1,5 @@
+import { irpefBrackets } from './work-insights.js';
+
 /*
  * The tax return of a year (dichiarazione dei redditi), as the 730 area reads
  * it: a Modello 730 or a Modello Redditi Persone Fisiche (Redditi PF, once
@@ -123,6 +125,39 @@ function nextWorkingDay(year: number, month: number, day: number): string {
 /** The second IRPEF advance (secondo acconto) of the year after a Redditi PF: 30 November. */
 export function secondAdvanceDeadline(filingYear: number): string {
   return nextWorkingDay(filingYear, 11, 30);
+}
+
+/** How much of a taxable income falls in one IRPEF bracket, and the tax on it. */
+export interface IrpefBracketShare {
+  from: number;
+  /** Null for the last bracket, with no upper limit. */
+  to: number | null;
+  rate: number;
+  /** The part of the income in this bracket. */
+  amount: number;
+  tax: number;
+}
+
+/** The imposta lorda of a taxable income, bracket by bracket (scaglioni of `irpefBrackets`). */
+export function irpefByBracket(
+  taxable: number,
+  taxYear: number,
+): IrpefBracketShare[] {
+  let from = 0;
+  return irpefBrackets(taxYear).map((b) => {
+    const top = b.upTo ?? Infinity;
+    const amount = Math.max(0, Math.min(taxable, top) - from);
+    const rate = b.ratePct / 100;
+    const share = {
+      from,
+      to: b.upTo,
+      rate,
+      amount: Math.round(amount * 100) / 100,
+      tax: Math.round(amount * rate * 100) / 100,
+    };
+    from = b.upTo ?? from;
+    return share;
+  });
 }
 
 /**

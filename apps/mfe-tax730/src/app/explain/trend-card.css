@@ -1,0 +1,178 @@
+.k-net,
+.seg--net {
+  background: var(--viz-gross);
+}
+
+.k-credits,
+.seg--credits {
+  background: var(--viz-net);
+}
+
+.k-forecast {
+  border: 1px dashed var(--text-muted);
+}
+
+/* One column per year: paid at the bottom, credits on top, lost above. */
+.cols {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(2.5rem, 5rem));
+  justify-content: start;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.col__hit {
+  display: grid;
+  grid-template-rows: 10rem auto auto;
+  gap: var(--space-1);
+  justify-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.col__hit:hover {
+  background: var(--surface-hover);
+}
+
+.col--on .col__hit {
+  border-color: var(--accent);
+}
+
+.col__stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 2.5rem;
+  height: 100%;
+}
+
+.seg {
+  display: block;
+  width: 100%;
+}
+
+.col__stack > .seg:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.col--forecast .seg--net,
+.col--forecast .seg--credits,
+.res__bar.col--forecast {
+  opacity: 0.55;
+  outline: 1px dashed var(--text-muted);
+  outline-offset: -1px;
+}
+
+.col__rate {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.col__year {
+  font-size: var(--text-xs);
+}
+
+/* Results on a diverging axis: credits left of zero, debits right. */
+.results {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res {
+  display: grid;
+  grid-template-columns: 6rem 1fr 8rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.res__year {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.res__fc {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: normal;
+}
+
+.res__track {
+  position: relative;
+  height: 1rem;
+}
+
+.res__axis {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  bottom: calc(-1 * var(--space-1));
+  left: 50%;
+  width: 1px;
+  background: var(--viz-axis);
+}
+
+.res__bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--tone-warning);
+}
+
+.res__bar--credit {
+  right: 50%;
+  left: auto;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: var(--tone-success);
+}
+
+.res__value {
+  text-align: right;
+}
+
+.axis-note {
+  display: grid;
+  grid-template-columns: 6rem 1fr 1fr 8rem;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.axis-note span:first-child {
+  grid-column: 2;
+  text-align: right;
+}
+
+.axis-note span:last-child {
+  grid-column: 3;
+}
+
+.table .form {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 40rem) {
+  .res {
+    grid-template-columns: 4rem 1fr 6.5rem;
+  }
+  .axis-note {
+    grid-template-columns: 4rem 1fr 1fr 6.5rem;
+  }
+}

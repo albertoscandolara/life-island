@@ -55,6 +55,8 @@ describe('CCNL tables', () => {
 
 describe('IRPEF', () => {
   it('applies the brackets of each year', () => {
+    // 2021: 15,000 at 23% + 13,000 at 27% + 2,000 at 38%.
+    expect(grossIrpef(30000, 2021)).toBe(3450 + 3510 + 760);
     // 2022: 15,000 at 23% + 13,000 at 25% + 2,000 at 35%.
     expect(grossIrpef(30000, 2022)).toBe(3450 + 3250 + 700);
     // 2024: 28,000 at 23% + 2,000 at 35%.

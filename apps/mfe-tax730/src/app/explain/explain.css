@@ -1,0 +1,140 @@
+/* Shared by the cards of "Your tax, explained". */
+:host {
+  display: block;
+}
+
+.lead {
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+}
+
+.muted,
+.foot {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.foot {
+  font-size: var(--text-xs);
+}
+
+.sub {
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.credit {
+  color: var(--tone-success);
+}
+
+.debit {
+  color: var(--tone-warning);
+}
+
+/* Small switch between filed and forecast figures. */
+.switch {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+}
+
+.switch button {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.switch button[aria-pressed='true'] {
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Keys of a chart's colours. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.key--hatched,
+.bar--lost {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--tone-danger) 0 3px,
+    var(--tone-danger-soft) 3px 7px
+  );
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  font-weight: normal;
+}
+
+.table thead th {
+  color: var(--text-muted);
+}
+
+.table tbody th {
+  color: var(--text-primary);
+}
+
+.table .num {
+  text-align: right;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

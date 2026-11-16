@@ -132,6 +132,18 @@ DOCUMENTI MANCANTI.txt     (only when something is missing)
 
 Each expense folder is "date - invoice no. - supplier - description"; each file starts with its own document's date. Files are read from `svc-ingestion`'s API (`INGESTION_URL`), never from its storage.
 
+### Your tax, explained
+
+The 730 page has three views of a year (`?view=` in the URL): **Your tax, explained** (the default), **Expenses and documents** and **Glossary**. The explanations are drawn in the browser from the year's return (`taxReturn` of `GET tax-years`): the filed figures when a return is uploaded, the forecast otherwise, and a Filed/Forecast switch when both exist. `apps/mfe-tax730/src/app/explain/explain.ts` holds the arithmetic (unit-tested), the cards only draw it:
+
+- **How your tax is calculated**: income, deductible charges, taxable income, the gross tax bracket by bracket (`irpefByBracket` in `libs/contracts`, on the brackets of `irpefBrackets`, five until 2021), the credits, net tax, withholdings and advances, down to the result, each step in plain words, then a waterfall from the gross tax to the result.
+- **Credit or debit**: what the result means with a 730 (July payslip) or with Redditi PF, and the F24s of the year: the credit pays the balance and the next advances first, then what you still pay and the credit left to carry over or claim back.
+- **Where each €100 goes**: IRPEF paid, tax cancelled by credits, what stays; effective rate against the top bracket; the credits by kind against the gross tax, with what did not fit (incapienza) and is lost.
+- **What would it be worth?**: an amount of health, other 19%, renovation or pension fund spending against the year's figures: what it saves this year, over the instalments, and what would be lost.
+- **Your tax over the years**: gross tax split into paid, cancelled and lost per year with the effective rate, the result of each return on a credit/debit axis, and the table. Forecast years are striped.
+
+IRPEF only: the surtaxes and flat-rate (forfettario) income in quadro LM are named but not computed.
+
 ## Home and Bills
 
 Two zones of the island, one area: **Home** (Bronto, `/home`) keeps your properties and the works done on them; **Bills** (Stego, `/home/bills`) is the dashboard of their electricity, gas and water. Both are served by `mfe-home` and `svc-home`, because they share the properties. The bar at the top of both switches view and home: **All homes** (together), one home, or **Side by side** on Bills. The choice lives in the URL (`?property=<id>&split=1`).

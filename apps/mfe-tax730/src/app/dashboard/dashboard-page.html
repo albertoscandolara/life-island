@@ -104,8 +104,46 @@
   </div>
 </section>
 
+<nav class="views" aria-label="What to show">
+  @for (v of views; track v.id) {
+  <button
+    type="button"
+    class="view"
+    [class.view--on]="currentView() === v.id"
+    [attr.aria-current]="currentView() === v.id ? 'page' : null"
+    (click)="setView(v.id)"
+  >
+    <ui-icon [name]="v.icon" [size]="18" /> {{ v.label }}
+  </button>
+  }
+</nav>
+
+@switch (currentView()) { @case ('explained') {
 <tax-return-card [taxReturn]="d.taxReturn" />
 
+<div class="explain-grid">
+  <tax-steps-card [taxReturn]="d.taxReturn" [taxYear]="d.taxYear" />
+  <div class="explain-side">
+    <tax-settlement-card [taxReturn]="d.taxReturn" />
+    <tax-euro-card [taxReturn]="d.taxReturn" [taxYear]="d.taxYear" />
+  </div>
+</div>
+
+<tax-what-if-card
+  [taxReturn]="d.taxReturn"
+  [taxYear]="d.taxYear"
+  class="block"
+/>
+
+<tax-trend-card
+  [years]="years()!"
+  [selected]="d.taxYear"
+  (pick)="selectYear($event)"
+  class="block"
+/>
+} @case ('glossary') {
+<tax-glossary-card />
+} @default {
 <tax-deductions-card [dossier]="d" class="deductions" />
 
 <div class="grid">
@@ -361,9 +399,9 @@
     }
   </ul>
 </ui-card>
-} @if (years()!.length > 1) {
+@if (years()!.length > 1) {
 <tax-year-comparison [years]="years()!" (pick)="selectYear($event)" />
-} } @if (picker(); as target) {
+} } } } } @if (picker(); as target) {
 <tax-document-picker
   [(open)]="pickerOpen"
   [heading]="pickerHeading(target)"
