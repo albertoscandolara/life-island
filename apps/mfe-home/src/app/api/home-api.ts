@@ -19,6 +19,7 @@ import type {
   OrganizationDto,
   OrganizationImageKind,
   SupplyPointDto,
+  UpdateSupplyContractRequest,
   UpdateOrganizationRequest,
   PropertyDto,
   UpdateBillRequest,
@@ -143,6 +144,14 @@ export class HomeApi {
   }
 
   /** Moves a supply point, and every bill of it, to a house (null: none). */
+  /** Whether a supply contract's bills are paid on their own (null: as its bills say). */
+  updateSupplyContract(
+    id: string,
+    request: UpdateSupplyContractRequest,
+  ): Observable<unknown> {
+    return this.http.patch(`${HOME_API}/supply-contracts/${id}`, request);
+  }
+
   moveSupplyPoint(id: string, propertyId: string | null): Observable<unknown> {
     return this.http.patch(`${HOME_API}/supply-points/${id}`, { propertyId });
   }

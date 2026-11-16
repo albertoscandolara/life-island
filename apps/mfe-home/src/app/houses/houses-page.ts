@@ -278,6 +278,27 @@ export class HousesPage {
     });
   }
 
+  /**
+   * Whether a supply contract's bills are paid on their own (domiciliazione,
+   * SDD): yes, no, or as the bills say. Bills paid on their own never show as
+   * due or late in the agenda.
+   */
+  protected setAutoPay(contractId: string, value: string): void {
+    this.moving.set(contractId);
+    this.pointError.set(null);
+    const autoPay = value === 'yes' ? true : value === 'no' ? false : null;
+    this.api.updateSupplyContract(contractId, { autoPay }).subscribe({
+      next: () => {
+        this.moving.set(null);
+        this.loadNumbers();
+      },
+      error: (error) => {
+        this.moving.set(null);
+        this.pointError.set(errorMessage(error));
+      },
+    });
+  }
+
   protected utilityLabel(point: SupplyPointDto): string {
     return UTILITIES[point.utility].label;
   }

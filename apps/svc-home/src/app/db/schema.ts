@@ -336,6 +336,12 @@ export const supplyContracts = home.table(
     }),
     customerCode: text('customer_code'),
     offerName: text('offer_name'),
+    /**
+     * Your choice: its bills are paid on their own (domiciliazione, SDD on
+     * your bank account) or not. Null follows what its bills print. Bills
+     * paid on their own never show as due or late in the agenda.
+     */
+    autoPay: boolean('auto_pay'),
     /** Natural key: supplier, customer code and supply point, normalised. */
     naturalKey: text('natural_key').notNull().unique(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -386,6 +392,12 @@ export const bills = home.table(
     periodEnd: date('period_end', { mode: 'string' }),
     amount: decimal('amount').notNull(),
     totalDue: decimal('total_due'),
+    /**
+     * What the bill prints on how it is paid: true for a direct debit
+     * (domiciliazione bancaria, SDD), false for another way (bollettino,
+     * bank transfer), null when it prints nothing.
+     */
+    directDebit: boolean('direct_debit'),
     currency: text('currency').notNull().default('EUR'),
     consumption: numeric('consumption', {
       precision: 14,

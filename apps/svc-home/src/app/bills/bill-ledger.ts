@@ -358,6 +358,7 @@ export async function syncBillsIn(db: Db): Promise<void> {
       periodEnd: read.periodEnd,
       amount: read.amount,
       totalDue: facts.totalDue,
+      directDebit: facts.directDebit,
       currency: read.currency,
       consumption: read.consumption,
       unit: read.unit,

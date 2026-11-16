@@ -38,6 +38,12 @@ export interface DeadlineDto {
   amount: number | null;
   /** Where it is handled in the Life Island app, e.g. `/cars`. */
   path: string | null;
+  /**
+   * Paid on its own (direct debit on your bank account, a card on file):
+   * the agenda lists it as handled, so it never shows as late or in
+   * "Coming up". Left out means false.
+   */
+  autoPaid?: boolean;
 }
 
 /** `GET /deadlines?from&to` on every area that has dates. */
@@ -288,7 +294,10 @@ export interface AgendaEntryDto {
   path: string | null;
   daysLeft: number;
   urgency: AgendaUrgency;
+  /** You marked it done, or it is paid on its own (`autoPaid`). */
   handled: boolean;
+  /** Paid on its own: handled without you, nothing to mark. */
+  autoPaid: boolean;
   /** Your own item's id, to edit it. */
   itemId: string | null;
   category: AgendaCategory | null;

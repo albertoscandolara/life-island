@@ -473,6 +473,14 @@ export interface BillDto {
   supplierId: string | null;
   supplyPointId: string | null;
   contractId: string | null;
+  /** What the bill prints on how it is paid: direct debit (true), another way (false), nothing (null). */
+  directDebit: boolean | null;
+  /**
+   * Paid on its own (direct debit on your bank account): its due date is
+   * never a warning. Your choice on its supply contract wins, then what the
+   * bill prints, then what the contract's latest bill printed.
+   */
+  autoPaid: boolean;
 }
 
 export const listBillsQuerySchema = z.object({
@@ -849,7 +857,26 @@ export interface SupplyContractDto {
    */
   status: 'ACTIVE' | 'ENDED';
   billCount: number;
+  /** Your choice: its bills are paid on their own (true) or not (false); null follows its bills. */
+  autoPay: boolean | null;
+  /** What its latest bill printed: paid by direct debit (true), another way (false), nothing (null). */
+  directDebit: boolean | null;
+  /** Whether its bills count as paid on their own: `autoPay`, else `directDebit`. */
+  autoPaid: boolean;
 }
+
+/**
+ * Your choice on a supply contract: `autoPay` true when its bills are
+ * charged to your bank account (domiciliazione, SDD), so their due dates
+ * never show as late; false when you pay them yourself; null goes back to
+ * what the bills print.
+ */
+export const updateSupplyContractRequestSchema = z.object({
+  autoPay: z.boolean().nullable(),
+});
+export type UpdateSupplyContractRequest = z.input<
+  typeof updateSupplyContractRequestSchema
+>;
 
 /** Where electricity, gas or water is delivered: it belongs to a house and outlives contracts. */
 export interface SupplyPointDto {

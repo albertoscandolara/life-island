@@ -95,6 +95,12 @@ const FIELDS: readonly LiField[] = [
   },
   { key: 'autoRenew', label: 'Renews on its own', type: 'checkbox' },
   {
+    key: 'autoPay',
+    label: 'Charged automatically',
+    type: 'checkbox',
+    hint: 'Card on file or direct debit: renewals are no warning in the agenda',
+  },
+  {
     key: 'lockedUntil',
     label: 'Minimum term until',
     type: 'date',
@@ -257,6 +263,7 @@ export class SubscriptionsPage {
       status: 'active',
       cycle: 'monthly',
       autoRenew: true,
+      autoPay: true,
       noticeDays: 0,
     });
   }

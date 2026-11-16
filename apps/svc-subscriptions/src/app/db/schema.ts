@@ -35,6 +35,8 @@ export const contracts = subscriptionsSchema.table('contracts', {
   startOn: date('start_on'),
   renewsOn: date('renews_on'),
   autoRenew: boolean('auto_renew').notNull().default(true),
+  /** Charged on its own (card on file, direct debit): its renewals are no warning. */
+  autoPay: boolean('auto_pay').notNull().default(true),
   noticeDays: integer('notice_days').notNull().default(0),
   lockedUntil: date('locked_until'),
   status: text('status')

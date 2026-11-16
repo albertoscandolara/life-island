@@ -197,6 +197,13 @@
       "when": 1794333167785,
       "tag": "0027_pension_fund_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794333227785,
+      "tag": "0028_bill_payment_method",
+      "breakpoints": true
     }
   ]
 }
