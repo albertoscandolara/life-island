@@ -11,7 +11,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import type { UploadDto } from '@life-island/contracts';
+import type {
+  CompleteUploadResponse,
+  CreateUploadResponse,
+  UploadDto,
+} from '@life-island/contracts';
 import {
   ACCEPTED_FILE_TYPES,
   DESCRIPTION_MAX_LENGTH,
@@ -34,7 +38,7 @@ import {
   UiTable,
   type UiTableColumn,
 } from '@life-island/design-system';
-import { concatMap, firstValueFrom, last, tap } from 'rxjs';
+import { firstValueFrom, last, tap, type Observable } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { PROCESSING_VIEW } from '../review/record-status';
@@ -46,6 +50,9 @@ const PAGE_SIZE = 10;
 
 function errorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
+    // Checked first: on a network failure `error.error` is a TypeError whose
+    // message ("Failed to fetch") says nothing useful.
+    if (error.status === 0) return 'The server could not be reached';
     const body = error.error as {
       message?: string;
       issues?: { message: string }[];
@@ -53,10 +60,14 @@ function errorMessage(error: unknown): string {
     if (body?.issues?.length)
       return body.issues.map((issue) => issue.message).join(', ');
     if (typeof body?.message === 'string') return body.message;
-    if (error.status === 0) return 'The server could not be reached';
     return `Upload failed (${error.status})`;
   }
   return error instanceof Error ? error.message : 'Upload failed';
+}
+
+/** No answer at all: storage down, unreachable, or refused by CORS. */
+function isNetworkError(error: unknown): boolean {
+  return error instanceof HttpErrorResponse && error.status === 0;
 }
 
 @Component({
@@ -147,6 +158,8 @@ export class UploadPage {
     () => this.documents.value()?.total ?? null,
   );
   protected readonly previewing = signal<UploadDto | null>(null);
+  /** The document whose file the person is picking again, for a retry. */
+  private retrying: UploadDto | null = null;
   protected readonly previewOpen = signal(false);
 
   constructor() {
@@ -212,7 +225,11 @@ export class UploadPage {
     if (files.length) this.addFiles(files);
   }
 
-  /** Uploads the queue one file at a time: register, PUT to storage, complete. */
+  /**
+   * Uploads the queue one file at a time: register, PUT to storage, complete.
+   * A failed file is marked FAILED on the service at once, and retrying it
+   * reuses the same document instead of leaving one stuck in "Uploading".
+   */
   protected async uploadAll(): Promise<void> {
     this.uploading.set(true);
     for (const item of this.pending()) {
@@ -220,38 +237,135 @@ export class UploadPage {
       item.progress.set(0);
       item.error.set('');
       try {
-        const result = await firstValueFrom(
-          this.api
-            .createUpload({
-              filename: item.file.name,
-              mimeType: item.file.type || 'application/octet-stream',
-              sizeBytes: item.file.size,
-              title: item.title().trim(),
-              description: item.description().trim() || undefined,
-            })
-            .pipe(
-              tap((created) => item.uploadId.set(created.uploadId)),
-              concatMap((created) =>
-                this.api.putFile(created, item.file).pipe(
-                  tap(
-                    (event) =>
-                      event.type === 'progress' &&
-                      item.progress.set(event.percent),
-                  ),
-                  last(),
-                  concatMap(() => this.api.complete(created.uploadId)),
-                ),
-              ),
-            ),
-        );
+        const result = await this.send(item);
         item.progress.set(100);
         item.state.set(result.duplicate ? 'duplicate' : 'done');
       } catch (error) {
+        const message = errorMessage(error);
         item.state.set('error');
-        item.error.set(errorMessage(error));
+        item.error.set(message);
+        const uploadId = item.uploadId();
+        if (uploadId)
+          await firstValueFrom(this.api.abandonUpload(uploadId, message)).catch(
+            () => undefined,
+          );
       }
     }
     this.uploading.set(false);
+    this.documents.reload();
+  }
+
+  private async send(item: UploadItem): Promise<CompleteUploadResponse> {
+    const target = await this.uploadTarget(item);
+    item.uploadId.set(target.uploadId);
+    try {
+      await this.withProgress(item, this.api.putFile(target, item.file));
+    } catch (error) {
+      if (!isNetworkError(error)) throw error;
+      // The browser cannot reach storage (not running, or this page's origin
+      // is missing from STORAGE_CORS_ORIGINS): send the file through the API.
+      item.progress.set(0);
+      await this.withProgress(
+        item,
+        this.api.putFileViaApi(target.uploadId, item.file),
+      );
+    }
+    return firstValueFrom(this.api.complete(target.uploadId));
+  }
+
+  /** A new document, or a fresh URL for the one an earlier attempt created. */
+  private async uploadTarget(item: UploadItem): Promise<CreateUploadResponse> {
+    const existing = item.uploadId();
+    if (existing) {
+      try {
+        return await firstValueFrom(this.api.restartUpload(existing));
+      } catch (error) {
+        // Deleted in the meantime: start over with a new document.
+        if (!(error instanceof HttpErrorResponse && error.status === 404))
+          throw error;
+        item.uploadId.set(null);
+      }
+    }
+    return firstValueFrom(
+      this.api.createUpload({
+        filename: item.file.name,
+        mimeType: item.file.type || 'application/octet-stream',
+        sizeBytes: item.file.size,
+        title: item.title().trim(),
+        description: item.description().trim() || undefined,
+      }),
+    );
+  }
+
+  private async withProgress(
+    item: UploadItem,
+    upload: Observable<
+      { type: 'progress'; percent: number } | { type: 'done' }
+    >,
+  ): Promise<void> {
+    await firstValueFrom(
+      upload.pipe(
+        tap(
+          (event) =>
+            event.type === 'progress' && item.progress.set(event.percent),
+        ),
+        last(),
+      ),
+    );
+  }
+
+  /** Documents whose file never arrived, which only a retry or a delete can fix. */
+  protected needsFile(upload: UploadDto): boolean {
+    if (upload.status === 'FAILED') return !upload.mimeType;
+    return (
+      upload.status === 'UPLOADING' &&
+      !this.items().some(
+        (item) => item.uploadId() === upload.id && item.state() === 'uploading',
+      )
+    );
+  }
+
+  /** Retrying a document without its file: the person picks the file again. */
+  protected retryWithFile(upload: UploadDto, input: HTMLInputElement): void {
+    this.retrying = upload;
+    input.click();
+  }
+
+  protected onRetryPicked(input: HTMLInputElement): void {
+    const upload = this.retrying;
+    const file = input.files?.[0];
+    input.value = '';
+    this.retrying = null;
+    if (!upload || !file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      this.notice.set(`${file.name} is larger than 25 MB`);
+      return;
+    }
+    const item = new UploadItem(file);
+    item.title.set(upload.title);
+    item.description.set(upload.description ?? '');
+    item.uploadId.set(upload.id);
+    this.items()
+      .filter((other) => other.uploadId() === upload.id)
+      .forEach((other) => other.dispose());
+    this.items.update((items) => [
+      ...items.filter((other) => other.uploadId() !== upload.id),
+      item,
+    ]);
+    if (!this.uploading() && !this.locked()) void this.uploadAll();
+  }
+
+  protected readonly deleting = signal<string | null>(null);
+
+  /** Drops a document whose file never arrived; nothing else refers to it. */
+  protected async deleteWithoutFile(upload: UploadDto): Promise<void> {
+    this.deleting.set(upload.id);
+    try {
+      await firstValueFrom(this.api.deleteUpload(upload.id));
+    } catch (error) {
+      this.notice.set(errorMessage(error));
+    }
+    this.deleting.set(null);
     this.documents.reload();
   }
 

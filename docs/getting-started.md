@@ -90,6 +90,8 @@ Every value here is for local development only. Production gets its secrets from
 
 **Documents are read but get no category and no details, especially photos.** The worker is using the fake parser (`PARSER=fake`), which cannot read images and only spots keywords in file names and PDF text. Set `PARSER=claude` and `ANTHROPIC_API_KEY` in `.env`, restart, and press **Parse again** on each document.
 
+**Uploads fail or a document shows "Failed: File storage is not reachable".** The browser sends each file straight to the storage container (`S3_PUBLIC_ENDPOINT`, `http://localhost:8333` by default). When it cannot (storage not running, or the page's address is missing from `STORAGE_CORS_ORIGINS`, for example `127.0.0.1` instead of `localhost`), the file goes through `svc-ingestion` instead. If that fails too, storage is down: run `npm run infra:up`, then press **Retry** on the document in **Your documents** and pick the same file again, or delete it and upload it anew. A document whose file never arrives is marked failed after 20 minutes (`STALE_UPLOAD_MINUTES`) and when `svc-ingestion` starts.
+
 **A port is already in use.** Change the matching `*_PORT` variable in `.env` and run `npm run infra:up` again. If you change `POSTGRES_PORT`, also change the port in the `*_DATABASE_URL` values.
 
 **A new service says its role or schema does not exist.** Your database volume was created before that service was added. Run `npm run db:upgrade`: it adds the missing schemas and roles and keeps your data.

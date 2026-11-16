@@ -1,5 +1,7 @@
 import { Logger, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { MAX_UPLOAD_BYTES } from '@life-island/contracts';
 import {
   createServiceDb,
   migrateServiceSchema,
@@ -56,9 +58,14 @@ export async function createApp(
     new ObjectStorage(config.storage),
     config.storageCorsOrigins,
   );
-  const app = await NestFactory.create(AppModule.forRoot(config, options), {
-    logger: new Logger(),
-    bufferLogs: false,
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule.forRoot(config, options),
+    { logger: new Logger(), bufferLogs: false },
+  );
+  // Files sent through the API when the browser cannot reach storage (PUT /uploads/:id/file).
+  app.useBodyParser('raw', {
+    type: 'application/octet-stream',
+    limit: MAX_UPLOAD_BYTES + 1024,
   });
   app.enableShutdownHooks();
   return app;

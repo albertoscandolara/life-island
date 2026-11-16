@@ -54,6 +54,31 @@ export class IngestionApi {
       reportProgress: true,
       headers: new HttpHeaders(target.uploadHeaders),
     });
+    return this.sendWithProgress(request);
+  }
+
+  /**
+   * Sends the file through the API instead of straight to storage: the
+   * fallback when the browser cannot reach storage (or is refused by its CORS).
+   */
+  putFileViaApi(uploadId: string, file: Blob): Observable<PutProgress> {
+    const request = new HttpRequest(
+      'PUT',
+      `${INGESTION_API}/uploads/${uploadId}/file`,
+      file,
+      {
+        reportProgress: true,
+        headers: new HttpHeaders({
+          'Content-Type': 'application/octet-stream',
+        }),
+      },
+    );
+    return this.sendWithProgress(request);
+  }
+
+  private sendWithProgress(
+    request: HttpRequest<Blob>,
+  ): Observable<PutProgress> {
     return this.http.request(request).pipe(
       filter(
         (event) =>
@@ -70,6 +95,22 @@ export class IngestionApi {
             }
           : { type: 'done' },
       ),
+    );
+  }
+
+  /** A fresh upload URL for a document whose file never arrived. */
+  restartUpload(uploadId: string): Observable<CreateUploadResponse> {
+    return this.http.post<CreateUploadResponse>(
+      `${INGESTION_API}/uploads/${uploadId}/restart`,
+      {},
+    );
+  }
+
+  /** Tells the service the file could not be sent, so the document shows as failed. */
+  abandonUpload(uploadId: string, reason: string): Observable<UploadDto> {
+    return this.http.post<UploadDto>(
+      `${INGESTION_API}/uploads/${uploadId}/abandon`,
+      { reason },
     );
   }
 

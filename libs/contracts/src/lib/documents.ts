@@ -71,6 +71,15 @@ export const createUploadRequestSchema = z.object({
 export type CreateUploadRequest = z.input<typeof createUploadRequestSchema>;
 
 /**
+ * The browser gave up sending a file: the upload is marked FAILED with this
+ * reason at once, instead of staying in UPLOADING until the stale sweep.
+ */
+export const abandonUploadRequestSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+export type AbandonUploadRequest = z.input<typeof abandonUploadRequestSchema>;
+
+/**
  * Your edits to a document. Every key is optional; what you send replaces
  * what is stored. `categories` is the full list of confirmed category ids.
  * `fields` sets extracted values by field key (null clears one); each value is

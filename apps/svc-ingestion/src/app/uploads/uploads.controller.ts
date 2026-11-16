@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,12 +10,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Redirect,
   StreamableFile,
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
+  abandonUploadRequestSchema,
   createUploadRequestSchema,
   listUploadsQuerySchema,
   reparseUploadsRequestSchema,
@@ -44,6 +47,45 @@ export class UploadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CompleteUploadResponse> {
     return this.uploads.complete(id);
+  }
+
+  /**
+   * Fallback when the browser cannot send the file to storage itself: the
+   * raw bytes (`application/octet-stream`) come here and the API stores them.
+   */
+  @Put(':id/file')
+  @HttpCode(204)
+  receiveFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    if (!Buffer.isBuffer(body))
+      throw new BadRequestException(
+        'Send the file as application/octet-stream',
+      );
+    return this.uploads.receiveFile(id, body);
+  }
+
+  /** Retries an upload whose file never arrived: a fresh URL for the same document. */
+  @Post(':id/restart')
+  @HttpCode(200)
+  restart(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CreateUploadResponse> {
+    return this.uploads.restart(id);
+  }
+
+  /** The browser could not send the file: marks the upload FAILED with the reason. */
+  @Post(':id/abandon')
+  @HttpCode(200)
+  abandon(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<UploadDto> {
+    return this.uploads.abandon(
+      id,
+      parseOrThrow(abandonUploadRequestSchema, body).reason,
+    );
   }
 
   /**
