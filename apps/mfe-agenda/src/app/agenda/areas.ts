@@ -6,7 +6,6 @@ export const AREAS: Record<string, { name: string; emblem: string }> = {
     DEADLINE_SOURCES.map((s) => [s.module, { name: s.name, emblem: s.emblem }]),
   ),
   agenda: { name: 'My items', emblem: '🗓️' },
-  taxes: { name: '730 & taxes', emblem: '🦖' },
 };
 
 export function areaOf(module: string): { name: string; emblem: string } {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TAX730_EXPENSE_TYPES } from './targets/tax730-expense.js';
 import type { Tax730DeductionsDto } from './tax730-deductions.js';
+import type { Tax730TaxReturnDto } from './tax730-returns.js';
 
 /*
  * HTTP DTOs of the domain services (svc-groceries, svc-tax730): what each
@@ -112,6 +113,8 @@ export interface TaxYearDto {
   deductions: Tax730DeductionsDto;
   /** Spending by month, January first (12 values). */
   byMonth: number[];
+  /** The year's return (730 or Redditi PF): filed, or forecast from your documents. */
+  taxReturn: Tax730TaxReturnDto;
 }
 
 /** What a document filed for the 730 is: an expense's invoice or payment proof, or a document of the year. */
@@ -119,6 +122,7 @@ export const TAX730_ATTACHMENT_ROLES = [
   'INVOICE',
   'PAYMENT',
   'CERTIFICATION',
+  'RETURN',
   'OTHER',
 ] as const;
 export type Tax730AttachmentRole = (typeof TAX730_ATTACHMENT_ROLES)[number];

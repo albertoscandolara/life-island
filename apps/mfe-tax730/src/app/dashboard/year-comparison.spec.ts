@@ -20,6 +20,16 @@ const year = (taxYear: number, byType: TaxYearDto['byType']): TaxYearDto => ({
     income: null,
   },
   byMonth: Array(12).fill(0),
+  taxReturn: {
+    form: '730',
+    formLabel: '730',
+    filingYear: taxYear + 1,
+    deadline: `${taxYear + 1}-09-30`,
+    status: 'open',
+    filed: null,
+    forecast: null,
+    comparison: null,
+  },
 });
 
 describe('YearComparison', () => {

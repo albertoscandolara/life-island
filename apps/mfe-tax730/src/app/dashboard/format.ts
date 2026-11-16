@@ -31,5 +31,6 @@ export const ROLE_LABELS: Record<Tax730AttachmentRole, string> = {
   INVOICE: 'Invoice',
   PAYMENT: 'Payment proof',
   CERTIFICATION: 'Certification',
+  RETURN: 'Tax return',
   OTHER: 'Other document',
 };

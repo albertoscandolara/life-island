@@ -40,7 +40,7 @@ const EURO = new Intl.NumberFormat('it-IT', {
 } as unknown as Intl.NumberFormatOptions);
 const euro = (n: number) => EURO.format(n).replace(/\s/g, ' ');
 
-function amount(value: unknown): number | null {
+export function amount(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value !== 'string') return null;
   const n = parseNumber(value);
@@ -91,6 +91,8 @@ export function certificatesOf(
       netTax: amount(fields[K.netTax]),
       pensionFundDeducted: amount(fields[K.pensionFundDeducted]),
       pensionFundNotDeducted: amount(fields[K.pensionFundNotDeducted]),
+      workDeductions: amount(fields[K.workDeductions]),
+      familyDeductions: amount(fields[K.familyDeductions]),
     };
   });
 }

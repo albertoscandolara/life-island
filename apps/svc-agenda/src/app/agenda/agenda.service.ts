@@ -47,7 +47,6 @@ export function today(): string {
 
 const NAMES: Record<string, string> = Object.fromEntries([
   ...DEADLINE_SOURCES.map((s) => [s.module, s.name]),
-  ['taxes', '730 & taxes'],
 ]);
 
 const BRIEF_STEP = {
@@ -107,6 +106,7 @@ export class AgendaService implements OnApplicationBootstrap {
       items,
       calendar,
       handled: new Set(handledRows.map((r) => r.key)),
+      answered: new Set(read.sources.filter((s) => s.ok).map((s) => s.module)),
     });
     return { entries, items, sources: read.sources, calendar };
   }

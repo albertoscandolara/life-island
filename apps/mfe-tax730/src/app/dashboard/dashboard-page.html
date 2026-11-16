@@ -29,12 +29,18 @@
     [attr.aria-current]="y.taxYear === selectedYear() ? 'page' : null"
     (click)="selectYear(y.taxYear)"
   >
-    <span class="year__label">730/{{ y.filingYear }}</span>
+    <span class="year__label"
+      >{{ y.taxReturn.formLabel }} {{ y.filingYear }}</span
+    >
     <span class="year__sub">Expenses of {{ y.taxYear }}</span>
     <span class="year__total">{{ formatEuro(y.total) }}</span>
     <span class="year__meta">
       {{ y.expenseCount }} {{ y.expenseCount === 1 ? 'expense' : 'expenses' }}
-      @if (y.missingPaymentCount || y.missingInvoiceCount) {
+      @if (y.taxReturn.status === 'filed') {
+      <ui-badge tone="success">Filed</ui-badge>
+      } @else if (y.taxReturn.status === 'late') {
+      <ui-badge tone="danger">Return missing</ui-badge>
+      } @if (y.missingPaymentCount || y.missingInvoiceCount) {
       <ui-badge tone="warning"
         >{{ y.missingPaymentCount + y.missingInvoiceCount }} to
         complete</ui-badge
@@ -53,9 +59,20 @@
     <span class="tile__label">Deductible expenses {{ d.taxYear }}</span>
     <span class="tile__value">{{ formatEuro(d.total) }}</span>
     <span class="tile__note"
-      >For the 730/{{ d.filingYear }}. Verify with your commercialista.</span
+      >For the {{ d.taxReturn.formLabel }} {{ d.filingYear }}. Verify with your
+      commercialista.</span
     >
   </div>
+  @if (d.taxReturn.filed; as f) {
+  <div class="tile">
+    <span class="tile__label"
+      >{{ f.result > 0 ? 'Return: to pay' : 'Return: in your favour' }}</span
+    >
+    <span class="tile__value"
+      >{{ formatEuro(f.result < 0 ? -f.result : f.result) }}</span
+    >
+  </div>
+  } @else {
   <div class="tile">
     <span class="tile__label">Estimated tax back</span>
     <span class="tile__value"
@@ -63,6 +80,7 @@
       }}</span
     >
   </div>
+  }
   <div class="tile">
     <span class="tile__label">Expenses</span>
     <span class="tile__value">{{ d.expenseCount }}</span>
@@ -86,6 +104,8 @@
   </div>
 </section>
 
+<tax-return-card [taxReturn]="d.taxReturn" />
+
 <tax-deductions-card [dossier]="d" class="deductions" />
 
 <div class="grid">
@@ -98,7 +118,7 @@
       size="sm"
       uiCardActions
       type="button"
-      (click)="openPicker({ kind: 'year', roles: ['CERTIFICATION', 'OTHER'] })"
+      (click)="openPicker({ kind: 'year', roles: ['CERTIFICATION', 'RETURN', 'OTHER'] })"
     >
       <ui-icon name="plus" [size]="16" /> Add
     </button>

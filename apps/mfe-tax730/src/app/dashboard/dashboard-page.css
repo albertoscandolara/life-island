@@ -136,7 +136,8 @@
   margin-bottom: var(--space-4);
 }
 
-tax-deductions-card {
+tax-deductions-card,
+tax-return-card {
   display: block;
   margin-bottom: var(--space-4);
 }

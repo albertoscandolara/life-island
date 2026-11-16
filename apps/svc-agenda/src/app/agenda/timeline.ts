@@ -91,6 +91,8 @@ export function buildEntries(input: {
   items: AgendaItemDto[];
   calendar: boolean;
   handled: ReadonlySet<string>;
+  /** The areas that answered: a calendar date one of them publishes itself is left to it. */
+  answered?: ReadonlySet<string>;
 }): AgendaEntryDto[] {
   const { today, window, handled } = input;
   const entry = (
@@ -116,8 +118,9 @@ export function buildEntries(input: {
         time: null,
         amount: d.amount,
         path: d.path,
-        // Paid on its own (direct debit, card on file): nothing for you to do.
-        handled: d.autoPaid === true || handled.has(key),
+        // Paid on its own (direct debit, card on file), or done as the area
+        // knows (a filed return): nothing for you to do.
+        handled: d.autoPaid === true || d.done === true || handled.has(key),
         autoPaid: d.autoPaid === true,
         itemId: null,
         category: null,
@@ -152,6 +155,7 @@ export function buildEntries(input: {
     for (const occurrence of calendarOccurrences(window)) {
       const def = ITALIAN_CALENDAR.find((c) => c.id === occurrence.id);
       if (!def) continue;
+      if (def.replacedBy && input.answered?.has(def.replacedBy)) continue;
       const key = `calendar:${def.id}:${occurrence.year}`;
       entries.push(
         entry({

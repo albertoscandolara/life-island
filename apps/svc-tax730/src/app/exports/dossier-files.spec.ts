@@ -73,6 +73,16 @@ const dossier = (expenses: DossierExpenseDto[]): TaxYearDossierDto => ({
   byMonth: Array(12).fill(0),
   expenses,
   yearDocuments: [],
+  taxReturn: {
+    form: '730',
+    formLabel: '730',
+    filingYear: 2026,
+    deadline: '2026-09-30',
+    status: 'open',
+    filed: null,
+    forecast: null,
+    comparison: null,
+  },
 });
 
 describe('the commercialista folder', () => {
