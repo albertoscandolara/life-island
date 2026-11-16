@@ -13,7 +13,10 @@ export interface IngestionConfig {
   storage: StorageOptions;
   /** Browser origins allowed to PUT files straight into the bucket. */
   storageCorsOrigins: string[];
-  /** Rows left in UPLOADING longer than this are marked FAILED. */
+  /**
+   * Rows left in UPLOADING longer than this are marked FAILED. Presigned
+   * upload URLs last 15 minutes, so an older row can no longer receive its file.
+   */
   staleUploadMinutes: number;
   /**
    * Lease of the reclassification lock taken by Reclassify now; the worker
@@ -31,7 +34,7 @@ export function loadConfig(
     natsUrl: requiredEnv('NATS_URL', env),
     storage: storageOptionsFromEnv(env),
     storageCorsOrigins: listEnv('STORAGE_CORS_ORIGINS', env),
-    staleUploadMinutes: numberEnv('STALE_UPLOAD_MINUTES', 60, env),
+    staleUploadMinutes: numberEnv('STALE_UPLOAD_MINUTES', 20, env),
     reclassifyLeaseMinutes: numberEnv('RECLASSIFY_LEASE_MINUTES', 5, env),
   };
 }

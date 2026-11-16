@@ -313,4 +313,78 @@ describe.skipIf(!configured)('upload flow (HTTP → storage → database)', () =
     const done = await post(`/uploads/${created.body.uploadId}/complete`, {});
     expect(done.status).toBe(409);
   });
+
+  it('takes the file through the API when the browser cannot reach storage', async () => {
+    const content = Buffer.from(`Bonifico\n${randomUUID()}`);
+    const created = await post<CreateUploadResponse>('/uploads', {
+      filename: 'bonifico.txt',
+      mimeType: 'text/plain',
+      sizeBytes: content.length,
+    });
+    const id = created.body.uploadId;
+    const put = await fetch(`${base}/uploads/${id}/file`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: content,
+    });
+    expect(put.status).toBe(204);
+    const done = await post<CompleteUploadResponse>(
+      `/uploads/${id}/complete`,
+      {},
+    );
+    expect(done.status).toBe(200);
+    expect(done.body.upload).toMatchObject({
+      status: 'TO_BE_PARSED',
+      fileFormat: 'TXT',
+    });
+
+    const again = await fetch(`${base}/uploads/${id}/file`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: content,
+    });
+    expect(again.status).toBe(409);
+  });
+
+  it('fails an abandoned upload at once and retries it on the same document', async () => {
+    const created = await post<CreateUploadResponse>('/uploads', {
+      filename: 'fattura.txt',
+      mimeType: 'text/plain',
+      sizeBytes: 10,
+    });
+    const id = created.body.uploadId;
+    const abandoned = await post<UploadDto>(`/uploads/${id}/abandon`, {
+      reason: 'The server could not be reached',
+    });
+    expect(abandoned.body).toMatchObject({
+      status: 'FAILED',
+      lastError: 'The server could not be reached',
+    });
+
+    const restarted = await post<CreateUploadResponse>(
+      `/uploads/${id}/restart`,
+      {},
+    );
+    expect(restarted.status).toBe(200);
+    expect(restarted.body.uploadId).toBe(id);
+    const content = Buffer.from(`Fattura\n${randomUUID()}`);
+    const put = await fetch(restarted.body.uploadUrl, {
+      method: 'PUT',
+      headers: restarted.body.uploadHeaders,
+      body: content,
+    });
+    expect(put.status).toBe(200);
+    const done = await post<CompleteUploadResponse>(
+      `/uploads/${id}/complete`,
+      {},
+    );
+    expect(done.body.upload).toMatchObject({
+      id,
+      status: 'TO_BE_PARSED',
+      lastError: null,
+    });
+
+    // A document that has its file cannot be restarted.
+    expect((await post(`/uploads/${id}/restart`, {})).status).toBe(409);
+  });
 });

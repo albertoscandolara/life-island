@@ -127,3 +127,10 @@
   justify-content: flex-end;
   gap: var(--space-1);
 }
+
+.doc-error {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--danger);
+  font-size: var(--text-xs);
+}

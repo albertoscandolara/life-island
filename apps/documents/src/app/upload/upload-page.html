@@ -171,6 +171,13 @@
       running?</ui-alert
     >
     } @else {
+    <input
+      #retryInput
+      type="file"
+      [accept]="accept"
+      hidden
+      (change)="onRetryPicked(retryInput)"
+    />
     <ui-table
       [columns]="documentColumns"
       [rows]="documentRows()"
@@ -191,6 +198,9 @@
           [label]="statusView[row.processingState].label"
           [pulse]="row.status === 'PARSING'"
         />
+        @if (row.status === 'FAILED' && row.lastError) {
+        <span class="doc-error">{{ row.lastError }}</span>
+        }
       </ng-template>
       <ng-template uiCell="categories" [uiCellOf]="documentRows()" let-row>
         @for (category of row.categories; track category) {
@@ -212,7 +222,36 @@
         {{ row.fileFormat ?? '–' }}
       </ng-template>
       <ng-template uiCell="actions" [uiCellOf]="documentRows()" let-row>
-        @if (hasFile(row)) {
+        @if (needsFile(row)) {
+        <div class="row-actions">
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [disabled]="uploading() || locked()"
+            [attr.aria-label]="'Retry ' + row.title + ': pick the file again'"
+            title="Retry: pick the file again"
+            (click)="retryWithFile(row, retryInput)"
+          >
+            <ui-icon name="refresh" [size]="16" />
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            type="button"
+            [loading]="deleting() === row.id"
+            [attr.aria-label]="'Delete ' + row.title"
+            title="Delete"
+            (click)="deleteWithoutFile(row)"
+          >
+            <ui-icon name="trash" [size]="16" />
+          </button>
+        </div>
+        } @else if (hasFile(row)) {
         <div class="row-actions">
           <button
             uiButton

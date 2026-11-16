@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
   UnsupportedMediaTypeException,
   type OnModuleDestroy,
@@ -112,11 +113,11 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
-    this.cleanupTimer = setInterval(
-      () =>
-        void this.failStaleUploads().catch((error) => this.logger.error(error)),
-      10 * 60 * 1000,
-    );
+    const sweep = () =>
+      void this.failStaleUploads().catch((error) => this.logger.error(error));
+    // Once at start too, so uploads left behind while the service was down show as failed.
+    sweep();
+    this.cleanupTimer = setInterval(sweep, 5 * 60 * 1000);
     this.cleanupTimer.unref();
   }
 
@@ -153,15 +154,24 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
           storageKey,
         });
     });
+    return this.uploadTarget(id, storageKey, request.mimeType);
+  }
+
+  private async uploadTarget(
+    id: string,
+    storageKey: string,
+    mimeType: string | null,
+  ): Promise<CreateUploadResponse> {
+    const contentType = mimeType ?? 'application/octet-stream';
     const expiresInSeconds = 15 * 60;
     return {
       uploadId: id,
       uploadUrl: await this.storage.presignPut(
         storageKey,
-        request.mimeType,
+        contentType,
         expiresInSeconds,
       ),
-      uploadHeaders: { 'Content-Type': request.mimeType },
+      uploadHeaders: { 'Content-Type': contentType },
       expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
     };
   }
@@ -732,6 +742,68 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /**
+   * Fallback for browsers that cannot PUT to storage directly (storage not
+   * reachable from the browser, or the page's origin missing from
+   * STORAGE_CORS_ORIGINS): the file comes through the API, which stores it.
+   * `complete` follows as usual.
+   */
+  async receiveFile(id: string, bytes: Buffer): Promise<void> {
+    const row = await this.findRow(id);
+    if (row.status !== 'UPLOADING')
+      throw new ConflictException('This upload is not waiting for its file');
+    if (bytes.length === 0)
+      throw new UnprocessableEntityException('The file is empty');
+    if (bytes.length > MAX_UPLOAD_BYTES) {
+      return this.reject(
+        row,
+        `File is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
+      );
+    }
+    await withTransaction(this.svc.pool, (client) => assertWritable(client));
+    try {
+      await this.storage.put(
+        row.storageKey,
+        bytes,
+        row.declaredMime ?? 'application/octet-stream',
+      );
+    } catch (error) {
+      this.logger.error(`Storing upload ${id} failed: ${String(error)}`);
+      throw new ServiceUnavailableException(
+        'File storage is not reachable. Start it with npm run infra:up, then retry.',
+      );
+    }
+  }
+
+  /**
+   * Retries an upload whose file never reached storage (still UPLOADING, or
+   * FAILED before completing): it goes back to UPLOADING with a fresh
+   * presigned URL, so the same row is used instead of a new one.
+   */
+  async restart(id: string): Promise<CreateUploadResponse> {
+    const row = await this.findRow(id);
+    if (row.sha256 || (row.status !== 'UPLOADING' && row.status !== 'FAILED'))
+      throw new ConflictException('This document already has its file');
+    await withTransaction(this.svc.pool, async (client) => {
+      await assertWritable(client);
+      await drizzle(client)
+        .update(uploads)
+        .set({ status: 'UPLOADING', lastError: null, updatedAt: new Date() })
+        .where(eq(uploads.id, id));
+    });
+    return this.uploadTarget(id, row.storageKey, row.declaredMime);
+  }
+
+  /** The browser gave up sending the file: FAILED now, with its reason. */
+  async abandon(id: string, reason: string): Promise<UploadDto> {
+    const [failed] = await this.svc.db
+      .update(uploads)
+      .set({ status: 'FAILED', lastError: reason, updatedAt: new Date() })
+      .where(and(eq(uploads.id, id), eq(uploads.status, 'UPLOADING')))
+      .returning();
+    return toUploadDto(failed ?? (await this.findRow(id)));
+  }
+
   /** Marks uploads the browser never finished as FAILED. */
   async failStaleUploads(): Promise<number> {
     const cutoff = new Date(
@@ -741,11 +813,12 @@ export class UploadsService implements OnModuleInit, OnModuleDestroy {
       .update(uploads)
       .set({
         status: 'FAILED',
-        lastError: 'Upload was never completed',
+        lastError:
+          'The file never reached storage. Retry it, or delete it and upload it again.',
         updatedAt: new Date(),
       })
       .where(
-        and(eq(uploads.status, 'UPLOADING'), lt(uploads.createdAt, cutoff)),
+        and(eq(uploads.status, 'UPLOADING'), lt(uploads.updatedAt, cutoff)),
       )
       .returning({ id: uploads.id });
     if (stale.length)
