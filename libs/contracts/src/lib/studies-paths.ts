@@ -16,6 +16,7 @@ export const STUDY_TOPICS = [
   'infrastructure',
   'leadership',
   '3d',
+  'finance',
   'other',
 ] as const;
 export type StudyTopic = (typeof STUDY_TOPICS)[number];
@@ -26,6 +27,7 @@ export const STUDY_TOPIC_LABELS: Record<StudyTopic, string> = {
   infrastructure: 'Infrastructure',
   leadership: 'Leadership',
   '3d': '3D',
+  finance: 'Finance',
   other: 'Other',
 };
 
@@ -1104,6 +1106,344 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
             outcome: 'A water shader for the island’s sea.',
             resources: [
               r('The Book of Shaders', 'https://thebookofshaders.com/'),
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  // --------------------------------------------------------------- finance
+  {
+    id: 'finance',
+    topic: 'finance',
+    emblem: '💶',
+    name: 'Financial education',
+    summary:
+      'Money from zero, for an employee in Italy: budget and emergency fund, your payslip, IRPEF, the 730 and the F24, your pension, saving and investing, a mortgage and the home bonuses.',
+    why: 'Life Island already reads your payslips, your CU, your 730, your bank movements and your pension fund. This path explains what those numbers mean, one plain idea at a time, so you can check them yourself and decide with confidence instead of trusting whoever explains it fastest.',
+    level: 'beginner',
+    capstone:
+      'Your yearly money review, built from your own Life Island data: a one-page note with your monthly budget, your emergency fund, one payslip explained line by line, last year’s 730 checked against your CU, your TFR and pension fund choice, and a written investing plan.',
+    certifications: [],
+    stages: [
+      {
+        id: 'basics',
+        title: 'Money basics',
+        goal: 'Know where your money comes from, where it goes, and keep a cushion.',
+        steps: [
+          {
+            id: 'finance.basics.words',
+            title: 'The ten words that matter',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Gross and net, RAL (your yearly gross salary), income and expenses, assets and debts, interest, inflation (why €100 buys less every year) and compound interest (interest that earns interest: small amounts over many years grow a lot). Read slowly, with a notebook.',
+            outcome:
+              'You can explain inflation and compound interest to a friend with an example.',
+            resources: [
+              r(
+                'Banca d’Italia, L’economia per tutti',
+                'https://economiapertutti.bancaditalia.it/',
+              ),
+              r(
+                'Quello che conta, the national financial education portal',
+                'https://www.quellocheconta.gov.it/',
+              ),
+              r(
+                'Khan Academy, Personal finance',
+                'https://www.khanacademy.org/college-careers-more/personal-finance',
+              ),
+            ],
+          },
+          {
+            id: 'finance.basics.budget',
+            title: 'A monthly budget',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'Import one or two months of bank movements in Money and look at where the money went. Then set a budget per category; a simple start is 50/30/20: about half for needs (rent, bills, food), a third for wants, a fifth for saving. Your savings rate is the one number to watch.',
+            outcome:
+              'A budget in Money and your savings rate, which you check once a month.',
+            resources: [
+              r(
+                'Quello che conta, planning your budget',
+                'https://www.quellocheconta.gov.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.basics.emergency',
+            title: 'An emergency fund',
+            kind: 'practice',
+            hours: 2,
+            detail:
+              'Before investing anything, keep three to six months of expenses in a separate account you can reach in a day: a broken car or a lost job then stays a problem and not a crisis. Pay off expensive debt (credit cards, consumer loans) first.',
+            outcome:
+              'A separate account with a target amount, and a monthly transfer that fills it.',
+            resources: [
+              r('Book: The Psychology of Money, Morgan Housel', null, false),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'payslip',
+        title: 'Your payslip and your pay',
+        goal: 'Read every line of your busta paga and know where the gross goes.',
+        steps: [
+          {
+            id: 'finance.payslip.read',
+            title: 'From gross to net',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Take one payslip from Work and follow the gross down: INPS contributions (about 9–10% of gross, they build your public pension), then IRPEF on what is left (the imponibile), minus the detrazioni for employees, then the regional and municipal add-ons (addizionali, withheld in instalments the year after). What remains is the net.',
+            outcome:
+              'You can point at each line of your payslip and say what it is for.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, guides for citizens',
+                'https://www.agenziaentrate.gov.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.payslip.tfr',
+            title: 'TFR, your severance pay',
+            kind: 'learn',
+            hours: 2,
+            detail:
+              'Every year about 7% of your pay (your yearly pay divided by 13.5) is set aside as TFR. It stays with the company (or the INPS treasury fund), revalued at 1.5% plus three quarters of inflation, or it goes to a pension fund. The choice to move it to a fund cannot be undone, so read the Work page that compares both before you decide.',
+            outcome:
+              'You know where your TFR is today and what each choice would give you.',
+            resources: [r('INPS', 'https://www.inps.it/')],
+          },
+          {
+            id: 'finance.payslip.cu',
+            title: 'The CU, your year in one page',
+            kind: 'practice',
+            hours: 1,
+            detail:
+              'By 16 March your employer gives you the Certificazione Unica: what you earned last year, the taxes and contributions already withheld, your TFR. It is the starting point of the 730. Load it in Documents and compare its totals with the sum of your twelve payslips.',
+            outcome: 'Your CU in Life Island, and its totals checked.',
+            resources: [],
+          },
+        ],
+      },
+      {
+        id: 'taxes',
+        title: 'Italian taxes without fear',
+        goal: 'Understand IRPEF, deductions and the 730 well enough to check your own return.',
+        steps: [
+          {
+            id: 'finance.taxes.irpef',
+            title: 'How IRPEF works: brackets',
+            kind: 'learn',
+            hours: 2,
+            detail:
+              'IRPEF is progressive: each rate applies only to the slice of income inside its bracket (scaglione). With the 2025 brackets (23% up to €28,000, 35% up to €50,000, 43% above), €30,000 of taxable income pays 23% on €28,000 and 35% on the last €2,000, not 35% on everything. So a rise never lowers your net. The rate of your last euro is your marginal rate; check the brackets of the current year, the budget law can change them.',
+            outcome:
+              'You can work out your marginal rate and why it matters for deductions.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, IRPEF',
+                'https://www.agenziaentrate.gov.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.taxes.deductions',
+            title: 'Deduzioni and detrazioni',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'A deduzione lowers your taxable income, so it is worth your marginal rate (your pension fund contributions). A detrazione lowers the tax itself by a fixed share: 19% of medical expenses above €129.11, of mortgage interest on your main home (up to €4,000 of interest), of school and sport costs. Most 19% detrazioni need a traceable payment (card or transfer), not cash; medicines and devices are the main exception. Keep the receipts: the 730 tax return area lists them per year.',
+            outcome:
+              'You know which of your expenses lower your taxes, and how to pay them so they count.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, the precompilata',
+                'https://infoprecompilata.agenziaentrate.gov.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.taxes.730',
+            title: '730 or Redditi PF',
+            kind: 'learn',
+            hours: 2,
+            detail:
+              'The 730 is the simple return for employees and pensioners: from the end of April the Agenzia prepares it (precompilata) from your CU and the expenses it knows; you check it, add what is missing and send it by 30 September, yourself with SPID or CIE, or through a CAF. A refund arrives in your payslip, usually from July. Redditi PF is the full return, for income the 730 cannot hold or when nobody can pay you the refund; it goes online by 31 October and taxes due are paid with the F24.',
+            outcome:
+              'You know which return you file and its deadline, and you can open your precompilata.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, the precompilata',
+                'https://infoprecompilata.agenziaentrate.gov.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.taxes.check',
+            title: 'Check your own 730',
+            kind: 'practice',
+            hours: 3,
+            detail:
+              'Open last year’s return in the 730 tax return area next to the forecast from your CU, payslips and expenses. Find where the two differ and why: a missing receipt, a deduction you did not know, an addizionale. Write down what to collect better this year.',
+            outcome:
+              'A short list of what to keep and pay traceably for next year’s return.',
+            resources: [],
+          },
+          {
+            id: 'finance.taxes.f24',
+            title: 'The F24',
+            kind: 'learn',
+            hours: 1,
+            detail:
+              'The F24 is the form that pays almost every tax: IMU on homes that are not your main home (June and December), the balance and advances of Redditi PF (30 June and 30 November). Each line has a codice tributo saying what you are paying. You pay it from your home banking; a late payment can be fixed with a small penalty (ravvedimento operoso) if you act soon.',
+            outcome:
+              'You can read an F24 and know which dates go in your Agenda.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, F24',
+                'https://www.agenziaentrate.gov.it/',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'pension',
+        title: 'Pension and the long term',
+        goal: 'Know what pension to expect and whether a pension fund helps you.',
+        steps: [
+          {
+            id: 'finance.pension.public',
+            title: 'Your public pension',
+            kind: 'practice',
+            hours: 2,
+            detail:
+              'Your INPS pension is computed mostly from the contributions you paid (the contributivo system), so a gap in your career is a gap in your pension. Log in to INPS with SPID, download your estratto conto contributivo and check that every job is there; then try the "La mia pensione futura" simulator.',
+            outcome:
+              'Your contribution record checked, and an estimate of your pension and its date.',
+            resources: [r('INPS', 'https://www.inps.it/')],
+          },
+          {
+            id: 'finance.pension.fund',
+            title: 'Pension funds (previdenza complementare)',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'A pension fund adds to the public pension. Three reasons it can pay off for an employee: your contributions are deducted from taxable income (up to €5,300 a year from 2026, €5,164.57 before), your employer often adds its own contribution only if you join, and at exit the tax is 15% falling to 9%, lower than IRPEF. The money is tied up until retirement, with some exceptions (first home, health). Compare costs with the ISC indicator.',
+            outcome:
+              'You know whether you are in a fund, what your employer adds, and how much room is left under the yearly limit (Work shows it).',
+            resources: [
+              r(
+                'COVIP, the pension fund supervisor (guides and fund costs)',
+                'https://www.covip.it/',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'investing',
+        title: 'Saving and investing basics',
+        goal: 'Make your savings beat inflation without taking risks you do not understand.',
+        steps: [
+          {
+            id: 'finance.investing.risk',
+            title: 'Risk, return and time',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'More expected return always means more risk: there is no high, guaranteed return. Diversify (many companies and countries, not one), match the investment to when you will need the money (cash for under two years, bonds for a few, shares only for ten or more), and know that costs and selling in a panic hurt more than a bad year.',
+            outcome:
+              'You can say how much of your savings could fall 30% in a year without changing your life.',
+            resources: [
+              r(
+                'Consob, investor education',
+                'https://www.consob.it/web/investor-education',
+              ),
+              r(
+                'Book: The Little Book of Common Sense Investing, John C. Bogle',
+                null,
+                false,
+              ),
+            ],
+          },
+          {
+            id: 'finance.investing.tools',
+            title: 'What you can buy, and its tax',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Conto deposito (a savings account with a fixed rate), Italian and EU government bonds such as BTP (gains taxed at 12.5%), funds and ETFs (a basket of many shares or bonds; compare the yearly cost, the TER), single shares. Other gains are taxed at 26%. A securities account pays a 0.2% stamp duty a year, a current account €34.20 when the average balance is over €5,000.',
+            outcome:
+              'You can compare two products by risk, yearly cost and tax.',
+            resources: [
+              r(
+                'Banca d’Italia, L’economia per tutti',
+                'https://economiapertutti.bancaditalia.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.investing.plan',
+            title: 'Write your investing plan',
+            kind: 'practice',
+            hours: 2,
+            detail:
+              'One page: the goal and its date (add it in Goals or Dreams), how much you put in each month (a PAC, a monthly plan, smooths the timing), what you buy and why, and when you look at it (once or twice a year, not every day). Never buy what you cannot explain, and check on Consob’s site that whoever sells it is authorised.',
+            outcome: 'A written plan you follow for a year.',
+            resources: [
+              r(
+                'Consob, investor education',
+                'https://www.consob.it/web/investor-education',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'house',
+        title: 'House, mortgage and home bonuses',
+        goal: 'Understand a mortgage and the tax bonuses before you sign anything.',
+        steps: [
+          {
+            id: 'finance.house.mortgage',
+            title: 'How a mortgage works',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Fixed rate (same instalment for all the years) or variable (follows Euribor plus the bank’s spread). Compare offers by TAEG, the total yearly cost with fees and insurance, not by TAN alone. A common rule: the instalment should stay under a third of your net income. Interest on your main-home mortgage gives a 19% detrazione on up to €4,000 a year.',
+            outcome:
+              'You can compare two mortgage offers and know what you can afford.',
+            resources: [
+              r(
+                'Banca d’Italia, L’economia per tutti (house and mortgage)',
+                'https://economiapertutti.bancaditalia.it/',
+              ),
+            ],
+          },
+          {
+            id: 'finance.house.bonuses',
+            title: 'Bonus edilizi',
+            kind: 'learn',
+            hours: 2,
+            detail:
+              'Renovation and energy work on a home gives a detrazione spread over ten years: for expenses in 2025 and 2026, 50% on your main home and 36% on others, lower from 2027. It is lost if you pay the wrong way: use a "bonifico parlante" (a transfer naming the law, your codice fiscale and the firm’s VAT number) and keep the invoices. Log the work in the Houses renovations so the 730 finds every instalment.',
+            outcome:
+              'You know what a renovation will give back, and how to pay so it counts.',
+            resources: [
+              r(
+                'Agenzia delle Entrate, home bonuses',
+                'https://www.agenziaentrate.gov.it/',
+              ),
+              r(
+                'ENEA, energy efficiency (ecobonus)',
+                'https://www.efficienzaenergetica.enea.it/',
+              ),
             ],
           },
         ],
