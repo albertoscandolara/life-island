@@ -36,6 +36,20 @@ import { ExpensePairs } from './expense-pairs';
 import { MonthChart } from './month-chart';
 import { YearComparison } from './year-comparison';
 import { formatDate, formatEuro, ROLE_LABELS, typeLabel } from './format';
+import { EuroCard } from '../explain/euro-card';
+import { GlossaryCard } from '../explain/glossary-card';
+import { SettlementCard } from '../explain/settlement-card';
+import { StepsCard } from '../explain/steps-card';
+import { TrendCard } from '../explain/trend-card';
+import { WhatIfCard } from '../explain/what-if-card';
+
+/** The three views of a year: its tax explained, its expenses, the glossary. */
+export const DASHBOARD_VIEWS = [
+  { id: 'explained', label: 'Your tax, explained', icon: 'chart' },
+  { id: 'expenses', label: 'Expenses and documents', icon: 'file' },
+  { id: 'glossary', label: 'Glossary', icon: 'info' },
+] as const;
+export type DashboardView = (typeof DASHBOARD_VIEWS)[number]['id'];
 
 type PickerTarget =
   | {
@@ -69,6 +83,12 @@ type PickerTarget =
     MonthChart,
     Tax730Guide,
     EntityLink,
+    StepsCard,
+    EuroCard,
+    SettlementCard,
+    WhatIfCard,
+    TrendCard,
+    GlossaryCard,
   ],
   host: { 'data-character': 'ankylo', class: 'tax730' },
   templateUrl: './dashboard-page.html',
@@ -80,6 +100,16 @@ export class DashboardPage {
 
   /** `?year=2025` from the URL. */
   readonly year = input<string>();
+  /** `?view=expenses` from the URL; the explanations by default. */
+  readonly view = input<string>();
+
+  protected readonly views = DASHBOARD_VIEWS;
+  protected readonly currentView = computed<DashboardView>(() => {
+    const asked = this.view();
+    return DASHBOARD_VIEWS.some((v) => v.id === asked)
+      ? (asked as DashboardView)
+      : 'explained';
+  });
 
   protected readonly years = signal<TaxYearDto[] | null>(null);
   protected readonly dossier = signal<TaxYearDossierDto | null>(null);
@@ -124,6 +154,13 @@ export class DashboardPage {
   protected selectYear(year: number): void {
     void this.router.navigate([], {
       queryParams: { year },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected setView(view: DashboardView): void {
+    void this.router.navigate([], {
+      queryParams: { view: view === 'explained' ? null : view },
       queryParamsHandling: 'merge',
     });
   }

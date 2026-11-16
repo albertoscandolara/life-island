@@ -5,6 +5,7 @@ import {
   TAX_RETURN_FORMS,
   TAX_RETURN_KEYS,
   TAX730_FIGURE_LABELS,
+  grossIrpef as contractsGrossIrpef,
   pensionDeductionLimit,
   secondAdvanceDeadline,
   taxReturnDeadline,
@@ -243,40 +244,8 @@ export function returnsOf(
 // The forecast
 // ---------------------------------------------------------------------------
 
-/** IRPEF brackets by year: [upper limit, rate]. */
-function brackets(taxYear: number): [number, number][] {
-  if (taxYear <= 2023)
-    return [
-      [15000, 0.23],
-      [28000, 0.25],
-      [50000, 0.35],
-      [Infinity, 0.43],
-    ];
-  if (taxYear <= 2025)
-    return [
-      [28000, 0.23],
-      [50000, 0.35],
-      [Infinity, 0.43],
-    ];
-  // From 2026 the second bracket is 33% (Legge di Bilancio 2026).
-  return [
-    [28000, 0.23],
-    [50000, 0.33],
-    [Infinity, 0.43],
-  ];
-}
-
-/** Imposta lorda on a taxable income. */
-export function grossIrpef(taxable: number, taxYear: number): number {
-  let tax = 0;
-  let floor = 0;
-  for (const [limit, rate] of brackets(taxYear)) {
-    if (taxable <= floor) break;
-    tax += (Math.min(taxable, limit) - floor) * rate;
-    floor = limit;
-  }
-  return round(tax);
-}
+/** Imposta lorda on a taxable income, with the brackets of the year. */
+export const grossIrpef = contractsGrossIrpef;
 
 /**
  * Employment tax credits for a full year (art. 13 TUIR), with the
