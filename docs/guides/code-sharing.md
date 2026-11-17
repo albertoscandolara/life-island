@@ -42,11 +42,11 @@ Found in the review of November 2026. Each line is removed when its area is next
 
 | Where                                                                                                                                                       | Duplicate of                                      |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `mfe-work/.../blocks.css`, `mfe-studies/.../blocks.css`, `mfe-home/.../shared/kit.css`, tile and table rules in `mfe-cars`, `mfe-people`, `mfe-tax730`      | `.li-*` in `design-system/styles/records.css`     |
-| `mfe-work/.../labels.ts` (`euro`, `duration`, `pct`), `mfe-home/.../shared/format.ts`, `mfe-tax730/.../dashboard/format.ts`                                 | `records-ui` formatters                           |
+| `mfe-home/.../shared/kit.css`, tile and table rules in `mfe-cars`, `mfe-people`, `mfe-tax730`                                                               | `.li-*` in `design-system/styles/records.css`     |
+| `mfe-work/.../labels.ts` (`duration`, `pct`), `mfe-home/.../shared/format.ts`, `mfe-tax730/.../dashboard/format.ts`                                         | `records-ui` formatters                           |
 | Hand-drawn CSS bar charts in `mfe-tax730` (month chart, year comparison, trend), `mfe-money`, `mfe-subscriptions`, `mfe-travel`, `mfe-fitness`, `mfe-goals` | design-system charts and `li-bars`                |
 | `svc-work` career advisor, `svc-studies` study coach and resource scout, `svc-cars` quote advisor (own `Anthropic` clients)                                 | `AiAssistant` in `libs/be-nest`                   |
 | `money()` / `euroText()` in `svc-work` (five files) and `svc-dreams`                                                                                        | one shared text formatter in `libs/contracts`     |
 | `/attention` missing in Cars, Home, Work, Taxes and Groceries                                                                                               | `LifeAttentionDto`, as the other areas publish it |
 
-Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies takes its formatters from `records-ui`; chart colours of a kind or topic come from the shared `--viz-1…6` palette.
+Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies and Work use the `.li-*` kit, including the shared inline form `.li-form`; Studies and Work take money, dates and errors from `records-ui`, whose `euro` groups thousands as every area does; chart colours of a kind or topic come from the shared `--viz-1…6` palette.
