@@ -26,9 +26,9 @@ A page reads top to bottom in the order you need it:
 
 Every area looks like the same app; the character only re-tints it.
 
-**The base (same in every area).** Neutral surfaces (`--surface-page`, `--surface-card`, `--surface-sunken`), Inter for text and Fredoka for titles, the spacing scale (`--space-*`), the radii (`--radius-*`), the shadows (`--shadow-card`, `--shadow-popover`, `--shadow-dialog`), the status tones (`--tone-*`) and the motion tokens (`--duration-*`, `--ease-*`).
+**The base (same in every area): sand and sea.** In the light theme white cards lie on warm sand (`--surface-page`, `--surface-sunken`) and the text is deep-sea ink; the dark theme is a night lagoon. Faint contour lines of an island map sit behind the page, never behind a card. Inter for text and Fredoka for titles and big numbers, the spacing scale (`--space-*`), the radii (`--radius-*`), the shadows (`--shadow-card`, `--shadow-tile`, `--shadow-popover`, `--shadow-dialog`), the status tones (`--tone-*`) and the motion tokens (`--duration-*`, `--ease-*`).
 
-**The character accent (`[data-character]`).** Used only for identity and the next step: the emblem, the active tab, the primary button, the lead tile, the bar beside a card title, focus rings. Never for data (a chart series, a value that is good or bad) and never for status: a late payment is `--tone-danger` in every area, whatever the character's colour.
+**The character accent (`[data-character]`).** Used only for identity and the next step: the emblem's island token, the active tab, the primary button, the lead tile (its ribbon and lip), the bar beside a card title, focus rings. Never for data (a chart series, a value that is good or bad) and never for status: a late payment is `--tone-danger` in every area, whatever the character's colour.
 
 **Cross-module identities.** Some features look the same in every area so you recognise them anywhere. Each has its own tokens and components, and an area never restyles them:
 
@@ -49,11 +49,24 @@ A new cross-module feature gets its own identity the same way: tokens in `semant
 
 The island hub is the only real 3D scene a page depends on (plus a character's avatar and a small hero model, such as the Cars garage, when it shows the entity the page is about). Everything else is 2D that _feels_ physical, so the 3D hub and the pages belong to one world:
 
-- **Depth comes from tokens, not effects.** Cards sit on `--shadow-card` and lift to `--shadow-card-hover` when they open something; popovers and dialogs use their own shadow. Bars over content use `--surface-glass` with a backdrop blur. Three levels at most on one screen: page, card, overlay.
-- **Light from one side.** Gradients run at 135° (`--accent-gradient`), highlights sit top-left, like the emblem's gloss. Do not add other directions.
-- **Motion explains, never decorates.** Blocks rise in once (`ui-rise-in`, `--duration-slow`); a value that changes moves within `--duration-normal`; nothing loops except the emblem's float. Everything honours `prefers-reduced-motion`.
-- **3D never holds data alone.** Whatever a scene shows (a car, a house, a zone's badge) is also in the 2D page, readable by keyboard and screen reader. Three.js loads lazily (`@defer`), and the page works without WebGL.
-- **Clarity wins every tie.** When a visual effect and readability compete (contrast on glass, a gradient behind numbers, a shadow on a dense table) drop the effect. Tables and numbers sit on flat `--surface-card`.
+- **Tactile, not glossy.** Light falls from the top-left: every raised surface has a bright top edge (`--edge-light`, already inside `--shadow-card` and `--shadow-tile`) and a soft shadow under it. Stat tiles (`.li-tile`) add a short solid lip, like a key you can press; the lead tile's lip and the ribbon on its top edge take the accent. Cards lift to `--shadow-card-hover` when they open something. Bars over content use `--surface-glass` with a backdrop blur. Three levels at most on one screen: page, card, overlay.
+- **Light from one side.** Gradients run at 135° (`--accent-gradient`), highlights sit top-left. Do not add other directions.
+- **Motion explains, never decorates.** Blocks rise in once (`ui-rise-in`, `--duration-slow`), tiles one after the other; a value that changes moves within `--duration-normal`; nothing loops. Everything honours `prefers-reduced-motion`.
+- **3D never holds data alone.** Whatever a scene shows (a car, a house, a zone's badge) is also in the 2D page, readable by keyboard and screen reader. Three.js loads lazily (`@defer`), and the page works without WebGL. The island floats on the page: its sea fades into it, with no box around it.
+- **Clarity wins every tie.** When a visual effect and readability compete (contrast on glass, a gradient behind numbers, a shadow on a dense table) drop the effect. Tables and numbers sit on flat `--surface-card`, and a card never turns in 3D: only its token does, so text stays sharp.
+
+### Treasures: the few 3D touches
+
+A treasure is rare by definition. These are the only ones, all in `libs/design-system/src/styles/treasures.css`; an area never adds its own, and a new one is a design-system change with a line here.
+
+| Treasure            | What it is                                                                                                 | Where                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| The island token    | `.ui-token`: a coin of the accent with a real side, a shine and a cast shadow; it turns into place once    | The emblem in `<ui-page-header>` (until the character's avatar exists), the brand mark, hub cards |
+| The quiet token     | `.ui-token--soft`: the same coin in the accent's wash, so it never reads as a button                       | `<ui-empty-state>`, areas still planned on the hub                                                |
+| Turn to the pointer | `uiTilt` sets `--tilt-x`, `--tilt-y` and `--glare-x`; the tokens inside turn and their glare slides across | `<ui-page-header>` (built in), hub cards. Mouse only, never with reduced motion                   |
+| The map             | Faint contour lines behind the page (`--contour-ink`, `--contour-opacity`), fixed while you scroll         | The page background, once, from `body::before`                                                    |
+
+Sizes are `.ui-token--sm` (a control's height), `.ui-token--md` and the default (`--space-16`), or `--token-size` and `--token-depth`. One token per block at most: a list of rows uses plain emblems, never a column of coins.
 
 ## 4. Charts
 
@@ -99,4 +112,5 @@ A page or feature is done when:
 - [ ] Charts come from the design system, use entity tokens or `--viz-1…6`, and have their numbers in a table
 - [ ] Reading matter is in the Guide, not on the page
 - [ ] Works at 360 px, by keyboard, in light and dark, with reduced motion
+- [ ] No new 3D touch, gradient direction or looping animation outside the treasures of section 3
 - [ ] No component, style block or formatter copied from another area ([Code sharing](code-sharing.md))

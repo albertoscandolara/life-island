@@ -520,7 +520,7 @@ Modules are clean 2D screens on the design system; 3D appears in exactly three p
 ### 3D rules
 
 1. **Island hub in the shell:** low-poly island (angular-three), one zone per character; hover highlights, click flies the camera in, then routes to the module.
-2. **Character avatars:** small animated models in each module header, or pre-rendered sprites when performance matters.
+2. **Character avatars:** small animated models in each module header, or pre-rendered sprites when performance matters. Until a character has one, its header shows the emblem on the island token (CSS, `libs/design-system`, design-guidelines.md, Treasures).
 3. **One data-flow animation:** on approval, an item flies from Ptera's inbox to the target character's zone.
 
 Three.js is lazy-loaded with `@defer`; `prefers-reduced-motion` gets a 2D hub; models are Draco/meshopt GLTF, about 1 MB each at most.

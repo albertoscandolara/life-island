@@ -6,10 +6,11 @@
 :root {
   color-scheme: light;
 
-  --surface-page: var(--ink-50);
+  /* Sand under the cards, white cards on top: the light theme's paper. */
+  --surface-page: var(--sand-50);
   --surface-card: var(--ink-0);
-  --surface-sunken: var(--ink-100);
-  --surface-hover: color-mix(in srgb, var(--ink-200) 55%, transparent);
+  --surface-sunken: var(--sand-100);
+  --surface-hover: color-mix(in srgb, var(--sand-200) 60%, transparent);
   --surface-overlay: rgb(17 23 34 / 40%);
   /* Translucent bars that let the page show through (with a backdrop blur). */
   --surface-glass: color-mix(in srgb, var(--ink-0) 72%, transparent);
@@ -17,13 +18,13 @@
   --surface-ambient-1: color-mix(in srgb, var(--accent) 12%, transparent);
   --surface-ambient-2: color-mix(in srgb, var(--sky-400) 12%, transparent);
 
-  --text-primary: var(--ink-900);
+  --text-primary: var(--deep-sea-900);
   --text-secondary: var(--ink-600);
   --text-muted: var(--ink-500);
   --text-on-accent: var(--ink-0);
 
-  --border-subtle: var(--ink-200);
-  --border-strong: var(--ink-300);
+  --border-subtle: var(--sand-200);
+  --border-strong: var(--sand-300);
 
   --accent: var(--lagoon-600);
   --accent-hover: var(--lagoon-700);
@@ -50,12 +51,29 @@
   --tone-danger: var(--lava-500);
   --tone-danger-soft: var(--lava-50);
 
+  /*
+   * Tactile depth: light falls from the top-left, so every raised surface has
+   * a bright top edge (--edge-light) and a soft shadow below. Tiles add a
+   * short solid lip under them (--tile-lip), like a key you can press.
+   */
+  --edge-light: rgb(255 255 255 / 90%);
+  --shadow-ink: rgb(15 28 43 / 16%);
+  --tile-lip: color-mix(in srgb, var(--sand-300) 75%, transparent);
   --shadow-card:
-    0 1px 2px rgb(17 23 34 / 4%), 0 4px 16px -4px rgb(17 23 34 / 8%);
+    inset 0 1px 0 var(--edge-light), 0 1px 2px rgb(15 28 43 / 5%),
+    0 10px 24px -14px var(--shadow-ink);
   --shadow-card-hover:
-    0 2px 4px rgb(17 23 34 / 5%), 0 16px 32px -8px rgb(17 23 34 / 16%);
-  --shadow-popover: 0 12px 32px -4px rgb(17 23 34 / 18%);
-  --shadow-dialog: 0 32px 80px -12px rgb(17 23 34 / 32%);
+    inset 0 1px 0 var(--edge-light), 0 2px 4px rgb(15 28 43 / 6%),
+    0 22px 40px -16px rgb(15 28 43 / 26%);
+  --shadow-tile:
+    inset 0 1px 0 var(--edge-light), 0 2px 0 var(--tile-lip),
+    0 10px 20px -14px var(--shadow-ink);
+  --shadow-popover: 0 12px 32px -4px rgb(15 28 43 / 18%);
+  --shadow-dialog: 0 32px 80px -12px rgb(15 28 43 / 32%);
+
+  /* The map's contour lines behind the page (treasures.css). */
+  --contour-ink: var(--lagoon-600);
+  --contour-opacity: 0.09;
 
   /*
    * Chart colours. Each one follows an entity, never a rank: a utility keeps
@@ -171,10 +189,17 @@
   --viz-grid: var(--abyss-700);
   --viz-axis: var(--abyss-600);
 
-  --shadow-card:
-    0 1px 0 rgb(255 255 255 / 3%) inset, 0 4px 16px rgb(0 0 0 / 30%);
+  --edge-light: rgb(255 255 255 / 6%);
+  --shadow-ink: rgb(0 0 0 / 45%);
+  --tile-lip: rgb(0 0 0 / 35%);
+  --shadow-card: inset 0 1px 0 var(--edge-light), 0 4px 16px rgb(0 0 0 / 30%);
   --shadow-card-hover:
-    0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 50%);
+    inset 0 1px 0 rgb(255 255 255 / 9%), 0 18px 44px rgb(0 0 0 / 52%);
+  --shadow-tile:
+    inset 0 1px 0 var(--edge-light), 0 2px 0 var(--tile-lip),
+    0 10px 22px -12px var(--shadow-ink);
+  --contour-ink: var(--lagoon-400);
+  --contour-opacity: 0.09;
   --shadow-popover: 0 12px 32px rgb(0 0 0 / 55%);
   --shadow-dialog: 0 32px 80px rgb(0 0 0 / 65%);
 }
@@ -193,6 +218,26 @@
   );
   --accent-glow: 0 8px 24px color-mix(in srgb, var(--accent) 26%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  /* The lead tile's lip takes the accent: the one tile that leads. */
+  --tile-lip-lead: color-mix(in srgb, var(--accent) 55%, transparent);
+  /*
+   * The island token (.ui-token, treasures.css): the accent coin's side, the
+   * shine on its face and the shadow it casts.
+   */
+  --token-side: color-mix(in srgb, var(--accent) 58%, var(--deep-sea-900));
+  --token-shine: color-mix(in srgb, var(--ink-0) 34%, transparent);
+  --token-glare: color-mix(in srgb, var(--ink-0) 38%, transparent);
+  --token-shade: color-mix(in srgb, var(--deep-sea-900) 22%, transparent);
+  --token-cast: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+:root[data-theme='dark'],
+:root[data-theme='dark'] [data-character] {
+  --token-side: color-mix(in srgb, var(--accent) 45%, var(--abyss-950));
+  --token-shine: color-mix(in srgb, var(--ink-0) 28%, transparent);
+  --token-glare: color-mix(in srgb, var(--ink-0) 26%, transparent);
+  --token-shade: rgb(0 0 0 / 30%);
+  --token-cast: rgb(0 0 0 / 55%);
 }
 
 /*

@@ -51,8 +51,10 @@
     [style.--stagger]="i"
   >
     @if (module.path) {
-    <a class="module" [routerLink]="module.path">
-      <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
+    <a class="module" [routerLink]="module.path" uiTilt="16">
+      <span class="module__emblem ui-token" aria-hidden="true"
+        >{{ module.emblem }}</span
+      >
       <span class="module__name">{{ module.name }}</span>
       <span class="module__mission">{{ module.mission }}</span>
       @if (attention()[module.id]; as badge) {
@@ -66,7 +68,9 @@
     </a>
     } @else {
     <div class="module module--planned">
-      <span class="module__emblem" aria-hidden="true">{{ module.emblem }}</span>
+      <span class="module__emblem ui-token ui-token--soft" aria-hidden="true"
+        >{{ module.emblem }}</span
+      >
       <span class="module__name">{{ module.name }}</span>
       <span class="module__mission">{{ module.mission }}</span>
       <ui-badge>Coming soon</ui-badge>

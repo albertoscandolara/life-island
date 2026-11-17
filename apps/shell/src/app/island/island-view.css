@@ -35,6 +35,12 @@
   width: 100%;
   height: 100%;
   cursor: grab;
+  /* The sea fades into the page at the edges, so the island floats on it. */
+  mask-image: radial-gradient(
+    ellipse 50% 48% at 50% 52%,
+    var(--surface-card) 58%,
+    transparent 96%
+  );
 }
 
 .canvas--pointer {

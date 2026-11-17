@@ -5,7 +5,9 @@ import { UiIcon, type UiIconName } from '../icon/icon';
   selector: 'ui-empty-state',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiIcon],
-  template: `<span class="icon"><ui-icon [name]="icon()" [size]="28" /></span>
+  template: `<span class="icon ui-token ui-token--soft"
+      ><ui-icon [name]="icon()" [size]="28"
+    /></span>
     <p class="heading">{{ heading() }}</p>
     <ng-content />`,
   styles: `
@@ -18,16 +20,10 @@ import { UiIcon, type UiIconName } from '../icon/icon';
       color: var(--text-muted);
       text-align: center;
     }
+    /* An island token that rests on the page: the soft one, so it never reads as an action. */
     .icon {
-      display: grid;
-      place-items: center;
-      width: var(--space-16);
-      height: var(--space-16);
-      margin-bottom: var(--space-2);
-      border-radius: var(--radius-full);
-      background: var(--accent-soft);
-      color: var(--accent);
-      animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
+      --token-size: var(--space-16);
+      margin-bottom: var(--space-3);
     }
     .heading {
       margin: 0;
