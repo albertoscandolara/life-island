@@ -77,7 +77,7 @@
     real().baseYear }}: a bar lower than the year before means the salary bought
     less, whatever the payslip said.
   </p>
-  <work-column-chart
+  <ui-column-chart
     [buckets]="realChart().buckets"
     [series]="realChart().series"
     mode="grouped"
@@ -134,7 +134,7 @@
   <!-- What the salary is made of -->
   <ui-card heading="What your salary is made of" class="block">
     @if (partsChart().buckets.length) {
-    <work-column-chart
+    <ui-column-chart
       [buckets]="partsChart().buckets"
       [series]="partsChart().series"
       [height]="220"
@@ -268,7 +268,7 @@
 <!-- Taxes -->
 <ui-card heading="Where your gross goes" class="block">
   @if (taxChart().buckets.length) {
-  <work-column-chart
+  <ui-column-chart
     [buckets]="taxChart().buckets"
     [series]="taxChart().series"
     [height]="240"
@@ -329,7 +329,7 @@
   <!-- Time off -->
   <ui-card heading="Time off" class="block">
     @if (timeOffChart().buckets.length) {
-    <work-column-chart
+    <ui-column-chart
       [buckets]="timeOffChart().buckets"
       [series]="timeOffChart().series"
       mode="grouped"

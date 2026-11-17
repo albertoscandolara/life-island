@@ -2,22 +2,24 @@
 
 This folder explains how Life Island is built and how to work on it. Start with the overview, then read the guide for whatever part you are touching.
 
-| Document                                             | Read it when you want to…                                                                                                                             |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [System overview](overview.md)                       | Understand the whole system: components, data ownership, how a document travels from upload to a module, and what exists today versus what is planned |
-| [Getting started](getting-started.md)                | Set up a machine, run the stack and the tests, and fix common local problems                                                                          |
-| [Nx workspace](guides/nx-workspace.md)               | Understand the monorepo: projects, tags, module boundaries, targets, caching, `nx affected`, adding apps and libs                                     |
-| [Local infrastructure](guides/infrastructure.md)     | Know what Docker Compose runs, on which ports, with which volumes and settings                                                                        |
-| [Database](guides/database.md)                       | Work with Postgres: one schema and one role per service, init scripts, the isolation check, connecting, migrations                                    |
-| [Events and the outbox](guides/events-and-outbox.md) | Publish or consume events: contracts, the transactional outbox, the relay, idempotent consumers, delivery guarantees                                  |
-| [Storage and gateway](guides/storage-and-gateway.md) | Use S3 storage (SeaweedFS locally) and route the front end to services through Caddy                                                                  |
-| [Entities](guides/entities.md)                       | Show a person, house, car, company or workplace as a link to its page; publish an area's entities; confirm new ones                                   |
-| [Documents loader](guides/documents-loader.md)       | Run or change the upload, parse and review flow: data model, categories, schedule, parser, APIs, storage                                              |
-| [Life Island app](guides/life-island-app.md)         | Work on the island hub, an area's remote, or the 730 area: Native Federation, the 3D island, documents per year, the zip and the Excel export         |
-| [Document storage](document-storage.md)              | Know where uploaded files live, how they are retrieved by id, and the SQL of the documents table                                                      |
-| [AI tools and Settings](guides/ai-tools.md)          | Add or change a feature that calls an AI model: the registry, the switches in Settings, costs, the request info and the AI visual language            |
-| [Testing and CI](guides/testing-and-ci.md)           | Write unit and integration tests and understand what the GitHub Actions pipeline checks                                                               |
-| [Architecture and ingestion plan](architecture.md)   | Read the source-of-truth plan: principles, AI pipeline, review inbox, roadmap and the new-feature checklist                                           |
+| Document                                             | Read it when you want to…                                                                                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [System overview](overview.md)                       | Understand the whole system: components, data ownership, how a document travels from upload to a module, and what exists today versus what is planned   |
+| [Getting started](getting-started.md)                | Set up a machine, run the stack and the tests, and fix common local problems                                                                            |
+| [Nx workspace](guides/nx-workspace.md)               | Understand the monorepo: projects, tags, module boundaries, targets, caching, `nx affected`, adding apps and libs                                       |
+| [Local infrastructure](guides/infrastructure.md)     | Know what Docker Compose runs, on which ports, with which volumes and settings                                                                          |
+| [Database](guides/database.md)                       | Work with Postgres: one schema and one role per service, init scripts, the isolation check, connecting, migrations                                      |
+| [Events and the outbox](guides/events-and-outbox.md) | Publish or consume events: contracts, the transactional outbox, the relay, idempotent consumers, delivery guarantees                                    |
+| [Storage and gateway](guides/storage-and-gateway.md) | Use S3 storage (SeaweedFS locally) and route the front end to services through Caddy                                                                    |
+| [Entities](guides/entities.md)                       | Show a person, house, car, company or workplace as a link to its page; publish an area's entities; confirm new ones                                     |
+| [Documents loader](guides/documents-loader.md)       | Run or change the upload, parse and review flow: data model, categories, schedule, parser, APIs, storage                                                |
+| [Life Island app](guides/life-island-app.md)         | Work on the island hub, an area's remote, or the 730 area: Native Federation, the 3D island, documents per year, the zip and the Excel export           |
+| [Document storage](document-storage.md)              | Know where uploaded files live, how they are retrieved by id, and the SQL of the documents table                                                        |
+| [Design guidelines](guides/design-guidelines.md)     | Design or change a page: actions first, page anatomy, visual identity and character accents, depth and motion, charts, data order, the review checklist |
+| [Code sharing](guides/code-sharing.md)               | Find where shared code lives, the rule of two, what every area does the same way, and the known duplication to remove                                   |
+| [AI tools and Settings](guides/ai-tools.md)          | Add or change a feature that calls an AI model: the registry, the switches in Settings, costs, the request info and the AI visual language              |
+| [Testing and CI](guides/testing-and-ci.md)           | Write unit and integration tests and understand what the GitHub Actions pipeline checks                                                                 |
+| [Architecture and ingestion plan](architecture.md)   | Read the source-of-truth plan: principles, AI pipeline, review inbox, roadmap and the new-feature checklist                                             |
 
 ## How these documents relate
 

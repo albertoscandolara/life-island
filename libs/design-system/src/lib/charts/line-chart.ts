@@ -9,7 +9,7 @@ import {
   input,
   signal,
 } from '@angular/core';
-import type { ChartSeries } from './column-chart';
+import type { UiChartSeries } from './column-chart';
 import { labelEvery, niceScale, observeWidth } from './scale';
 
 const LEFT = 64;
@@ -22,7 +22,7 @@ const BOTTOM = 28;
  * tooltip lists every series there; up to four lines are labelled at their end.
  */
 @Component({
-  selector: 'home-line-chart',
+  selector: 'ui-line-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (series().length > 1) {
@@ -164,9 +164,9 @@ const BOTTOM = 28;
   `,
   styleUrl: './chart.css',
 })
-export class LineChart {
+export class UiLineChart {
   readonly categories = input.required<string[]>();
-  readonly series = input.required<ChartSeries[]>();
+  readonly series = input.required<UiChartSeries[]>();
   readonly height = input(260);
   readonly format = input<(value: number) => string>((v) => String(v));
   /** Full name of a position for the tooltip, e.g. "March". */

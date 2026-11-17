@@ -320,7 +320,7 @@
   <aside class="side">
     <ui-card heading="Spent on works">
       @if (spending(); as s) {
-      <home-column-chart
+      <ui-column-chart
         [buckets]="s.buckets"
         [series]="s.series"
         [format]="s.format"

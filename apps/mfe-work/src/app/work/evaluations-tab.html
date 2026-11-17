@@ -65,7 +65,7 @@
 <div class="grid">
   @if (scoreChart().buckets.length) {
   <ui-card heading="Score by period">
-    <work-column-chart
+    <ui-column-chart
       [buckets]="scoreChart().buckets"
       [series]="scoreChart().series"
       mode="stacked"
@@ -79,7 +79,7 @@
   </ui-card>
   } @if (bonusChart().buckets.length) {
   <ui-card heading="Bonus by year">
-    <work-column-chart
+    <ui-column-chart
       [buckets]="bonusChart().buckets"
       [series]="bonusChart().series"
       mode="grouped"

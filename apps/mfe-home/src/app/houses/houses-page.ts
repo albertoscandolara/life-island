@@ -30,7 +30,7 @@ import {
 } from '@life-island/design-system';
 import { errorMessage, HomeApi } from '../api/home-api';
 import { addMonths, aggregate, totalIn } from '../bills/aggregate';
-import { Sparkline } from '../charts/sparkline';
+import { UiSparkline } from '@life-island/design-system';
 import { workCost } from '../home/home-page';
 import { AreaNav } from '../shared/area-nav';
 import {
@@ -70,7 +70,7 @@ import { HousesView } from './houses-view';
     HouseDialog,
     HouseSuggestions,
     HouseServices,
-    Sparkline,
+    UiSparkline,
     NgTemplateOutlet,
   ],
   host: { 'data-character': 'bronto', class: 'home' },

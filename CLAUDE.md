@@ -27,4 +27,6 @@
 - Follow `docs/architecture.md`; its principles are non-negotiable and every new module goes through its "New feature checklist".
 - Nx tags: `type:app | type:lib` and `scope:<module> | scope:shared`. Apps never import other apps.
 - Every feature that calls an AI model follows `docs/guides/ai-tools.md`: it is registered in `AI_TOOLS` (libs/contracts), gated by its Settings switch, reports its request and uses, and is shown with `<ui-ai-panel>` and `<li-ai-tool>`.
+- Every page and component follows `docs/guides/design-guidelines.md`: actions first (each insight ends in an action), the character accent only for identity and the next step, shared identities for AI, guides, entities, dates and money, charts only from the design system, and its review checklist before a PR.
+- Follow `docs/guides/code-sharing.md`: search the libs before writing anything generic; the second copy of a component, style block, formatter or endpoint shape moves to a lib in the same PR. Every area publishes `GET /deadlines`, `GET /attention` and (if it owns entities) `GET /entities`; every model call goes through `AiAssistant`.
 - Start local infrastructure with `npm run infra:up`; run integration tests with `npm run test:integration`.

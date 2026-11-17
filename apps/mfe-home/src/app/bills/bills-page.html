@@ -190,7 +190,7 @@
       formatEuro(s.unitCost) }}/{{ info[s.utility].unit }} } } @else { No
       consumption on these bills }
     </span>
-    <home-sparkline
+    <ui-sparkline
       [values]="trends()[s.utility]"
       [color]="utilityColor(s.utility)"
     />
@@ -239,7 +239,7 @@
       </table>
     </div>
     } @else {
-    <home-column-chart
+    <ui-column-chart
       [buckets]="costChart().buckets"
       [series]="costChart().series"
       [mode]="isSplit() ? 'grouped' : 'stacked'"
@@ -254,10 +254,10 @@
 
   <ui-card heading="Where the money goes">
     <h3 class="sub">By utility</h3>
-    <home-segmented-bar [parts]="utilityParts()" [format]="formatEuroRound" />
+    <ui-segmented-bar [parts]="utilityParts()" [format]="formatEuroRound" />
     @if (homeParts().length > 1) {
     <h3 class="sub">By home</h3>
-    <home-segmented-bar [parts]="homeParts()" [format]="formatEuroRound" />
+    <ui-segmented-bar [parts]="homeParts()" [format]="formatEuroRound" />
     } @if (providers().length) {
     <h3 class="sub">Top providers</h3>
     <ol class="providers">
@@ -287,7 +287,7 @@
       <h3>{{ m.home.name }}</h3>
       <strong>{{ formatEuroRound(m.total) }}</strong>
     </header>
-    <home-column-chart
+    <ui-column-chart
       [buckets]="m.buckets"
       [series]="m.series"
       [maxValue]="m.max"
@@ -320,7 +320,7 @@
       </select>
     </span>
     @if (yoy().series.length) {
-    <home-line-chart
+    <ui-line-chart
       [categories]="monthNames"
       [series]="yoy().series"
       [format]="yoy().metric === 'amount' ? formatAxis() : unitFormat(yoy().unit)"
@@ -352,7 +352,7 @@
         @if (c.empty) {
         <p class="muted small">These bills print no consumption.</p>
         } @else {
-        <home-column-chart
+        <ui-column-chart
           [buckets]="c.buckets"
           [series]="c.series"
           [format]="unitFormat(c.unit)"

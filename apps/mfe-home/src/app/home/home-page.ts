@@ -29,7 +29,7 @@ import {
 } from '@life-island/design-system';
 import type { UiTone } from '@life-island/design-system';
 import { errorMessage, HomeApi } from '../api/home-api';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
+import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
 import { AreaNav } from '../shared/area-nav';
 import {
   addressOf,
@@ -87,7 +87,7 @@ export const workYear = (work: WorkDto): number | null => {
     UiEmptyState,
     UiConfirmDialog,
     AreaNav,
-    ColumnChart,
+    UiColumnChart,
     HouseDialog,
     WorkDialog,
     DocumentPicker,
@@ -213,7 +213,7 @@ export class HomePage {
     const buckets = Array.from({ length: last - first + 1 }, (_, i) =>
       String(first + i),
     );
-    const series: ChartSeries[] = homes.map((home) => ({
+    const series: UiChartSeries[] = homes.map((home) => ({
       id: home.id,
       label: home.name,
       color: propertyColor(home.colorSlot),

@@ -187,7 +187,7 @@
         <span class="label">Bills, last 12 months</span>
         <strong>{{ formatEuroRound(c.billsYear) }}</strong>
       </span>
-      <home-sparkline
+      <ui-sparkline
         class="spark"
         [values]="c.trend"
         [color]="propertyColor(c.house.colorSlot)"
