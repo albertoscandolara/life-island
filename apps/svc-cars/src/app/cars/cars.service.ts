@@ -37,6 +37,8 @@ import {
   inDeadlineWindow,
   type DeadlineDto,
   type LifeAttentionDto,
+  documentToReview,
+  CAR_DOCUMENT_TYPE_LABELS,
   type DeadlinesQuery,
   RENEWABLE_LABELS,
 } from '@life-island/contracts';
@@ -183,6 +185,15 @@ export class CarsService {
       ).length,
       expiring: alerts.filter((a) => a.level === 'expiring').length,
       toReview: waiting.length,
+      items: waiting.map((r) =>
+        documentToReview(
+          r,
+          '/cars',
+          r.type ? CAR_DOCUMENT_TYPE_LABELS[r.type] : null,
+          [r.make, r.commercialName].filter(Boolean).join(' ') || null,
+          r.registrationNumber,
+        ),
+      ),
     };
   }
 

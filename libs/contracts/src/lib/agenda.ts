@@ -5,6 +5,7 @@ import {
   lifeNote,
   lifeTime,
   type LifeAiAnswerDto,
+  type LifeAttentionItemDto,
   type LifeRecord,
 } from './life-schemas.js';
 import { isoAddDays } from './life-dates.js';
@@ -101,6 +102,16 @@ export const DEADLINE_SOURCES = [
   { module: 'taxes', name: '730 & taxes', emblem: '🦖', path: '/taxes/730' },
 ] as const;
 export type DeadlineSourceId = (typeof DEADLINE_SOURCES)[number]['module'];
+
+/**
+ * Every area svc-agenda reads `GET /attention` from, for the undated things
+ * that wait for you (`LifeAttentionDto.items`): the areas with dates, and
+ * Groceries, which has none.
+ */
+export const ATTENTION_SOURCES = [
+  ...DEADLINE_SOURCES,
+  { module: 'groceries', name: 'Groceries', emblem: '🦕', path: '/groceries' },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Your own items
@@ -316,6 +327,14 @@ export interface AgendaEntryDto {
   category: AgendaCategory | null;
 }
 
+/** An undated thing an area waits on you for, as the Agenda lists it. */
+export type AgendaWaitingDto = LifeAttentionItemDto & {
+  /** `<area>:<id>`. */
+  key: string;
+  /** The island area it belongs to. */
+  module: string;
+};
+
 export interface AgendaSourceDto {
   module: string;
   name: string;
@@ -353,6 +372,8 @@ export interface AgendaOverviewDto {
   today: string;
   /** From 60 days ago to a year ahead, oldest first. */
   entries: AgendaEntryDto[];
+  /** What the areas wait on you for that has no date, oldest first. */
+  waiting: AgendaWaitingDto[];
   items: AgendaItemDto[];
   sources: AgendaSourceDto[];
   italianCalendar: boolean;

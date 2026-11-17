@@ -13,6 +13,8 @@ import {
   PLATFORM_STALE_DAYS,
   type DeadlineDto,
   type LifeAttentionDto,
+  documentToReview,
+  WORK_DOCUMENT_TYPE_LABELS,
   type DeadlinesQuery,
   type PensionConfirmStatementRequest,
   type PensionFundRequest,
@@ -408,6 +410,14 @@ export class WorkService {
         to: isoAddDays(today, 30),
       }).length,
       toReview: reviews.length,
+      items: reviews.map((r) =>
+        documentToReview(
+          r,
+          '/work',
+          r.type ? WORK_DOCUMENT_TYPE_LABELS[r.type] : null,
+          r.employerName,
+        ),
+      ),
     };
   }
 

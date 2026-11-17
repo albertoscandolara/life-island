@@ -27,15 +27,28 @@ export function runningOut(
   });
 }
 
-/** Groceries' count for the hub badge (`GET /attention`): what is running out. */
+/**
+ * Groceries' badge (`GET /attention`): what is running out, listed for the
+ * Agenda since the day it was due.
+ */
 export function groceriesAttention(
   items: GroceryItemStatsDto[],
   list: ShoppingItemDto[],
   day: string,
 ): LifeAttentionDto {
+  const out = runningOut(items, list, day);
   return {
     expired: 0,
-    expiring: runningOut(items, list, day).length,
+    expiring: out.length,
     toReview: 0,
+    items: out.map((item) => ({
+      id: `running-out:${item.name.trim().toLowerCase()}`,
+      kind: 'running-out',
+      title: `${item.name} is probably running out`,
+      detail: `You buy it about every ${Math.round(item.everyDays ?? 0)} days.`,
+      since: isoAddDays(item.lastBought, Math.round(item.everyDays ?? 0)),
+      path: '/groceries',
+      action: 'Add to list',
+    })),
   };
 }

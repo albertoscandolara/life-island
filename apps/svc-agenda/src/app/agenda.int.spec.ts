@@ -38,11 +38,33 @@ describe.skipIf(!configured)(
     };
 
     beforeAll(async () => {
-      // A fake "cars" area answering GET /deadlines; every other area is unreachable.
+      // A fake "cars" area answering GET /deadlines and GET /attention; every other area is unreachable.
       const { createServer } = await import('node:http');
       const day = today();
       const server = createServer((req, res) => {
         res.setHeader('content-type', 'application/json');
+        if (req.url?.startsWith('/attention')) {
+          res.end(
+            JSON.stringify({
+              expired: 0,
+              expiring: 1,
+              toReview: 1,
+              items: [
+                {
+                  id: 'document:upload-1',
+                  kind: 'document',
+                  title: 'Polizza RCA.pdf',
+                  detail: null,
+                  since: `${isoAddDays(day, -4)}T10:00:00.000Z`,
+                  path: '/cars',
+                  action: 'Review',
+                },
+                { id: 'broken', title: 'No path', path: 'https://evil' },
+              ],
+            }),
+          );
+          return;
+        }
         res.end(
           JSON.stringify([
             {
@@ -110,6 +132,15 @@ describe.skipIf(!configured)(
 
       const overview = await json<AgendaOverviewDto>('GET', '/overview');
       expect(overview.status).toBe(200);
+      // The undated things the areas wait on you for, malformed ones left out.
+      expect(overview.body.waiting).toEqual([
+        expect.objectContaining({
+          key: 'cars:document:upload-1',
+          module: 'cars',
+          since: isoAddDays(day, -4),
+          action: 'Review',
+        }),
+      ]);
       const cars = overview.body.sources.find((s) => s.module === 'cars');
       expect(cars).toMatchObject({ ok: true, count: 1 });
       expect(overview.body.sources.find((s) => s.module === 'people')?.ok).toBe(

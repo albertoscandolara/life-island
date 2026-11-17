@@ -39,6 +39,7 @@ import { AiTool } from '@life-island/settings-ui';
 import { AgendaApi } from '../api/agenda-api';
 import { areaOf } from './areas';
 import { EntryList } from './entry-list';
+import { WaitingList } from './waiting-list';
 
 type AgendaTab = 'now' | 'ahead' | 'items' | 'brief';
 const SERVICE = 'svc-agenda';
@@ -82,6 +83,7 @@ const ITEM_FIELDS: readonly LiField[] = [
   imports: [
     AiTool,
     EntryList,
+    WaitingList,
     LiRecordDialog,
     LiTabs,
     UiAiPanel,
@@ -134,6 +136,14 @@ export class AgendaPage {
     );
   });
 
+  /** What the areas wait on you for with no date, for the area shown. */
+  protected readonly waiting = computed(() => {
+    const area = this.areaFilter();
+    return (this.data()?.waiting ?? []).filter(
+      (w) => !area || w.module === area,
+    );
+  });
+
   protected readonly overdue = computed(() =>
     this.entries().filter((e) => e.daysLeft < 0),
   );
@@ -166,6 +176,8 @@ export class AgendaPage {
     const counts = new Map<string, number>();
     for (const e of this.data()?.entries ?? [])
       if (!e.handled) counts.set(e.module, (counts.get(e.module) ?? 0) + 1);
+    for (const w of this.data()?.waiting ?? [])
+      counts.set(w.module, (counts.get(w.module) ?? 0) + 1);
     return [...counts.entries()]
       .map(([module, count]) => ({ module, count, ...areaOf(module) }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -190,7 +202,10 @@ export class AgendaPage {
       id: 'now',
       label: 'Now',
       icon: 'alert',
-      count: this.counts().overdue + this.counts().week,
+      count:
+        this.counts().overdue +
+        this.counts().week +
+        (this.data()?.waiting.length ?? 0),
     },
     { id: 'ahead', label: 'Year ahead', icon: 'calendar' },
     { id: 'items', label: 'My items', icon: 'edit' },

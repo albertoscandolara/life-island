@@ -1,3 +1,4 @@
+import type { LifeAttentionDto } from './life-schemas.js';
 import { z } from 'zod';
 import {
   LEARNING_PATHS,
@@ -528,11 +529,8 @@ export interface StudyReminderDto {
 }
 
 /** What needs you in Studies, for the island's badge (same shape as People). */
-export interface StudiesAttentionDto {
-  expired: number;
-  expiring: number;
-  toReview: number;
-}
+/** The area's badge: the island-wide shape. */
+export type StudiesAttentionDto = LifeAttentionDto;
 
 // ---------------------------------------------------------------------------
 // Study coach (AI tool studies.study-coach)

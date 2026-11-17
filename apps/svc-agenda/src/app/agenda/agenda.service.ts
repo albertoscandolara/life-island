@@ -9,7 +9,7 @@ import { AiAssistant } from '@life-island/be-nest';
 import {
   AGENDA_CALENDAR_SETTING,
   agendaBriefOutputSchema,
-  DEADLINE_SOURCES,
+  ATTENTION_SOURCES,
   isoAddDays,
   isoToday,
   type AgendaBriefDto,
@@ -29,7 +29,7 @@ import {
   type AgendaItemRow,
   type WeekBriefRow,
 } from '../db/schema.js';
-import { readDeadlines } from './sources.js';
+import { readDeadlines, readWaiting } from './sources.js';
 import {
   BRIEF_INSTRUCTIONS,
   briefDossier,
@@ -46,7 +46,7 @@ export function today(): string {
 }
 
 const NAMES: Record<string, string> = Object.fromEntries([
-  ...DEADLINE_SOURCES.map((s) => [s.module, s.name]),
+  ...ATTENTION_SOURCES.map((s) => [s.module, s.name]),
 ]);
 
 const BRIEF_STEP = {
@@ -54,7 +54,7 @@ const BRIEF_STEP = {
   label: 'Write the brief',
   system: BRIEF_INSTRUCTIONS,
   userTemplate:
-    '<dates>\n{today, then one line per open date of the next 45 days: date, days left, area, title, amount, detail}\n</dates>\n\n{My question: <your question>, or: Write my week brief.}',
+    '<dates>\n{today, then one line per open date of the next 45 days: date, days left, area, title, amount, detail; then what waits for you with no date: area, title, since, detail}\n</dates>\n\n{My question: <your question>, or: Write my week brief.}',
   outputFormat: 'agendaBriefOutput',
   effort: 'low' as const,
   maxTokens: 6000,
@@ -112,9 +112,10 @@ export class AgendaService implements OnApplicationBootstrap {
   }
 
   async overview(day = today()): Promise<AgendaOverviewDto> {
-    const [{ entries, items, sources, calendar }, briefRows, aiBrief] =
+    const [{ entries, items, sources, calendar }, waiting, briefRows, aiBrief] =
       await Promise.all([
         this.timeline(day, isoAddDays(day, -60), isoAddDays(day, 366)),
+        readWaiting(this.config.sources),
         this.db
           .select()
           .from(weekBriefs)
@@ -125,6 +126,7 @@ export class AgendaService implements OnApplicationBootstrap {
     return {
       today: day,
       entries,
+      waiting,
       items,
       sources,
       italianCalendar: calendar,
@@ -197,18 +199,17 @@ export class AgendaService implements OnApplicationBootstrap {
     request: LifeQuestionRequest,
     day = today(),
   ): Promise<AgendaBriefDto> {
-    const { entries } = await this.timeline(
-      day,
-      isoAddDays(day, -60),
-      isoAddDays(day, 45),
-    );
+    const [{ entries }, waiting] = await Promise.all([
+      this.timeline(day, isoAddDays(day, -60), isoAddDays(day, 45)),
+      readWaiting(this.config.sources),
+    ]);
     const question = request.question?.trim() || null;
     let row: Omit<WeekBriefRow, 'id' | 'createdAt'>;
     if (await this.ai.active()) {
       const answer = await this.ai.ask({
         step: BRIEF_STEP,
         output: agendaBriefOutputSchema,
-        user: `<dates>\n${briefDossier(day, entries, NAMES)}\n</dates>\n\n${
+        user: `<dates>\n${briefDossier(day, entries, NAMES, waiting)}\n</dates>\n\n${
           question ? `My question: ${question}` : 'Write my week brief.'
         }`,
       });
@@ -221,7 +222,7 @@ export class AgendaService implements OnApplicationBootstrap {
     } else
       row = {
         question,
-        output: offlineBrief(entries, NAMES),
+        output: offlineBrief(entries, NAMES, waiting),
         source: 'offline',
         model: null,
       };

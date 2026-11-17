@@ -522,6 +522,19 @@ export class DossierService {
       expired: past.filter((d) => !d.done).length,
       expiring: soon.filter((d) => !d.done).length,
       toReview: years.reduce((n, y) => n + y.pairsToReviewCount, 0),
+      items: years
+        .filter((y) => y.pairsToReviewCount > 0)
+        .map((y) => ({
+          id: `pairs:${y.taxYear}`,
+          kind: 'payment-pairs',
+          title: `Confirm ${y.pairsToReviewCount} expense${
+            y.pairsToReviewCount === 1 ? '' : 's'
+          } paired with ${y.pairsToReviewCount === 1 ? 'its payment' : 'their payments'}`,
+          detail: `Tax year ${y.taxYear}, for the 730/${y.filingYear}`,
+          since: null,
+          path: '/taxes/730',
+          action: 'Confirm',
+        })),
     };
   }
 

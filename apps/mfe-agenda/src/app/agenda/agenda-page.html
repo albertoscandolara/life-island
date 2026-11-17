@@ -93,10 +93,11 @@
   so they are missing here. The rest is up to date.
 </ui-alert>
 } } @switch (tab()) { @case ('now') { @if (!overdue().length &&
-!todayEntries().length && !week().length && !month().length) {
+!todayEntries().length && !waiting().length && !week().length &&
+!month().length) {
 <ui-empty-state icon="check" heading="Nothing in the next month">
-  No date needs you in the next 31 days. Look at the year ahead, or add your own
-  reminder.
+  No date needs you in the next 31 days and nothing waits for a review. Look at
+  the year ahead, or add your own reminder.
   <button uiButton type="button" (click)="addItem()">
     <ui-icon name="plus" [size]="16" /> Add a reminder
   </button>
@@ -124,6 +125,17 @@
     (toggleDone)="toggle($event)"
     (edit)="editEntry($event)"
   />
+</section>
+} @if (waiting().length) {
+<section class="group li-block" aria-labelledby="g-waiting">
+  <h2 id="g-waiting" class="li-sub">
+    Waiting for you <span class="li-muted">· {{ waiting().length }}</span>
+  </h2>
+  <p class="li-muted li-small">
+    No date of their own: documents to approve, check-ins, things running out.
+    Each one leaves the list once you handle it in its area.
+  </p>
+  <agenda-waiting-list [items]="waiting()" />
 </section>
 } @if (week().length) {
 <section class="group li-block" aria-labelledby="g-week">

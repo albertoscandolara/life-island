@@ -1,3 +1,4 @@
+import type { LifeAttentionDto } from './life-schemas.js';
 import { z } from 'zod';
 
 /*
@@ -322,11 +323,8 @@ export interface PeopleOverviewDto {
 }
 
 /** What the island hub shows on the People card: what needs you. */
-export interface PeopleAttentionDto {
-  expired: number;
-  expiring: number;
-  toReview: number;
-}
+/** The area's badge: the island-wide shape. */
+export type PeopleAttentionDto = LifeAttentionDto;
 
 export const approveReviewRequestSchema = z.object({
   /** The person it belongs to; null creates a new person from it. */

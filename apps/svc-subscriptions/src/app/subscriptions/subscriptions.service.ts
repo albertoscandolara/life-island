@@ -8,6 +8,7 @@ import { readNumberSetting, type ServiceDb } from '@life-island/be-common';
 import { AiAssistant, RecordCollections } from '@life-island/be-nest';
 import {
   deadlineWindow,
+  euroText,
   inDeadlineWindow,
   isoToday,
   renewalAdvisorOutputSchema,
@@ -233,12 +234,22 @@ export class SubscriptionsService implements OnApplicationBootstrap {
       ).catch(() => 14),
     ]);
     const watched = items.filter((i) => i.daysToCancelBy !== null);
+    const unused = items.filter((i) => isLive(i) && i.usage === 'never');
     return {
       expired: 0,
       expiring: watched.filter(
         (i) => i.daysToCancelBy! >= 0 && i.daysToCancelBy! <= warnDays,
       ).length,
-      toReview: items.filter((i) => isLive(i) && i.usage === 'never').length,
+      toReview: unused.length,
+      items: unused.map((i) => ({
+        id: `unused:${i.id}`,
+        kind: 'unused',
+        title: `Keep or cancel ${i.name}?`,
+        detail: `You marked it as never used, and it costs ${euroText(i.yearly)} a year.`,
+        since: null,
+        path: '/subscriptions',
+        action: 'Decide',
+      })),
     };
   }
 

@@ -188,6 +188,19 @@ export class GoalsService implements OnApplicationBootstrap {
       expired: active.reduce((n, g) => n + g.overdueSteps, 0),
       expiring: 0,
       toReview: active.filter((g) => g.stuck).length,
+      items: active
+        .filter((g) => g.stuck)
+        .map((g) => ({
+          id: `stuck:${g.id}`,
+          kind: 'stuck',
+          title: `Get “${g.title}” moving again`,
+          detail: g.nextStep
+            ? `No step done for ${g.idleDays} days. Next: ${g.nextStep.title}`
+            : 'It has no next step: add one small step.',
+          since: null,
+          path: '/goals',
+          action: 'Plan a step',
+        })),
     };
   }
 

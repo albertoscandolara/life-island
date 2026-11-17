@@ -41,6 +41,17 @@ describe('runningOut', () => {
       expired: 0,
       expiring: 1,
       toReview: 0,
+      items: [
+        {
+          id: 'running-out:milk',
+          kind: 'running-out',
+          title: 'Milk is probably running out',
+          detail: 'You buy it about every 6 days.',
+          since: '2026-11-16',
+          path: '/groceries',
+          action: 'Add to list',
+        },
+      ],
     });
   });
 });
