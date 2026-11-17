@@ -1,0 +1,3 @@
+# GATEWAY_AUTH=session: no extra door at the gateway. Every service checks the
+# island's own sign-in (the session cookie of svc-auth) and answers 401 without it.
+# The setting for a published island; add `basic` only for a second password.

@@ -120,7 +120,8 @@ export class ObjectStorage {
           ? `inline; filename*=UTF-8''${encodeURIComponent(options.filename)}`
           : undefined,
       }),
-      { expiresIn: options.expiresInSeconds ?? 300 },
+      // Short: a link works for anyone who holds it, so it must not outlive its use.
+      { expiresIn: options.expiresInSeconds ?? 60 },
     );
   }
 

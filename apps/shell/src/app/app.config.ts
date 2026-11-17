@@ -1,4 +1,9 @@
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import {
+  provideHttpClient,
+  withFetch,
+  withInterceptors,
+} from '@angular/common/http';
+import { signInInterceptor } from '@life-island/auth-ui';
 import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
@@ -10,7 +15,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     // The areas' remotes call their services with the host's HttpClient.
-    provideHttpClient(withFetch()),
+    // A 401 from any area sends you back to the sign-in page.
+    provideHttpClient(withFetch(), withInterceptors([signInInterceptor])),
     provideRouter(appRoutes, withComponentInputBinding()),
   ],
 };

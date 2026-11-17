@@ -4,6 +4,7 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { signInInterceptor } from '@life-island/auth-ui';
 import { ENTITY_LINK_BASE } from '@life-island/entities-ui';
 import { AI_TOOLS_SETTINGS_URL } from '@life-island/settings-ui';
 import { environment } from '../environments/environment';
@@ -13,7 +14,9 @@ import { reclassificationLockInterceptor } from './reclassification/reclassifica
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withInterceptors([reclassificationLockInterceptor])),
+    provideHttpClient(
+      withInterceptors([signInInterceptor, reclassificationLockInterceptor]),
+    ),
     provideRouter(appRoutes, withComponentInputBinding()),
     // Settings lives in the Life Island app.
     {

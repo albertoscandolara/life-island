@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import {
   BadRequestException,
   Inject,
@@ -224,6 +225,7 @@ export class HouseTaxExpensesService {
   private async get<T>(path: string): Promise<T> {
     const response = await fetch(`${this.config.tax730Url}${path}`, {
       signal: AbortSignal.timeout(4000),
+      headers: internalHeaders(),
     });
     if (!response.ok)
       throw new Error(`svc-tax730 answered ${response.status} on ${path}`);

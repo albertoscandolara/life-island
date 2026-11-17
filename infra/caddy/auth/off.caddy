@@ -1,1 +1,2 @@
-# GATEWAY_AUTH=off: no sign-in. Only for running the stack on your own machine.
+# GATEWAY_AUTH=off: no extra door at the gateway, same as `session`. The services
+# still check the island's sign-in (or skip it with AUTH_DEV_BYPASS on your machine).

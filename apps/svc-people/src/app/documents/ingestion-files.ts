@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Readable } from 'node:stream';
 import { CONFIG, type PeopleConfig } from '../config.js';
@@ -22,6 +23,7 @@ export class IngestionFiles {
   ): Promise<FetchedFile> {
     const response = await fetch(
       `${this.config.ingestionUrl}/uploads/${encodeURIComponent(uploadId)}/${disposition}`,
+      { headers: internalHeaders() },
     );
     if (response.status === 404)
       throw new NotFoundException(`File of document ${uploadId} not found`);

@@ -44,7 +44,7 @@ Rows left in `UPLOADING` for more than an hour (the browser never finished) are 
 | `GET /api/ingestion/uploads/:id`          | One document's record                                                                      |
 | `GET /api/ingestion/uploads/:id/preview`  | Streams the file with `Content-Disposition: inline`, so the browser shows it               |
 | `GET /api/ingestion/uploads/:id/download` | Streams the file with `Content-Disposition: attachment` and its original name, so it saves |
-| `GET /api/ingestion/uploads/:id/file`     | Redirects to a 5-minute presigned storage link (for other services and quick links)        |
+| `GET /api/ingestion/uploads/:id/file`     | Redirects to a 60-second presigned storage link (for other services and quick links)       |
 
 Preview and download are streamed by the service rather than redirected to storage, because SeaweedFS ignores the header overrides a presigned link asks for (the file would download under the cleaned key name, or open instead of saving). Streaming also keeps previews on the app's own origin, so a PDF can sit in a frame. Files are at most 25 MB, so this costs little.
 

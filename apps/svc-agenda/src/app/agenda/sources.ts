@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import { Logger } from '@nestjs/common';
 import {
   ATTENTION_SOURCES,
@@ -40,7 +41,10 @@ export async function readDeadlines(
       try {
         const response = await fetcher(
           `${base}/deadlines?from=${window.from}&to=${window.to}`,
-          { signal: AbortSignal.timeout(TIMEOUT_MS) },
+          {
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+            headers: internalHeaders(),
+          },
         );
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const body = (await response.json()) as unknown;
@@ -84,6 +88,7 @@ export async function readWaiting(
       try {
         const response = await fetcher(`${base}/attention`, {
           signal: AbortSignal.timeout(TIMEOUT_MS),
+          headers: internalHeaders(),
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const body = (await response.json()) as { items?: unknown } | null;

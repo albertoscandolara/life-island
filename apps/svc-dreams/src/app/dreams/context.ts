@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import { Logger } from '@nestjs/common';
 import {
   DREAM_CONTEXT_SOURCES,
@@ -222,6 +223,7 @@ async function readOverview<T>(
 ): Promise<T> {
   const response = await fetcher(`${base}/overview`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
+    headers: internalHeaders(),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return (await response.json()) as T;

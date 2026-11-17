@@ -1,6 +1,7 @@
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import { inject } from '@angular/core';
 import { Router, type Route, type Routes } from '@angular/router';
+import { SIGN_IN_PATH, signInGuard } from '@life-island/auth-ui';
 import { ModuleUnavailable } from './module-unavailable';
 
 /**
@@ -49,7 +50,8 @@ async function manifestEntry(name: string): Promise<string> {
   return entry;
 }
 
-export const appRoutes: Route[] = [
+/** Every page of the island, open only once you are signed in. */
+const islandRoutes: Route[] = [
   {
     path: '',
     pathMatch: 'full',
@@ -141,5 +143,21 @@ export const appRoutes: Route[] = [
     path: 'settings',
     loadChildren: remote('mfe-settings', './routes', 'SETTINGS_ROUTES'),
   },
+  {
+    path: 'account',
+    loadComponent: () =>
+      import('@life-island/auth-ui').then((m) => m.AccountPage),
+    title: 'Your account · Life Island',
+  },
   { path: '**', redirectTo: '' },
+];
+
+export const appRoutes: Route[] = [
+  {
+    path: SIGN_IN_PATH,
+    loadComponent: () =>
+      import('@life-island/auth-ui').then((m) => m.SignInPage),
+    title: 'Sign in · Life Island',
+  },
+  { path: '', canActivateChild: [signInGuard], children: islandRoutes },
 ];

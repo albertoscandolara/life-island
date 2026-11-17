@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import {
   Inject,
   Injectable,
@@ -244,7 +245,7 @@ export class PropertyCategories
       if (!(await this.patchCategory(from.id, { parentId: into.id }))) continue;
       const response = await fetch(
         `${this.config.ingestionUrl}/categories/${encodeURIComponent(from.id)}?documents=MOVE_TO_PARENT&children=MOVE_TO_PARENT`,
-        { method: 'DELETE' },
+        { method: 'DELETE', headers: internalHeaders() },
       );
       if (!response.ok) {
         this.logger.warn(
@@ -270,7 +271,7 @@ export class PropertyCategories
       `${this.config.ingestionUrl}/categories/${encodeURIComponent(id)}`,
       {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...internalHeaders() },
         body: JSON.stringify(request),
       },
     );
@@ -345,7 +346,9 @@ export class PropertyCategories
   }
 
   private async listCategories(): Promise<CategoryLike[]> {
-    const response = await fetch(`${this.config.ingestionUrl}/categories`);
+    const response = await fetch(`${this.config.ingestionUrl}/categories`, {
+      headers: internalHeaders(),
+    });
     if (!response.ok)
       throw new Error(`svc-ingestion answered ${response.status}`);
     return (await response.json()) as CategoryLike[];
@@ -356,7 +359,7 @@ export class PropertyCategories
   ): Promise<CategoryLike | null> {
     const response = await fetch(`${this.config.ingestionUrl}/categories`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...internalHeaders() },
       body: JSON.stringify(request),
     });
     if (response.ok) return (await response.json()) as CategoryLike;

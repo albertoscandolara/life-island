@@ -23,30 +23,47 @@ The threats that matter for a published personal app: a stranger on the internet
 | 4   | No security headers on any answer (HSTS, nosniff, framing, referrer)                                                                                           | High     | **Fixed** at the gateway and in every service                                                                   |
 | 5   | Writes had no cross-site check (CSRF once a session cookie exists)                                                                                             | High     | **Fixed**: every service refuses writes a browser sends from another site                                       |
 | 6   | No rate limits                                                                                                                                                 | High     | **Fixed** per client and service (`RATE_LIMIT_PER_MINUTE`); login gets its own stricter limit with sign-in      |
-| 7   | Services trust any caller: anyone who reaches a service port reads everything; basic auth is the only door and has no lockout, 2FA or logout                   | Critical | Planned: sign-in with sessions (below)                                                                          |
-| 8   | `GET /uploads/:id/file` hands out a presigned storage link that works for anyone holding it for 5 minutes                                                      | Medium   | Planned: links only for signed-in users, 60 seconds, files streamed through the API                             |
+| 7   | Services trust any caller: anyone who reaches a service port reads everything; basic auth is the only door and has no lockout, 2FA or logout                   | Critical | **Fixed**: sign-in with password, two-factor and sessions; every service checks it (below)                      |
+| 8   | `GET /uploads/:id/file` hands out a presigned storage link that works for anyone holding it for 5 minutes                                                      | Medium   | **Fixed**: the route needs sign-in and links last 60 seconds; preview and download are streamed                 |
 | 9   | The monthly AI budget is enforced after the fact (usage reaches Settings through events), so a burst of requests can overspend; no per-minute or per-user caps | High     | Planned: AI cost guards (below)                                                                                 |
 | 10  | Identity headers from clients (`X-User-Id`) could be forwarded once services read them                                                                         | Medium   | **Fixed** ahead of time: the gateway drops them                                                                 |
 | 11  | No CORS: no service sends `Access-Control-Allow-Origin`                                                                                                        | —        | Correct as is: pages on other sites cannot read answers. Keep it off                                            |
 
 ## In place
 
-- **Gateway** (`infra/caddy/Caddyfile`): sign-in mode required, security headers, `Server` header removed, client identity headers dropped, bodies over 26 MB refused.
+- **Gateway** (`infra/caddy/Caddyfile`): `GATEWAY_AUTH` required (an optional extra door in front of sign-in), security headers, `Server` header removed, client identity headers dropped, bodies over 26 MB refused.
 - **Every service** (`applyHttpSecurity` in `libs/be-nest`, called in each `bootstrap.ts`): `nosniff`, `no-referrer`, `SAMEORIGIN` framing, `Cache-Control: no-store` (personal data never cached), `x-powered-by` off, cross-site write check through `Sec-Fetch-Site`, per-client rate limit, and the production dev-secret check (`refuseDevSecretsInProduction` in `libs/be-common`, also called by the parse worker).
-- **Storage**: the bucket is private (no public policy); files are streamed through `svc-ingestion` for preview and download.
+- **Storage**: the bucket is private (no public policy); files are streamed through `svc-ingestion` for preview and download, after sign-in. Presigned links (`/file`, uploads) are handed only to a signed-in person; a download link lasts 60 seconds.
 - **Ports**: Postgres and NATS listen on `127.0.0.1` only. The gateway and storage too, unless `GATEWAY_BIND` / `STORAGE_BIND` open them on a server.
 
+## Sign-in
+
+Built into the island (`apps/svc-auth`, schema `auth`), with no outside provider to sign up for. One household: the owner, and the people the owner invites; everyone sees the same island, only the owner manages people.
+
+| Piece       | How                                                                                                                                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Passwords   | scrypt (memory-hard, Node's own crypto), at least 12 characters, never the email. Unknown emails take as long as known ones                                                                                             |
+| Two-factor  | TOTP from any authenticator app, ±30 s for clock drift, each code once. Seeds encrypted at rest with AES-256-GCM (`AUTH_ENCRYPTION_KEY`). Required for every account in production (`AUTH_REQUIRE_TWO_FACTOR`)          |
+| Sessions    | 256-bit random token in a `__Host-li_session` cookie (`HttpOnly`, `Secure`, `SameSite=Strict`); only its SHA-256 is stored. Ends after 12 idle hours or 30 days; password change and "sign out everywhere" end them all |
+| Brute force | 10 attempts a minute per address on every route that checks a secret; 5 wrong passwords or codes lock the account for 15 minutes                                                                                        |
+| First owner | `/sign-in` offers to create the owner only while there is no account, and only with `AUTH_SETUP_TOKEN` from the server. Remove it afterwards                                                                            |
+| Invites     | The owner creates a one-time link (7 days, only its hash stored) on the Account page and sends it; removing a person ends their sessions at once                                                                        |
+| Audit       | Sign-ins, failures, locks, password and two-factor changes, invites in `auth.audit`, with the address                                                                                                                   |
+
+**Every service checks every request** (`requireSignIn` in `libs/be-nest`, applied by `applyHttpSecurity`): a browser request needs a session cookie svc-auth vouches for (asked over `GET /session`, remembered 30 seconds); a call from another service needs `INTERNAL_TOKEN` in `X-Internal-Token` (`internalHeaders()` from `libs/be-common`, and the gateway drops that header from clients). Anything else answers 401, and 503 if svc-auth cannot be reached. A leaked service port is not a way in. The handler reads the person with `currentUser()`.
+
+The front end (`libs/auth-ui`): the sign-in page (sign-in, two-factor code, first owner, invite, two-factor setup), a guard on every route of both apps, an interceptor that sends a 401 back to sign-in, and the Account page (sign out, sign out everywhere, password, two-factor, people and invites).
+
+### Skipping sign-in on your own machine
+
+`AUTH_DEV_BYPASS=true` signs you in as the local owner, with no login page. It fails closed:
+
+- it works only with `NODE_ENV=development` (or `test`, for the integration tests); with any other value, unset included, and in the service image (`NODE_ENV=production`), every service **refuses to start**;
+- without it, services need `INTERNAL_TOKEN` or refuse to start; forgetting both stops the island, it never opens it.
+
+To try the real sign-in locally, set `AUTH_DEV_BYPASS=false`, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY` and `AUTH_SETUP_TOKEN` in `.env`, restart, and open `/sign-in`.
+
 ## Planned
-
-### Sign-in
-
-Built into the island, with no outside provider to sign up for:
-
-- A small auth service with its own schema: accounts with an Argon2id password hash and a TOTP second factor, lockout after failed attempts, sessions stored as hashes.
-- A `__Host-` session cookie: `HttpOnly`, `Secure`, `SameSite=Strict`, with idle and absolute expiry, and sign-out everywhere.
-- The gateway asks the auth service about every request (`forward_auth`) and passes the verified user to the service with a shared internal secret; services refuse requests without it, so a leaked port is not a way in.
-- A login page in both apps.
-- **Skipping sign-in on your own machine**: `AUTH_DEV_BYPASS=true` signs you in as the local owner. It works only when `NODE_ENV=development` is set explicitly; with any other value, or in the production image, the service refuses to start. Fail closed: forgetting it means a login page, never an open island.
 
 ### AI cost guards
 
@@ -56,22 +73,24 @@ Built into the island, with no outside provider to sign up for:
 
 ### Documents
 
-- Presigned links only for a signed-in user, valid 60 seconds; preview and download stay streamed through the API.
 - Server-side encryption of the bucket in production (R2 encrypts at rest by default), and encrypted Postgres backups.
 
 ## Rules for new code
 
-1. Every new service calls `applyHttpSecurity(app, { service, config })` in its bootstrap.
-2. No secret has a production default. A local default is fine only if it matches a dev pattern the production check knows (`dev_*` passwords, the SeaweedFS dev keys).
-3. Never send `Access-Control-Allow-Origin`. The front end reaches services on its own origin.
-4. Files leave only through an authorised API route; never make a bucket or object public.
-5. Never log document contents, extracted personal data or keys.
-6. Every model call goes through `AiAssistant` (docs/guides/ai-tools.md), so the cost guards apply to it.
+1. Every new service calls `applyHttpSecurity(app, { service, config })` in its bootstrap, which also puts it behind sign-in.
+2. Every call to another service spreads `internalHeaders()` into its headers; never send it to an outside URL.
+3. No secret has a production default. A local default is fine only if it matches a dev pattern the production check knows (`dev_*` passwords, the SeaweedFS dev keys).
+4. Never send `Access-Control-Allow-Origin`. The front end reaches services on its own origin.
+5. Files leave only through an authorised API route; never make a bucket or object public.
+6. Never log document contents, extracted personal data or keys.
+7. Every model call goes through `AiAssistant` (docs/guides/ai-tools.md), so the cost guards apply to it.
 
 ## Publishing checklist
 
 - [ ] `.env` has real, unique passwords for Postgres, every service role and storage; no `dev_` value left.
-- [ ] `GATEWAY_AUTH` is not `off`; the gateway is behind HTTPS (Caddy does it for a real domain).
+- [ ] `AUTH_DEV_BYPASS` is not set; `INTERNAL_TOKEN` (same for every service), `AUTH_ENCRYPTION_KEY` and, for the first visit only, `AUTH_SETUP_TOKEN` are set to random values.
+- [ ] The owner account has two-factor sign-in on; `AUTH_SETUP_TOKEN` was removed after creating it.
+- [ ] `GATEWAY_AUTH=session` (or `basic` for a second password); the gateway is behind HTTPS (Caddy does it for a real domain).
 - [ ] Only the gateway (and, if needed, storage for direct uploads) is reachable from the internet: `GATEWAY_BIND=0.0.0.0`, a firewall closing every other port.
 - [ ] `STORAGE_CORS_ORIGINS` lists only the published origin.
 - [ ] The monthly AI budget is set in Settings, and a spending limit is set on the Claude Console as a last line.

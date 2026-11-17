@@ -1,15 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import {
+  authSettingsFromEnv,
   numberEnv,
   refuseDevSecretsInProduction,
 } from '@life-island/be-common';
+import { requireSignIn } from './sign-in.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /*
  * The HTTP hardening every service applies at startup (docs/security.md):
  * response headers, a cross-site request check for writes, and a per-client
- * rate limit. The gateway adds the browser-facing headers (HSTS, CSP) and
+ * rate limit, then sign-in (sign-in.ts). The gateway adds the browser-facing headers (HSTS, CSP) and
  * sign-in; this layer still holds if a service port is reached directly.
  *
  * CORS stays off on purpose: no service sends Access-Control-Allow-Origin, so
@@ -24,6 +26,11 @@ export interface HttpSecurityOptions {
   config?: unknown;
   /** Requests per minute from one client before 429; RATE_LIMIT_PER_MINUTE, default 600. */
   rateLimitPerMinute?: number;
+  /**
+   * Who may call (requireSignIn): on by default. Only svc-auth turns it off,
+   * since it checks its own sessions.
+   */
+  signIn?: boolean;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -45,6 +52,8 @@ export function applyHttpSecurity(
 ): void {
   const env = options.env ?? process.env;
   refuseDevSecretsInProduction(options.service, options.config, env);
+  // Read first: a dev bypass outside development stops the service here.
+  const auth = authSettingsFromEnv(env);
 
   const express = app.getHttpAdapter().getInstance() as {
     disable?: (setting: string) => void;
@@ -64,6 +73,8 @@ export function applyHttpSecurity(
       new Logger(options.service),
     ),
   );
+  if (options.signIn !== false)
+    app.use(requireSignIn(auth, { logger: new Logger(options.service) }));
 }
 
 /** Headers that keep answers out of caches, frames on other sites and type sniffing. */

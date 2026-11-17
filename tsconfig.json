@@ -71,6 +71,9 @@
     },
     {
       "path": "./apps/svc-money"
+    },
+    {
+      "path": "./apps/svc-auth"
     }
   ],
   "compilerOptions": {}

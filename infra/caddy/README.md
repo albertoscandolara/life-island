@@ -5,15 +5,16 @@ One origin for the front end: `/api/<service>/` goes to each service, and
 
 ## Sign-in
 
-The services have no login of their own; the gateway is the door. Pick a mode
-with `GATEWAY_AUTH` in `.env`. It has no default: when it is missing the
-gateway refuses to start, so a forgotten setting never publishes the island
-without sign-in.
+The island's sign-in lives in the services: each one checks the session cookie
+of `svc-auth` (`/api/auth/`) and answers 401 without it (docs/security.md).
+`GATEWAY_AUTH` adds an optional door in front. It has no default: when it is
+missing the gateway refuses to start.
 
-| Value   | Effect                                                                 |
-| ------- | ---------------------------------------------------------------------- |
-| `off`   | No sign-in. Only on your own machine (the default for development).    |
-| `basic` | HTTP basic auth for every route but `/healthz`; the browser asks once. |
+| Value     | Effect                                                                |
+| --------- | --------------------------------------------------------------------- |
+| `session` | No extra door: the island's own sign-in only. For a published island. |
+| `off`     | The same as `session`; kept for older `.env` files.                   |
+| `basic`   | HTTP basic auth before everything but `/healthz`: a second password.  |
 
 For `basic`, set a user and a bcrypt hash of the password:
 
