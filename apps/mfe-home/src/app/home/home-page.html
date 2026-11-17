@@ -51,7 +51,7 @@
       Looking at</span
     >
     <h2 class="stage__title">{{ p.name }}</h2>
-    <p class="muted">{{ addressOf(p) || 'Add its address from Houses' }}</p>
+    <p class="li-muted">{{ addressOf(p) || 'Add its address from Houses' }}</p>
     } @else {
     <span class="eyebrow"
       >{{ ids().length ? 'Looking at' : 'All your houses' }}</span
@@ -59,7 +59,7 @@
     <h2 class="stage__title">
       {{ scope().length }} {{ scope().length === 1 ? 'house' : 'houses' }}
     </h2>
-    <p class="muted">
+    <p class="li-muted">
       @for (h of scope(); track h.id) {
       <span class="dot" [style.background]="propertyColor(h.colorSlot)"></span>
       {{ h.name }}{{ $last ? '' : ' · ' }} }
@@ -96,35 +96,35 @@
   <section class="works" aria-label="Works">
     <header class="works__head">
       <h2>Renovations and repairs</h2>
-      <div class="seg" role="group" aria-label="Status">
+      <div class="li-seg" role="group" aria-label="Status">
         <button
           type="button"
-          class="seg__item"
-          [class.seg__item--on]="status() === 'ALL'"
+          class="li-seg__item"
+          [class.li-seg__item--on]="status() === 'ALL'"
           (click)="status.set('ALL')"
         >
           All
         </button>
         <button
           type="button"
-          class="seg__item"
-          [class.seg__item--on]="status() === 'PLANNED'"
+          class="li-seg__item"
+          [class.li-seg__item--on]="status() === 'PLANNED'"
           (click)="status.set('PLANNED')"
         >
           Planned
         </button>
         <button
           type="button"
-          class="seg__item"
-          [class.seg__item--on]="status() === 'IN_PROGRESS'"
+          class="li-seg__item"
+          [class.li-seg__item--on]="status() === 'IN_PROGRESS'"
           (click)="status.set('IN_PROGRESS')"
         >
           In progress
         </button>
         <button
           type="button"
-          class="seg__item"
-          [class.seg__item--on]="status() === 'DONE'"
+          class="li-seg__item"
+          [class.li-seg__item--on]="status() === 'DONE'"
           (click)="status.set('DONE')"
         >
           Done
@@ -159,7 +159,7 @@
     <div class="year">
       <div class="year__head">
         <h3>{{ group.key }}</h3>
-        <span class="muted"
+        <span class="li-muted"
           >{{ group.works.length }} {{ group.works.length === 1 ? 'work' :
           'works' }} · {{ formatEuroRound(group.total) }}</span
         >
@@ -229,7 +229,7 @@
               @if (work.actualCost !== null) {
               <strong>{{ formatEuro(work.actualCost) }}</strong>
               @if (work.estimatedCost) {
-              <span class="muted"
+              <span class="li-muted"
                 >of {{ formatEuroRound(work.estimatedCost) }} estimated</span
               >
               } } @else if (work.estimatedCost !== null) {
@@ -266,7 +266,8 @@
                   >{{ doc.deleted ? 'Deleted document' : doc.title }}</a
                 >
                 @if (doc.amount !== null) {
-                <span class="muted">{{ formatEuroRound(doc.amount) }}</span> }
+                <span class="li-muted">{{ formatEuroRound(doc.amount) }}</span>
+                }
                 <button
                   type="button"
                   class="doc__remove"
@@ -330,7 +331,7 @@
         ariaLabel="Spending on works by year"
       />
       } @else {
-      <p class="muted">Works with a date show up here, year by year.</p>
+      <p class="li-muted">Works with a date show up here, year by year.</p>
       }
     </ui-card>
     <ui-card heading="By kind">

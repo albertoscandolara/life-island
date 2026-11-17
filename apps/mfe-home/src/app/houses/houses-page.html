@@ -47,7 +47,7 @@
       @if (scope().length === 1) { {{ scope()[0].name }} } @else { {{
       scope().length }} houses }
     </h2>
-    <p class="muted">
+    <p class="li-muted">
       @if (residence(); as r) { You live in <strong>{{ r.name }}</strong>. }
       @else { Mark the house you live in as your residence. } Click a house, or
       Ctrl/⌘-click several, to look only at them in every tab.
@@ -66,7 +66,7 @@
       <span class="house__roof" aria-hidden="true"></span>
       <div class="house__title">
         <h3>{{ c.house.name }}</h3>
-        <p class="muted">{{ c.address ?? 'No address yet' }}</p>
+        <p class="li-muted">{{ c.address ?? 'No address yet' }}</p>
       </div>
       <button
         uiButton
@@ -135,9 +135,9 @@
             [name]="o.name"
           />
           } @else { {{ o.name }} } @if (o.share !== null) {
-          <span class="muted">({{ o.share }}%)</span> }{{ $last ? '' : ', ' }} }
-          @empty {
-          <span class="muted">None yet</span>
+          <span class="li-muted">({{ o.share }}%)</span> }{{ $last ? '' : ', '
+          }} } @empty {
+          <span class="li-muted">None yet</span>
           }
         </dd>
       </div>
@@ -206,7 +206,7 @@
 @if (loosePoints().length) {
 <section class="points points--loose" aria-label="Supply points with no house">
   <h2 class="points__heading">Supply points with no house</h2>
-  <p class="muted">
+  <p class="li-muted">
     Your bills name these supply points, but no house is matched yet. Pick their
     house: every bill of the supply point, past and future, goes there.
   </p>
@@ -222,7 +222,7 @@
   aria-label="Internet and insurances with no house"
 >
   <h2 class="points__heading">Internet and insurances with no house</h2>
-  <p class="muted">
+  <p class="li-muted">
     Your documents speak of these, but no house is matched yet. Pick the house
     of each document, or say it is not about a house.
   </p>
@@ -246,7 +246,7 @@
       <ui-badge>Before</ui-badge>
       }
     </div>
-    <div class="point__who muted">
+    <div class="point__who li-muted">
       @if (current(p); as k) { @if (k.supplierName) {
       <li-entity-link
         kind="organization"
@@ -265,7 +265,7 @@
     </div>
     @if (current(p); as k) {
     <label class="point__pay">
-      <span class="muted">Paid</span>
+      <span class="li-muted">Paid</span>
       <select
         class="ui-input compact"
         [attr.aria-label]="'How the bills of ' + p.code + ' are paid'"
@@ -286,7 +286,7 @@
       }
     </label>
     } @if (ended(p).length) {
-    <ul class="point__history muted">
+    <ul class="point__history li-muted">
       @for (k of ended(p); track k.id) {
       <li>
         Ended: @if (k.supplierName) {

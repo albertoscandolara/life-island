@@ -1,33 +1,33 @@
 @if (error()) {
 <p class="error" role="alert">{{ error() }}</p>
 } @if (stats().total) {
-<section class="tiles" aria-label="Your job search">
-  <div class="tile tile--lead">
-    <span class="tile__label">Open applications</span>
-    <strong class="tile__value">{{ stats().active }}</strong>
-    <span class="tile__hint">{{ stats().total }} on record</span>
+<section class="li-tiles" aria-label="Your job search">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Open applications</span>
+    <strong class="li-tile__value">{{ stats().active }}</strong>
+    <span class="li-tile__hint">{{ stats().total }} on record</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Answer rate</span>
-    <strong class="tile__value">
+  <div class="li-tile">
+    <span class="li-tile__label">Answer rate</span>
+    <strong class="li-tile__value">
       @if (stats().responseRatePct !== null) { {{ stats().responseRatePct }}% }
       @else { – }
     </strong>
-    <span class="tile__hint"
+    <span class="li-tile__hint"
       >{{ stats().answered }} of {{ stats().sent }} sent @if
       (stats().averageDaysToAnswer !== null) { · in {{
       stats().averageDaysToAnswer }} days on average }</span
     >
   </div>
-  <div class="tile">
-    <span class="tile__label">Interviews</span>
-    <strong class="tile__value">{{ stats().interviews }}</strong>
-    <span class="tile__hint">Applications that reached an interview</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Interviews</span>
+    <strong class="li-tile__value">{{ stats().interviews }}</strong>
+    <span class="li-tile__hint">Applications that reached an interview</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Offers</span>
-    <strong class="tile__value">{{ stats().offers }}</strong>
-    <span class="tile__hint">
+  <div class="li-tile">
+    <span class="li-tile__label">Offers</span>
+    <strong class="li-tile__value">{{ stats().offers }}</strong>
+    <span class="li-tile__hint">
       @if (stats().stale) { {{ stats().stale }} with no news for {{ staleDays }}
       days } @else { No application waiting too long }
     </span>
@@ -35,8 +35,8 @@
 </section>
 }
 
-<ui-card heading="Applications" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="Applications" class="li-block">
+  <div uiCardActions class="li-actions">
     @if (closed() || showClosed()) {
     <button
       uiButton
@@ -60,7 +60,7 @@
   </div>
 
   @if (draft(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); save()">
+  <form class="li-form" (submit)="$event.preventDefault(); save()">
     <label>
       <span>Company</span>
       <input
@@ -211,7 +211,7 @@
       />
     </label>
     }
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Notes</span>
       <textarea
         class="ui-input"
@@ -220,7 +220,7 @@
         (input)="setDraft({ notes: $any($event.target).value })"
       ></textarea>
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         type="submit"
@@ -242,7 +242,7 @@
   </form>
   } @if (!applications().length && !draft()) {
   <ui-empty-state heading="No applications yet" icon="search">
-    <p class="muted">
+    <p class="li-muted">
       Keep track of the jobs you apply to: where each one stands, the next step,
       the RAL they talk about. Offers go straight to the comparison in Tools.
     </p>
@@ -251,12 +251,12 @@
   <ul class="applications">
     @for (a of shown(); track a.id) {
     <li class="application">
-      <div class="row">
+      <div class="li-row">
         <div>
           <strong>{{ a.role }}</strong>
-          <span class="muted"> at {{ a.company }}</span>
+          <span class="li-muted"> at {{ a.company }}</span>
           @if (a.location) {
-          <span class="muted small"> · {{ a.location }}</span>
+          <span class="li-muted li-small"> · {{ a.location }}</span>
           }
         </div>
         <div class="application__badges">
@@ -268,23 +268,23 @@
           >
         </div>
       </div>
-      <p class="application__facts small muted">
+      <p class="application__facts li-small li-muted">
         @if (a.appliedAt) { Applied {{ periodText(a.appliedAt) }} } @if
         (a.source) { · via {{ a.source }} } @if (range(a); as r) { · RAL {{ r }}
         } @if (a.offerRal) { · Offer {{ euro(a.offerRal) }}{{ a.offerMonths ? '
         over ' + a.offerMonths : '' }} }
       </p>
       @if (a.nextStep || a.nextStepAt) {
-      <p class="small">
+      <p class="li-small">
         <ui-icon name="calendar" [size]="14" /> Next: {{ a.nextStep ?? 'a step'
         }}@if (a.nextStepAt) { on {{ periodText(a.nextStepAt) }} }
       </p>
       } @if (a.notes) {
-      <p class="application__notes small">{{ a.notes }}</p>
+      <p class="application__notes li-small">{{ a.notes }}</p>
       }
       <div class="application__actions">
-        <label class="small">
-          <span class="muted">Move to</span>
+        <label class="li-small">
+          <span class="li-muted">Move to</span>
           <select
             class="ui-input application__status"
             [disabled]="busy() === a.id"
@@ -361,7 +361,7 @@
         }
       </div>
       @if (a.history.length > 1) {
-      <p class="application__history small muted">
+      <p class="application__history li-small li-muted">
         @for (h of a.history; track $index; let last = $last) { {{
         statusLabels[h.status] }} {{ h.at }}{{ last ? '' : ' → ' }} }
       </p>
@@ -370,6 +370,6 @@
     }
   </ul>
   } @else {
-  <p class="muted">Every application is closed.</p>
+  <p class="li-muted">Every application is closed.</p>
   }
 </ui-card>

@@ -235,38 +235,6 @@
 }
 
 /* Not started / Studying / Done. */
-.segmented {
-  display: inline-flex;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-}
-
-.segmented button {
-  padding: var(--space-1) var(--space-3);
-  border: 0;
-  background: var(--surface-card);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-}
-
-.segmented button + button {
-  border-left: 1px solid var(--border-subtle);
-}
-
-.segmented button:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.segmented .segmented--on,
-.segmented .segmented--on:hover:not(:disabled) {
-  background: var(--accent-gradient);
-  color: var(--accent-contrast);
-  font-weight: 600;
-}
-
 @media (max-width: 40rem) {
   .path-head {
     grid-template-columns: auto 1fr;

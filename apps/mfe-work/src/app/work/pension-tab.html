@@ -4,15 +4,15 @@
 
 <!-- What a fund is, first for whoever has none yet. -->
 @if (newcomer()) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No pension fund on record yet" icon="info">
-    <p class="muted">
+    <p class="li-muted">
       A pension fund (fondo pensione) is retirement savings on top of your INPS
       pension: you, your employer and your TFR pay in, and what you pay comes
       off your taxes. The guide explains how it works. Already a member? Add
       your fund, or approve a payslip that shows it.
     </p>
-    <div class="actions">
+    <div class="li-actions">
       <button uiButton size="sm" type="button" (click)="startFund()">
         <ui-icon name="plus" [size]="16" /> Add your fund
       </button>
@@ -38,44 +38,46 @@
   </ui-empty-state>
 </ui-card>
 } @else {
-<section class="tiles" aria-label="Your pension fund">
-  <div class="tile tile--lead">
-    <span class="tile__label">Your position is worth</span>
-    <strong class="tile__value">
+<section class="li-tiles" aria-label="Your pension fund">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Your position is worth</span>
+    <strong class="li-tile__value">
       @if (pension().totalValue !== null) { {{ euro(pension().totalValue) }} }
       @else { – }
     </strong>
-    <span class="tile__hint">
+    <span class="li-tile__hint">
       @if (pension().totalValue !== null) { From the latest statement of each
       fund } @else { Add the value from your fund's statement }
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Paid in</span>
-    <strong class="tile__value">{{ euro(pension().totalPaidIn) }}</strong>
-    <span class="tile__hint">Yours, the employer's and the TFR</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Paid in</span>
+    <strong class="li-tile__value">{{ euro(pension().totalPaidIn) }}</strong>
+    <span class="li-tile__hint">Yours, the employer's and the TFR</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Gain</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Gain</span>
     <strong
-      class="tile__value"
+      class="li-tile__value"
       [class.up]="(gain() ?? 0) > 0"
       [class.down]="(gain() ?? 0) < 0"
       >{{ signed(gain()) }}</strong
     >
-    <span class="tile__hint">Value less what was paid in</span>
+    <span class="li-tile__hint">Value less what was paid in</span>
   </div>
   @if (pension().thisYear; as t) {
-  <div class="tile">
-    <span class="tile__label">Deduction used in {{ t.year }}</span>
-    <strong class="tile__value">{{ usedPct() }}%</strong>
-    <span class="tile__hint">{{ euro(t.counted) }} of {{ euro(t.limit) }}</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Deduction used in {{ t.year }}</span>
+    <strong class="li-tile__value">{{ usedPct() }}%</strong>
+    <span class="li-tile__hint"
+      >{{ euro(t.counted) }} of {{ euro(t.limit) }}</span
+    >
   </div>
   } @if (longest(); as f) {
-  <div class="tile">
-    <span class="tile__label">Tax when you retire</span>
-    <strong class="tile__value">{{ f.exitTaxPct }}%</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">Tax when you retire</span>
+    <strong class="li-tile__value">{{ f.exitTaxPct }}%</strong>
+    <span class="li-tile__hint"
       >After {{ f.yearsMember }} year{{ f.yearsMember === 1 ? '' : 's' }} in a
       fund; 9% after 35</span
     >
@@ -83,25 +85,25 @@
   }
 </section>
 
-<div class="grid">
+<div class="li-grid">
   <!-- This year's deduction --------------------------------------------- -->
   @if (pension().thisYear; as t) {
   <ui-card [heading]="'This year’s deduction, ' + t.year">
-    <p class="muted intro">
+    <p class="li-muted li-intro">
       What you and your employer pay in comes off your taxable income, up to {{
       euro(t.limit) }} a year. The TFR does not count.
     </p>
     <div class="meter">
-      <div class="row">
+      <div class="li-row">
         <span>So far: <strong>{{ euro(t.counted) }}</strong></span>
-        <span class="muted">limit {{ euro(t.limit) }}</span>
+        <span class="li-muted">limit {{ euro(t.limit) }}</span>
       </div>
       <ui-progress-bar
         [value]="usedPct()"
         [label]="'Deduction used: ' + usedPct() + '%'"
       />
       @if (t.projected > t.counted) {
-      <p class="small muted">
+      <p class="li-small li-muted">
         By December, at this pace: {{ euro(t.projected) }} ({{ projectedPct()
         }}% of the limit).
       </p>
@@ -115,7 +117,7 @@
       <strong>{{ euro(t.saving) }}</strong> of IRPEF ({{ t.marginalRatePct }}%
       is your top rate), deducted in next year's 730. }
     </p>
-    <div class="actions">
+    <div class="li-actions">
       <button
         uiButton
         variant="secondary"
@@ -138,7 +140,7 @@
 
   <!-- Your funds -------------------------------------------------------- -->
   <ui-card heading="Your funds">
-    <div uiCardActions class="actions">
+    <div uiCardActions class="li-actions">
       <button
         uiButton
         variant="secondary"
@@ -150,31 +152,31 @@
       </button>
     </div>
     @if (!funds().length) {
-    <p class="muted">
+    <p class="li-muted">
       Your payslips show a pension fund: add it here with the day you joined (it
       sets the tax at the end) and your investment line.
     </p>
     }
-    <ul class="plain funds">
+    <ul class="li-list funds">
       @for (f of funds(); track f.id) {
       <li class="fund">
-        <div class="row">
+        <div class="li-row">
           <strong>{{ f.name }}</strong>
-          <span class="actions">
+          <span class="li-actions">
             @if (f.status === 'closed') {
             <ui-badge tone="neutral">Closed</ui-badge>
             }
             <ui-badge tone="info">{{ kindLabels[f.kind] }}</ui-badge>
           </span>
         </div>
-        <p class="small muted">
+        <p class="li-small li-muted">
           @if (f.memberSince) { Member since {{ periodText(f.memberSince) }} · }
           @if (f.investmentLine) { {{ f.investmentLine }} · } @if (f.employeePct
           !== null) { You {{ f.employeePct }}% } @if (f.employerPct !== null) {
           · employer {{ f.employerPct }}% } @if (f.tfrPct !== null) { · TFR {{
           f.tfrPct }}% }
         </p>
-        <p class="small">
+        <p class="li-small">
           @if (f.value !== null) { Worth {{ euro(f.value) }} on {{
           periodText(f.valueDate) }} @if (f.gain !== null) { ·
           <span [class.up]="f.gain > 0" [class.down]="f.gain < 0"
@@ -185,12 +187,12 @@
           {{ f.exitTaxPct }}% tax at the end today }
         </p>
         @if (f.firstJob) {
-        <p class="small muted">
+        <p class="li-small li-muted">
           First job after 2007: from the 6th year you can deduct up to 2.582,29
           € a year more, for 20 years.
         </p>
         }
-        <div class="actions">
+        <div class="li-actions">
           @if (f.url && safeUrl(f.url); as link) {
           <a
             uiButton
@@ -254,10 +256,10 @@
 @if (fundDraft(); as d) {
 <ui-card
   [heading]="d.id ? 'Edit ' + d.name : 'Add a pension fund'"
-  class="block"
+  class="li-block"
 >
-  <form class="form" (submit)="$event.preventDefault(); saveFund()">
-    <label class="form__wide">
+  <form class="li-form" (submit)="$event.preventDefault(); saveFund()">
+    <label class="li-form__wide">
       <span>Name</span>
       <input
         class="ui-input"
@@ -359,7 +361,7 @@
       />
       <span>Still paying into it</span>
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Notes</span>
       <textarea
         class="ui-input"
@@ -368,7 +370,7 @@
         (input)="setFund({ notes: $any($event.target).value })"
       ></textarea>
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         size="sm"
@@ -393,25 +395,28 @@
 
 <!-- Year by year ----------------------------------------------------------- -->
 @if (pension().years.length) {
-<ui-card heading="Year by year: what went in and what you deduct" class="block">
-  <p class="muted intro">
+<ui-card
+  heading="Year by year: what went in and what you deduct"
+  class="li-block"
+>
+  <p class="li-muted li-intro">
     From your payslips, your own transfers and the Certificazione Unica. Your
     contributions and the employer's count against the limit, the TFR does not.
     The last two columns are what goes in rigo E27 of the following year's 730.
   </p>
-  <div class="table-wrap">
-    <table class="table">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
       <thead>
         <tr>
           <th scope="col">Year</th>
-          <th scope="col" class="num">Yours</th>
-          <th scope="col" class="num">Employer</th>
-          <th scope="col" class="num">Your transfers</th>
-          <th scope="col" class="num">TFR</th>
-          <th scope="col" class="num">Counts / limit</th>
-          <th scope="col" class="num">Tax saved</th>
-          <th scope="col" class="num">E27 col. 1</th>
-          <th scope="col" class="num">E27 col. 2</th>
+          <th scope="col" class="li-num">Yours</th>
+          <th scope="col" class="li-num">Employer</th>
+          <th scope="col" class="li-num">Your transfers</th>
+          <th scope="col" class="li-num">TFR</th>
+          <th scope="col" class="li-num">Counts / limit</th>
+          <th scope="col" class="li-num">Tax saved</th>
+          <th scope="col" class="li-num">E27 col. 1</th>
+          <th scope="col" class="li-num">E27 col. 2</th>
           <th scope="col">Over the limit</th>
         </tr>
       </thead>
@@ -420,29 +425,29 @@
         <tr>
           <th scope="row">
             {{ y.year }} @if (y.running) {
-            <span class="muted small">so far</span>
+            <span class="li-muted li-small">so far</span>
             }
           </th>
-          <td class="num">{{ euro(y.employee) }}</td>
-          <td class="num">{{ euro(y.employer) }}</td>
-          <td class="num">
+          <td class="li-num">{{ euro(y.employee) }}</td>
+          <td class="li-num">{{ euro(y.employer) }}</td>
+          <td class="li-num">
             {{ y.direct + y.family ? euro(y.direct + y.family) : '–' }}
           </td>
-          <td class="num">{{ y.tfr ? euro(y.tfr) : '–' }}</td>
-          <td class="num">
+          <td class="li-num">{{ y.tfr ? euro(y.tfr) : '–' }}</td>
+          <td class="li-num">
             {{ euro(y.counted) }}
-            <span class="muted small">/ {{ euro(y.limit) }}</span>
+            <span class="li-muted li-small">/ {{ euro(y.limit) }}</span>
           </td>
-          <td class="num">
+          <td class="li-num">
             @if (y.taxSaved !== null) { {{ euro(y.taxSaved) }}
-            <span class="muted small">at {{ y.marginalRatePct }}%</span> } @else
-            { – }
+            <span class="li-muted li-small">at {{ y.marginalRatePct }}%</span> }
+            @else { – }
           </td>
-          <td class="num">
+          <td class="li-num">
             {{ euro(y.e27Deducted) }} @if (y.cuDeducted !== null) {
-            <span class="muted small">CU 412</span> }
+            <span class="li-muted li-small">CU 412</span> }
           </td>
-          <td class="num">
+          <td class="li-num">
             {{ y.e27NotDeducted ? euro(y.e27NotDeducted) : '–' }}
           </td>
           <td class="notice">
@@ -453,14 +458,14 @@
             >
             <button
               type="button"
-              class="link small"
+              class="li-link li-small"
               [disabled]="busy() === 'notice-' + y.year"
               (click)="clearNotice(y.year)"
             >
               Undo
             </button>
             } @else if (noticeDraft()?.year === y.year) {
-            <span class="actions">
+            <span class="li-actions">
               <input
                 class="ui-input notice-date"
                 type="date"
@@ -480,9 +485,13 @@
             </span>
             } @else {
             <ui-badge tone="warning">{{ euro(y.over) }} over</ui-badge>
-            <span class="small block-line"
+            <span class="li-small block-line"
               >Tell the fund by {{ periodText(y.noticeDue) }}.
-              <button type="button" class="link small" (click)="startNotice(y)">
+              <button
+                type="button"
+                class="li-link li-small"
+                (click)="startNotice(y)"
+              >
                 Done it
               </button></span
             >
@@ -493,7 +502,7 @@
       </tbody>
     </table>
   </div>
-  <p class="note muted">
+  <p class="note li-muted">
     "Tax saved" is an estimate at your top IRPEF rate for that year. When a CU
     shows the pension fund (punti 412 and 413), it wins over the payslips: it is
     what the employer declared.
@@ -503,8 +512,8 @@
 
 <!-- Statements: the value of your position --------------------------------- -->
 @if (funds().length || pension().pending.length) {
-<ui-card heading="What your fund is worth" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="What your fund is worth" class="li-block">
+  <div uiCardActions class="li-actions">
     @if (funds().length) {
     <button
       uiButton
@@ -517,7 +526,7 @@
     </button>
     }
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     Every spring the fund sends a statement (comunicazione periodica) with the
     value of your position on 31 December. Upload it in the documents app and
     confirm its figures here, or type them in.
@@ -525,27 +534,29 @@
 
   @for (p of pension().pending; track p.uploadId) {
   <div class="pending">
-    <div class="row">
+    <div class="li-row">
       <span>
         <ui-badge tone="info">From a document</ui-badge>
         <a [href]="previewUrl(p.uploadId)" target="_blank" rel="noopener"
           >{{ p.title }}</a
         >
       </span>
-      <span class="muted small">{{ p.fundName ?? 'Fund not named' }}</span>
+      <span class="li-muted li-small"
+        >{{ p.fundName ?? 'Fund not named' }}</span
+      >
     </div>
-    <p class="small">
+    <p class="li-small">
       {{ p.date ? periodText(p.date) : 'No date' }} · value {{ euro(p.value) }}
       @if (p.paidIn !== null) { · paid in {{ euro(p.paidIn) }} } @if
       (p.investmentLine) { · {{ p.investmentLine }} }
     </p>
     @if (p.missing.length) {
-    <p class="small muted">
+    <p class="li-small li-muted">
       It does not show {{ p.missing.join(' or ') }}: fill it in the documents
       app, or type the statement here.
     </p>
     }
-    <div class="actions">
+    <div class="li-actions">
       <label class="inline">
         <span class="ui-visually-hidden">Fund</span>
         <select
@@ -585,7 +596,7 @@
     </div>
   </div>
   } @if (statementDraft(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); saveStatement()">
+  <form class="li-form" (submit)="$event.preventDefault(); saveStatement()">
     <label>
       <span>Fund</span>
       <select
@@ -663,7 +674,7 @@
         (input)="setStatement({ returnPct: $any($event.target).value })"
       />
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         size="sm"
@@ -684,16 +695,16 @@
     </div>
   </form>
   } @if (pension().statements.length) {
-  <div class="table-wrap">
-    <table class="table">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
       <thead>
         <tr>
           <th scope="col">Date</th>
           <th scope="col">Fund</th>
-          <th scope="col" class="num">Value</th>
-          <th scope="col" class="num">Paid in</th>
-          <th scope="col" class="num">Gain</th>
-          <th scope="col" class="num">Return</th>
+          <th scope="col" class="li-num">Value</th>
+          <th scope="col" class="li-num">Paid in</th>
+          <th scope="col" class="li-num">Gain</th>
+          <th scope="col" class="li-num">Return</th>
           <th scope="col" aria-label="Actions"></th>
         </tr>
       </thead>
@@ -704,7 +715,7 @@
           <td>
             {{ s.fundName }} @if (s.sourceUploadId) {
             <a
-              class="small"
+              class="li-small"
               [href]="previewUrl(s.sourceUploadId)"
               target="_blank"
               rel="noopener"
@@ -712,23 +723,23 @@
             >
             }
           </td>
-          <td class="num">{{ euro(s.value) }}</td>
-          <td class="num">{{ euro(s.paidIn) }}</td>
-          <td class="num">
+          <td class="li-num">{{ euro(s.value) }}</td>
+          <td class="li-num">{{ euro(s.paidIn) }}</td>
+          <td class="li-num">
             <span
               [class.up]="(s.gain ?? 0) > 0"
               [class.down]="(s.gain ?? 0) < 0"
               >{{ signed(s.gain) }}</span
             >
           </td>
-          <td class="num">
+          <td class="li-num">
             {{ s.returnPct !== null ? s.returnPct + '%' : '–' }}
           </td>
           <td>
             @if (removing() === s.id) {
             <button
               type="button"
-              class="link small danger"
+              class="li-link li-small danger"
               [disabled]="busy() === s.id"
               (click)="removeStatement(s.id)"
             >
@@ -737,7 +748,7 @@
             } @else {
             <button
               type="button"
-              class="link small"
+              class="li-link li-small"
               (click)="removing.set(s.id)"
             >
               Delete
@@ -750,15 +761,15 @@
     </table>
   </div>
   } @else if (!statementDraft() && !pension().pending.length) {
-  <p class="muted">No statement yet.</p>
+  <p class="li-muted">No statement yet.</p>
   }
 </ui-card>
 }
 
 <!-- Your own transfers ----------------------------------------------------- -->
 @if (funds().length) {
-<ui-card heading="What you paid in yourself" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="What you paid in yourself" class="li-block">
+  <div uiCardActions class="li-actions">
     <button
       uiButton
       variant="secondary"
@@ -769,12 +780,12 @@
       <ui-icon name="plus" [size]="16" /> Add a transfer
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     Transfers to the fund outside the payslip: the employer does not know them,
     so you deduct them in the 730 (rigo E27, column 2). Keep the receipt.
   </p>
   @if (paymentDraft(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); savePayment()">
+  <form class="li-form" (submit)="$event.preventDefault(); savePayment()">
     <label>
       <span>Fund</span>
       <select
@@ -821,7 +832,7 @@
         }
       </select>
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Note</span>
       <input
         class="ui-input"
@@ -829,7 +840,7 @@
         (input)="setPayment({ note: $any($event.target).value })"
       />
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         size="sm"
@@ -850,28 +861,32 @@
     </div>
   </form>
   } @if (pension().payments.length) {
-  <ul class="plain">
+  <ul class="li-list">
     @for (p of pension().payments; track p.id) {
-    <li class="row">
+    <li class="li-row">
       <span>
         <strong>{{ euro(p.amount) }}</strong> on {{ periodText(p.date) }} to {{
         p.fundName }} @if (p.kind === 'family') {
         <ui-badge tone="neutral">{{ paymentKindLabels[p.kind] }}</ui-badge>
         } @if (p.note) {
-        <span class="muted small">· {{ p.note }}</span>
+        <span class="li-muted li-small">· {{ p.note }}</span>
         }
       </span>
       @if (removing() === p.id) {
       <button
         type="button"
-        class="link small danger"
+        class="li-link li-small danger"
         [disabled]="busy() === p.id"
         (click)="removePayment(p.id)"
       >
         Delete it
       </button>
       } @else {
-      <button type="button" class="link small" (click)="removing.set(p.id)">
+      <button
+        type="button"
+        class="li-link li-small"
+        (click)="removing.set(p.id)"
+      >
         Delete
       </button>
       }
@@ -879,15 +894,15 @@
     }
   </ul>
   } @else if (!paymentDraft()) {
-  <p class="muted">None on record: everything went through the payslip.</p>
+  <p class="li-muted">None on record: everything went through the payslip.</p>
   }
 </ui-card>
 }
 
 <!-- Documents -------------------------------------------------------------- -->
 @if (pension().documents.length) {
-<ui-card heading="Documents" class="block">
-  <ul class="plain">
+<ui-card heading="Documents" class="li-block">
+  <ul class="li-list">
     @for (d of pension().documents; track d.uploadId) {
     <li>
       <ui-badge
@@ -898,7 +913,7 @@
       <a [href]="previewUrl(d.uploadId)" target="_blank" rel="noopener"
         >{{ d.title }}</a
       >
-      <span class="muted small">· {{ d.summary }}</span>
+      <span class="li-muted li-small">· {{ d.summary }}</span>
     </li>
     }
   </ul>

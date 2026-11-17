@@ -28,8 +28,8 @@
   list-style: none;
 }
 
-.table .now td,
-.table .now th {
+.li-table .now td,
+.li-table .now th {
   background: var(--accent-soft);
   font-weight: 600;
 }

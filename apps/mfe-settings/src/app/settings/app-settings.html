@@ -108,7 +108,7 @@
         </select>
         } @else {
         <div
-          class="segmented"
+          class="li-seg"
           role="radiogroup"
           [attr.aria-labelledby]="'label-' + setting.key"
         >
@@ -116,8 +116,8 @@
           <button
             type="button"
             role="radio"
-            class="segmented__option"
-            [class.segmented__option--on]="value(setting) === option.value"
+            class="li-seg__item"
+            [class.li-seg__item--on]="value(setting) === option.value"
             [attr.aria-checked]="value(setting) === option.value"
             [disabled]="locked(setting)"
             (click)="choose(setting, option.value)"
