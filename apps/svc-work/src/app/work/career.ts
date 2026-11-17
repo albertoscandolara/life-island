@@ -11,6 +11,7 @@ import {
   type PayslipKind,
   type WorkplaceStatus,
   type YearStatsDto,
+  euroText,
 } from '@life-island/contracts';
 import type { StoredValues, WorkDocumentReading } from './work-documents.js';
 
@@ -47,8 +48,7 @@ export interface ManualCareerEvent {
 /** A rise smaller than this (0.5%) is rounding, not a rise. */
 const RISE_THRESHOLD = 0.005;
 
-const money = (n: number) =>
-  n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
+const money = (n: number) => euroText(n);
 const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`;
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const round2 = (n: number) => Math.round(n * 100) / 100;

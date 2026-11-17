@@ -34,7 +34,7 @@ A library may import only libraries below it in this order: `contracts` → `des
 - Every area answers the same endpoints with the same shapes from `libs/contracts`: `GET /deadlines` (`DeadlineDto[]`, for the Agenda), `GET /attention` (`LifeAttentionDto`, for the hub badge and the area's tabs) and, when it owns entities, `GET /entities` (`EntityRefDto[]`).
 - Every model call goes through `AiAssistant` (`libs/be-nest`), registered in `AI_TOOLS` (`docs/guides/ai-tools.md`). No service creates its own `Anthropic` client.
 - Records an area keeps by hand go through `RecordCollections`; events through `EventsRuntime` and the outbox.
-- Text written into a response (an insight, an advice line) formats money and dates with one shared helper, not a local `money()` or `euroText()`.
+- Text written into a response (an insight, a check, an advice line) formats money with `euroText` from `libs/contracts`, never a local `money()` or a hand-written `€${n}`.
 
 ## Known duplication to remove
 
@@ -43,10 +43,10 @@ Found in the review of November 2026. Each line is removed when its area is next
 | Where                                                                                                                                                       | Duplicate of                                      |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Tile and table rules in `mfe-cars`, `mfe-people`, `mfe-tax730`                                                                                              | `.li-*` in `design-system/styles/records.css`     |
-| `mfe-work/.../labels.ts` (`duration`, `pct`), `mfe-home/.../shared/format.ts`, `mfe-tax730/.../dashboard/format.ts`                                         | `records-ui` formatters                           |
+| `mfe-work/.../labels.ts` (`duration`, `pct`)                                                                                                                | `records-ui` formatters                           |
 | Hand-drawn CSS bar charts in `mfe-tax730` (month chart, year comparison, trend), `mfe-money`, `mfe-subscriptions`, `mfe-travel`, `mfe-fitness`, `mfe-goals` | design-system charts and `li-bars`                |
 | `svc-work` career advisor, `svc-studies` study coach and resource scout, `svc-cars` quote advisor (own `Anthropic` clients)                                 | `AiAssistant` in `libs/be-nest`                   |
-| `money()` / `euroText()` in `svc-work` (five files) and `svc-dreams`                                                                                        | one shared text formatter in `libs/contracts`     |
+| `€${n}` written by hand in the briefs services send to AI tools (`svc-agenda`, `svc-groceries`, `svc-money`, `svc-subscriptions`, `svc-travel`)             | `euroText` in `libs/contracts`                    |
 | `/attention` missing in Cars, Home, Work, Taxes and Groceries                                                                                               | `LifeAttentionDto`, as the other areas publish it |
 
-Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies, Work and Home use the `.li-*` kit, including the shared inline form `.li-form` and the segmented control `.li-seg` (Home, Studies and Settings each had their own); Studies and Work take money, dates and errors from `records-ui`, whose `euro` groups thousands as every area does; chart colours of a kind or topic come from the shared `--viz-1…6` palette.
+Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies, Work and Home use the `.li-*` kit, including the shared inline form `.li-form` and the segmented control `.li-seg` (Home, Studies and Settings each had their own); Studies, Work, Home and the 730 take money, dates and errors from `records-ui`, whose `euro` groups thousands as every area does; services write money in text with `euroText` (`libs/contracts`), the same "3.200,00 €"; chart colours of a kind or topic come from the shared `--viz-1…6` palette.

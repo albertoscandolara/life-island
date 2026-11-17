@@ -23,6 +23,7 @@ import {
   type PayslipAuditFindingDto,
   type TfrDto,
   type TfrYearDto,
+  euroText,
 } from '@life-island/contracts';
 import {
   countedPayslips,
@@ -45,12 +46,7 @@ const num = (v: unknown): number | null =>
 const str = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
 /** 2.462,50 €: amounts as the rest of Work shows them. */
-const money = (n: number) =>
-  `${n.toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: 'always',
-  } as unknown as Intl.NumberFormatOptions)} €`;
+const money = (n: number) => euroText(n);
 const MONTHS = [
   'Jan',
   'Feb',

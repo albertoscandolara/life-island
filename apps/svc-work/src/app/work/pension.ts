@@ -18,6 +18,7 @@ import {
   type PensionStatementDto,
   type PensionThisYearDto,
   type PensionYearDto,
+  euroText,
 } from '@life-island/contracts';
 import { countedPayslips, type ApprovedWorkDocument } from './career.js';
 import { normalizeName, numberOf, type Fields } from './work-documents.js';
@@ -557,12 +558,3 @@ export function pensionDeadlines(
 }
 
 // As the Work pages write amounts: 2.673,10 € (grouping forced, plain spaces).
-const EURO = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  useGrouping: 'always',
-} as unknown as Intl.NumberFormatOptions);
-
-function euroText(n: number): string {
-  return EURO.format(n).replace(/\s/g, ' ');
-}

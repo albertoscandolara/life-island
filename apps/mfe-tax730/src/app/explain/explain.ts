@@ -1,3 +1,4 @@
+import { euro } from '@life-island/records-ui';
 import {
   irpefByBracket,
   pensionDeductionLimit,
@@ -640,13 +641,7 @@ export function trendOf(years: readonly TaxYearDto[]): TrendYear[] {
 
 // ---------------------------------------------------------------------------
 
-const EURO = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-  useGrouping: 'always',
-} as unknown as Intl.NumberFormatOptions);
 /** Whole euros, for sentences. */
-export const euroText = (value: number) => EURO.format(value);
+export const euroText = (value: number) => euro(value, false);
 export const pct = (rate: number) =>
   `${Math.round(rate * 1000) / 10}%`.replace('.0%', '%');
