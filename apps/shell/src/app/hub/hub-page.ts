@@ -16,7 +16,12 @@ import {
   type PeopleAttentionDto,
 } from '@life-island/contracts';
 import { BrowserSettings, hiddenAreas } from '@life-island/settings-ui';
-import { UiBadge, UiIcon, type UiTone } from '@life-island/design-system';
+import {
+  UiBadge,
+  UiIcon,
+  UiTilt,
+  type UiTone,
+} from '@life-island/design-system';
 import { environment } from '../../environments/environment';
 import { IslandView } from '../island/island-view';
 import { ISLAND_MODULES, type IslandModule } from './modules';
@@ -31,7 +36,7 @@ import { ISLAND_MODULES, type IslandModule } from './modules';
 @Component({
   selector: 'app-hub-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiBadge, UiIcon, IslandView],
+  imports: [RouterLink, UiBadge, UiIcon, UiTilt, IslandView],
   templateUrl: './hub-page.html',
   styleUrl: './hub-page.css',
 })

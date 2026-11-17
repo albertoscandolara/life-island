@@ -1,14 +1,19 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { UiTilt } from '../tilt/tilt';
 
 /**
- * Page title row of a module: an emblem in the character's accent, a title, a
- * subtitle and actions (`[uiPageActions]`). Set `data-character` on a parent
- * to apply the character theme.
+ * Page title row of a module: the character's emblem on an island token, a
+ * title, a subtitle and actions (`[uiPageActions]`). Set `data-character` on a
+ * parent to apply the character theme. The token turns gently towards the
+ * pointer while it moves over the header.
  */
 @Component({
   selector: 'ui-page-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<span class="emblem" aria-hidden="true">{{ emblem() }}</span>
+  hostDirectives: [UiTilt],
+  template: `<span class="emblem ui-token" aria-hidden="true">{{
+      emblem()
+    }}</span>
     <div class="text">
       <h1 class="title">{{ heading() }}</h1>
       @if (subtitle()) {
@@ -26,33 +31,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
     }
     .emblem {
-      display: grid;
-      place-items: center;
-      position: relative;
-      width: var(--space-16);
-      height: var(--space-16);
-      border-radius: var(--radius-lg);
-      background: var(--accent-gradient);
-      box-shadow: var(--accent-glow);
-      font-size: var(--text-3xl);
-      animation: emblem-float 6s ease-in-out infinite;
-    }
-    /* A glossy highlight on the emblem. */
-    .emblem::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(
-        160deg,
-        color-mix(in srgb, var(--surface-card) 35%, transparent),
-        transparent 55%
-      );
-    }
-    @keyframes emblem-float {
-      50% {
-        transform: translateY(-3px) rotate(-2deg);
-      }
+      --token-size: var(--space-16);
+      --token-depth: 6px;
     }
     .text {
       flex: 1;
@@ -62,13 +42,29 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       font-size: var(--text-3xl);
     }
     .subtitle {
+      max-width: 68ch;
       margin: var(--space-1) 0 0;
       color: var(--text-secondary);
+      text-wrap: pretty;
     }
     .actions {
       display: flex;
       flex-wrap: wrap;
       gap: var(--space-2);
+    }
+    /* Phones: a smaller token, so the title keeps its width. */
+    @media (width <= 40rem) {
+      :host {
+        align-items: flex-start;
+        gap: var(--space-3);
+      }
+      .emblem {
+        --token-size: var(--space-12);
+        --token-depth: 4px;
+      }
+      .title {
+        font-size: var(--text-2xl);
+      }
     }
   `,
 })

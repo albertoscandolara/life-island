@@ -2,15 +2,10 @@
   margin-bottom: var(--space-6);
 }
 
-/* The 3D island, full width, with a soft sea-coloured wash behind it. */
+/* The 3D island, full width, floating on the page: no box around it. */
 .island {
   display: block;
   margin-bottom: var(--space-10);
-  background: radial-gradient(
-    ellipse at 50% 60%,
-    color-mix(in srgb, var(--tone-info) 14%, transparent),
-    transparent 70%
-  );
 }
 
 .island--placeholder {
@@ -71,10 +66,15 @@
   gap: var(--space-3);
   height: 100%;
   padding: var(--space-6);
-  overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
-  background: var(--surface-card);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-soft) 70%, transparent),
+      transparent var(--space-16)
+    ),
+    var(--surface-card);
   box-shadow: var(--shadow-card);
   color: var(--text-primary);
   text-decoration: none;
@@ -84,17 +84,34 @@
     border-color var(--duration-normal) var(--ease-out);
 }
 
-/* A wash of the character's colour in the corner of its card. */
+/* The accent's ribbon along the top edge of the card. */
 .module::before {
   content: '';
   position: absolute;
-  inset: auto -30% 55% auto;
-  width: 70%;
-  aspect-ratio: 1;
-  border-radius: var(--radius-full);
-  background: var(--accent-soft);
-  filter: blur(24px);
+  inset: 0 var(--space-6) auto;
+  height: 3px;
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  background: var(--accent-gradient);
+}
+
+/*
+ * A soft light that follows the pointer across the card, while the card's
+ * token turns towards it (uiTilt). The card itself stays flat, so its text
+ * stays sharp.
+ */
+.module::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    24rem 16rem at var(--glare-x, 50%) 0%,
+    color-mix(in srgb, var(--accent) 9%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
   pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 
 a.module:hover,
@@ -104,13 +121,17 @@ a.module:focus-visible {
   transform: translateY(-4px);
 }
 
+a.module:hover::after {
+  opacity: 1;
+}
+
 .module--planned {
+  background: var(--surface-card);
   opacity: 0.85;
 }
 
-.module--planned .module__emblem {
-  background: var(--surface-sunken);
-  box-shadow: none;
+.module--planned::before {
+  display: none;
 }
 
 .module__open {
@@ -120,18 +141,6 @@ a.module:focus-visible {
   gap: var(--space-1);
   color: var(--accent);
   font-weight: 600;
-}
-
-.module__emblem {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--space-16);
-  height: var(--space-16);
-  border-radius: var(--radius-lg);
-  background: var(--accent-gradient);
-  box-shadow: var(--accent-glow);
-  font-size: var(--text-3xl);
 }
 
 .module__name {
@@ -245,14 +254,18 @@ a.module:focus-visible {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-card);
+  box-shadow: var(--shadow-tile);
   color: var(--text-primary);
   text-decoration: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
 }
 
 .coming__item:hover,
 .coming__item:focus-visible {
   border-color: var(--accent);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .coming__emblem {

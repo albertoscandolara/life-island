@@ -16,6 +16,17 @@
   --ink-700: #333b4a;
   --ink-900: #111722;
 
+  /*
+   * Sand: the light theme's page and wells, a warm paper next to the cool
+   * ink, like a beach beside the sea. Deep sea is the light theme's text.
+   */
+  --sand-25: #fcfbf8;
+  --sand-50: #f6f3ec;
+  --sand-100: #eeeae1;
+  --sand-200: #e4dfd3;
+  --sand-300: #d2cbbc;
+  --deep-sea-900: #0f1c2b;
+
   /* Neutrals for the dark theme: deep sea blues instead of flat greys. */
   --abyss-950: #0a0d14;
   --abyss-900: #0f131c;

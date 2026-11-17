@@ -32,20 +32,14 @@
   text-decoration: none;
 }
 
+/* The brand mark is an island token that spins once, like a coin, on hover. */
 .brand__mark {
-  display: grid;
-  place-items: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  border-radius: var(--radius-sm);
-  background: var(--accent-gradient);
-  box-shadow: var(--accent-glow);
   font-size: var(--text-lg);
-  transition: transform var(--duration-normal) var(--ease-spring);
+  transition: transform var(--duration-slow) var(--ease-spring);
 }
 
 .brand:hover .brand__mark {
-  transform: rotate(-8deg) scale(1.06);
+  transform: perspective(28rem) rotateY(360deg);
 }
 
 .brand__name {
