@@ -6,6 +6,7 @@ import {
   type GroceryItemStatsDto,
   type GroceryMonthDto,
   type ShoppingListOutput,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -169,7 +170,7 @@ export function listDossier(
   const lines = [`Today is ${today}.`, '<items>'];
   for (const i of items.slice(0, 120))
     lines.push(
-      `- ${i.name} (${i.category}): ${i.purchases} times${i.everyDays ? `, about every ${i.everyDays} days` : ''}, last ${isoDaysBetween(i.lastBought, today)} days ago${i.lastPrice ? `, €${i.lastPrice}` : ''}${i.priceChange ? ` (${i.priceChange > 0 ? '+' : ''}${Math.round(i.priceChange * 100)}% since first)` : ''}${i.prices.length > 1 ? `; shops: ${[...new Set(i.prices.map((p) => `${p.merchant} €${p.price}`))].slice(-3).join(', ')}` : ''}`,
+      `- ${i.name} (${i.category}): ${i.purchases} times${i.everyDays ? `, about every ${i.everyDays} days` : ''}, last ${isoDaysBetween(i.lastBought, today)} days ago${i.lastPrice ? `, ${euroText(i.lastPrice)}` : ''}${i.priceChange ? ` (${i.priceChange > 0 ? '+' : ''}${Math.round(i.priceChange * 100)}% since first)` : ''}${i.prices.length > 1 ? `; shops: ${[...new Set(i.prices.map((p) => `${p.merchant} ${euroText(p.price)}`))].slice(-3).join(', ')}` : ''}`,
     );
   lines.push(
     '</items>',

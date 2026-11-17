@@ -9,6 +9,7 @@ import {
   type AgendaItemDto,
   type AgendaRepeat,
   type DeadlineDto,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -268,7 +269,7 @@ export function briefDossier(
       e.module === 'agenda' ? 'Own item' : (names[e.module] ?? e.module);
     const when =
       e.daysLeft < 0 ? `${-e.daysLeft} days overdue` : `in ${e.daysLeft} days`;
-    return `- ${e.date} (${when}) · ${area} · ${e.title}${e.amount ? ` · €${e.amount}` : ''}${e.detail ? ` — ${e.detail.slice(0, 160)}` : ''}`;
+    return `- ${e.date} (${when}) · ${area} · ${e.title}${e.amount ? ` · ${euroText(e.amount)}` : ''}${e.detail ? ` — ${e.detail.slice(0, 160)}` : ''}`;
   });
   return `Today is ${today}.\n${lines.join('\n')}`;
 }

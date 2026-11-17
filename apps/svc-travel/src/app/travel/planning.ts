@@ -3,6 +3,7 @@ import {
   isoDaysBetween,
   type TripDto,
   type TripPlanOutput,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -100,7 +101,7 @@ export function planDossier(trip: TripDto, today: string): string {
     `Today is ${today}.`,
     `Trip: ${trip.title} to ${trip.destination}${trip.abroad ? ' (outside Schengen)' : ''}.`,
     `Dates: ${trip.startOn ?? 'not set'} to ${trip.endOn ?? 'not set'}${trip.nights ? `, ${trip.nights} nights` : ''}${trip.startOn ? `, ${isoDaysBetween(today, trip.startOn)} days from now` : ''}.`,
-    `Travellers: ${trip.travellers}. Budget: ${trip.budget ? `€${trip.budget}` : 'not set'}.`,
+    `Travellers: ${trip.travellers}. Budget: ${trip.budget ? euroText(trip.budget, false) : 'not set'}.`,
     'Booked:',
     ...trip.bookings.map(
       (b) =>
