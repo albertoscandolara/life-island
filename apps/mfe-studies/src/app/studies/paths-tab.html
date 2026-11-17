@@ -139,14 +139,15 @@
           >
         </div>
         <div
-          class="segmented"
+          class="li-seg"
           role="group"
           [attr.aria-label]="step.title + ' status'"
         >
           @for (st of statuses; track st) {
           <button
             type="button"
-            [class.segmented--on]="(sp?.status ?? 'todo') === st"
+            class="li-seg__item"
+            [class.li-seg__item--on]="(sp?.status ?? 'todo') === st"
             [attr.aria-pressed]="(sp?.status ?? 'todo') === st"
             [disabled]="busy() === step.id"
             (click)="setStatus(step.id, st)"

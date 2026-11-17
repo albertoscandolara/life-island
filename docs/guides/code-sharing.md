@@ -24,7 +24,7 @@ A library may import only libraries below it in this order: `contracts` → `des
 
 **Front end**
 
-- Page parts from `records-ui` and the design system: tabs with `<li-tabs>`, tiles and lists with the `.li-*` classes, charts from the design system, dialogs with `<ui-dialog>` or `<li-record-dialog>`.
+- Page parts from `records-ui` and the design system: tabs with `<li-tabs>`, tiles and lists with the `.li-*` classes, charts from the design system, dialogs with `<ui-dialog>` or `<li-record-dialog>`, a few exclusive choices side by side with `.li-seg`, an inline form with `.li-form`.
 - No area-wide `blocks.css` or `kit.css` that re-declares `.tile`, `.table`, `.chip` or `.tabs`: use `.li-*` from `records.css`. An area stylesheet holds only what is the area's own.
 - Numbers, dates and errors through the `records-ui` formatters. An area's `labels.ts` keeps only its own vocabulary (a field's label, a kind's icon) and re-exports the shared formatters when its templates need them.
 - The API client extends `RecordsApi` and calls only its own service through the gateway.
@@ -42,11 +42,11 @@ Found in the review of November 2026. Each line is removed when its area is next
 
 | Where                                                                                                                                                       | Duplicate of                                      |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `mfe-home/.../shared/kit.css`, tile and table rules in `mfe-cars`, `mfe-people`, `mfe-tax730`                                                               | `.li-*` in `design-system/styles/records.css`     |
+| Tile and table rules in `mfe-cars`, `mfe-people`, `mfe-tax730`                                                                                              | `.li-*` in `design-system/styles/records.css`     |
 | `mfe-work/.../labels.ts` (`duration`, `pct`), `mfe-home/.../shared/format.ts`, `mfe-tax730/.../dashboard/format.ts`                                         | `records-ui` formatters                           |
 | Hand-drawn CSS bar charts in `mfe-tax730` (month chart, year comparison, trend), `mfe-money`, `mfe-subscriptions`, `mfe-travel`, `mfe-fitness`, `mfe-goals` | design-system charts and `li-bars`                |
 | `svc-work` career advisor, `svc-studies` study coach and resource scout, `svc-cars` quote advisor (own `Anthropic` clients)                                 | `AiAssistant` in `libs/be-nest`                   |
 | `money()` / `euroText()` in `svc-work` (five files) and `svc-dreams`                                                                                        | one shared text formatter in `libs/contracts`     |
 | `/attention` missing in Cars, Home, Work, Taxes and Groceries                                                                                               | `LifeAttentionDto`, as the other areas publish it |
 
-Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies and Work use the `.li-*` kit, including the shared inline form `.li-form`; Studies and Work take money, dates and errors from `records-ui`, whose `euro` groups thousands as every area does; chart colours of a kind or topic come from the shared `--viz-1…6` palette.
+Done so far: the column, line, sparkline and segmented-bar charts (copied in Home and Work) are in the design system; Studies, Work and Home use the `.li-*` kit, including the shared inline form `.li-form` and the segmented control `.li-seg` (Home, Studies and Settings each had their own); Studies and Work take money, dates and errors from `records-ui`, whose `euro` groups thousands as every area does; chart colours of a kind or topic come from the shared `--viz-1…6` palette.

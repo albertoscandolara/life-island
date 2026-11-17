@@ -257,6 +257,52 @@
   text-decoration: line-through;
 }
 
+/* ---- segmented control ---------------------------------------------------- */
+/* A few mutually exclusive choices side by side: a period, a filter, a status. */
+.li-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+}
+
+.li-seg__item {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.li-seg__item:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.li-seg__item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.li-seg__item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.li-seg__item--on,
+.li-seg__item--on:hover:not(:disabled) {
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
 /* ---- inline forms --------------------------------------------------------- */
 /* A form inside a block: labelled fields in a grid, buttons on their own row. */
 .li-form {

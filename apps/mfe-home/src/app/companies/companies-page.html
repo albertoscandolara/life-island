@@ -11,7 +11,7 @@
 <p class="loading">Reading your companies…</p>
 } @else { @if (pending().length) {
 <ui-card heading="New companies to confirm" class="pending" id="to-confirm">
-  <p class="muted small">
+  <p class="li-muted small">
     Read from your documents. Confirm the ones that are right, say which company
     a name really is (the same company printed differently), or that it is not a
     company at all.
@@ -21,7 +21,7 @@
     <li class="pending__item" [class.pending__item--busy]="busy() === c.id">
       <div class="pending__what">
         <strong>{{ c.name }}</strong>
-        <span class="muted small">
+        <span class="li-muted small">
           {{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
           'documents' }} @if (c.possibleDuplicates.length) { · looks like {{
           c.possibleDuplicates[0].name }} } @if (c.billCount) { · {{ c.billCount
@@ -100,11 +100,11 @@
   issued them show up here for you to confirm.
 </ui-empty-state>
 } @else if (confirmed().length) { @if (roleCounts().length > 1) {
-<div class="seg roles" role="group" aria-label="Show companies by role">
+<div class="li-seg roles" role="group" aria-label="Show companies by role">
   <button
     type="button"
-    class="seg__item"
-    [class.seg__item--on]="roleFilter() === 'ALL'"
+    class="li-seg__item"
+    [class.li-seg__item--on]="roleFilter() === 'ALL'"
     [attr.aria-pressed]="roleFilter() === 'ALL'"
     (click)="roleFilter.set('ALL')"
   >
@@ -113,8 +113,8 @@
   @for (r of roleCounts(); track r.role) {
   <button
     type="button"
-    class="seg__item"
-    [class.seg__item--on]="roleFilter() === r.role"
+    class="li-seg__item"
+    [class.li-seg__item--on]="roleFilter() === r.role"
     [attr.aria-pressed]="roleFilter() === r.role"
     (click)="roleFilter.set(r.role)"
   >
@@ -145,7 +145,7 @@
             </span>
             <span class="list__text">
               <span class="list__name">{{ c.name }}</span>
-              <span class="muted small"
+              <span class="li-muted small"
                 >{{ c.documentCount }} {{ c.documentCount === 1 ? 'document' :
                 'documents' }}</span
               >
@@ -258,7 +258,7 @@
             rows="3"
             [value]="d.aliases.join('\n')"
           ></textarea>
-          <span class="muted small"
+          <span class="li-muted small"
             >Documents that print one of these names are this company's. The old
             name is kept here when you rename it. A name merged here by mistake?
             Save, then use “Not this company…” beside it: its documents and
@@ -281,7 +281,7 @@
             </span>
             <span class="picture__what">
               <strong>{{ imageLabel(k) }}</strong>
-              <span class="muted small"
+              <span class="li-muted small"
                 >{{ k === 'logo' ? 'Square, shown beside its name.' : 'Wide,
                 shown behind its name on this page.' }}</span
               >
@@ -321,7 +321,7 @@
             </span>
           </div>
           }
-          <span class="muted small"
+          <span class="li-muted small"
             >PNG, JPEG, WebP or GIF, up to {{ imageMaxMb }} MB. A picture is
             saved as soon as you pick it.</span
           >
@@ -343,7 +343,7 @@
       </form>
       <section class="danger" aria-label="Delete this company">
         @if (deletable(d)) {
-        <p class="muted small">
+        <p class="li-muted small">
           No document, bill or house points to it: you can delete it.
         </p>
         @if (confirmingDelete()) {
@@ -381,7 +381,7 @@
           <ui-icon name="trash" [size]="14" /> Delete this company
         </button>
         } } @else {
-        <p class="muted small">
+        <p class="li-muted small">
           It has {{ d.documentCount }} {{ d.documentCount === 1 ? 'document' :
           'documents' }}@if (d.billCount) {, {{ d.billCount }} {{ d.billCount
           === 1 ? 'bill' : 'bills' }}}@if (d.houses.length) {, houses}: to get
@@ -443,7 +443,7 @@
                 <span class="alias__name">{{ a }}</span>
                 @if (splitting() === a) {
                 <span class="alias__split">
-                  <span class="muted small"
+                  <span class="li-muted small"
                     >Not this company: its documents and bills move to</span
                   >
                   <select
@@ -500,7 +500,7 @@
             @for (h of d.houses; track h.id + h.role) {
             <span class="house"
               ><li-entity-link kind="house" [entityId]="h.id" [name]="h.name" />
-              <span class="muted small">{{ h.role }}</span></span
+              <span class="li-muted small">{{ h.role }}</span></span
             >
             }
           </dd>
@@ -565,7 +565,9 @@
       <ul class="docs" role="list">
         @for (doc of d.documents; track doc.uploadId) {
         <li class="doc">
-          <span class="muted small doc__date">{{ formatDate(doc.date) }}</span>
+          <span class="li-muted small doc__date"
+            >{{ formatDate(doc.date) }}</span
+          >
           <a
             class="doc__title"
             [href]="previewUrl(doc.uploadId)"
@@ -580,11 +582,11 @@
         }
       </ul>
       } @else {
-      <p class="muted small">No document names it as its issuer.</p>
+      <p class="li-muted small">No document names it as its issuer.</p>
       }
     </ui-card>
     } @else {
-    <p class="muted hint">Pick a company to see its documents and houses.</p>
+    <p class="li-muted hint">Pick a company to see its documents and houses.</p>
     }
   </section>
 </div>
@@ -592,7 +594,7 @@
 <section class="dismissed">
   <button
     type="button"
-    class="seg__item"
+    class="li-seg__item"
     [attr.aria-expanded]="showDismissed()"
     (click)="showDismissed.set(!showDismissed())"
   >

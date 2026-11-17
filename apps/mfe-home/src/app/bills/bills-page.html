@@ -25,12 +25,12 @@
 } @else {
 <!-- Filters: one row, above everything they scope. -->
 <section class="filters" aria-label="Filters">
-  <div class="seg" role="group" aria-label="Period">
+  <div class="li-seg" role="group" aria-label="Period">
     @for (p of presets; track p.id) {
     <button
       type="button"
-      class="seg__item"
-      [class.seg__item--on]="preset() === p.id"
+      class="li-seg__item"
+      [class.li-seg__item--on]="preset() === p.id"
       [attr.aria-pressed]="preset() === p.id"
       (click)="preset.set(p.id)"
     >
@@ -216,13 +216,13 @@
       </button>
     </span>
     @if (tableFor()['cost']) {
-    <div class="table-wrap">
-      <table class="table">
+    <div class="li-table-wrap">
+      <table class="li-table li-table--nowrap">
         <thead>
           <tr>
             <th scope="col">Period</th>
             @for (s of costChart().series; track s.id) {
-            <th scope="col" class="num">{{ s.label }}</th>
+            <th scope="col" class="li-num">{{ s.label }}</th>
             }
           </tr>
         </thead>
@@ -231,7 +231,7 @@
           <tr>
             <th scope="row">{{ label(b) }}</th>
             @for (s of costChart().series; track s.id) {
-            <td class="num">{{ formatEuro(s.values[i] ?? 0) }}</td>
+            <td class="li-num">{{ formatEuro(s.values[i] ?? 0) }}</td>
             }
           </tr>
           }
@@ -264,7 +264,7 @@
       @for (p of providers(); track p.key) {
       <li>
         <span><li-entity-link kind="organization" [name]="p.key" /></span>
-        <span class="muted"
+        <span class="li-muted"
           >{{ p.bills }} {{ p.bills === 1 ? 'bill' : 'bills' }}</span
         >
         <strong>{{ formatEuroRound(p.amount) }}</strong>
@@ -329,7 +329,7 @@
       ariaLabel="The same months of different years"
     />
     } @else {
-    <p class="muted">No bills to compare yet.</p>
+    <p class="li-muted">No bills to compare yet.</p>
     }
   </ui-card>
 
@@ -343,14 +343,14 @@
             [style.background]="utilityColor(c.utility)"
           ></span>
           <strong>{{ utilityLabel(c.utility) }}</strong>
-          <span class="muted">
+          <span class="li-muted">
             @if (c.stat?.consumption) { {{ formatNumber(c.stat!.consumption) }}
             {{ c.unit }} @if (c.stat!.unitCost !== null) { · avg {{
             formatEuro(c.stat!.unitCost!) }}/{{ c.unit }} } }
           </span>
         </header>
         @if (c.empty) {
-        <p class="muted small">These bills print no consumption.</p>
+        <p class="li-muted small">These bills print no consumption.</p>
         } @else {
         <ui-column-chart
           [buckets]="c.buckets"
@@ -383,37 +383,39 @@
         <option value="provider">By provider</option>
       </select>
     </span>
-    <div class="table-wrap">
-      <table class="table">
+    <div class="li-table-wrap">
+      <table class="li-table li-table--nowrap">
         <thead>
           <tr>
             <th scope="col">
               {{ groupBy() === 'period' ? 'Period' : groupBy() === 'utility' ?
               'Utility' : groupBy() === 'property' ? 'Home' : 'Provider' }}
             </th>
-            <th scope="col" class="num">Bills</th>
+            <th scope="col" class="li-num">Bills</th>
             @for (kind of utilities(); track kind) {
-            <th scope="col" class="num">{{ info[kind].unit }}</th>
+            <th scope="col" class="li-num">{{ info[kind].unit }}</th>
             }
-            <th scope="col" class="num">Amount</th>
+            <th scope="col" class="li-num">Amount</th>
           </tr>
         </thead>
         <tbody>
           @for (row of groups(); track row.key) {
           <tr>
             <th scope="row">{{ groupLabel(row.key) }}</th>
-            <td class="num">{{ row.bills }}</td>
+            <td class="li-num">{{ row.bills }}</td>
             @for (kind of utilities(); track kind) {
-            <td class="num">
+            <td class="li-num">
               {{ row.consumption[kind] === undefined ? '–' :
               formatNumber(row.consumption[kind]!) }}
             </td>
             }
-            <td class="num"><strong>{{ formatEuro(row.amount) }}</strong></td>
+            <td class="li-num">
+              <strong>{{ formatEuro(row.amount) }}</strong>
+            </td>
           </tr>
           } @empty {
           <tr>
-            <td [attr.colspan]="3 + utilities().length" class="muted">
+            <td [attr.colspan]="3 + utilities().length" class="li-muted">
               No bills in this period.
             </td>
           </tr>
@@ -454,7 +456,7 @@
             rel="noopener"
             >{{ bill.provider ?? bill.title }}</a
           >
-          <span class="muted small">
+          <span class="li-muted small">
             {{ period(bill) }} @if (bill.consumption !== null) { · {{
             formatNumber(bill.consumption) }} {{ bill.unit }} } @if
             (bill.invoiceNumber) { · no. {{ bill.invoiceNumber }} } @if
@@ -510,7 +512,7 @@
         }
       </li>
       } @empty {
-      <li class="muted">No bills in this period.</li>
+      <li class="li-muted">No bills in this period.</li>
       }
     </ul>
     @if (!showAllBills() && listedTotal() > listed().length) {

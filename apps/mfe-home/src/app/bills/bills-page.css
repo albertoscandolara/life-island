@@ -274,7 +274,7 @@
   gap: var(--space-4);
 }
 
-.consumption__head .muted {
+.consumption__head .li-muted {
   margin-left: auto;
   font-size: var(--text-sm);
 }
