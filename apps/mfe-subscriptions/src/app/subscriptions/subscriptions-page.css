@@ -29,26 +29,6 @@
   margin: 0;
 }
 
-.kind {
-  display: grid;
-  grid-template-columns: minmax(8rem, 1fr) 2fr auto;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.kind__bar {
-  height: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-}
-
-.kind__bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-
 .verdict {
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border-subtle);

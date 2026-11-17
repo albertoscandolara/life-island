@@ -19,13 +19,13 @@
   </button>
 </div>
 } @if (error(); as message) {
-<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+<ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
 } @if (alerts().length) {
-<section class="alerts" aria-label="Expiry warnings">
+<section class="li-alerts" aria-label="Expiry warnings">
   @for (alert of alerts(); track alert.uploadId + (alert.category ?? '')) {
   <ui-alert [tone]="alert.level === 'expired' ? 'danger' : 'warning'">
     <strong>{{ alertText(alert) }}</strong>
-    <span class="muted">
+    <span class="li-muted">
       {{ alert.level === 'expired' ? 'Expired on' : 'Valid until' }} {{
       alert.expiryDate | date: 'd MMM y' }}. {{ alert.level === 'expired' ?
       'Renew it, then add the new one to your documents.' : 'Time to book the
@@ -44,180 +44,15 @@
   }
 </section>
 } @if (reviews().length) {
-<ui-card heading="To review" class="block">
-  <ui-badge uiCardActions tone="warning"
-    >{{ reviews().length }} waiting</ui-badge
-  >
-  <p class="muted intro">
-    New ID documents never change anyone's data on their own. Pick whose
-    document it is and which printed values to take.
-  </p>
-  @for (review of reviews(); track review.uploadId) {
-  <article class="review" [class.review--busy]="busy() === review.uploadId">
-    <header class="review__head">
-      <div>
-        <h3 class="review__title">
-          {{ typeLabel(review.type) }} @if (review.documentNumber) {
-          <span class="mono">· {{ secret(review.documentNumber) }}</span>
-          }
-        </h3>
-        <p class="muted">
-          {{ review.title }} @if (review.expiryDate) { · valid until {{
-          review.expiryDate | date: 'd MMM y' }} }
-        </p>
-      </div>
-      <a
-        uiButton
-        variant="ghost"
-        size="sm"
-        [href]="previewUrl(review.uploadId)"
-        target="_blank"
-        rel="noopener"
-      >
-        <ui-icon name="eye" [size]="16" /> Open
-      </a>
-    </header>
-
-    @if (!readable(review)) {
-    <ui-alert tone="warning">
-      Nothing was read from this document yet, so it does not say whose it is.
-      Photos are read only with the Claude parser (<span class="mono"
-        >PARSER=claude</span
-      >
-      in <span class="mono">.env</span>). Open it in the documents app and press
-      Parse again, or type the holder's name there. You can still file it under
-      someone you already have.
-    </ui-alert>
-    } @if (review.taxCodeCheck.status === 'invalid' ||
-    review.taxCodeCheck.status === 'mismatch') {
-    <ui-alert tone="warning">
-      <strong>Check the tax code.</strong>
-      @for (problem of review.taxCodeCheck.problems; track problem) { {{ problem
-      }} } It is usually one misread character: fix it in the documents app, or
-      untick it below.
-    </ui-alert>
-    } @if (review.outdated) {
-    <ui-alert tone="info">
-      This document has expired or is older than one you already have, so it
-      suggests keeping your current data.
-    </ui-alert>
-    }
-
-    <label class="review__whose">
-      <span>Whose is it?</span>
-      <select
-        class="ui-input compact"
-        (change)="choosePerson(review, $any($event.target).value)"
-      >
-        <option value="new" [selected]="isNewPerson(review)">
-          A new person
-        </option>
-        @for (person of people(); track person.id) {
-        <option
-          [value]="person.id"
-          [selected]="draft(review).personId === person.id"
-        >
-          {{ personName(person) }} @if (person.id === review.personId) {
-          (matched by {{ review.match === 'tax_code' ? 'tax code' : 'name and
-          birth date' }}) }
-        </option>
-        }
-      </select>
-    </label>
-
-    @if (isNewPerson(review)) { @if (readable(review)) {
-    <p class="sub">A new person with what it prints</p>
-    <dl class="facts">
-      @for (row of printed(review); track row.field) {
-      <div>
-        <dt>{{ fieldLabels[row.field] }}</dt>
-        <dd>{{ row.field === 'taxCode' ? secret(row.value) : row.value }}</dd>
-      </div>
-      }
-    </dl>
-    } } @else if (draft(review).personId !== review.personId) {
-    <ui-alert tone="info">
-      Filed under this person, it keeps their data as it is. Use Edit on the
-      person afterwards if something printed is right.
-    </ui-alert>
-    } @else if (changesFor(review).length) {
-    <p class="sub">New or different from what you have</p>
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Take</th>
-            <th scope="col">Field</th>
-            <th scope="col">You have</th>
-            <th scope="col">Printed</th>
-            <th scope="col">Suggestion</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (change of changesFor(review); track change.field) {
-          <tr>
-            <td>
-              <input
-                type="checkbox"
-                [attr.aria-label]="'Take ' + fieldLabels[change.field]"
-                [checked]="draft(review).accept.has(change.field)"
-                (change)="toggle(review, change.field)"
-              />
-            </td>
-            <th scope="row">{{ fieldLabels[change.field] }}</th>
-            <td class="muted">
-              {{ (change.field === 'taxCode' ? secret(change.current) :
-              change.current) ?? '—' }}
-            </td>
-            <td>
-              <strong
-                >{{ change.field === 'taxCode' ? secret(change.proposed) :
-                change.proposed }}</strong
-              >
-            </td>
-            <td>
-              <ui-badge [tone]="suggestionTones[change.suggestion]"
-                >{{ suggestionLabels[change.suggestion] }}</ui-badge
-              >
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    } @else {
-    <p class="muted">
-      <ui-icon name="check" [size]="16" /> Same data as this person: it only
-      adds the document.
-    </p>
-    }
-
-    <footer class="review__actions">
-      <button
-        uiButton
-        variant="ghost"
-        type="button"
-        [disabled]="busy() !== null"
-        (click)="reject(review)"
-      >
-        Not an ID document of anyone
-      </button>
-      <button
-        uiButton
-        type="button"
-        [loading]="busy() === review.uploadId"
-        [disabled]="busy() !== null || (isNewPerson(review) && !readable(review))"
-        (click)="approve(review)"
-      >
-        <ui-icon name="check" [size]="18" />
-        {{ isNewPerson(review) ? 'Add the person' : 'Approve' }}
-      </button>
-    </footer>
-  </article>
-  }
-</ui-card>
+<people-review-card
+  class="li-block"
+  [reviews]="reviews()"
+  [people]="people()"
+  [revealed]="revealed()"
+  (changed)="load()"
+/>
 } @if (overview() && !people().length && !reviews().length) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No ID documents yet" icon="folder">
     <p>
       Load an identity card, passport, health card or driving licence in the
@@ -226,45 +61,11 @@
   </ui-empty-state>
 </ui-card>
 } @if (people().length) {
-<ui-card heading="Who has what" class="block">
-  <p class="muted intro">
-    The latest version of each document, for everyone at home.
-  </p>
-  <div class="table-wrap">
-    <table class="table coverage">
-      <thead>
-        <tr>
-          <th scope="col">Person</th>
-          @for (type of idTypes; track type) {
-          <th scope="col">{{ typeLabel(type) }}</th>
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of coverageRows(); track row.person.id) {
-        <tr>
-          <th scope="row">
-            <button
-              type="button"
-              class="link-button"
-              (click)="select(row.person.id)"
-            >
-              {{ personName(row.person) }}
-            </button>
-          </th>
-          @for (cell of row.cells; track cell.type) {
-          <td>
-            <ui-badge [tone]="coverageTones[cell.state]"
-              >{{ coverageText(cell) }}</ui-badge
-            >
-          </td>
-          }
-        </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-</ui-card>
+<people-coverage-card
+  class="li-block"
+  [people]="people()"
+  (open)="select($event)"
+/>
 
 <nav class="people-nav" aria-label="People">
   @for (person of people(); track person.id) {
@@ -331,7 +132,7 @@
           <em>To review</em>, where you can file them under someone else or
           reject them.
         </p>
-        <footer class="review__actions">
+        <footer class="li-review__actions">
           <button
             uiButton
             variant="ghost"
@@ -388,7 +189,7 @@
           }
         </ul>
         } }
-        <footer class="review__actions">
+        <footer class="li-review__actions">
           <button
             uiButton
             variant="ghost"
@@ -464,7 +265,7 @@
           />
         </label>
         } }
-        <footer class="review__actions">
+        <footer class="li-review__actions">
           <button
             uiButton
             variant="ghost"
@@ -485,7 +286,7 @@
         </footer>
       </form>
       } @else if (!action()) {
-      <dl class="facts">
+      <dl class="li-facts">
         @for (field of fields; track field) {
         <div>
           <dt>{{ fieldLabels[field] }}</dt>
@@ -495,12 +296,12 @@
               ><ui-icon name="home" [size]="16" /> {{ house.name }}</a
             >
             @if (person.residenceAddress) {
-            <span class="muted"> · {{ person.residenceAddress }}</span>
+            <span class="li-muted"> · {{ person.residenceAddress }}</span>
             }
           </dd>
           } @else if (field === 'taxCode' && person.taxCode) {
           <dd>
-            <span class="mono">{{ secret(person.taxCode) }}</span>
+            <span class="li-mono">{{ secret(person.taxCode) }}</span>
             @if (taxCodeBadges[person.taxCodeCheck.status]; as badge) {
             <ui-badge [tone]="badge.tone">{{ badge.text }}</ui-badge>
             }
@@ -508,13 +309,13 @@
           } @else if (field === 'birthDate' && person.birthDate) {
           <dd>
             {{ person.birthDate | date: 'd MMM y' }} @if (person.age !== null) {
-            <span class="muted">· {{ person.age }} years</span>
+            <span class="li-muted">· {{ person.age }} years</span>
             } @if (person.age !== null && person.age < 18) {
             <ui-badge tone="info">Minor</ui-badge>
             }
           </dd>
           } @else {
-          <dd [class.muted]="!person[field]">
+          <dd [class.li-muted]="!person[field]">
             {{ person[field] ?? 'Not on any document yet' }}
           </dd>
           }
@@ -534,240 +335,39 @@
         >{{ notice.text }}</ui-alert
       >
       }
-      <p class="muted small">
+      <p class="li-muted li-small">
         Last changed {{ person.updatedAt | date: 'd MMM y, HH:mm' }}, through
         the reviews above or by you.
       </p>
       }
     </ui-card>
 
-    <ui-card heading="Household" class="household">
-      @if (person.relations.length) {
-      <ul class="relations">
-        @for (relation of person.relations; track relation.personId) {
-        <li>
-          <span class="muted">{{ relationLabels[relation.kind] }}</span>
-          <button
-            type="button"
-            class="link-button"
-            (click)="select(relation.personId)"
-          >
-            {{ nameOf(relation.personId) }}
-          </button>
-          <button
-            uiButton
-            variant="ghost"
-            size="sm"
-            [iconOnly]="true"
-            type="button"
-            [attr.aria-label]="'Remove the relation with ' + nameOf(relation.personId)"
-            [disabled]="busy() !== null"
-            (click)="removeRelation(person, relation.personId)"
-          >
-            <ui-icon name="x" [size]="16" />
-          </button>
-        </li>
-        }
-      </ul>
-      } @else {
-      <p class="muted small">Not related to anyone here yet.</p>
-      } @if (unrelated(person).length) {
-      <form
-        class="inline-form"
-        (submit)="$event.preventDefault(); addRelation(person)"
-      >
-        <select
-          class="ui-input compact"
-          aria-label="Who"
-          (change)="relationDraft.update(d => ({ ...d, personId: $any($event.target).value }))"
-        >
-          @for (other of unrelated(person); track other.id) {
-          <option
-            [value]="other.id"
-            [selected]="relationDraft().personId === other.id"
-          >
-            {{ personName(other) }}
-          </option>
-          }
-        </select>
-        <span class="muted small">is their</span>
-        <select
-          class="ui-input compact"
-          aria-label="Relation"
-          (change)="relationDraft.update(d => ({ ...d, kind: $any($event.target).value }))"
-        >
-          @for (kind of relationKinds; track kind) {
-          <option [value]="kind" [selected]="relationDraft().kind === kind">
-            {{ relationLabels[kind].toLowerCase() }}
-          </option>
-          }
-        </select>
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          type="submit"
-          [disabled]="busy() !== null"
-        >
-          <ui-icon name="plus" [size]="16" /> Add
-        </button>
-      </form>
-      } @if (others(person).length) {
-      <label class="edit__field dependent">
-        <span>Fiscal dependent of (familiare a carico)</span>
-        <select
-          class="ui-input compact"
-          [disabled]="busy() !== null"
-          (change)="setDependent(person, $any($event.target).value)"
-        >
-          <option value="" [selected]="!person.taxDependentOf">Nobody</option>
-          @for (other of others(person); track other.id) {
-          <option
-            [value]="other.id"
-            [selected]="person.taxDependentOf === other.id"
-          >
-            {{ personName(other) }}
-          </option>
-          }
-        </select>
-        <small class="edit__hint"
-          >For the 730: who declares this person as a dependent.</small
-        >
-      </label>
-      }
-    </ui-card>
+    <people-household-card
+      class="household"
+      [person]="person"
+      [people]="people()"
+      (open)="select($event)"
+      (changed)="load()"
+    />
   </div>
 
   <div class="series">
     @for (series of person.series; track series.type) {
-    <ui-card [heading]="typeLabel(series.type)">
-      <ui-badge uiCardActions tone="neutral"
-        >{{ series.versions.length }} {{ series.versions.length === 1 ?
-        'version' : 'versions' }}</ui-badge
-      >
-      <ol class="versions">
-        @for (version of series.versions; track version.uploadId) {
-        <li
-          class="version"
-          [class.version--old]="version.status === 'superseded'"
-        >
-          <span class="version__number">v{{ version.version }}</span>
-          <div class="version__body">
-            <div class="version__line">
-              <ui-badge [tone]="statusTones[version.status]"
-                >{{ statusLabels[version.status] }}</ui-badge
-              >
-              @if (alertsOf(person, version.uploadId); as alert) {
-              <ui-badge
-                [tone]="alert.level === 'expired' ? 'danger' : 'warning'"
-              >
-                {{ alert.level === 'expired' ? 'Renew it' : alert.daysLeft + '
-                days left' }}
-              </ui-badge>
-              } @if (version.documentNumber) {
-              <span class="mono">{{ secret(version.documentNumber) }}</span>
-              }
-            </div>
-            <p class="muted small">
-              @if (version.issueDate) { Issued {{ version.issueDate | date: 'd
-              MMM y' }} } @if (version.expiryDate) { · valid until {{
-              version.expiryDate | date: 'd MMM y' }} } @if (version.issuer) { ·
-              {{ version.issuer }} }
-            </p>
-            @if (version.status !== 'superseded') { @let d = version.details;
-            <div class="details">
-              @if (d.cardFormat) {
-              <span
-                >{{ d.cardFormat === 'electronic' ? 'Electronic (CIE)' : 'Paper
-                card' }}</span
-              >
-              } @if (d.validForTravel === false) {
-              <ui-badge tone="warning">Not valid for travel</ui-badge>
-              } @if (d.cardAccessNumber) {
-              <span
-                >CAN
-                <span class="mono">{{ secret(d.cardAccessNumber) }}</span></span
-              >
-              } @if (d.heightCm) {
-              <span>{{ d.heightCm }} cm</span>
-              } @if (d.passportType) {
-              <span>Type {{ d.passportType }}</span>
-              } @if (d.eyeColor) {
-              <span>Eyes: {{ d.eyeColor }}</span>
-              } @if (d.healthCardKind) {
-              <span>{{ d.healthCardKind }}</span>
-              } @if (d.institutionCode) {
-              <ui-badge tone="info">European health card (TEAM)</ui-badge>
-              }
-            </div>
-            @if (d.licenceCategories.length) {
-            <ul class="categories">
-              @for (c of d.licenceCategories; track c.category) {
-              <li>
-                <strong class="category">{{ c.category }}</strong>
-                <span class="muted">{{ c.meaning ?? 'Category' }}</span>
-                @if (c.expiryDate && c.expiryDate !== version.expiryDate) {
-                <ui-badge tone="neutral"
-                  >until {{ c.expiryDate | date: 'd MMM y' }}</ui-badge
-                >
-                }
-              </li>
-              }
-            </ul>
-            } @if (d.restrictionCodes.length) {
-            <ul class="categories">
-              @for (r of d.restrictionCodes; track r.code) {
-              <li>
-                <strong class="category mono">{{ r.code }}</strong>
-                <span class="muted">{{ r.meaning ?? 'Restriction code' }}</span>
-              </li>
-              }
-            </ul>
-            } }
-          </div>
-          <div class="version__actions">
-            <a
-              uiButton
-              variant="ghost"
-              size="sm"
-              [iconOnly]="true"
-              [href]="previewUrl(version.uploadId)"
-              target="_blank"
-              rel="noopener"
-              [attr.aria-label]="'Open version ' + version.version"
-            >
-              <ui-icon name="eye" [size]="16" />
-            </a>
-            <select
-              class="ui-input compact"
-              [attr.aria-label]="'Mark version ' + version.version"
-              [value]="
-                      ['lost', 'stolen', 'withdrawn'].includes(version.status)
-                        ? version.status
-                        : ''
-                    "
-              [disabled]="busy() !== null"
-              (change)="mark(version.uploadId, $any($event.target).value)"
-            >
-              <option value="">By its dates</option>
-              <option value="lost">Lost</option>
-              <option value="stolen">Stolen</option>
-              <option value="withdrawn">Withdrawn</option>
-            </select>
-          </div>
-        </li>
-        }
-      </ol>
-    </ui-card>
+    <people-series-card
+      [series]="series"
+      [alerts]="person.alerts"
+      [revealed]="revealed()"
+      (changed)="load()"
+    />
     } @empty {
     <ui-card>
-      <p class="muted">No approved documents for this person yet.</p>
+      <p class="li-muted">No approved documents for this person yet.</p>
     </ui-card>
     }
   </div>
 </div>
 } @if (rejected().length) {
-<details class="rejected">
+<details class="li-rejected">
   <summary>Rejected: {{ rejected().length }} not about anyone</summary>
   <ul>
     @for (doc of rejected(); track doc.uploadId) {

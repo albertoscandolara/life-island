@@ -401,3 +401,185 @@
   width: auto;
   min-width: 10rem;
 }
+
+/* ---- document records ------------------------------------------------------
+ * Areas that keep official documents (Cars, People): the warnings on top,
+ * documents waiting for review, each kind's versions, and what was rejected.
+ */
+.li-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+.li-alerts {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.li-alerts ui-alert strong {
+  margin-right: var(--space-2);
+}
+
+.li-alerts ui-alert button {
+  margin-left: var(--space-2);
+}
+
+/* One document waiting for review: what it is, what it prints, approve or reject. */
+.li-review {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+  animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
+}
+
+.li-review > * {
+  min-width: 0;
+}
+
+.li-review select {
+  max-width: 100%;
+}
+
+.li-review--busy {
+  opacity: 0.6;
+}
+
+.li-review__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.li-review__head p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.li-review__title {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.li-review__whose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.li-review__label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.li-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* What a document prints, as label and value pairs. */
+.li-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.li-facts dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.li-facts dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* The versions of one kind of document, newest first. */
+.li-versions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.li-version {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+
+.li-version--old {
+  opacity: 0.72;
+}
+
+.li-version__number {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--accent);
+}
+
+.li-version__body {
+  min-width: 0;
+}
+
+.li-version__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.li-version__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (max-width: 52rem) {
+  .li-version {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .li-version__actions {
+    grid-column: 2;
+  }
+}
+
+/* Documents you said are not about anything here, to bring back. */
+.li-rejected {
+  margin-bottom: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.li-rejected summary {
+  cursor: pointer;
+}
+
+.li-rejected ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+}

@@ -19,12 +19,6 @@
   font-size: var(--text-sm);
 }
 
-.ui-input.compact {
-  width: auto;
-  min-height: var(--control-height-sm);
-  padding: var(--space-1) var(--space-2);
-}
-
 .card-actions {
   display: inline-flex;
   align-items: center;

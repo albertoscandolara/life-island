@@ -122,12 +122,12 @@
         <span class="li-small"
           >{{ euro(t.spent, false) }} of {{ euro(t.budget, false) }}</span
         >
-        <div class="meter">
-          <span
-            [class.over]="t.spent > t.budget"
-            [style.width.%]="t.spent > t.budget ? 100 : (t.spent / t.budget) * 100"
-          ></span>
-        </div>
+        <ui-progress-bar
+          size="md"
+          [value]="(t.spent / t.budget) * 100"
+          [tone]="t.spent > t.budget ? 'danger' : 'accent'"
+          label="Share of the trip budget spent"
+        />
       </div>
       } @else {
       <p class="li-small li-muted">Spent so far: {{ euro(t.spent, false) }}</p>

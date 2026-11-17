@@ -152,3 +152,10 @@ textarea.ui-input {
 .ui-input::placeholder {
   color: var(--text-muted);
 }
+
+/* A small input or select inside a row or a toolbar. */
+.ui-input.compact {
+  width: auto;
+  min-height: var(--control-height-sm);
+  padding: var(--space-1) var(--space-2);
+}

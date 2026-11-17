@@ -1,0 +1,26 @@
+/* Bits the Cars page and its cards share: codes and the edit fields. */
+.edit__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.edit__field input {
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.code {
+  display: inline-block;
+  min-width: 2.5em;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}

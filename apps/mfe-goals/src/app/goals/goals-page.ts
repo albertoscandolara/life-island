@@ -25,6 +25,7 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiProgressBar,
 } from '@life-island/design-system';
 import {
   LiDue,
@@ -120,6 +121,7 @@ const MOODS = [
   selector: 'goals-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    UiProgressBar,
     AiTool,
     LiDue,
     LiRecordDialog,

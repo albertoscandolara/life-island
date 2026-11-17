@@ -1,0 +1,98 @@
+@if (error(); as message) {
+<ui-alert tone="danger">{{ message }}</ui-alert>
+}
+<ui-card heading="Household">
+  @if (person().relations.length) {
+  <ul class="relations">
+    @for (relation of person().relations; track relation.personId) {
+    <li>
+      <span class="li-muted">{{ relationLabels[relation.kind] }}</span>
+      <button
+        type="button"
+        class="link-button"
+        (click)="open.emit(relation.personId)"
+      >
+        {{ nameOf(relation.personId) }}
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        [iconOnly]="true"
+        type="button"
+        [attr.aria-label]="'Remove the relation with ' + nameOf(relation.personId)"
+        [disabled]="busy() !== null"
+        (click)="removeRelation(person(), relation.personId)"
+      >
+        <ui-icon name="x" [size]="16" />
+      </button>
+    </li>
+    }
+  </ul>
+  } @else {
+  <p class="li-muted li-small">Not related to anyone here yet.</p>
+  } @if (unrelated(person()).length) {
+  <form
+    class="inline-form"
+    (submit)="$event.preventDefault(); addRelation(person())"
+  >
+    <select
+      class="ui-input compact"
+      aria-label="Who"
+      (change)="relationDraft.update(d => ({ ...d, personId: $any($event.target).value }))"
+    >
+      @for (other of unrelated(person()); track other.id) {
+      <option
+        [value]="other.id"
+        [selected]="relationDraft().personId === other.id"
+      >
+        {{ personName(other) }}
+      </option>
+      }
+    </select>
+    <span class="li-muted li-small">is their</span>
+    <select
+      class="ui-input compact"
+      aria-label="Relation"
+      (change)="relationDraft.update(d => ({ ...d, kind: $any($event.target).value }))"
+    >
+      @for (kind of relationKinds; track kind) {
+      <option [value]="kind" [selected]="relationDraft().kind === kind">
+        {{ relationLabels[kind].toLowerCase() }}
+      </option>
+      }
+    </select>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="submit"
+      [disabled]="busy() !== null"
+    >
+      <ui-icon name="plus" [size]="16" /> Add
+    </button>
+  </form>
+  } @if (others(person()).length) {
+  <label class="edit__field dependent">
+    <span>Fiscal dependent of (familiare a carico)</span>
+    <select
+      class="ui-input compact"
+      [disabled]="busy() !== null"
+      (change)="setDependent(person(), $any($event.target).value)"
+    >
+      <option value="" [selected]="!person().taxDependentOf">Nobody</option>
+      @for (other of others(person()); track other.id) {
+      <option
+        [value]="other.id"
+        [selected]="person().taxDependentOf === other.id"
+      >
+        {{ personName(other) }}
+      </option>
+      }
+    </select>
+    <small class="edit__hint"
+      >For the 730: who declares this person as a dependent.</small
+    >
+  </label>
+  }
+</ui-card>

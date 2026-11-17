@@ -1,0 +1,178 @@
+@if (error(); as message) {
+<ui-alert tone="danger">{{ message }}</ui-alert>
+}
+<ui-card heading="To review">
+  <ui-badge uiCardActions tone="warning"
+    >{{ reviews().length }} waiting</ui-badge
+  >
+  <p class="li-intro">
+    New ID documents never change anyone's data on their own. Pick whose
+    document it is and which printed values to take.
+  </p>
+  @for (review of reviews(); track review.uploadId) {
+  <article
+    class="li-review"
+    [class.li-review--busy]="busy() === review.uploadId"
+  >
+    <header class="li-review__head">
+      <div>
+        <h3 class="li-review__title">
+          {{ typeLabel(review.type) }} @if (review.documentNumber) {
+          <span class="li-mono">· {{ secret(review.documentNumber) }}</span>
+          }
+        </h3>
+        <p class="li-muted">
+          {{ review.title }} @if (review.expiryDate) { · valid until {{
+          dateText(review.expiryDate) }} }
+        </p>
+      </div>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="previewUrl(review.uploadId)"
+        target="_blank"
+        rel="noopener"
+      >
+        <ui-icon name="eye" [size]="16" /> Open
+      </a>
+    </header>
+
+    @if (!readable(review)) {
+    <ui-alert tone="warning">
+      Nothing was read from this document yet, so it does not say whose it is.
+      Photos are read only with the Claude parser (<span class="li-mono"
+        >PARSER=claude</span
+      >
+      in <span class="li-mono">.env</span>). Open it in the documents app and
+      press Parse again, or type the holder's name there. You can still file it
+      under someone you already have.
+    </ui-alert>
+    } @if (review.taxCodeCheck.status === 'invalid' ||
+    review.taxCodeCheck.status === 'mismatch') {
+    <ui-alert tone="warning">
+      <strong>Check the tax code.</strong>
+      @for (problem of review.taxCodeCheck.problems; track problem) { {{ problem
+      }} } It is usually one misread character: fix it in the documents app, or
+      untick it below.
+    </ui-alert>
+    } @if (review.outdated) {
+    <ui-alert tone="info">
+      This document has expired or is older than one you already have, so it
+      suggests keeping your current data.
+    </ui-alert>
+    }
+
+    <label class="li-review__whose">
+      <span>Whose is it?</span>
+      <select
+        class="ui-input compact"
+        (change)="choosePerson(review, $any($event.target).value)"
+      >
+        <option value="new" [selected]="isNewPerson(review)">
+          A new person
+        </option>
+        @for (person of people(); track person.id) {
+        <option
+          [value]="person.id"
+          [selected]="draft(review).personId === person.id"
+        >
+          {{ personName(person) }} @if (person.id === review.personId) {
+          (matched by {{ review.match === 'tax_code' ? 'tax code' : 'name and
+          birth date' }}) }
+        </option>
+        }
+      </select>
+    </label>
+
+    @if (isNewPerson(review)) { @if (readable(review)) {
+    <p class="li-review__label">A new person with what it prints</p>
+    <dl class="li-facts">
+      @for (row of printed(review); track row.field) {
+      <div>
+        <dt>{{ fieldLabels[row.field] }}</dt>
+        <dd>{{ row.field === 'taxCode' ? secret(row.value) : row.value }}</dd>
+      </div>
+      }
+    </dl>
+    } } @else if (draft(review).personId !== review.personId) {
+    <ui-alert tone="info">
+      Filed under this person, it keeps their data as it is. Use Edit on the
+      person afterwards if something printed is right.
+    </ui-alert>
+    } @else if (changesFor(review).length) {
+    <p class="li-review__label">New or different from what you have</p>
+    <div class="li-table-wrap">
+      <table class="li-table">
+        <thead>
+          <tr>
+            <th scope="col">Take</th>
+            <th scope="col">Field</th>
+            <th scope="col">You have</th>
+            <th scope="col">Printed</th>
+            <th scope="col">Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of changesFor(review); track change.field) {
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                [attr.aria-label]="'Take ' + fieldLabels[change.field]"
+                [checked]="draft(review).accept.has(change.field)"
+                (change)="toggle(review, change.field)"
+              />
+            </td>
+            <th scope="row">{{ fieldLabels[change.field] }}</th>
+            <td class="li-muted">
+              {{ (change.field === 'taxCode' ? secret(change.current) :
+              change.current) ?? '—' }}
+            </td>
+            <td>
+              <strong
+                >{{ change.field === 'taxCode' ? secret(change.proposed) :
+                change.proposed }}</strong
+              >
+            </td>
+            <td>
+              <ui-badge [tone]="suggestionTones[change.suggestion]"
+                >{{ suggestionLabels[change.suggestion] }}</ui-badge
+              >
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <p class="li-muted">
+      <ui-icon name="check" [size]="16" /> Same data as this person: it only
+      adds the document.
+    </p>
+    }
+
+    <footer class="li-review__actions">
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reject(review)"
+      >
+        Not an ID document of anyone
+      </button>
+      <button
+        uiButton
+        type="button"
+        [loading]="busy() === review.uploadId"
+        [disabled]="busy() !== null || (isNewPerson(review) && !readable(review))"
+        (click)="approve(review)"
+      >
+        <ui-icon name="check" [size]="18" />
+        {{ isNewPerson(review) ? 'Add the person' : 'Approve' }}
+      </button>
+    </footer>
+  </article>
+  }
+</ui-card>

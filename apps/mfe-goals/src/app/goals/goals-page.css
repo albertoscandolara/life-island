@@ -13,21 +13,6 @@
   align-content: start;
 }
 
-.progress {
-  height: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-}
-
-.progress__fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-gradient);
-  transition: width var(--duration-slow) var(--ease-out);
-}
-
 .why {
   margin: 0;
   color: var(--text-secondary);

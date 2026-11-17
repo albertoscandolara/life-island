@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   BILLING_CYCLE_LABELS,
   SUBSCRIPTION_KIND_LABELS,
+  SUBSCRIPTION_KINDS,
   SUBSCRIPTION_STATUS_LABELS,
   USAGE_LABELS,
   type RenewalAdviceDto,
@@ -24,6 +25,8 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiSegmentedBar,
+  type UiBarPart,
 } from '@life-island/design-system';
 import {
   LiDue,
@@ -133,6 +136,7 @@ const FIELDS: readonly LiField[] = [
   selector: 'subs-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    UiSegmentedBar,
     AiTool,
     LiDue,
     LiRecordDialog,
@@ -203,9 +207,47 @@ export class SubscriptionsPage {
     { id: 'advisor', label: 'Advisor', icon: 'sparkles' },
   ]);
 
-  protected readonly maxKind = computed(() =>
-    Math.max(1, ...(this.data()?.byKind ?? []).map((k) => k.yearly)),
-  );
+  /**
+   * The yearly cost split by kind. The six largest kinds keep a palette slot
+   * in the kinds' own order (so a kind keeps its colour as amounts change);
+   * the rest add up to "Other".
+   */
+  protected readonly kindParts = computed<UiBarPart[]>(() => {
+    const byKind = this.data()?.byKind ?? [];
+    const named = new Set(
+      [...byKind]
+        .sort((a, b) => b.yearly - a.yearly)
+        .slice(0, 6)
+        .map((k) => k.kind),
+    );
+    const order = (kind: string) =>
+      SUBSCRIPTION_KINDS.indexOf(kind as (typeof SUBSCRIPTION_KINDS)[number]);
+    const parts = byKind
+      .filter((k) => named.has(k.kind))
+      .sort((a, b) => order(a.kind) - order(b.kind))
+      .map((k, i) => ({
+        id: k.kind,
+        label: this.kind(k.kind),
+        color: `var(--viz-${i + 1})`,
+        value: k.yearly,
+      }));
+    const other = byKind
+      .filter((k) => !named.has(k.kind))
+      .reduce((sum, k) => sum + k.yearly, 0);
+    return other
+      ? [
+          ...parts,
+          {
+            id: 'other',
+            label: 'Other',
+            color: 'var(--viz-other)',
+            value: other,
+          },
+        ]
+      : parts;
+  });
+
+  protected readonly wholeEuro = (value: number) => euro(value, false);
 
   protected readonly advice = computed<RenewalAdviceDto | null>(() => {
     const all = this.data()?.advice ?? [];

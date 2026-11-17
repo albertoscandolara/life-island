@@ -21,32 +21,6 @@
   gap: var(--space-2);
 }
 
-.meter {
-  height: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-}
-
-.meter__fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  transition: width var(--duration-slow) var(--ease-out);
-}
-
-.meter__fill--good {
-  background: var(--tone-success);
-}
-
-.meter__fill--warning {
-  background: var(--tone-warning);
-}
-
-.meter__fill--danger {
-  background: var(--tone-danger);
-}
-
 .ask {
   display: grid;
   gap: var(--space-3);

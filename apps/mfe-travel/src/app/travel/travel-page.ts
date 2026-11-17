@@ -25,6 +25,7 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiProgressBar,
 } from '@life-island/design-system';
 import {
   LiDue,
@@ -151,6 +152,7 @@ const ICONS: Record<BookingKind, string> = {
   selector: 'travel-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    UiProgressBar,
     AiTool,
     LiDue,
     LiRecordDialog,

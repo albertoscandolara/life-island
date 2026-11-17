@@ -8,19 +8,7 @@
 }
 
 .meter {
-  height: var(--space-2);
   margin-top: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-}
-
-.meter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-gradient);
-  transition: width var(--duration-slow) var(--ease-out);
 }
 
 .big {

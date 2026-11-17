@@ -4,8 +4,12 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { UiCard } from '@life-island/design-system';
-import { formatEuro } from './format';
+import {
+  UiCard,
+  UiColumnChart,
+  type UiChartSeries,
+} from '@life-island/design-system';
+import { euro } from '@life-island/records-ui';
 
 const MONTHS = [
   'Jan',
@@ -22,67 +26,38 @@ const MONTHS = [
   'Dec',
 ];
 
-/** What you spent in each month of the tax year, as columns. */
+/** What you spent in each month of the tax year, as columns, with its table. */
 @Component({
   selector: 'tax-month-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiCard],
+  imports: [UiCard, UiColumnChart],
   template: `
     <ui-card [heading]="'Spending by month, ' + taxYear()">
-      <ol class="chart" role="list">
-        @for (m of months(); track m.label) {
-          <li
-            class="month"
-            [title]="m.label + ' ' + taxYear() + ': ' + formatEuro(m.value)"
-          >
-            <span class="month__value">{{
-              m.value ? short(m.value) : ''
-            }}</span>
-            <span class="month__track">
-              <span class="month__fill" [style.height.%]="m.height"></span>
-            </span>
-            <span class="month__label">{{ m.label }}</span>
-          </li>
-        }
-      </ol>
+      <ui-column-chart
+        [buckets]="months"
+        [series]="series()"
+        [height]="220"
+        [format]="wholeEuro"
+        [label]="monthLabel()"
+        [ariaLabel]="'Deductible spending in each month of ' + taxYear()"
+      />
+      <table class="ui-visually-hidden">
+        <caption>
+          Deductible spending by month,
+          {{
+            taxYear()
+          }}
+        </caption>
+        <tbody>
+          @for (month of months; track month; let i = $index) {
+            <tr>
+              <th scope="row">{{ month }}</th>
+              <td>{{ euro(values()[i] ?? 0) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
     </ui-card>
-  `,
-  styles: `
-    .chart {
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: var(--space-1);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .month {
-      display: grid;
-      grid-template-rows: 1.25rem 8rem auto;
-      gap: var(--space-1);
-      justify-items: center;
-      color: var(--text-muted);
-      font-size: var(--text-xs);
-    }
-    .month__value {
-      color: var(--text-secondary);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .month__track {
-      display: flex;
-      align-items: flex-end;
-      width: 100%;
-      max-width: 2rem;
-      border-radius: var(--radius-sm);
-      background: var(--surface-sunken);
-    }
-    .month__fill {
-      display: block;
-      width: 100%;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-    }
   `,
 })
 export class MonthChart {
@@ -90,21 +65,21 @@ export class MonthChart {
   /** Twelve totals, January first. */
   readonly values = input.required<number[]>();
 
-  protected readonly formatEuro = formatEuro;
+  protected readonly months = MONTHS;
+  protected readonly euro = euro;
+  protected readonly wholeEuro = (value: number) => euro(value, false);
 
-  protected readonly months = computed(() => {
-    const values = this.values();
-    const max = Math.max(1, ...values);
-    return MONTHS.map((label, i) => ({
-      label,
-      value: values[i] ?? 0,
-      height: ((values[i] ?? 0) / max) * 100,
-    }));
+  protected readonly series = computed<UiChartSeries[]>(() => [
+    {
+      id: 'spending',
+      label: 'Deductible spending',
+      color: 'var(--viz-deductible)',
+      values: MONTHS.map((_, i) => this.values()[i] ?? 0),
+    },
+  ]);
+
+  protected readonly monthLabel = computed(() => {
+    const year = this.taxYear();
+    return (month: string) => `${month} ${year}`;
   });
-
-  protected short(value: number): string {
-    return value >= 1000
-      ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
-      : String(Math.round(value));
-  }
 }

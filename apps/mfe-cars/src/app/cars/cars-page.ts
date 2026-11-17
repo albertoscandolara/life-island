@@ -11,10 +11,6 @@ import {
 } from '@angular/core';
 import {
   entityParam,
-  CAR_DOCUMENT_ROLE_LABELS,
-  CAR_DOCUMENT_STATUS_LABELS,
-  COST_KIND_LABELS,
-  identifiesVehicle,
   MODEL_MAX_BYTES,
   modelFormatOf,
   REGISTRATION_CODES,
@@ -25,18 +21,10 @@ import {
   VEHICLE_OPTION_LABELS,
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
-  type CarDocumentPartDto,
-  type CarDocumentSeriesDto,
-  type CarDocumentStatus,
-  type CarDocumentVersionDto,
   type CarsOverviewDto,
-  type CostKind,
-  type PendingCarReviewDto,
-  type RenewalLevel,
   type CarsPeopleDto,
   type UpdateVehicleRequest,
   type VehiclePartyField,
-  type VehicleChangeSuggestion,
   type VehicleDto,
   type VehicleField,
   type VehicleStatus,
@@ -50,11 +38,14 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
-  type UiTone,
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
+import { CarCostsCard } from './car-costs-card';
 import { CarFinesCard } from './car-fines-card';
+import { CarRenewalsCard } from './car-renewals-card';
+import { CarReviewCard } from './car-review-card';
+import { CarSeriesCard } from './car-series-card';
 import { CarTyresCard } from './car-tyres-card';
 import { CarUsageCard } from './car-usage-card';
 import { GarageView } from './garage-view';
@@ -63,21 +54,10 @@ import { InsuranceQuotesPanel } from './insurance-quotes-panel';
 import {
   alertText,
   italianNumber,
-  renewalText,
-  renewalTitle,
   typeLabel,
   valueText,
   vehicleName,
 } from './labels';
-
-/** The choices you make on one document waiting for review. */
-interface Draft {
-  /** The car it is about; 'new' adds one from it. */
-  vehicleId: string;
-  accept: Set<VehicleField>;
-  /** The name of a new car. */
-  label: string;
-}
 
 type Definition = (typeof VEHICLE_FIELD_DEFINITIONS)[number];
 
@@ -91,47 +71,8 @@ interface CodeRow {
   fields: Definition[];
 }
 
-const STATUS_TONES: Record<CarDocumentStatus, UiTone> = {
-  current: 'success',
-  expired: 'danger',
-  superseded: 'neutral',
-  cancelled: 'warning',
-};
-
-const LEVEL_TONES: Record<RenewalLevel, UiTone> = {
-  ok: 'success',
-  expiring: 'warning',
-  grace: 'warning',
-  expired: 'danger',
-  missing: 'neutral',
-};
-
-const LEVEL_LABELS: Record<RenewalLevel, string> = {
-  ok: 'In order',
-  expiring: 'Expiring',
-  grace: 'Grace period',
-  expired: 'Expired',
-  missing: 'Missing',
-};
-
-const SUGGESTION_LABELS: Record<VehicleChangeSuggestion, string> = {
-  accept: 'Take it',
-  keep_current: 'Keep yours',
-  check: 'Check it',
-};
-
-const SUGGESTION_TONES: Record<VehicleChangeSuggestion, UiTone> = {
-  accept: 'success',
-  keep_current: 'neutral',
-  check: 'warning',
-};
-
 /** Codes that head the ones under them on the card. */
 const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
-
-const DEFINITION = new Map<string, Definition>(
-  VEHICLE_FIELD_DEFINITIONS.map((d) => [d.field, d]),
-);
 
 /**
  * Cars: every car you have with every field of its carta di circolazione
@@ -145,7 +86,11 @@ const DEFINITION = new Map<string, Definition>(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     EntityLink,
+    CarCostsCard,
     CarFinesCard,
+    CarRenewalsCard,
+    CarReviewCard,
+    CarSeriesCard,
     CarTyresCard,
     CarUsageCard,
     DatePipe,
@@ -162,7 +107,7 @@ const DEFINITION = new Map<string, Definition>(
   ],
   host: { 'data-character': 'velo', class: 'cars' },
   templateUrl: './cars-page.html',
-  styleUrl: './cars-page.css',
+  styleUrls: ['./cars-bits.css', './cars-page.css'],
 })
 export class CarsPage {
   private readonly api = inject(CarsApi);
@@ -171,7 +116,6 @@ export class CarsPage {
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
-  private readonly drafts = signal<Record<string, Draft>>({});
   /** Remove, being confirmed on the selected car. */
   protected readonly removing = signal(false);
   /** The people of People, offered as the holder and owner while editing. */
@@ -190,18 +134,10 @@ export class CarsPage {
 
   protected readonly definitions = VEHICLE_FIELD_DEFINITIONS;
   protected readonly codeMeanings = REGISTRATION_CODE_MEANINGS;
-  protected readonly statusLabels = CAR_DOCUMENT_STATUS_LABELS;
-  protected readonly roleLabels = CAR_DOCUMENT_ROLE_LABELS;
-  protected readonly statusTones = STATUS_TONES;
-  protected readonly levelTones = LEVEL_TONES;
-  protected readonly levelLabels = LEVEL_LABELS;
   protected readonly renewableLabels = RENEWABLE_LABELS;
-  protected readonly suggestionLabels = SUGGESTION_LABELS;
-  protected readonly suggestionTones = SUGGESTION_TONES;
   protected readonly vehicleStatuses = VEHICLE_STATUSES;
   protected readonly vehicleStatusLabels = VEHICLE_STATUS_LABELS;
   protected readonly optionLabels = VEHICLE_OPTION_LABELS;
-  protected readonly costKindLabels = COST_KIND_LABELS;
 
   protected readonly vehicles = computed(() => this.overview()?.vehicles ?? []);
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
@@ -314,8 +250,6 @@ export class CarsPage {
   protected readonly alertText = alertText;
   protected readonly num = italianNumber;
   protected readonly maxMb = MODEL_MAX_BYTES / 1024 / 1024;
-  protected readonly renewalText = renewalText;
-  protected readonly renewalTitle = renewalTitle;
   /** Today in Rome, as the fines' deadlines count it. */
   protected readonly today = new Date().toLocaleDateString('sv-SE', {
     timeZone: 'Europe/Rome',
@@ -328,144 +262,13 @@ export class CarsPage {
     this.removing.set(false);
   }
 
-  protected label(field: VehicleField): string {
-    return DEFINITION.get(field)?.label ?? field;
-  }
-
   protected value(vehicle: VehicleDto, field: string): VehicleValue {
     return vehicle.values[field as VehicleField] ?? null;
   }
 
-  protected alertOf(vehicle: VehicleDto, uploadId: string) {
-    return vehicle.alerts.find((a) => a.uploadId === uploadId) ?? null;
-  }
-
-  /** Years with costs, newest first, and the kinds that appear in them. */
-  protected costTable(vehicle: VehicleDto) {
-    const years = [...new Set(vehicle.costTotals.map((t) => t.year))];
-    const kinds = [...new Set(vehicle.costTotals.map((t) => t.kind))];
-    return {
-      kinds,
-      years: years.map((year) => {
-        const of = (kind: CostKind) =>
-          vehicle.costTotals.find((t) => t.year === year && t.kind === kind)
-            ?.total ?? null;
-        return {
-          year,
-          totals: kinds.map(of),
-          total: vehicle.costTotals
-            .filter((t) => t.year === year)
-            .reduce((sum, t) => sum + t.total, 0),
-        };
-      }),
-    };
-  }
-
-  // ---- review -------------------------------------------------------------
-
-  protected draft(review: PendingCarReviewDto): Draft {
-    return (
-      this.drafts()[review.uploadId] ?? {
-        vehicleId:
-          review.vehicleId ??
-          (identifiesVehicle(review)
-            ? 'new'
-            : (this.vehicles()[0]?.id ?? 'new')),
-        accept: new Set(
-          review.changes
-            .filter((c) => c.suggestion === 'accept')
-            .map((c) => c.field),
-        ),
-        label: '',
-      }
-    );
-  }
-
-  private update(review: PendingCarReviewDto, change: Partial<Draft>): void {
-    this.drafts.update((all) => ({
-      ...all,
-      [review.uploadId]: { ...this.draft(review), ...change },
-    }));
-  }
-
-  protected chooseVehicle(review: PendingCarReviewDto, vehicleId: string) {
-    this.update(review, { vehicleId });
-  }
-
-  protected setDraftLabel(review: PendingCarReviewDto, label: string) {
-    this.update(review, { label });
-  }
-
-  protected toggle(review: PendingCarReviewDto, field: VehicleField): void {
-    const accept = new Set(this.draft(review).accept);
-    if (accept.has(field)) accept.delete(field);
-    else accept.add(field);
-    this.update(review, { accept });
-  }
-
-  /** The changes against the car you picked (the server compared with its match). */
-  protected changesFor(review: PendingCarReviewDto) {
-    return this.draft(review).vehicleId === review.vehicleId
-      ? review.changes
-      : [];
-  }
-
-  /** Whether it names a car: a plate or a VIN. Without, it never makes a new car. */
-  protected readable(review: PendingCarReviewDto): boolean {
-    return identifiesVehicle(review);
-  }
-
-  protected isNewVehicle(review: PendingCarReviewDto): boolean {
-    return this.draft(review).vehicleId === 'new';
-  }
-
-  protected approve(review: PendingCarReviewDto): void {
-    const draft = this.draft(review);
-    const isNew = draft.vehicleId === 'new';
-    this.run(review.uploadId, () =>
-      this.api.approve(review.uploadId, {
-        vehicleId: isNew ? null : draft.vehicleId,
-        accept: this.changesFor(review)
-          .map((c) => c.field)
-          .filter((field) => draft.accept.has(field)),
-        ...(isNew ? { label: draft.label.trim() || null } : {}),
-      }),
-    );
-  }
-
-  protected reject(review: PendingCarReviewDto): void {
-    this.run(review.uploadId, () => this.api.reject(review.uploadId));
-  }
-
+  /** Brings back a document rejected as not about any car. */
   protected reopen(uploadId: string): void {
     this.run(uploadId, () => this.api.reopen(uploadId));
-  }
-
-  protected mark(uploadId: string, value: string): void {
-    const status = value === 'cancelled' ? value : null;
-    this.run(uploadId, () => this.api.mark(uploadId, { status }));
-  }
-
-  /** The documents of the other versions of a series, to put in this one. */
-  protected attachable(
-    series: CarDocumentSeriesDto,
-    version: CarDocumentVersionDto,
-  ): CarDocumentPartDto[] {
-    return series.versions
-      .filter((v) => v.uploadId !== version.uploadId)
-      .flatMap((v) => v.documents);
-  }
-
-  protected attach(select: HTMLSelectElement, target: string): void {
-    const uploadId = select.value;
-    select.value = '';
-    if (!uploadId) return;
-    this.run(uploadId, () => this.api.group(uploadId, { attachTo: target }));
-  }
-
-  /** Takes a document out of its record, into a version of its own. */
-  protected detach(uploadId: string): void {
-    this.run(uploadId, () => this.api.group(uploadId, { attachTo: null }));
   }
 
   // ---- cars ----------------------------------------------------------------
@@ -666,11 +469,6 @@ export class CarsPage {
       next: () => {
         this.busy.set(null);
         done?.();
-        this.drafts.update((all) => {
-          const rest = { ...all };
-          delete rest[key];
-          return rest;
-        });
         this.load();
       },
       error: (error: { error?: { message?: string } }) => {

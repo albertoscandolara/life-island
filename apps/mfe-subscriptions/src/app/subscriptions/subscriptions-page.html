@@ -163,17 +163,7 @@
 
 @if (d.byKind.length > 1) {
 <ui-card heading="Where it goes, a year" class="li-block">
-  <ul class="li-list">
-    @for (k of d.byKind; track k.kind) {
-    <li class="kind">
-      <span>{{ kind(k.kind) }}</span>
-      <span class="kind__bar"
-        ><span [style.width.%]="(k.yearly / maxKind()) * 100"></span
-      ></span>
-      <span class="li-num">{{ euro(k.yearly, false) }}</span>
-    </li>
-    }
-  </ul>
+  <ui-segmented-bar [parts]="kindParts()" [format]="wholeEuro" />
 </ui-card>
 } @if (ended().length) {
 <button type="button" class="li-link" (click)="showEnded.set(!showEnded())">

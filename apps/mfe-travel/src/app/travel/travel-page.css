@@ -63,23 +63,6 @@
   margin-top: var(--space-3);
 }
 
-.meter {
-  height: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-}
-
-.meter span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-
-.meter span.over {
-  background: var(--tone-danger);
-}
-
 .stack {
   display: grid;
   gap: var(--space-1);
