@@ -1,8 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import {
+  HttpException,
+  HttpStatus,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import {
+  AiSpendDenied,
   aiToolModel,
+  currentUser,
+  HttpAiSpendGuard,
+  tokensOf,
+  worstCaseUsd,
+  type AiSpendGuard,
   describeAiTools,
   isAiToolEnabled,
   recordAiToolUse,
@@ -10,7 +21,11 @@ import {
   type AiToolDescription,
   type ServiceDb,
 } from '@life-island/be-common';
-import type { AiEffort, AiStepUsage } from '@life-island/contracts';
+import {
+  useCostUsd,
+  type AiEffort,
+  type AiStepUsage,
+} from '@life-island/contracts';
 import type { z } from 'zod';
 
 /*
@@ -32,6 +47,11 @@ export interface AiAssistantOptions {
   /** The model from the service's env, used until one is picked in Settings. */
   defaultModel: string;
   svc: ServiceDb;
+  /**
+   * Reserves each use's worst-case cost before calling the model
+   * (docs/security.md, "AI cost guards"); svc-settings' guard by default.
+   */
+  guard?: AiSpendGuard;
 }
 
 /** One request of the tool, as Settings' info button shows it. */
@@ -90,9 +110,11 @@ export interface AiAnswer<T> {
 export class AiAssistant {
   private readonly logger: Logger;
   private readonly client: Anthropic | null;
+  private readonly guard: AiSpendGuard;
 
   constructor(private readonly options: AiAssistantOptions) {
     this.logger = new Logger(options.toolId);
+    this.guard = options.guard ?? HttpAiSpendGuard.fromEnv();
     this.client = options.apiKey
       ? new Anthropic({ apiKey: options.apiKey, maxRetries: 2 })
       : null;
@@ -139,7 +161,11 @@ export class AiAssistant {
   async ask<T extends z.ZodType>(
     request: AiAskRequest<T>,
   ): Promise<AiAnswer<z.output<T>>> {
-    return this.use(async (client, model, steps) => {
+    const inputTokens =
+      tokensOf(request.step.system) + contentTokens(request.user);
+    const worstCase = (model: string) =>
+      worstCaseUsd(model, { inputTokens, maxTokens: request.step.maxTokens });
+    return this.use(worstCase, async (client, model, steps) => {
       const message = await this.structured(client, model, steps, request);
       return {
         output: parseOutput(message, request.output),
@@ -155,7 +181,23 @@ export class AiAssistant {
   async research<T extends z.ZodType>(
     request: AiResearchRequest<T>,
   ): Promise<AiAnswer<z.output<T>>> {
-    return this.use(async (client, model, steps) => {
+    const { research, format } = request;
+    // A search may pause and resume up to 4 times, each turn sending back what came before.
+    const worstCase = (model: string) =>
+      worstCaseUsd(model, {
+        inputTokens:
+          4 *
+          (tokensOf(research.step.system) +
+            tokensOf(research.user) +
+            research.step.maxTokens),
+        maxTokens: 4 * research.step.maxTokens,
+        webSearches: research.maxSearches,
+      }) +
+      worstCaseUsd(model, {
+        inputTokens: tokensOf(format.step.system) + 4 * research.step.maxTokens,
+        maxTokens: format.step.maxTokens,
+      });
+    return this.use(worstCase, async (client, model, steps) => {
       const { step, user, maxSearches } = request.research;
       const messages: Anthropic.MessageParam[] = [
         { role: 'user', content: user },
@@ -209,6 +251,7 @@ export class AiAssistant {
 
   /** Runs the calls of one use with the tool's model, and records it. */
   private async use<R>(
+    worstCase: (model: string) => number,
     run: (client: Anthropic, model: string, steps: AiStepUsage[]) => Promise<R>,
   ): Promise<R> {
     if (!this.client)
@@ -221,6 +264,7 @@ export class AiAssistant {
         this.options.svc.schema,
         this.options.toolId,
       ).catch(() => null)) ?? this.options.defaultModel;
+    const reservation = await this.reserve(worstCase(model));
     const steps: AiStepUsage[] = [];
     try {
       const result = await run(this.client, model, steps);
@@ -232,6 +276,32 @@ export class AiAssistant {
       throw new ServiceUnavailableException(
         explainAiError(error, model, this.options.service),
       );
+    } finally {
+      await this.guard
+        .settle(reservation, useCostUsd(steps))
+        .catch((failure: unknown) =>
+          this.logger.warn(`Could not settle the AI spend: ${String(failure)}`),
+        );
+    }
+  }
+
+  /** Reserves the use's worst case; a refusal is a 429 that says why. */
+  private async reserve(maxUsd: number): Promise<string> {
+    const user = currentUser();
+    try {
+      return await this.guard.reserve({
+        toolId: this.options.toolId,
+        service: this.options.service,
+        userId: user && !user.internal ? user.id : null,
+        maxUsd: Math.round(maxUsd * 1e6) / 1e6,
+      });
+    } catch (error) {
+      if (error instanceof AiSpendDenied)
+        throw new HttpException(
+          { statusCode: 429, message: error.message },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      throw error;
     }
   }
 
@@ -310,6 +380,17 @@ export function describeAiSteps(
       promptCaching: !step.tools?.length,
     })),
   };
+}
+
+/** About how many tokens a user message is: its text, and each document or image at least 3,000. */
+export function contentTokens(content: AiUserContent): number {
+  if (typeof content === 'string') return tokensOf(content);
+  return content.reduce((sum, block) => {
+    if (block.type === 'text') return sum + tokensOf(block.text);
+    const source = (block as { source?: { data?: unknown } }).source;
+    const data = typeof source?.data === 'string' ? source.data : '';
+    return sum + Math.max(3000, Math.ceil(data.length / 8));
+  }, 0);
 }
 
 function textOf(message: Anthropic.Message): string {

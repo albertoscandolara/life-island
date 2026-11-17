@@ -53,3 +53,38 @@ export const aiToolUses = settingsSchema.table(
   },
   (table) => [index('ai_tool_uses_tool_idx').on(table.toolId, table.usedAt)],
 );
+
+/**
+ * The spending guard's ledger (docs/security.md, "AI cost guards"): every
+ * model call reserves its worst-case cost here before it starts and settles
+ * the real cost after, so limits hold at once, even for calls in parallel.
+ */
+export const aiReservations = settingsSchema.table(
+  'ai_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    toolId: text('tool_id').notNull(),
+    service: text('service').notNull(),
+    /** The signed-in person who asked; null for background work (the parse worker). */
+    userId: text('user_id'),
+    reservedUsd: numeric('reserved_usd', {
+      precision: 12,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
+    /** The real cost once the call ended; null while it runs. */
+    actualUsd: numeric('actual_usd', {
+      precision: 12,
+      scale: 6,
+      mode: 'number',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    settledAt: timestamp('settled_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('ai_reservations_created_idx').on(table.createdAt),
+    index('ai_reservations_user_idx').on(table.userId, table.createdAt),
+  ],
+);

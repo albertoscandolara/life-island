@@ -1,11 +1,15 @@
 import { Logger } from '@nestjs/common';
 import {
+  AiSpendDenied,
   aiToolModel,
+  HttpAiSpendGuard,
   isAiToolEnabled,
   recordAiToolUse,
+  worstCaseUsd,
+  type AiSpendGuard,
   type ServiceDb,
 } from '@life-island/be-common';
-import type { AiStepUsage } from '@life-island/contracts';
+import { useCostUsd, type AiStepUsage } from '@life-island/contracts';
 import type {
   DocumentAnalyzer,
   ParseRunRecord,
@@ -13,6 +17,13 @@ import type {
 } from './document-parser.js';
 
 const SERVICE = 'svc-parse-worker';
+
+/**
+ * What one step reserves with the spending guard before it runs: a long
+ * document (100,000 tokens in) and a full answer, priced on the step's model
+ * (Sonnet's prices when the env model is used). The real cost is settled after.
+ */
+const STEP_WORST_CASE = { inputTokens: 100_000, maxTokens: 16_000 };
 
 /** The AI tool behind each step of the worker (AI_TOOLS in libs/contracts settings.ts). */
 export const STEP_TOOLS: Record<ParseRunRecord['step'], string> = {
@@ -65,6 +76,8 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     private readonly svc: ServiceDb,
     /** The AI analyzer on the model you picked for a tool in Settings. */
     private readonly aiOn?: (toolId: string, model: string) => DocumentAnalyzer,
+    /** Reserves each step's cost first (docs/security.md, "AI cost guards"). */
+    private readonly guard: AiSpendGuard = HttpAiSpendGuard.fromEnv(),
   ) {
     this.name = ai.name;
   }
@@ -95,14 +108,36 @@ export class GatedAnalyzer implements DocumentAnalyzer {
       ? await aiToolModel(this.svc.pool, this.svc.schema, toolId)
       : null;
     const ai = model && this.aiOn ? this.aiOn(toolId, model) : this.ai;
+    let reservation: string;
+    try {
+      reservation = await this.guard.reserve({
+        toolId,
+        service: SERVICE,
+        userId: null,
+        maxUsd: worstCaseUsd(model ?? 'claude-sonnet-5-5', STEP_WORST_CASE),
+      });
+    } catch (error) {
+      if (!(error instanceof AiSpendDenied)) throw error;
+      // Like a tool switched off: the step runs on Life Island's own rules.
+      this.logger.warn(`${toolId} runs offline: ${error.message}`);
+      return call(this.offline);
+    }
+    let runs: readonly ParseRunRecord[] = [];
     try {
       const output = await call(ai);
+      runs = output.runs;
       await this.record(toolId, output.runs);
       return output;
     } catch (error) {
-      const runs = (error as { runs?: ParseRunRecord[] } | null)?.runs ?? [];
+      runs = (error as { runs?: ParseRunRecord[] } | null)?.runs ?? [];
       await this.record(toolId, runs, error);
       throw error;
+    } finally {
+      await this.guard
+        .settle(reservation, useCostUsd(usageOf(runs)))
+        .catch((failure: unknown) =>
+          this.logger.warn(`Could not settle the AI spend: ${String(failure)}`),
+        );
     }
   }
 

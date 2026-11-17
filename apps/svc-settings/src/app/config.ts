@@ -1,4 +1,5 @@
 import { numberEnv } from '@life-island/be-common';
+import type { AiGuardLimits } from '@life-island/contracts';
 
 export interface SettingsConfig {
   port: number;
@@ -6,6 +7,11 @@ export interface SettingsConfig {
   natsUrl: string;
   /** The time zone months are counted in, for the monthly AI budget. */
   timezone: string;
+  /**
+   * The AI spending guard's limits (docs/security.md). From the environment
+   * only, so nobody signed in can raise them from Settings.
+   */
+  aiLimits: AiGuardLimits;
 }
 
 /**
@@ -29,6 +35,13 @@ export function loadConfig(
     databaseUrl: env['SETTINGS_DATABASE_URL'] || LOCAL_SETTINGS_DATABASE_URL,
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     timezone: env['SETTINGS_TIMEZONE'] || 'Europe/Rome',
+    aiLimits: {
+      monthlyUsd: numberEnv('AI_HARD_MONTHLY_USD', 25, env),
+      userDailyUsd: numberEnv('AI_USER_DAILY_USD', 5, env),
+      userPerMinute: numberEnv('AI_USER_PER_MINUTE', 6, env),
+      userPerHour: numberEnv('AI_USER_PER_HOUR', 60, env),
+      maxCallUsd: numberEnv('AI_MAX_CALL_USD', 3, env),
+    },
   };
 }
 
