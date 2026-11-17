@@ -7,12 +7,14 @@ import {
 import type { ServiceDb } from '@life-island/be-common';
 import {
   deadlineWindow,
+  isoAddDays,
   isoToday,
   PAYSLIP_KEYS,
   TAX730_ATTACHMENT_ROLES,
   TAX_CERTIFICATE_KEYS,
   TAX_RETURN_CATEGORY,
   type DeadlineDto,
+  type LifeAttentionDto,
   type DeadlinesQuery,
   type Tax730FiledReturnDto,
   type AddAttachmentRequest,
@@ -505,6 +507,24 @@ export class DossierService {
   }
 
   /** The filing deadline of each year (and the Redditi PF second advance), for the Agenda. */
+  /**
+   * What needs you, for the hub badge (`GET /attention`): a return or an
+   * advance not done whose date passed in the last year, those due within
+   * 30 days, and the expense and payment pairs waiting for you to confirm.
+   */
+  async attention(day = today()): Promise<LifeAttentionDto> {
+    const [past, soon, years] = await Promise.all([
+      this.deadlines({ from: isoAddDays(day, -365), to: isoAddDays(day, -1) }),
+      this.deadlines({ from: day, to: isoAddDays(day, 30) }),
+      this.taxYears(),
+    ]);
+    return {
+      expired: past.filter((d) => !d.done).length,
+      expiring: soon.filter((d) => !d.done).length,
+      toReview: years.reduce((n, y) => n + y.pairsToReviewCount, 0),
+    };
+  }
+
   async deadlines(query: DeadlinesQuery): Promise<DeadlineDto[]> {
     const rows = await this.svc.db
       .select({

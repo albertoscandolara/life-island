@@ -6,6 +6,7 @@ import {
 } from '@life-island/be-common';
 import { EventsRuntime } from '@life-island/be-nest';
 import { BillLedger } from './bills/bill-ledger.js';
+import { HomeAttentionController } from './attention.controller.js';
 import { HomeDeadlinesController } from './bills/deadlines.controller.js';
 import { BillsController } from './bills/bills.controller.js';
 import { BillsService } from './bills/bills.service.js';
@@ -53,6 +54,7 @@ export class AppModule {
         HealthController,
         PropertiesController,
         BillsController,
+        HomeAttentionController,
         HomeDeadlinesController,
         WorksController,
         DocumentsController,

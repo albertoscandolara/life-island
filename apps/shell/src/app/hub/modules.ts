@@ -78,6 +78,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every document of your 730, year by year: deductible expenses, invoices, payment proofs and the folder for the commercialista.',
     path: '/taxes/730',
+    attentionUrl: '/api/tax730/attention',
     landmark: 'vault',
   },
   {
@@ -88,6 +89,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'A shopping list that learns from your receipts, price history by shop, and spending by category.',
     path: '/groceries',
+    attentionUrl: '/api/groceries/attention',
     landmark: 'market',
   },
   {
@@ -109,6 +111,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every workplace you have had, read from payslips, evaluations and contracts: a timeline of promotions and rises, your pay year by year, an AI feedback on your career, and the hiring platforms you signed up to.',
     path: '/work',
+    attentionUrl: '/api/work/attention',
     landmark: 'office',
   },
   {
@@ -119,6 +122,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas and water bills.',
     path: '/home',
+    attentionUrl: '/api/home/attention',
     landmark: 'house',
   },
   {
@@ -151,6 +155,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     mission:
       'Every car you have, read from its registration certificate with every code explained: insurance, road tax and revisione with a warning before they expire, and what each car costs, from fuel to the mechanic.',
     path: '/cars',
+    attentionUrl: '/api/cars/attention',
     landmark: 'garage',
   },
   {

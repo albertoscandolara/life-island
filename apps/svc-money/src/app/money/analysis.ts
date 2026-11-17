@@ -11,6 +11,7 @@ import {
   type RecurringChargeDto,
   type SpendingReviewOutput,
   type TransactionDto,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -191,7 +192,7 @@ export function savingsRate(months: readonly MonthFlowDto[]): number | null {
 }
 
 const label = (c: MoneyCategory) => MONEY_CATEGORY_LABELS[c] ?? c;
-const eur = (v: number) => `€${Math.round(v).toLocaleString('en-GB')}`;
+const eur = (v: number) => euroText(v, false);
 
 /** The review written by Life Island's own rules. */
 export function offlineReview(input: {

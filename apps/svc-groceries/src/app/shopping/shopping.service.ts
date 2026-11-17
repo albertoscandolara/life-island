@@ -13,6 +13,7 @@ import {
   shoppingListOutputSchema,
   type ApplySuggestionRequest,
   type GroceriesOverviewDto,
+  type LifeAttentionDto,
   type GroceryItemCategory,
   type LifeQuestionRequest,
   type ShoppingSuggestionDto,
@@ -27,6 +28,7 @@ import {
   type ShoppingSuggestionRow,
 } from '../db/schema.js';
 import { toReceiptDto } from '../receipts/receipts.service.js';
+import { groceriesAttention } from './running-out.js';
 import {
   categorySpend,
   itemStats,
@@ -106,6 +108,12 @@ export class ShoppingService implements OnApplicationBootstrap {
       lineTotal: Number(r.line_total),
       merchant: r.merchant,
     }));
+  }
+
+  /** What needs you, for the hub badge: the regular items probably running out. */
+  async attention(day = today()): Promise<LifeAttentionDto> {
+    const { items, list } = await this.overview(day);
+    return groceriesAttention(items, list, day);
   }
 
   async overview(day = today()): Promise<GroceriesOverviewDto> {

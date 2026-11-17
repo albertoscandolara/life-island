@@ -7,6 +7,7 @@ import {
   isAiToolEnabled,
   recordAiToolUse,
   stepUsage,
+  type AiToolDescription,
   type ServiceDb,
 } from '@life-island/be-common';
 import type { AiEffort, AiStepUsage } from '@life-island/contracts';
@@ -40,17 +41,45 @@ export interface AiAssistantStep {
   system: string;
   /** The user message with `{placeholders}` for what changes per use. */
   userTemplate: string;
-  /** The structured output's name. */
-  outputFormat: string;
+  /** The structured output's name; null for a step that answers in text (a web search). */
+  outputFormat: string | null;
   effort: AiEffort;
   maxTokens: number;
+  /** Server tools the step uses, as Settings lists them, e.g. `web_search (up to 8 searches)`. */
+  tools?: string[];
 }
+
+/** One part of a user message: text, a PDF document or an image. */
+export type AiContentBlock = Anthropic.ContentBlockParam;
+
+/** The user message of one use: text, or text with documents and images (a PDF quote, a photo). */
+export type AiUserContent = string | AiContentBlock[];
 
 export interface AiAskRequest<T extends z.ZodType> {
   step: AiAssistantStep;
   /** The user message of this use. */
-  user: string;
+  user: AiUserContent;
   output: T;
+}
+
+/**
+ * A web search first, then its notes turned into structured output (a
+ * structured answer cannot carry the search's citations, so it is a second,
+ * tool-free call). Recorded as one use with both steps.
+ */
+export interface AiResearchRequest<T extends z.ZodType> {
+  research: {
+    step: AiAssistantStep;
+    user: string;
+    /** The most searches the model may run. */
+    maxSearches: number;
+  };
+  format: {
+    step: AiAssistantStep;
+    /** The user message of the second call, from the search's notes. */
+    user: (notes: string) => string;
+    output: T;
+  };
 }
 
 export interface AiAnswer<T> {
@@ -91,23 +120,12 @@ export class AiAssistant {
       this.options.svc.schema,
       this.options.service,
       [
-        {
-          toolId: this.options.toolId,
-          available: this.configured,
-          steps: steps.map((step) => ({
-            stepId: step.stepId,
-            label: step.label,
-            model: this.options.defaultModel,
-            effort: step.effort,
-            maxTokens: step.maxTokens,
-            thinking: 'adaptive (default)',
-            tools: [],
-            system: step.system,
-            userTemplate: step.userTemplate,
-            outputFormat: `${step.outputFormat} (structured output)`,
-            promptCaching: true,
-          })),
-        },
+        describeAiSteps(
+          this.options.toolId,
+          this.configured,
+          this.options.defaultModel,
+          steps,
+        ),
       ],
     ).catch((error: unknown) =>
       this.logger.warn(`Could not describe the AI tool: ${String(error)}`),
@@ -121,6 +139,78 @@ export class AiAssistant {
   async ask<T extends z.ZodType>(
     request: AiAskRequest<T>,
   ): Promise<AiAnswer<z.output<T>>> {
+    return this.use(async (client, model, steps) => {
+      const message = await this.structured(client, model, steps, request);
+      return {
+        output: parseOutput(message, request.output),
+        model: message.model,
+      };
+    });
+  }
+
+  /**
+   * Searches the web, then structures what it found: two calls recorded as
+   * one use. Throws a 503 whose message says what to do; call `active()` first.
+   */
+  async research<T extends z.ZodType>(
+    request: AiResearchRequest<T>,
+  ): Promise<AiAnswer<z.output<T>>> {
+    return this.use(async (client, model, steps) => {
+      const { step, user, maxSearches } = request.research;
+      const messages: Anthropic.MessageParam[] = [
+        { role: 'user', content: user },
+      ];
+      let found: Anthropic.Message | null = null;
+      // A long search pauses its turn; send it back to let it go on.
+      for (let turn = 0; turn < 4; turn++) {
+        const started = Date.now();
+        found = await client.messages.create({
+          model,
+          max_tokens: step.maxTokens,
+          output_config: { effort: step.effort },
+          system: step.system,
+          tools: [
+            {
+              type: 'web_search_20260209',
+              name: 'web_search',
+              max_uses: maxSearches,
+            },
+          ],
+          messages,
+        });
+        steps.push(stepUsage(step.stepId, found, Date.now() - started));
+        if (found.stop_reason !== 'pause_turn') break;
+        messages.push({ role: 'assistant', content: found.content });
+      }
+      if (!found || found.stop_reason === 'pause_turn')
+        throw new AiAnswerError(
+          'The web search took too long. Try again in a moment.',
+        );
+      if (found.stop_reason === 'refusal')
+        throw new AiAnswerError(
+          'Claude declined to answer this. Try rephrasing your request.',
+        );
+      const notes = textOf(found);
+      if (!notes.trim())
+        throw new AiAnswerError(
+          'The web search found nothing to report. Try a broader request.',
+        );
+      const message = await this.structured(client, model, steps, {
+        step: request.format.step,
+        user: request.format.user(notes),
+        output: request.format.output,
+      });
+      return {
+        output: parseOutput(message, request.format.output),
+        model: message.model,
+      };
+    });
+  }
+
+  /** Runs the calls of one use with the tool's model, and records it. */
+  private async use<R>(
+    run: (client: Anthropic, model: string, steps: AiStepUsage[]) => Promise<R>,
+  ): Promise<R> {
     if (!this.client)
       throw new ServiceUnavailableException(
         `${this.options.service} has no Claude API key: set ANTHROPIC_API_KEY in .env and restart it.`,
@@ -133,38 +223,9 @@ export class AiAssistant {
       ).catch(() => null)) ?? this.options.defaultModel;
     const steps: AiStepUsage[] = [];
     try {
-      const started = Date.now();
-      const message = await this.client.messages.create({
-        model,
-        max_tokens: request.step.maxTokens,
-        output_config: {
-          effort: request.step.effort,
-          format: zodOutputFormat(request.output),
-        },
-        system: [
-          {
-            type: 'text',
-            text: request.step.system,
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: [{ role: 'user', content: request.user }],
-      });
-      steps.push(stepUsage(request.step.stepId, message, Date.now() - started));
-      if (message.stop_reason === 'refusal')
-        throw new AiAnswerError(
-          'Claude declined to answer this. Try rephrasing your request.',
-        );
-      if (message.stop_reason === 'max_tokens')
-        throw new AiAnswerError(
-          'The answer came out too long and was cut. Try again with a narrower request.',
-        );
-      const text = message.content
-        .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-        .join('');
-      const output = request.output.parse(JSON.parse(text)) as z.output<T>;
+      const result = await run(this.client, model, steps);
       await this.record(steps);
-      return { output, model: message.model };
+      return result;
     } catch (error) {
       await this.record(steps, error);
       this.logger.error(`${this.options.toolId} failed: ${String(error)}`);
@@ -172,6 +233,42 @@ export class AiAssistant {
         explainAiError(error, model, this.options.service),
       );
     }
+  }
+
+  /** One call with structured output; a refusal or a cut answer throws in words. */
+  private async structured<T extends z.ZodType>(
+    client: Anthropic,
+    model: string,
+    steps: AiStepUsage[],
+    request: AiAskRequest<T>,
+  ): Promise<Anthropic.Message> {
+    const started = Date.now();
+    const message = await client.messages.create({
+      model,
+      max_tokens: request.step.maxTokens,
+      output_config: {
+        effort: request.step.effort,
+        format: zodOutputFormat(request.output),
+      },
+      system: [
+        {
+          type: 'text',
+          text: request.step.system,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [{ role: 'user', content: request.user }],
+    });
+    steps.push(stepUsage(request.step.stepId, message, Date.now() - started));
+    if (message.stop_reason === 'refusal')
+      throw new AiAnswerError(
+        'Claude declined to answer this. Try rephrasing your request.',
+      );
+    if (message.stop_reason === 'max_tokens')
+      throw new AiAnswerError(
+        'The answer came out too long and was cut. Try again with a narrower request.',
+      );
+    return message;
   }
 
   private async record(steps: AiStepUsage[], error?: unknown): Promise<void> {
@@ -185,6 +282,47 @@ export class AiAssistant {
       this.logger.warn(`Could not record a use: ${String(failure)}`),
     );
   }
+}
+
+/** What Settings' info button shows for one tool: the same prompts, model and limits the calls send. */
+export function describeAiSteps(
+  toolId: string,
+  available: boolean,
+  model: string,
+  steps: AiAssistantStep[],
+): AiToolDescription {
+  return {
+    toolId,
+    available,
+    steps: steps.map((step) => ({
+      stepId: step.stepId,
+      label: step.label,
+      model,
+      effort: step.effort,
+      maxTokens: step.maxTokens,
+      thinking: 'adaptive (default)',
+      tools: step.tools ?? [],
+      system: step.system,
+      userTemplate: step.userTemplate,
+      outputFormat: step.outputFormat
+        ? `${step.outputFormat} (structured output)`
+        : null,
+      promptCaching: !step.tools?.length,
+    })),
+  };
+}
+
+function textOf(message: Anthropic.Message): string {
+  return message.content
+    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+    .join('');
+}
+
+function parseOutput<T extends z.ZodType>(
+  message: Anthropic.Message,
+  output: T,
+): z.output<T> {
+  return output.parse(JSON.parse(textOf(message))) as z.output<T>;
 }
 
 /** An answer that came back but cannot be used, with its reason in words. */
@@ -205,6 +343,8 @@ export function explainAiError(
     return `The Claude API does not know the model "${model}": pick another in Settings → AI tools.`;
   if (error instanceof Anthropic.RateLimitError)
     return 'The Claude API rate limit was reached. Try again in a minute.';
+  if (error instanceof Anthropic.BadRequestError)
+    return `The Claude API rejected the request: ${error.message}`;
   if (error instanceof Anthropic.APIConnectionError)
     return `${service} could not reach the Claude API: check the network or proxy.`;
   if (error instanceof Anthropic.APIError && (error.status ?? 0) >= 500)

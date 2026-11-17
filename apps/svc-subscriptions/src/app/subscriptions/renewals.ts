@@ -7,6 +7,7 @@ import {
   USAGE_LABELS,
   type RenewalAdvisorOutput,
   type SubscriptionDto,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -48,7 +49,7 @@ export function withRenewal(
   };
 }
 
-const eur = (v: number) => `€${Math.round(v)}`;
+const eur = (v: number) => euroText(v, false);
 
 export function offlineAdvice(
   items: readonly SubscriptionDto[],
@@ -126,11 +127,11 @@ export function advisorDossier(
   const lines = [`Today is ${today}.`];
   for (const i of items.filter(isLive))
     lines.push(
-      `- ${i.name} (${SUBSCRIPTION_KIND_LABELS[i.kind]}${i.provider ? `, ${i.provider}` : ''}, ${i.status}): €${i.cost} per ${i.cycle}, €${i.yearly} a year; ` +
+      `- ${i.name} (${SUBSCRIPTION_KIND_LABELS[i.kind]}${i.provider ? `, ${i.provider}` : ''}, ${i.status}): ${euroText(i.cost)} per ${i.cycle}, ${euroText(i.yearly)} a year; ` +
         `usage ${i.usage ? USAGE_LABELS[i.usage].toLowerCase() : 'unknown'}; ` +
         `next renewal ${i.nextRenewal ?? 'unknown'}${i.cancelBy ? `, cancel by ${i.cancelBy}` : ''}${i.lockedUntil ? `, locked until ${i.lockedUntil}` : ''}` +
         (i.priceChanges.length
-          ? `; price changes: ${i.priceChanges.map((p) => `${p.date} €${p.from}→€${p.to}`).join(', ')}`
+          ? `; price changes: ${i.priceChanges.map((p) => `${p.date} ${euroText(p.from)}→${euroText(p.to)}`).join(', ')}`
           : ''),
     );
   return lines.join('\n');

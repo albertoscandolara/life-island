@@ -16,6 +16,7 @@ import {
   lifeQuestionRequestSchema,
   shoppingItemRequestSchema,
   type GroceriesOverviewDto,
+  type LifeAttentionDto,
   type ShoppingSuggestionDto,
 } from '@life-island/contracts';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -46,6 +47,12 @@ export class ShoppingController {
   @Get('overview')
   overview(): Promise<GroceriesOverviewDto> {
     return this.shopping.overview();
+  }
+
+  /** What needs you, for the hub badge: the regular items probably running out. */
+  @Get('attention')
+  attention(): Promise<LifeAttentionDto> {
+    return this.shopping.attention();
   }
 
   @Post('list')
