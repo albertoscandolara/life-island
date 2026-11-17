@@ -1,0 +1,109 @@
+@if (error(); as message) {
+<ui-alert tone="danger">{{ message }}</ui-alert>
+}
+<ui-card [heading]="typeLabel(series().type)">
+  <ui-badge uiCardActions tone="neutral"
+    >{{ series().versions.length }} {{ series().versions.length === 1 ?
+    'version' : 'versions' }}</ui-badge
+  >
+  <ol class="versions">
+    @for (version of series().versions; track version.uploadId) {
+    <li class="version" [class.version--old]="version.status === 'superseded'">
+      <span class="version__number">v{{ version.version }}</span>
+      <div class="version__body">
+        <div class="version__line">
+          <ui-badge [tone]="statusTones[version.status]"
+            >{{ statusLabels[version.status] }}</ui-badge
+          >
+          @if (alertOf(version.uploadId); as alert) {
+          <ui-badge [tone]="alert.level === 'expired' ? 'danger' : 'warning'"
+            >{{ renewalText(alert) }}</ui-badge
+          >
+          } @if (version.number) {
+          <span class="mono">{{ version.number }}</span>
+          }
+        </div>
+        <p class="li-muted li-small">
+          @if (version.validFrom) { From {{ dateText(version.validFrom) }} } @if
+          (version.validUntil) { · until {{ dateText(version.validUntil) }} }
+          @if (version.issuer) { · {{ version.issuer }} } @if (version.amount
+          !== null) { · {{ euro(version.amount) }} }
+        </p>
+        @if (version.documents.length > 1) {
+        <ul
+          class="parts"
+          [attr.aria-label]="'Documents of version ' + version.version"
+        >
+          @for (part of version.documents; track part.uploadId) {
+          <li class="part">
+            <ui-badge tone="neutral"
+              >{{ part.role ? roleLabels[part.role] : 'Document' }}</ui-badge
+            >
+            <a
+              class="part__title"
+              [href]="previewUrl(part.uploadId)"
+              target="_blank"
+              rel="noopener"
+              [title]="part.title"
+              >{{ part.title }}@if (part.linkedByHand) {
+              <span class="part__by-hand">· added by you</span>
+              }</a
+            >
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [disabled]="busy() !== null"
+              [attr.aria-label]="'Take ' + part.title + ' out of this record'"
+              (click)="detach(part.uploadId)"
+            >
+              Detach
+            </button>
+          </li>
+          }
+        </ul>
+        } @if ($first && attachable(version).length) {
+        <select
+          class="ui-input compact attach"
+          [attr.aria-label]="'Attach a document to version ' + version.version"
+          [disabled]="busy() !== null"
+          (change)="attach($any($event.target), version.uploadId)"
+        >
+          <option value="">Attach another document…</option>
+          @for (part of attachable(version); track part.uploadId) {
+          <option [value]="part.uploadId">
+            {{ part.role ? roleLabels[part.role] + ' · ' : '' }}{{ part.title }}
+          </option>
+          }
+        </select>
+        }
+      </div>
+      <div class="version__actions">
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          [href]="previewUrl(version.uploadId)"
+          target="_blank"
+          rel="noopener"
+          [attr.aria-label]="'Open version ' + version.version"
+        >
+          <ui-icon name="eye" [size]="16" />
+        </a>
+        <select
+          class="ui-input compact"
+          [attr.aria-label]="'Mark version ' + version.version"
+          [value]="version.status === 'cancelled' ? 'cancelled' : ''"
+          [disabled]="busy() !== null"
+          (change)="mark(version.uploadId, $any($event.target).value)"
+        >
+          <option value="">By its dates</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </li>
+    }
+  </ol>
+</ui-card>

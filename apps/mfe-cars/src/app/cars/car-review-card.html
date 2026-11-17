@@ -1,0 +1,214 @@
+@if (error(); as message) {
+<ui-alert tone="danger">{{ message }}</ui-alert>
+}
+<ui-card heading="To review">
+  <ui-badge uiCardActions tone="warning"
+    >{{ reviews().length }} waiting</ui-badge
+  >
+  <p class="li-intro">
+    New car documents never change a car on their own. Pick which car each one
+    is about and which printed values to take. A plate you do not have yet is
+    suggested as a new car.
+  </p>
+  @for (review of reviews(); track review.uploadId) {
+  <article class="review" [class.review--busy]="busy() === review.uploadId">
+    <header class="review__head">
+      <div>
+        <h3 class="review__title">
+          {{ typeLabel(review.type) }} @if (review.role) {
+          <span>· {{ roleLabels[review.role] }}</span>
+          } @if (review.registrationNumber) {
+          <span class="mono">· {{ review.registrationNumber }}</span>
+          }
+        </h3>
+        <p class="li-muted">
+          {{ review.title }} @if (review.make || review.commercialName) { · {{
+          review.make }} {{ review.commercialName }} }
+        </p>
+      </div>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="previewUrl(review.uploadId)"
+        target="_blank"
+        rel="noopener"
+      >
+        <ui-icon name="eye" [size]="16" /> Open
+      </a>
+    </header>
+
+    @if (review.facts.length) {
+    <dl class="facts">
+      @for (fact of review.facts; track fact.label) {
+      <div>
+        <dt>{{ fact.label }}</dt>
+        <dd>{{ fact.value }}</dd>
+      </div>
+      }
+    </dl>
+    } @if (!readable(review)) {
+    <ui-alert tone="info">
+      It prints no plate or VIN (most fuel receipts do not), so it cannot make a
+      new car. File it under one of your cars.
+    </ui-alert>
+    } @else if (!review.vehicleId) {
+    <ui-alert tone="warning">
+      <strong>A new car?</strong> None of your cars has the plate
+      <span class="mono">{{ review.registrationNumber ?? review.vin }}</span>.
+      Add it as a new car, or pick the right car if the plate was misread.
+    </ui-alert>
+    } @if (review.joins; as joins) {
+    <ui-alert tone="info">
+      <strong>Same policy as one you have.</strong> It prints
+      <span class="mono">{{ joins.number }}</span>, like the record that already
+      has {{ joins.documentCount }} {{ joins.documentCount === 1 ? 'document' :
+      'documents' }}: approved, it joins that record instead of making a new
+      version.
+    </ui-alert>
+    } @if (review.outdated) {
+    <ui-alert tone="info">
+      This certificate is older than one you already have, so it suggests
+      keeping your current data.
+    </ui-alert>
+    }
+
+    <label class="review__whose">
+      <span>Which car?</span>
+      <select
+        class="ui-input compact"
+        (change)="chooseVehicle(review, $any($event.target).value)"
+      >
+        @if (readable(review)) {
+        <option value="new" [selected]="isNewVehicle(review)">A new car</option>
+        } @for (vehicle of vehicles(); track vehicle.id) {
+        <option
+          [value]="vehicle.id"
+          [selected]="draft(review).vehicleId === vehicle.id"
+        >
+          {{ vehicleName(vehicle) }} @if (vehicle.id === review.vehicleId) {
+          (matched by {{ review.match === 'vin' ? 'VIN' : 'plate' }}) }
+        </option>
+        }
+      </select>
+    </label>
+
+    @if (isNewVehicle(review)) {
+    <label class="edit__field new-name">
+      <span>Name it (optional)</span>
+      <input
+        class="ui-input compact"
+        type="text"
+        placeholder="e.g. Panda"
+        [value]="draft(review).label"
+        (input)="setDraftLabel(review, $any($event.target).value)"
+      />
+    </label>
+    <p class="sub">A new car with what it prints</p>
+    <div class="li-table-wrap">
+      <table class="li-table">
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Meaning</th>
+            <th scope="col">Printed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of review.printed; track row.field) {
+          <tr>
+            <td><span class="code">{{ row.code ?? '·' }}</span></td>
+            <th scope="row">{{ label(row.field) }}</th>
+            <td>
+              <strong>{{ valueText(row.field, row.value) }}</strong>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else if (draft(review).vehicleId !== review.vehicleId) {
+    <ui-alert tone="info">
+      Filed under this car, it keeps the car's data as it is. Use Edit on the
+      car afterwards if something printed is right.
+    </ui-alert>
+    } @else if (changesFor(review).length) {
+    <p class="sub">New or different from what you have</p>
+    <div class="li-table-wrap">
+      <table class="li-table">
+        <thead>
+          <tr>
+            <th scope="col">Take</th>
+            <th scope="col">Code</th>
+            <th scope="col">Field</th>
+            <th scope="col">You have</th>
+            <th scope="col">Printed</th>
+            <th scope="col">Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of changesFor(review); track change.field) {
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                [attr.aria-label]="'Take ' + label(change.field)"
+                [checked]="draft(review).accept.has(change.field)"
+                (change)="toggle(review, change.field)"
+              />
+            </td>
+            <td>
+              <span
+                class="code"
+                [attr.title]="change.code ? codeMeanings[change.code] : null"
+                >{{ change.code ?? '·' }}</span
+              >
+            </td>
+            <th scope="row">{{ label(change.field) }}</th>
+            <td class="li-muted">
+              {{ valueText(change.field, change.current) || '—' }}
+            </td>
+            <td>
+              <strong>{{ valueText(change.field, change.proposed) }}</strong>
+            </td>
+            <td>
+              <ui-badge [tone]="suggestionTones[change.suggestion]"
+                >{{ suggestionLabels[change.suggestion] }}</ui-badge
+              >
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <p class="li-muted">
+      <ui-icon name="check" [size]="16" /> Nothing new about the car: it only
+      adds the document.
+    </p>
+    }
+
+    <footer class="review__actions">
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reject(review)"
+      >
+        Not about any of my cars
+      </button>
+      <button
+        uiButton
+        type="button"
+        [loading]="busy() === review.uploadId"
+        [disabled]="busy() !== null || (isNewVehicle(review) && !readable(review))"
+        (click)="approve(review)"
+      >
+        <ui-icon name="check" [size]="18" />
+        {{ isNewVehicle(review) ? 'Add the car' : 'Approve' }}
+      </button>
+    </footer>
+  </article>
+  }
+</ui-card>

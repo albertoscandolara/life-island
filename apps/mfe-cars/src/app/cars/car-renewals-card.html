@@ -1,0 +1,25 @@
+<ui-card heading="Renewals">
+  <ul class="renewals">
+    @for (renewal of renewals(); track $index) {
+    <li class="renewal">
+      <div class="renewal__line">
+        <strong>{{ renewalTitle(renewal) }}</strong>
+        <ui-badge [tone]="levelTones[renewal.level]"
+          >{{ levelLabels[renewal.level] }}</ui-badge
+        >
+      </div>
+      <p class="li-muted li-small">
+        @if (renewal.dueDate) { Due by {{ dateText(renewal.dueDate) }} · {{
+        renewalText(renewal) }} } @else { {{ renewal.basis }} } @if
+        (renewal.dueOdometerKm) { · {{ renewal.dueDate ? 'or at' : 'at' }} {{
+        num(renewal.dueOdometerKm, 0, 0)}} km }
+      </p>
+      @if (renewal.dueDate) {
+      <p class="li-muted li-small">{{ renewal.basis }}</p>
+      }
+    </li>
+    } @empty {
+    <li class="li-muted">Nothing to renew is known yet.</li>
+    }
+  </ul>
+</ui-card>

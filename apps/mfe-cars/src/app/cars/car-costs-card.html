@@ -1,0 +1,52 @@
+<ui-card heading="Costs">
+  @if (costs().length) { @if (table(); as table) {
+  <div class="li-table-wrap">
+    <table class="li-table">
+      <thead>
+        <tr>
+          <th scope="col">Year</th>
+          @for (kind of table.kinds; track kind) {
+          <th scope="col" class="li-num">{{ costKindLabels[kind] }}</th>
+          }
+          <th scope="col" class="li-num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of table.years; track row.year) {
+        <tr>
+          <th scope="row">{{ row.year }}</th>
+          @for (total of row.totals; track $index) {
+          <td class="li-num">{{ euro(total) }}</td>
+          }
+          <td class="li-num">
+            <strong>{{ euro(row.total) }}</strong>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+  <details class="costs">
+    <summary>{{ costs().length }} documents with a cost</summary>
+    <ul>
+      @for (cost of costs(); track cost.uploadId) {
+      <li>
+        <span>{{ dateText(cost.date) }}</span>
+        <span>{{ costKindLabels[cost.kind] }}</span>
+        <span class="li-muted">{{ cost.supplier ?? cost.title }}</span>
+        @if (cost.litres) {
+        <span class="li-muted">{{ num(cost.litres, 0, 2) }} l</span>
+        }
+        <strong class="li-num">{{ euro(cost.amount) }}</strong>
+      </li>
+      }
+    </ul>
+  </details>
+  } @else {
+  <p class="li-muted">
+    No costs yet: insurance, road tax, revisione and expenses (fuel, service,
+    repairs, tolls...) add up here once approved.
+  </p>
+  }
+</ui-card>
