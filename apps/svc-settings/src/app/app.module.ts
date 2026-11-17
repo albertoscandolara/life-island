@@ -18,6 +18,8 @@ import {
   AI_TOOL_USED_EVENT,
 } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type SettingsConfig } from './config.js';
+import { AiGuardController } from './ai-guard/ai-guard.controller.js';
+import { AiGuardService } from './ai-guard/ai-guard.service.js';
 import { HealthController } from './health.controller.js';
 import { SettingsController } from './settings/settings.controller.js';
 import { SettingsService } from './settings/settings.service.js';
@@ -82,11 +84,12 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, SettingsController],
+      controllers: [HealthController, SettingsController, AiGuardController],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         SettingsService,
+        AiGuardService,
         ...(options.events === false
           ? []
           : [

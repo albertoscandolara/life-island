@@ -112,6 +112,8 @@ services:
       # Sign-in (docs/security.md): services ask svc-auth about session cookies
       # and call each other with the shared INTERNAL_TOKEN. Unset, they refuse to start.
       AUTH_URL: http://svc-auth:3000
+      # Every model call reserves its cost with svc-settings first (docs/security.md).
+      SETTINGS_URL: http://svc-settings:3000
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333

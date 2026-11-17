@@ -18,6 +18,7 @@ svc-settings  (schema settings, port 3009, /api/settings)
       │  stores the switches and app settings   → publishes settings.changed@1
       │  receives ai.tool_described@1 (request)  ← each service at startup
       │  receives ai.tool_used@1 (tokens)        ← each service on every use
+      │  POST /ai-guard/reserve, …/settle        ← AiAssistant before and after every model call
       ▼
 svc-work, svc-parse-worker, …  keep a settings_replica table (updated by settings.changed@1)
       │  and check isAiToolEnabled() before every model call
@@ -26,7 +27,9 @@ libs/settings-ui  <li-ai-tool>, <li-ai-tool-info>, SettingsApi   (one GET /api/s
 libs/design-system  <ui-ai-panel>, <ui-ai-badge>, <ui-ai-status>, the --ai-* tokens
 ```
 
-- svc-settings owns the values. A service never calls svc-settings over HTTP; it reads its own replica (principle 1). This is also how settings reach the parse worker, which has no HTTP.
+- svc-settings owns the values. A service reads switches and models from its own replica, never over HTTP (principle 1). This is also how settings reach the parse worker, which has no HTTP.
+- The one synchronous call is the **spending guard**. Before every model call, `AiAssistant` (and the parse worker's `GatedAnalyzer`) reserves the call's worst-case cost with svc-settings (`POST /ai-guard/reserve`, internal only), and settles the real cost afterwards, a failure too. Reservations count until settled, so parallel calls cannot overspend. A refusal answers 429 with the reason; the parse worker reads the file without AI instead. If svc-settings cannot be reached, the call is refused: the guard fails closed.
+- The guard's limits come from the server environment, not from Settings, so a signed-in browser cannot raise them: `AI_HARD_MONTHLY_USD` (25, lowered further by the Settings budget when its stop is on), `AI_USER_DAILY_USD` (5), `AI_USER_PER_MINUTE` (6), `AI_USER_PER_HOUR` (60) and `AI_MAX_CALL_USD` (3, the most one call may cost at its worst case). `GET /api/settings/ai-guard` shows them with what is spent.
 - `ai.enabled` is the master switch. A tool calls the model only when `ai.enabled` and `ai-tool.<id>` are both on and its service has an API key.
 - Costs come from the Claude API list prices in `MODEL_PRICES` (thinking is billed as output; web search costs $0.01 per search). Until a tool has been used, its cost per use is an estimate from the registry's typical tokens. After that, it is the average of its real uses.
 
@@ -43,7 +46,7 @@ libs/design-system  <ui-ai-panel>, <ui-ai-badge>, <ui-ai-status>, the --ai-* tok
 
 2. **Gate it.** The service needs a `settings_replica` table: copy the migration from `apps/svc-work/drizzle/0003_settings_replica.sql`. It also needs a consumer of `SETTING_CHANGED_EVENT` with `settingChangedHandler(schema)`; see `apps/svc-work/src/app/app.module.ts`. Build one `AiAssistant` (`@life-island/be-nest`) per tool and check `await ai.active()` before calling the model: it reads the key, the tool's switch, the master switch and the budget. When it is off, use the fallback from `whenOff`, or answer 503 with a message that names Settings → AI tools.
 3. **Describe it at startup** with `ai.describe([steps])`. Each `AiAssistantStep` gives the label, effort, max tokens, server tools, the system prompt word for word and the user message template; the same constants are what the calls send, so the info dialog never drifts. A test can check them with `describeAiSteps`; see `describeWorkTools` in `apps/svc-work/src/app/work/career-advisor.ts`.
-4. **Call it** with `ai.ask({ step, user, output })` for one structured answer (the user message may carry PDFs and images), or `ai.research({ research, format })` for a web search followed by a structured answer. Either records the use with its tokens, a failure too, and throws a 503 whose message says what to fix. No service creates its own `Anthropic` client.
+4. **Call it** with `ai.ask({ step, user, output })` for one structured answer (the user message may carry PDFs and images), or `ai.research({ research, format })` for a web search followed by a structured answer. Either reserves the cost first, records the use with its tokens, a failure too, and throws a 503 whose message says what to fix, or a 429 when the guard refuses. No service creates its own `Anthropic` client, because a call that skips `AiAssistant` skips the guard.
 5. **Expose whether it is on** in the module's DTO (for example `aiFeedback` and `aiMarketCheck` in `WorkOverviewDto`), so the page can say what the user will get.
 6. **Show it** with the components below.
 

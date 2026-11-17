@@ -15,19 +15,19 @@ The threats that matter for a published personal app: a stranger on the internet
 
 ## Review findings
 
-| #   | Finding                                                                                                                                                        | Risk     | Status                                                                                                          |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| 1   | The gateway's sign-in defaulted to `off`, so a missing setting published everything without a login                                                            | Critical | **Fixed**: `GATEWAY_AUTH` has no default; unset, the gateway refuses to start                                   |
-| 2   | Postgres, NATS, storage and the gateway were bound to every network interface                                                                                  | Critical | **Fixed**: bound to `127.0.0.1`; only the gateway and storage can be opened, explicitly                         |
-| 3   | Services fall back to the dev database passwords and storage keys when an env var is missing                                                                   | High     | **Fixed**: in production (`NODE_ENV=production`, set by the image) a service with a dev secret refuses to start |
-| 4   | No security headers on any answer (HSTS, nosniff, framing, referrer)                                                                                           | High     | **Fixed** at the gateway and in every service                                                                   |
-| 5   | Writes had no cross-site check (CSRF once a session cookie exists)                                                                                             | High     | **Fixed**: every service refuses writes a browser sends from another site                                       |
-| 6   | No rate limits                                                                                                                                                 | High     | **Fixed** per client and service (`RATE_LIMIT_PER_MINUTE`); login gets its own stricter limit with sign-in      |
-| 7   | Services trust any caller: anyone who reaches a service port reads everything; basic auth is the only door and has no lockout, 2FA or logout                   | Critical | **Fixed**: sign-in with password, two-factor and sessions; every service checks it (below)                      |
-| 8   | `GET /uploads/:id/file` hands out a presigned storage link that works for anyone holding it for 5 minutes                                                      | Medium   | **Fixed**: the route needs sign-in and links last 60 seconds; preview and download are streamed                 |
-| 9   | The monthly AI budget is enforced after the fact (usage reaches Settings through events), so a burst of requests can overspend; no per-minute or per-user caps | High     | Planned: AI cost guards (below)                                                                                 |
-| 10  | Identity headers from clients (`X-User-Id`) could be forwarded once services read them                                                                         | Medium   | **Fixed** ahead of time: the gateway drops them                                                                 |
-| 11  | No CORS: no service sends `Access-Control-Allow-Origin`                                                                                                        | —        | Correct as is: pages on other sites cannot read answers. Keep it off                                            |
+| #   | Finding                                                                                                                                                           | Risk     | Status                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1   | The gateway's sign-in defaulted to `off`, so a missing setting published everything without a login                                                               | Critical | **Fixed**: `GATEWAY_AUTH` has no default; unset, the gateway refuses to start                                    |
+| 2   | Postgres, NATS, storage and the gateway were bound to every network interface                                                                                     | Critical | **Fixed**: bound to `127.0.0.1`; only the gateway and storage can be opened, explicitly                          |
+| 3   | Services fall back to the dev database passwords and storage keys when an env var is missing                                                                      | High     | **Fixed**: in production (`NODE_ENV=production`, set by the image) a service with a dev secret refuses to start  |
+| 4   | No security headers on any answer (HSTS, nosniff, framing, referrer)                                                                                              | High     | **Fixed** at the gateway and in every service                                                                    |
+| 5   | Writes had no cross-site check (CSRF once a session cookie exists)                                                                                                | High     | **Fixed**: every service refuses writes a browser sends from another site                                        |
+| 6   | No rate limits                                                                                                                                                    | High     | **Fixed** per client and service (`RATE_LIMIT_PER_MINUTE`); login gets its own stricter limit with sign-in       |
+| 7   | Services trust any caller: anyone who reaches a service port reads everything; basic auth is the only door and has no lockout, 2FA or logout                      | Critical | **Fixed**: sign-in with password, two-factor and sessions; every service checks it (below)                       |
+| 8   | `GET /uploads/:id/file` hands out a presigned storage link that works for anyone holding it for 5 minutes                                                         | Medium   | **Fixed**: the route needs sign-in and links last 60 seconds; preview and download are streamed                  |
+| 9   | The monthly AI budget was enforced after the fact (usage reaches Settings through events), so a burst of requests could overspend; no per-minute or per-user caps | High     | **Fixed**: every model call reserves its worst-case cost first, with monthly, per-user and per-call caps (below) |
+| 10  | Identity headers from clients (`X-User-Id`) could be forwarded once services read them                                                                            | Medium   | **Fixed** ahead of time: the gateway drops them                                                                  |
+| 11  | No CORS: no service sends `Access-Control-Allow-Origin`                                                                                                           | —        | Correct as is: pages on other sites cannot read answers. Keep it off                                             |
 
 ## In place
 
@@ -63,13 +63,24 @@ The front end (`libs/auth-ui`): the sign-in page (sign-in, two-factor code, firs
 
 To try the real sign-in locally, set `AUTH_DEV_BYPASS=false`, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY` and `AUTH_SETUP_TOKEN` in `.env`, restart, and open `/sign-in`.
 
+## AI spending
+
+Every model call goes through `AiAssistant` (the parse worker through `GatedAnalyzer`), which asks svc-settings to **reserve** the call's worst-case cost before calling Claude (input tokens, `max_tokens` and web searches at list price) and **settles** the real cost afterwards. svc-settings takes a lock for each reservation, so parallel requests cannot pass the limit together.
+
+| Limit                | Env (svc-settings)    | Default |
+| -------------------- | --------------------- | ------- |
+| Whole island, month  | `AI_HARD_MONTHLY_USD` | $25     |
+| One person, day      | `AI_USER_DAILY_USD`   | $5      |
+| One person, minute   | `AI_USER_PER_MINUTE`  | 6 calls |
+| One person, hour     | `AI_USER_PER_HOUR`    | 60      |
+| One call, worst case | `AI_MAX_CALL_USD`     | $3      |
+
+- The monthly ceiling is the lower of `AI_HARD_MONTHLY_USD` and the Settings budget when its stop is on. The limits live in the server environment so that a signed-in browser cannot raise them.
+- A refused call answers 429 with the reason; the parse worker reads the document without AI. If svc-settings cannot be reached, calls are refused (fail closed).
+- The reserve and settle routes accept only `INTERNAL_TOKEN`; `GET /api/settings/ai-guard` shows the limits and what is spent.
+- **One Claude key, on the server.** The island is one household, so there is no per-person key: the key is read from the server environment only, never stored in the database, sent to the browser or written to logs. Per-person caps stop one account from spending for everyone. Set a spending limit on the Claude Console too, as the last line.
+
 ## Planned
-
-### AI cost guards
-
-- The monthly budget checked **before** each call, with the cost of the call reserved first, so parallel requests cannot overspend.
-- Per-user daily caps and per-minute limits on every AI tool, and a ceiling on `max_tokens` and web searches per call.
-- The Claude key only ever on the server, stored encrypted at rest; never sent to the browser or written to logs.
 
 ### Documents
 
@@ -83,7 +94,7 @@ To try the real sign-in locally, set `AUTH_DEV_BYPASS=false`, `INTERNAL_TOKEN`, 
 4. Never send `Access-Control-Allow-Origin`. The front end reaches services on its own origin.
 5. Files leave only through an authorised API route; never make a bucket or object public.
 6. Never log document contents, extracted personal data or keys.
-7. Every model call goes through `AiAssistant` (docs/guides/ai-tools.md), so the cost guards apply to it.
+7. Every model call goes through `AiAssistant` (docs/guides/ai-tools.md), so the spending guard applies to it.
 
 ## Publishing checklist
 
@@ -93,5 +104,5 @@ To try the real sign-in locally, set `AUTH_DEV_BYPASS=false`, `INTERNAL_TOKEN`, 
 - [ ] `GATEWAY_AUTH=session` (or `basic` for a second password); the gateway is behind HTTPS (Caddy does it for a real domain).
 - [ ] Only the gateway (and, if needed, storage for direct uploads) is reachable from the internet: `GATEWAY_BIND=0.0.0.0`, a firewall closing every other port.
 - [ ] `STORAGE_CORS_ORIGINS` lists only the published origin.
-- [ ] The monthly AI budget is set in Settings, and a spending limit is set on the Claude Console as a last line.
+- [ ] `AI_HARD_MONTHLY_USD` and the per-person limits fit your budget; the monthly AI budget is set in Settings, and a spending limit is set on the Claude Console as a last line.
 - [ ] Backups are encrypted and a restore was tested.

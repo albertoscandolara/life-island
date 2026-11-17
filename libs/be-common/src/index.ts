@@ -13,3 +13,4 @@ export * from './lib/ai-tools.js';
 export * from './lib/production-guard.js';
 export * from './lib/secret-box.js';
 export * from './lib/auth-mode.js';
+export * from './lib/ai-spend-guard.js';

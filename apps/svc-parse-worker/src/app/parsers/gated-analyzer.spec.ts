@@ -1,4 +1,8 @@
-import type { ServiceDb } from '@life-island/be-common';
+import {
+  AiSpendDenied,
+  type AiSpendGuard,
+  type ServiceDb,
+} from '@life-island/be-common';
 import type {
   DocumentAnalyzer,
   ParseInput,
@@ -59,6 +63,18 @@ function fakeDb(replica: Record<string, unknown>) {
   return { svc: { pool, schema: 'ingestion' } as unknown as ServiceDb, events };
 }
 
+/** A spending guard that lets every call through, recording what was settled. */
+function openGuard() {
+  const settled: number[] = [];
+  const guard: AiSpendGuard = {
+    reserve: vi.fn(async () => 'r1'),
+    settle: vi.fn(async (_id: string, usd: number) => {
+      settled.push(usd);
+    }),
+  };
+  return { guard, settled };
+}
+
 const run: ParseRunRecord = {
   step: 'classify',
   model: 'claude-haiku-5-5',
@@ -73,7 +89,13 @@ describe('GatedAnalyzer', () => {
     const ai = analyzer('claude', [run]);
     const offline = analyzer('offline');
     const { svc, events } = fakeDb({});
-    const gated = new GatedAnalyzer(ai, offline, svc);
+    const gated = new GatedAnalyzer(
+      ai,
+      offline,
+      svc,
+      undefined,
+      openGuard().guard,
+    );
 
     const output = await gated.classify(input, []);
 
@@ -89,7 +111,13 @@ describe('GatedAnalyzer', () => {
     const ai = analyzer('claude', [run]);
     const offline = analyzer('offline');
     const { svc, events } = fakeDb({ 'ai-tool.documents.extract': false });
-    const gated = new GatedAnalyzer(ai, offline, svc);
+    const gated = new GatedAnalyzer(
+      ai,
+      offline,
+      svc,
+      undefined,
+      openGuard().guard,
+    );
 
     const plan = {} as Parameters<DocumentAnalyzer['extract']>[1];
     expect((await gated.extract(input, plan)).result).toEqual({
@@ -105,7 +133,13 @@ describe('GatedAnalyzer', () => {
     const ai = analyzer('claude', [run]);
     const offline = analyzer('offline');
     const { svc, events } = fakeDb({ 'ai.enabled': false });
-    const gated = new GatedAnalyzer(ai, offline, svc);
+    const gated = new GatedAnalyzer(
+      ai,
+      offline,
+      svc,
+      undefined,
+      openGuard().guard,
+    );
 
     const context = { analysis: null, categories: [] };
     expect((await gated.readTransaction(input, context)).result).toEqual({
@@ -121,7 +155,13 @@ describe('GatedAnalyzer', () => {
     });
     vi.mocked(ai.readTransaction).mockRejectedValue(failure);
     const { svc, events } = fakeDb({});
-    const gated = new GatedAnalyzer(ai, analyzer('offline'), svc);
+    const gated = new GatedAnalyzer(
+      ai,
+      analyzer('offline'),
+      svc,
+      undefined,
+      openGuard().guard,
+    );
 
     await expect(
       gated.readTransaction(input, { analysis: null, categories: [] }),
@@ -139,7 +179,13 @@ describe('GatedAnalyzer', () => {
     const { svc } = fakeDb({
       'ai-model.documents.classify': 'claude-opus-5-5',
     });
-    const gated = new GatedAnalyzer(ai, analyzer('offline'), svc, aiOn);
+    const gated = new GatedAnalyzer(
+      ai,
+      analyzer('offline'),
+      svc,
+      aiOn,
+      openGuard().guard,
+    );
 
     expect((await gated.classify(input, [])).result).toEqual({ by: 'opus' });
     expect(aiOn).toHaveBeenCalledWith('documents.classify', 'claude-opus-5-5');
@@ -151,7 +197,52 @@ describe('GatedAnalyzer', () => {
   it('runs offline while the monthly budget stops AI', async () => {
     const ai = analyzer('claude', [run]);
     const { svc } = fakeDb({ 'ai.budget-reached': true });
-    const gated = new GatedAnalyzer(ai, analyzer('offline'), svc);
+    const gated = new GatedAnalyzer(
+      ai,
+      analyzer('offline'),
+      svc,
+      undefined,
+      openGuard().guard,
+    );
     expect((await gated.classify(input, [])).result).toEqual({ by: 'offline' });
+  });
+
+  it('reserves before the model and settles the real cost', async () => {
+    const ai = analyzer('claude', [run]);
+    const { svc } = fakeDb({});
+    const { guard, settled } = openGuard();
+    await new GatedAnalyzer(
+      ai,
+      analyzer('offline'),
+      svc,
+      undefined,
+      guard,
+    ).classify(input, []);
+    expect(guard.reserve).toHaveBeenCalledWith(
+      expect.objectContaining({ toolId: 'documents.classify', userId: null }),
+    );
+    // Haiku 5.5: 1,200 in at $0.1/M and 300 out at $0.5/M.
+    expect(settled[0]).toBeCloseTo(0.00027, 6);
+  });
+
+  it('runs offline when the spending guard refuses', async () => {
+    const ai = analyzer('claude', [run]);
+    const offline = analyzer('offline');
+    const { svc } = fakeDb({});
+    const guard: AiSpendGuard = {
+      reserve: vi.fn(async () => {
+        throw new AiSpendDenied('AI is paused until next month.');
+      }),
+      settle: vi.fn(),
+    };
+    const result = await new GatedAnalyzer(
+      ai,
+      offline,
+      svc,
+      undefined,
+      guard,
+    ).classify(input, []);
+    expect(result.result).toEqual({ by: 'offline' });
+    expect(ai.classify).not.toHaveBeenCalled();
   });
 });
