@@ -1,12 +1,23 @@
 {
+  "/api/auth": {
+    "target": "http://localhost:3020",
+    "pathRewrite": {
+      "^/api/auth": ""
+    },
+    "changeOrigin": true
+  },
   "/api/fitness": {
     "target": "http://localhost:3018",
-    "pathRewrite": { "^/api/fitness": "" },
+    "pathRewrite": {
+      "^/api/fitness": ""
+    },
     "changeOrigin": true
   },
   "/api/settings": {
     "target": "http://localhost:3009",
-    "pathRewrite": { "^/api/settings": "" },
+    "pathRewrite": {
+      "^/api/settings": ""
+    },
     "changeOrigin": true
   }
 }

@@ -1,7 +1,16 @@
 {
+  "/api/auth": {
+    "target": "http://localhost:3020",
+    "pathRewrite": {
+      "^/api/auth": ""
+    },
+    "changeOrigin": true
+  },
   "/api/cars": {
     "target": "http://localhost:3007",
-    "pathRewrite": { "^/api/cars": "" },
+    "pathRewrite": {
+      "^/api/cars": ""
+    },
     "changeOrigin": true
   }
 }

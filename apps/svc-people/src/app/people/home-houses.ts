@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { PropertyDto, ResidenceHousesDto } from '@life-island/contracts';
 import { CONFIG, type PeopleConfig } from '../config.js';
@@ -24,6 +25,7 @@ export class HomeHouses {
     try {
       const response = await fetch(`${this.config.homeUrl}/properties`, {
         signal: AbortSignal.timeout(3000),
+        headers: internalHeaders(),
       });
       if (!response.ok) throw new Error(`svc-home answered ${response.status}`);
       const properties = (await response.json()) as PropertyDto[];

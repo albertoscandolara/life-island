@@ -7,6 +7,7 @@
       <span class="brand__name">Life Island</span>
     </a>
     <div class="topbar__end">
+      @if (auth.session()?.ready && auth.user(); as user) {
       <a class="topbar__link" [href]="documentsUrl">
         <ui-icon name="upload" [size]="18" />
         <span class="topbar__label">Documents</span>
@@ -24,6 +25,16 @@
         <ui-icon name="sliders" [size]="18" />
         <span class="topbar__label">Settings</span>
       </a>
+      <a
+        class="topbar__link"
+        routerLink="/account"
+        routerLinkActive="topbar__link--on"
+        ariaCurrentWhenActive="page"
+      >
+        <ui-icon name="user" [size]="18" />
+        <span class="topbar__label">{{ user.name }}</span>
+      </a>
+      }
       <ui-theme-toggle />
     </div>
   </div>

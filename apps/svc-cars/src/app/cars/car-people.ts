@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { CarsPeopleDto, PersonSummaryDto } from '@life-island/contracts';
 import { CONFIG, type CarsConfig } from '../config.js';
@@ -26,6 +27,7 @@ export class CarPeople {
     try {
       const response = await fetch(`${this.config.peopleUrl}/people`, {
         signal: AbortSignal.timeout(3000),
+        headers: internalHeaders(),
       });
       if (!response.ok)
         throw new Error(`svc-people answered ${response.status}`);

@@ -1,6 +1,8 @@
 import { Route } from '@angular/router';
+import { SIGN_IN_PATH, signInGuard } from '@life-island/auth-ui';
 
-export const appRoutes: Route[] = [
+/** Every page of the documents app, open only once you are signed in. */
+const documentRoutes: Route[] = [
   {
     path: '',
     pathMatch: 'full',
@@ -25,4 +27,14 @@ export const appRoutes: Route[] = [
     title: 'Document categories · Life Island',
   },
   { path: '**', redirectTo: '' },
+];
+
+export const appRoutes: Route[] = [
+  {
+    path: SIGN_IN_PATH,
+    loadComponent: () =>
+      import('@life-island/auth-ui').then((m) => m.SignInPage),
+    title: 'Sign in · Life Island',
+  },
+  { path: '', canActivateChild: [signInGuard], children: documentRoutes },
 ];

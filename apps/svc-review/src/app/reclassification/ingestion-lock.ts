@@ -1,3 +1,4 @@
+import { internalHeaders } from '@life-island/be-common';
 import {
   HttpException,
   Inject,
@@ -32,7 +33,7 @@ export class IngestionLockGuard implements CanActivate {
     try {
       const response = await fetch(
         `${this.config.ingestionUrl}/reclassification`,
-        { signal: AbortSignal.timeout(5000) },
+        { signal: AbortSignal.timeout(5000), headers: internalHeaders() },
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       state = (await response.json()) as ReclassificationStateDto;

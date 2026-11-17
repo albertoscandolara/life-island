@@ -1,4 +1,11 @@
 {
+  "/api/auth": {
+    "target": "http://localhost:3020",
+    "pathRewrite": {
+      "^/api/auth": ""
+    },
+    "changeOrigin": true
+  },
   "/api/tax730": {
     "target": "http://localhost:3004",
     "pathRewrite": {

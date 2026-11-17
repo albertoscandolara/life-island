@@ -24,8 +24,9 @@ create role subscriptions_svc login password 'dev_subscriptions';
 create role travel_svc login password 'dev_travel';
 create role fitness_svc login password 'dev_fitness';
 create role dreams_svc login password 'dev_dreams';
+create role auth_svc login password 'dev_auth';
 
-grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc, work_svc, settings_svc, studies_svc, agenda_svc, money_svc, goals_svc, health_svc, subscriptions_svc, travel_svc, fitness_svc, dreams_svc;
+grant connect on database life_island to ingestion_svc, review_svc, grocery_svc, tax730_svc, home_svc, people_svc, cars_svc, work_svc, settings_svc, studies_svc, agenda_svc, money_svc, goals_svc, health_svc, subscriptions_svc, travel_svc, fitness_svc, dreams_svc, auth_svc;
 
 create schema ingestion authorization ingestion_svc;
 create schema review authorization review_svc;
@@ -45,6 +46,7 @@ create schema subscriptions authorization subscriptions_svc;
 create schema travel authorization travel_svc;
 create schema fitness authorization fitness_svc;
 create schema dreams authorization dreams_svc;
+create schema auth authorization auth_svc;
 
 alter role ingestion_svc set search_path = ingestion;
 alter role review_svc set search_path = review;
@@ -64,3 +66,4 @@ alter role subscriptions_svc set search_path = subscriptions;
 alter role travel_svc set search_path = travel;
 alter role fitness_svc set search_path = fitness;
 alter role dreams_svc set search_path = dreams;
+alter role auth_svc set search_path = auth;

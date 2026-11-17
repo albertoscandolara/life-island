@@ -1,7 +1,9 @@
 # Single origin for the front end. Each service is reached under /api/<service>/.
 # Services that are not running yet answer 502 until they exist.
 #
-# Sign-in: GATEWAY_AUTH picks a file from ./auth (off or basic) for every route
+# Sign-in: every service checks the island's session cookie itself (svc-auth,
+# docs/security.md). GATEWAY_AUTH adds an optional door in front: a file from
+# ./auth (session, basic or off) for every route
 # but the health check. It has no default: an unset value names no file and
 # the gateway refuses to start, so a forgotten setting never publishes the
 # island without sign-in. See README.md in this folder and docs/security.md.
@@ -47,6 +49,11 @@
 		respond "ok" 200
 	}
 
+	# Sign-in itself: the login page must reach it before anyone is signed in.
+	handle_path /api/auth/* {
+		import protected
+		reverse_proxy svc-auth:3000
+	}
 	handle_path /api/ingestion/* {
 		import protected
 		reverse_proxy svc-ingestion:3000
