@@ -85,6 +85,7 @@
   --viz-part-3: var(--viz-aqua-500);
   --viz-part-4: var(--viz-yellow-500);
   --viz-bonus: var(--viz-aqua-500);
+  --viz-deductible: var(--viz-blue-450);
   --viz-property-1: var(--viz-aqua-500);
   --viz-property-2: var(--viz-orange-500);
   --viz-property-3: var(--viz-violet-600);
@@ -162,6 +163,7 @@
   --viz-part-3: var(--viz-aqua-600);
   --viz-part-4: var(--viz-yellow-600);
   --viz-bonus: var(--viz-aqua-600);
+  --viz-deductible: var(--viz-blue-400);
   --viz-property-1: var(--viz-aqua-600);
   --viz-property-2: var(--viz-orange-600);
   --viz-property-3: var(--viz-violet-400);

@@ -33,7 +33,7 @@ const year = (taxYear: number, byType: TaxYearDto['byType']): TaxYearDto => ({
 });
 
 describe('YearComparison', () => {
-  it('puts years oldest first and each type in one row across years', async () => {
+  it('puts years oldest first, each type in one row across years, and the totals', async () => {
     const fixture = TestBed.createComponent(YearComparison);
     fixture.componentRef.setInput('years', [
       year(2026, [{ expenseType: 'renovation', total: 27736, count: 7 }]),
@@ -56,6 +56,7 @@ describe('YearComparison', () => {
     expect(rows).toEqual([
       ['Home renovation', '85.992,50 €', '27.736,00 €'],
       ['Medical', '180,00 €', '–'],
+      ['Total', '86.172,50 €', '27.736,00 €'],
     ]);
   });
 });
