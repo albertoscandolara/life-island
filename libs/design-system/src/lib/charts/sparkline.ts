@@ -7,7 +7,7 @@ import {
 
 /** A tiny trend line for a stat tile: the last point in the colour, the rest muted. */
 @Component({
-  selector: 'home-sparkline',
+  selector: 'ui-sparkline',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <svg
@@ -55,7 +55,7 @@ import {
     }
   `,
 })
-export class Sparkline {
+export class UiSparkline {
   readonly values = input.required<number[]>();
   readonly color = input('var(--accent)');
 

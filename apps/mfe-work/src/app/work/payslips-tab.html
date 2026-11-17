@@ -79,7 +79,7 @@
 </ui-alert>
 } @if (payChart().buckets.length) {
 <ui-card heading="Pay month by month" class="block">
-  <work-column-chart
+  <ui-column-chart
     [buckets]="payChart().buckets"
     [series]="payChart().series"
     mode="grouped"

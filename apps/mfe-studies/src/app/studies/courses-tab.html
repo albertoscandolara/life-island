@@ -1,5 +1,5 @@
 <!-- ================================================================ courses -->
-<ui-card heading="Courses" class="block">
+<ui-card heading="Courses" class="li-block">
   <div uiCardActions>
     <button
       uiButton
@@ -11,7 +11,7 @@
       <ui-icon name="plus" [size]="16" /> Add a course
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     The courses you take, on a platform or anywhere else. Tie one to a path step
     and its time counts there too; its cost counts in what you spend this year.
   </p>
@@ -178,7 +178,7 @@
   </form>
   } @if (!data().courses.length && !course()) {
   <ui-empty-state heading="No course yet" icon="file">
-    <p class="muted">
+    <p class="li-muted">
       Add the course you are taking, or the next one: the path steps suggest
       free ones to start with.
     </p>
@@ -186,16 +186,16 @@
   } @for (group of groups(); track group.label) { @if (group.label) {
   <h3 class="sub">{{ group.label }}</h3>
   }
-  <ul class="cards">
+  <ul class="li-cards">
     @for (c of group.courses; track c.id) {
-    <li class="item" [class.item--off]="c.status === 'dropped'">
+    <li class="li-item" [class.li-item--off]="c.status === 'dropped'">
       <div class="item__head">
         <span class="item__mark" aria-hidden="true"
           >{{ c.title.slice(0, 1) }}</span
         >
         <div>
           <strong>{{ c.title }}</strong>
-          <span class="muted small block-line"
+          <span class="li-muted li-small block-line"
             >{{ c.platformName ?? topicLabels[c.topic] }} @if (c.hours) { · {{
             c.hours }} h } @if (c.cost !== null) { · {{ euro(c.cost) }} }</span
           >
@@ -207,18 +207,18 @@
       @if (c.status === 'in_progress' || c.status === 'planned') {
       <ui-progress-bar [value]="c.progress" [label]="c.title + ' progress'" />
       }
-      <p class="small">
+      <p class="li-small">
         {{ c.progress }}% @if (c.hoursLogged) { · {{ c.hoursLogged }} h logged }
         @if (c.completedOn) { · completed {{ dateText(c.completedOn) }} } @if
         (!c.completedOn && c.startedOn) { · started {{ dateText(c.startedOn) }}
         }
       </p>
       @if (c.stepId && pathStep(c.stepId); as step) {
-      <p class="small muted">Covers: {{ step.title }}</p>
+      <p class="li-small li-muted">Covers: {{ step.title }}</p>
       } @if (c.notes) {
-      <p class="small muted">{{ c.notes }}</p>
+      <p class="li-small li-muted">{{ c.notes }}</p>
       }
-      <div class="item__buttons">
+      <div class="li-item__buttons">
         @if (safeUrl(c.url); as url) {
         <a
           uiButton
@@ -278,7 +278,7 @@
 </ui-card>
 
 <!-- ========================================================= certifications -->
-<ui-card heading="Exams and certifications" class="block">
+<ui-card heading="Exams and certifications" class="li-block">
   <div uiCardActions>
     <button
       uiButton
@@ -290,16 +290,16 @@
       <ui-icon name="plus" [size]="16" /> Add one
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     The exams you plan or booked, and the certifications you hold. You get a
     reminder before an exam and before a certification expires; the windows are
     in Settings → Reminders.
   </p>
-  <div class="chips" role="group" aria-label="Add a common certification">
+  <div class="li-chips" role="group" aria-label="Add a common certification">
     @for (p of presets; track p.name) { @if (!hasCertification(p.name)) {
     <button
       type="button"
-      class="chip"
+      class="li-chip"
       (click)="startCertification(undefined, p)"
     >
       <ui-icon name="plus" [size]="14" /> {{ p.name.split(',')[0] }}
@@ -421,20 +421,20 @@
   </form>
   } @if (!data().certifications.length && !certification()) {
   <ui-empty-state heading="No exam planned" icon="calendar">
-    <p class="muted">
+    <p class="li-muted">
       A date on the calendar helps you study. The infrastructure path ends with
       the KCNA, then the CKAD.
     </p>
   </ui-empty-state>
   }
-  <ul class="cards">
+  <ul class="li-cards">
     @for (c of data().certifications; track c.id) {
-    <li class="item">
+    <li class="li-item">
       <div class="item__head">
         <span class="item__mark" aria-hidden="true">🎓</span>
         <div>
           <strong>{{ c.name }}</strong>
-          <span class="muted small block-line"
+          <span class="li-muted li-small block-line"
             >{{ c.provider ?? topicLabels[c.topic] }} @if (c.cost !== null) { ·
             {{ euro(c.cost) }} }</span
           >
@@ -443,13 +443,13 @@
           >{{ certificationStatusLabels[c.status] }}</ui-badge
         >
       </div>
-      <p class="small">
+      <p class="li-small">
         @if (c.examOn && c.status !== 'passed') { Exam {{ dateText(c.examOn) }}
         } @if (c.obtainedOn) { Obtained {{ dateText(c.obtainedOn) }} } @if
         (c.expiresOn) { · expires {{ dateText(c.expiresOn) }} } @if (!c.examOn
         && !c.obtainedOn) { No date yet }
       </p>
-      <div class="item__buttons">
+      <div class="li-item__buttons">
         @if (safeUrl(c.credentialUrl); as url) {
         <a
           uiButton

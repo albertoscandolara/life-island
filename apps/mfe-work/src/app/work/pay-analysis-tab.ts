@@ -10,7 +10,7 @@ import {
   type CareerStatsDto,
 } from '@life-island/contracts';
 import { UiCard, UiEmptyState } from '@life-island/design-system';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
+import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
 import { euro, euroShort, hours, pct, periodText, shortPeriod } from './labels';
 
 /** The last 24 months of a monthly series. */
@@ -25,7 +25,7 @@ const LAST = 24;
 @Component({
   selector: 'work-pay-analysis',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ColumnChart, UiCard, UiEmptyState],
+  imports: [UiColumnChart, UiCard, UiEmptyState],
   templateUrl: './pay-analysis-tab.html',
   styleUrls: ['./blocks.css', './pay-analysis-tab.css'],
 })
@@ -51,7 +51,7 @@ export class PayAnalysisTab {
   /** Average salary each year, as paid and in euros of the latest year. */
   protected readonly realChart = computed(() => {
     const years = this.real().years;
-    const series: ChartSeries[] = [
+    const series: UiChartSeries[] = [
       {
         id: 'paid',
         label: 'As paid',
@@ -72,7 +72,7 @@ export class PayAnalysisTab {
     const points = this.insights()
       .salaryParts.filter((p) => p.total !== null)
       .slice(-LAST);
-    const series: ChartSeries[] = [
+    const series: UiChartSeries[] = [
       {
         id: 'base',
         label: 'CCNL minimum',
@@ -112,7 +112,7 @@ export class PayAnalysisTab {
 
   protected readonly taxChart = computed(() => {
     const months = this.insights().taxMonths.slice(-LAST);
-    const series: ChartSeries[] = [
+    const series: UiChartSeries[] = [
       {
         id: 'net',
         label: 'Net pay',
@@ -148,7 +148,7 @@ export class PayAnalysisTab {
 
   protected readonly timeOffChart = computed(() => {
     const points = this.insights().timeOff.points.slice(-LAST);
-    const series: ChartSeries[] = [
+    const series: UiChartSeries[] = [
       {
         id: 'vacation',
         label: 'Vacation',

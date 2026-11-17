@@ -5,11 +5,19 @@ import type { HttpErrorResponse } from '@angular/common/http';
  * says "in 5 days", "€ 12,50" and "11 nov 2026" the same way.
  */
 
+// Italian leaves 4-digit amounts ungrouped (3200,00 €); 'always' groups them
+// too, as every area writes them. The ES2023 option is missing from the
+// es2022 lib typings.
+const GROUP_THOUSANDS = {
+  useGrouping: 'always',
+} as unknown as Intl.NumberFormatOptions;
+
 export function euro(value: number | null | undefined, cents = true): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '–';
   return value.toLocaleString('it-IT', {
     style: 'currency',
     currency: 'EUR',
+    ...GROUP_THOUSANDS,
     minimumFractionDigits: cents ? 2 : 0,
     maximumFractionDigits: cents ? 2 : 0,
   });

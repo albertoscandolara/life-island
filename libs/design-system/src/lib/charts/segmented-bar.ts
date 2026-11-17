@@ -5,7 +5,7 @@ import {
   input,
 } from '@angular/core';
 
-export interface BarPart {
+export interface UiBarPart {
   id: string;
   label: string;
   color: string;
@@ -14,7 +14,7 @@ export interface BarPart {
 
 /** One whole split into parts: a thin bar, with a legend that gives each part's amount and share. */
 @Component({
-  selector: 'home-segmented-bar',
+  selector: 'ui-segmented-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bar" role="img" [attr.aria-label]="description()">
@@ -92,8 +92,8 @@ export interface BarPart {
     }
   `,
 })
-export class SegmentedBar {
-  readonly parts = input.required<BarPart[]>();
+export class UiSegmentedBar {
+  readonly parts = input.required<UiBarPart[]>();
   readonly format = input<(value: number) => string>((v) => String(v));
 
   private readonly total = computed(() =>

@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { barPath, labelEvery, niceScale, observeWidth } from './scale';
 
-export interface ChartSeries {
+export interface UiChartSeries {
   id: string;
   label: string;
   /** A colour token, e.g. `var(--viz-gas)`. */
@@ -38,7 +38,7 @@ const MAX_BAR = 24;
  * Hover or focus a column for every series' value; the legend sits above.
  */
 @Component({
-  selector: 'work-column-chart',
+  selector: 'ui-column-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (series().length > 1) {
@@ -157,9 +157,9 @@ const MAX_BAR = 24;
   `,
   styleUrl: './chart.css',
 })
-export class ColumnChart {
+export class UiColumnChart {
   readonly buckets = input.required<string[]>();
-  readonly series = input.required<ChartSeries[]>();
+  readonly series = input.required<UiChartSeries[]>();
   readonly mode = input<'stacked' | 'grouped'>('stacked');
   readonly height = input(260);
   readonly format = input<(value: number) => string>((v) => String(v));

@@ -8,7 +8,7 @@ import {
 import type { CareerStatsDto, TaxCertificateDto } from '@life-island/contracts';
 import { UiAlert, UiCard, UiEmptyState } from '@life-island/design-system';
 import { WorkApi } from '../api/work-api';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
+import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
 import {
   duration,
   euro,
@@ -26,7 +26,7 @@ import {
 @Component({
   selector: 'work-payslips',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ColumnChart, UiAlert, UiCard, UiEmptyState],
+  imports: [UiColumnChart, UiAlert, UiCard, UiEmptyState],
   templateUrl: './payslips-tab.html',
   styleUrls: ['./blocks.css'],
 })
@@ -74,7 +74,7 @@ export class PayslipsTab {
   /** The last 24 months of pay: gross and net, side by side. */
   protected readonly payChart = computed(() => {
     const monthly = this.stats().monthly.slice(-24);
-    const series: ChartSeries[] = [
+    const series: UiChartSeries[] = [
       {
         id: 'gross',
         label: 'Gross',

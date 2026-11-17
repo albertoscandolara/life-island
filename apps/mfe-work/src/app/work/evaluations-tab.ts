@@ -26,7 +26,7 @@ import {
   type UiTone,
 } from '@life-island/design-system';
 import { WorkApi } from '../api/work-api';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
+import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
 import { euro, euroShort, periodText, scoreText, signed } from './labels';
 
 const GOAL_TONES: Record<GoalStatus, UiTone> = {
@@ -69,7 +69,7 @@ export function cycleShort(
 @Component({
   selector: 'work-evaluations',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ColumnChart, UiBadge, UiButton, UiCard, UiEmptyState, UiIcon],
+  imports: [UiColumnChart, UiBadge, UiButton, UiCard, UiEmptyState, UiIcon],
   templateUrl: './evaluations-tab.html',
   styleUrls: ['./blocks.css', './evaluations-tab.css'],
 })
@@ -173,7 +173,7 @@ export class EvaluationsTab {
         if (!names.some((n) => n.toLowerCase() === s.name.toLowerCase()))
           names.push(s.name);
     const sectioned = evaluations.every((e) => e.sections.length);
-    const series: ChartSeries[] =
+    const series: UiChartSeries[] =
       sectioned && names.length
         ? names.map((name, i) => ({
             id: `s${i}`,
@@ -216,7 +216,7 @@ export class EvaluationsTab {
           color: 'var(--viz-bonus)',
           values: years.map((y) => y.bonus),
         },
-      ] satisfies ChartSeries[],
+      ] satisfies UiChartSeries[],
     };
   });
 

@@ -20,3 +20,8 @@ export * from './lib/status-dot/status-dot';
 export * from './lib/table/table';
 export * from './lib/theme/theme';
 export * from './lib/theme/theme-toggle';
+export * from './lib/charts/column-chart';
+export * from './lib/charts/line-chart';
+export * from './lib/charts/scale';
+export * from './lib/charts/segmented-bar';
+export * from './lib/charts/sparkline';

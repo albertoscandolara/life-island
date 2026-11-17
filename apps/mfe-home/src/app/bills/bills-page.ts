@@ -23,10 +23,10 @@ import {
   UiPageHeader,
 } from '@life-island/design-system';
 import { errorMessage, HomeApi } from '../api/home-api';
-import { ColumnChart, type ChartSeries } from '../charts/column-chart';
-import { LineChart } from '../charts/line-chart';
-import { SegmentedBar, type BarPart } from '../charts/segmented-bar';
-import { Sparkline } from '../charts/sparkline';
+import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
+import { UiLineChart } from '@life-island/design-system';
+import { UiSegmentedBar, type UiBarPart } from '@life-island/design-system';
+import { UiSparkline } from '@life-island/design-system';
 import { HousesView } from '../houses/houses-view';
 import { AreaNav } from '../shared/area-nav';
 import {
@@ -123,10 +123,10 @@ const YEAR_SHADES = [100, 72, 48, 30];
     UiAlert,
     UiEmptyState,
     AreaNav,
-    ColumnChart,
-    LineChart,
-    SegmentedBar,
-    Sparkline,
+    UiColumnChart,
+    UiLineChart,
+    UiSegmentedBar,
+    UiSparkline,
     HouseDialog,
     HousesView,
   ],
@@ -327,7 +327,7 @@ export class BillsPage {
     });
     return {
       buckets: result.buckets,
-      series: result.series.map<ChartSeries>((s) => ({
+      series: result.series.map<UiChartSeries>((s) => ({
         id: s.id,
         label: utilityLabel(s.id as UtilityKind),
         color: utilityColor(s.id as UtilityKind),
@@ -358,7 +358,7 @@ export class BillsPage {
         home,
         total,
         buckets: result.buckets,
-        series: result.series.map<ChartSeries>((s) => ({
+        series: result.series.map<UiChartSeries>((s) => ({
           id: s.id,
           label: utilityLabel(s.id as UtilityKind),
           color: utilityColor(s.id as UtilityKind),
@@ -399,7 +399,7 @@ export class BillsPage {
     return {
       metric,
       unit: utility === 'ALL' ? '€' : UTILITIES[utility].unit,
-      series: lines.map<ChartSeries>((line, i) => ({
+      series: lines.map<UiChartSeries>((line, i) => ({
         id: String(line.year),
         label: String(line.year),
         color: `color-mix(in srgb, ${utility === 'ALL' ? 'var(--accent)' : utilityColor(utility)} ${YEAR_SHADES[lines.length - 1 - i]}%, var(--surface-card))`,
@@ -432,13 +432,13 @@ export class BillsPage {
             color: utilityColor(utility),
             values: result.series[0].values,
           },
-        ] satisfies ChartSeries[],
+        ] satisfies UiChartSeries[],
         empty: result.series[0].values.every((v) => !v),
       };
     }),
   );
 
-  protected readonly utilityParts = computed<BarPart[]>(() =>
+  protected readonly utilityParts = computed<UiBarPart[]>(() =>
     this.stats().map((s) => ({
       id: s.utility,
       label: utilityLabel(s.utility),
@@ -447,7 +447,7 @@ export class BillsPage {
     })),
   );
 
-  protected readonly homeParts = computed<BarPart[]>(() => {
+  protected readonly homeParts = computed<UiBarPart[]>(() => {
     if (this.selected()) return [];
     const parts = this.scope().map((p) => ({
       id: p.id,
@@ -627,7 +627,7 @@ export class BillsPage {
     });
     return {
       buckets: result.buckets,
-      series: result.series.map<ChartSeries>((s, i) => ({
+      series: result.series.map<UiChartSeries>((s, i) => ({
         id: s.id,
         label: homes[i].name,
         color: propertyColor(homes[i].colorSlot),

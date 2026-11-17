@@ -1,4 +1,4 @@
-<ui-card heading="Training platforms" class="block">
+<ui-card heading="Training platforms" class="li-block">
   <div uiCardActions>
     <button
       uiButton
@@ -10,16 +10,16 @@
       <ui-icon name="plus" [size]="16" /> Add one
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     The sites you learn on, one click away. A subscription shows what it costs a
     year and warns you before it renews, so you keep only what you use.
   </p>
 
-  <div class="chips" role="group" aria-label="Filter by topic">
+  <div class="li-chips" role="group" aria-label="Filter by topic">
     <button
       type="button"
-      class="chip"
-      [class.chip--on]="!topic()"
+      class="li-chip"
+      [class.li-chip--on]="!topic()"
       (click)="topic.set(null)"
     >
       All
@@ -27,8 +27,8 @@
     @for (t of topics; track t) {
     <button
       type="button"
-      class="chip"
-      [class.chip--on]="topic() === t"
+      class="li-chip"
+      [class.li-chip--on]="topic() === t"
       (click)="topic.set(topic() === t ? null : t)"
     >
       <span class="dot" [style.background]="topicColors[t]"></span> {{
@@ -44,8 +44,8 @@
     <li class="preset">
       <div>
         <strong>{{ p.name }}</strong>
-        <span class="muted small">· {{ planLabels[p.plan] }}</span>
-        <p class="muted small">{{ p.note }}</p>
+        <span class="li-muted li-small">· {{ planLabels[p.plan] }}</span>
+        <p class="li-muted li-small">{{ p.note }}</p>
       </div>
       <button
         uiButton
@@ -154,12 +154,12 @@
     }
     <div class="form__wide">
       <span class="form-label">Topics</span>
-      <div class="chips topics">
+      <div class="li-chips topics">
         @for (t of topics; track t) {
         <button
           type="button"
-          class="chip"
-          [class.chip--on]="d.topics.includes(t)"
+          class="li-chip"
+          [class.li-chip--on]="d.topics.includes(t)"
           [attr.aria-pressed]="d.topics.includes(t)"
           (click)="toggleTopic(t)"
         >
@@ -193,44 +193,44 @@
   </form>
   } @if (!data().platforms.length && !draft()) {
   <ui-empty-state heading="No platform yet" icon="external">
-    <p class="muted">
+    <p class="li-muted">
       Add one of the suggestions above, or any other with its link.
     </p>
   </ui-empty-state>
   }
 
   <h3 class="sub">Yours</h3>
-  <ul class="cards">
+  <ul class="li-cards">
     @for (p of platforms(); track p.id) {
-    <li class="item" [class.item--off]="p.status !== 'active'">
+    <li class="li-item" [class.li-item--off]="p.status !== 'active'">
       <div class="item__head">
         <span class="item__mark" aria-hidden="true"
           >{{ p.name.slice(0, 1) }}</span
         >
         <div>
           <strong>{{ p.name }}</strong>
-          <span class="muted small block-line">{{ hostOf(p.url) }}</span>
+          <span class="li-muted li-small block-line">{{ hostOf(p.url) }}</span>
         </div>
         <ui-badge [tone]="p.status === 'active' ? 'success' : 'neutral'"
           >{{ statusLabels[p.status] }}</ui-badge
         >
       </div>
-      <p class="small">
+      <p class="li-small">
         {{ planLabels[p.plan] }} @if (p.yearlyCost !== null) { · {{
         euro(p.price) }} a {{ p.billingPeriod }} ({{ euro(p.yearlyCost) }} a
         year) } @if (p.courses) { · {{ p.courses }} course{{ p.courses === 1 ?
         '' : 's' }} }
       </p>
       @if (renewal(p); as text) {
-      <p class="small warn">{{ text }}</p>
+      <p class="li-small li-warn">{{ text }}</p>
       } @else if (p.renewsOn) {
-      <p class="small muted">Renews {{ dateText(p.renewsOn) }}</p>
+      <p class="li-small li-muted">Renews {{ dateText(p.renewsOn) }}</p>
       } @if (p.account) {
-      <p class="small">
+      <p class="li-small">
         Signed up as <span class="mono">{{ p.account }}</span>
       </p>
       } @if (p.topics.length) {
-      <p class="small topics-line">
+      <p class="li-small topics-line">
         @for (t of p.topics; track t) {
         <span class="topic"
           ><span class="dot" [style.background]="topicColors[t]"></span> {{
@@ -239,10 +239,10 @@
         }
       </p>
       } @if (p.notes) {
-      <p class="muted small">{{ p.notes }}</p>
+      <p class="li-muted li-small">{{ p.notes }}</p>
       }
-      <p class="muted small">{{ lastOpened(p) }}</p>
-      <div class="item__buttons">
+      <p class="li-muted li-small">{{ lastOpened(p) }}</p>
+      <div class="li-item__buttons">
         @if (safeUrl(p.url); as url) {
         <a
           uiButton
@@ -278,7 +278,7 @@
       </div>
     </li>
     } @empty { @if (data().platforms.length) {
-    <li class="muted">None for this topic.</li>
+    <li class="li-muted">None for this topic.</li>
     } }
   </ul>
 </ui-card>

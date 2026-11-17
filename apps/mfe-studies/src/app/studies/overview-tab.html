@@ -1,43 +1,43 @@
 @let s = stats();
-<section class="tiles" aria-label="Your studies in numbers">
-  <div class="tile tile--lead">
-    <span class="tile__label">This week</span>
-    <strong class="tile__value"
+<section class="li-tiles" aria-label="Your studies in numbers">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">This week</span>
+    <strong class="li-tile__value"
       >{{ hours(s.weekMinutes) }}
       <span class="tile__of">of {{ s.weeklyGoalHours }} h</span></strong
     >
     <ui-progress-bar [value]="weekShare()" label="Weekly goal" />
-    <span class="tile__hint">
+    <span class="li-tile__hint">
       @if (s.weekMinutes >= goalMinutes()) { Goal reached. } @else { {{
       duration(goalMinutes() - s.weekMinutes) }} to go. } Change the goal in
       Settings.
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Streak</span>
-    <strong class="tile__value"
+  <div class="li-tile">
+    <span class="li-tile__label">Streak</span>
+    <strong class="li-tile__value"
       >{{ s.streakWeeks }} week{{ s.streakWeeks === 1 ? '' : 's' }}</strong
     >
-    <span class="tile__hint">In a row at your goal</span>
+    <span class="li-tile__hint">In a row at your goal</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Your pace</span>
-    <strong class="tile__value">{{ hours(s.averageWeekMinutes) }}</strong>
-    <span class="tile__hint">A week, over the last 8 weeks</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Your pace</span>
+    <strong class="li-tile__value">{{ hours(s.averageWeekMinutes) }}</strong>
+    <span class="li-tile__hint">A week, over the last 8 weeks</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Studied so far</span>
-    <strong class="tile__value">{{ s.totalHours }} h</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">Studied so far</span>
+    <strong class="li-tile__value">{{ s.totalHours }} h</strong>
+    <span class="li-tile__hint"
       >{{ s.stepsDone }} path step{{ s.stepsDone === 1 ? '' : 's' }} done · {{
       s.coursesCompleted }} course{{ s.coursesCompleted === 1 ? '' : 's' }}
       completed</span
     >
   </div>
-  <div class="tile">
-    <span class="tile__label">Spent this year</span>
-    <strong class="tile__value">{{ euro(s.spentThisYear) }}</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">Spent this year</span>
+    <strong class="li-tile__value">{{ euro(s.spentThisYear) }}</strong>
+    <span class="li-tile__hint"
       >Courses, exams and renewals · subscriptions {{
       euro(s.subscriptionsPerYear) }} a year</span
     >
@@ -45,8 +45,8 @@
 </section>
 
 @if (data().reminders.length) {
-<ui-card heading="Needs you" class="block">
-  <ul class="plain">
+<ui-card heading="Needs you" class="li-block">
+  <ul class="li-list">
     @for (r of data().reminders; track r.kind + (r.refId ?? '')) {
     <li class="reminder">
       <ui-badge [tone]="reminderTones[r.severity]"
@@ -54,7 +54,7 @@
       >
       <div>
         <strong>{{ r.title }}</strong>
-        <p class="muted small">{{ r.detail }}</p>
+        <p class="li-muted li-small">{{ r.detail }}</p>
       </div>
       @if (r.kind !== 'idle') {
       <button uiButton variant="ghost" size="sm" type="button" (click)="act(r)">
@@ -67,7 +67,7 @@
 </ui-card>
 }
 
-<div class="grid">
+<div class="li-grid">
   <ui-card heading="Log study time">
     @let d = draft();
     <form class="form" (submit)="$event.preventDefault(); log()">
@@ -95,15 +95,15 @@
         />
       </label>
       <div
-        class="form__wide chips quick"
+        class="form__wide li-chips quick"
         role="group"
         aria-label="Quick durations"
       >
         @for (m of quick; track m) {
         <button
           type="button"
-          class="chip"
-          [class.chip--on]="d.minutes === m"
+          class="li-chip"
+          [class.li-chip--on]="d.minutes === m"
           (click)="set({ minutes: m })"
         >
           {{ duration(m) }}
@@ -159,7 +159,7 @@
         </button>
       </div>
     </form>
-    <p class="muted small">
+    <p class="li-muted li-small">
       A session on a path step starts that step and follows its path.
     </p>
   </ui-card>
@@ -167,7 +167,7 @@
   <ui-card heading="Last 12 weeks">
     @if (s.totalHours === 0) {
     <ui-empty-state heading="No time logged yet" icon="chart">
-      <p class="muted">Log your first session: your weeks build up here.</p>
+      <p class="li-muted">Log your first session: your weeks build up here.</p>
     </ui-empty-state>
     } @else {
     <div
@@ -214,10 +214,10 @@
   </ui-card>
 </div>
 
-<ui-card heading="Paths you follow" class="block">
+<ui-card heading="Paths you follow" class="li-block">
   @if (!followed().length) {
   <ui-empty-state heading="No path yet" icon="layers">
-    <p class="muted">
+    <p class="li-muted">
       Pick one of the learning paths: AI coding, other frameworks, Docker and
       Kubernetes, team leadership, 3D or financial education.
     </p>
@@ -226,14 +226,14 @@
     </button>
   </ui-empty-state>
   } @else {
-  <ul class="plain">
+  <ul class="li-list">
     @for (f of followed(); track f.path.id) {
     <li class="follow">
       <span class="follow__emblem" aria-hidden="true">{{ f.path.emblem }}</span>
       <div class="follow__body">
-        <div class="row">
+        <div class="li-row">
           <strong>{{ f.path.name }}</strong>
-          <span class="muted small"
+          <span class="li-muted li-small"
             >{{ f.progress.doneSteps }}/{{ f.progress.totalSteps }} steps · {{
             f.progress.hoursDone }}/{{ f.progress.hoursTotal }} h</span
           >
@@ -242,11 +242,12 @@
           [value]="(f.progress.hoursDone / f.progress.hoursTotal) * 100"
           [label]="f.path.name + ' progress'"
         />
-        <p class="small">
+        <p class="li-small">
           @if (f.next) { Next: <strong>{{ f.next.title }}</strong> } @else {
           Every step done: time for the capstone. } @if (f.progress.projectedOn)
           { · at your pace, done by {{ dateText(f.progress.projectedOn) }} } @if
-          (f.progress.behind) { <span class="warn">· behind your target</span> }
+          (f.progress.behind) {
+          <span class="li-warn">· behind your target</span> }
         </p>
       </div>
       <button
@@ -265,14 +266,14 @@
 </ui-card>
 
 @if (recent().length) {
-<ui-card heading="Recent sessions" class="block">
-  <div class="table-wrap">
-    <table class="table">
+<ui-card heading="Recent sessions" class="li-block">
+  <div class="li-table-wrap">
+    <table class="li-table">
       <thead>
         <tr>
           <th scope="col">Day</th>
           <th scope="col">On</th>
-          <th scope="col" class="num">Time</th>
+          <th scope="col" class="li-num">Time</th>
           <th scope="col"><span class="visually-hidden">Remove</span></th>
         </tr>
       </thead>
@@ -283,11 +284,11 @@
           <td>
             <span class="dot" [style.background]="topicColors[r.topic]"></span>
             {{ sessionLabel(r) }} @if (r.note) {
-            <span class="muted small block-line">{{ r.note }}</span>
+            <span class="li-muted li-small block-line">{{ r.note }}</span>
             }
           </td>
-          <td class="num">{{ duration(r.minutes) }}</td>
-          <td class="num">
+          <td class="li-num">{{ duration(r.minutes) }}</td>
+          <td class="li-num">
             <button
               uiButton
               variant="ghost"

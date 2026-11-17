@@ -1,3 +1,4 @@
+import { euro } from '@life-island/records-ui';
 import {
   CAREER_EVENT_LABELS,
   CONTRACT_KIND_LABELS,
@@ -35,28 +36,12 @@ export function workplaceName(workplace: {
   );
 }
 
-/** 2.518,53 rather than 2518,53: Italian grouping skips four-digit numbers by default. */
-const GROUP_THOUSANDS = {
-  useGrouping: 'always',
-} as unknown as Intl.NumberFormatOptions;
-
-export function euro(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '–';
-  return value.toLocaleString('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-    ...GROUP_THOUSANDS,
-  });
-}
+/** Money as every area writes it ("3.200,00 €"), from records-ui. */
+export { euro };
 
 /** Without cents, for chart axes and tiles. */
 export function euroShort(value: number): string {
-  return value.toLocaleString('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-    ...GROUP_THOUSANDS,
-    maximumFractionDigits: 0,
-  });
+  return euro(value, false);
 }
 
 /** "6 years 8 months", "5 months". */
