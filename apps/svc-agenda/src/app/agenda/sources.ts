@@ -41,7 +41,10 @@ export async function readDeadlines(
       try {
         const response = await fetcher(
           `${base}/deadlines?from=${window.from}&to=${window.to}`,
-          { signal: AbortSignal.timeout(TIMEOUT_MS), headers: internalHeaders() },
+          {
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+            headers: internalHeaders(),
+          },
         );
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const body = (await response.json()) as unknown;
