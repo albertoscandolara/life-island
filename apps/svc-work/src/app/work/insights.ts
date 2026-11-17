@@ -27,6 +27,7 @@ import {
   type IncomeTaxYearDto,
   type TimeOffDto,
   type WorkloadPointDto,
+  euroText,
 } from '@life-island/contracts';
 import {
   countedPayslips,
@@ -52,11 +53,7 @@ const sum = (values: (number | null)[]) =>
 const pctChange = (from: number | null, to: number | null) =>
   from && to !== null ? round1(((to - from) / from) * 100) : null;
 /** 2.462 €: amounts as the rest of Work shows them. */
-const money = (n: number) =>
-  `${n.toLocaleString('it-IT', {
-    maximumFractionDigits: 0,
-    useGrouping: 'always',
-  } as unknown as Intl.NumberFormatOptions)} €`;
+const money = (n: number) => euroText(n, false);
 
 /** YYYY-MM plus `months`. */
 function addMonths(period: string, months: number): string {

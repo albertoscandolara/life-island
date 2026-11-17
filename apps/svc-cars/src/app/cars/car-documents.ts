@@ -27,6 +27,7 @@ import {
   type VehicleMatch,
   type VehicleValue,
   type VehicleValues,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -304,8 +305,7 @@ export function nextInspectionDue(
   return endOfMonthAfter(inspectionDate, INSPECTION_INTERVAL_MONTHS);
 }
 
-const money = (n: number) =>
-  n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
+const money = (n: number) => euroText(n);
 
 /**
  * What a car document prints, from its template fields; `names` (its title

@@ -13,6 +13,7 @@ import {
   type TravelOverviewDto,
   type WorkOverviewDto,
 } from '@life-island/contracts';
+import { euroText as euroMoney } from '@life-island/contracts';
 
 /*
  * What the other areas of the island say about you, for one dream: read over
@@ -25,8 +26,8 @@ import {
 const TIMEOUT_MS = 5000;
 const logger = new Logger('DreamContext');
 
-export const euroText = (value: number): string =>
-  `€${Math.round(value).toLocaleString('en-GB')}`;
+/** Whole euros, as every page writes them ("36.000 €"). */
+export const euroText = (value: number): string => euroMoney(value, false);
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 

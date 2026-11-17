@@ -7,6 +7,7 @@ import {
   type EvaluationStatsDto,
   type HiringPlatformDto,
   type NegotiationBriefDto,
+  euroText,
 } from '@life-island/contracts';
 import type { ApprovedWorkDocument, CareerWorkplace } from './career.js';
 
@@ -30,10 +31,7 @@ export interface CareerDossierInput {
   today: string;
 }
 
-const money = (n: number | null) =>
-  n === null
-    ? 'unknown'
-    : n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
+const money = (n: number | null) => (n === null ? 'unknown' : euroText(n));
 
 const years = (months: number | null) =>
   months === null

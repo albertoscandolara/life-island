@@ -14,6 +14,7 @@ import {
   type StudyTopic,
   type StudyWeekDto,
   type TrainingPlatformDto,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -393,7 +394,7 @@ export function studyReminders(input: ReminderInput): StudyReminderDto[] {
       title: `${p.name} renews ${formatDays(left)}`,
       detail:
         p.price !== null
-          ? `€${p.price.toFixed(2)} per ${p.billingPeriod ?? 'year'}. Keep it only if you used it this ${p.billingPeriod === 'month' ? 'month' : 'year'}: ${p.courses} course${p.courses === 1 ? '' : 's'} tracked on it.`
+          ? `${euroText(p.price)} per ${p.billingPeriod ?? 'year'}. Keep it only if you used it this ${p.billingPeriod === 'month' ? 'month' : 'year'}: ${p.courses} course${p.courses === 1 ? '' : 's'} tracked on it.`
           : `Keep it only if you are using it: ${p.courses} course${p.courses === 1 ? '' : 's'} tracked on it.`,
       date: renewal,
       daysLeft: left,

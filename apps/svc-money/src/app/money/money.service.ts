@@ -21,6 +21,7 @@ import {
   type SpendingReviewDto,
   type TransactionDto,
   type TransactionImportRequest,
+  euroText,
 } from '@life-island/contracts';
 import { desc, eq, gte, inArray } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from '../config.js';
@@ -197,7 +198,7 @@ export class MoneyService implements OnApplicationBootstrap {
         module: 'money',
         kind: 'recurring',
         title: `${r.description} is charged again`,
-        detail: `Seen in ${r.months} months; about €${r.amount} each time.`,
+        detail: `Seen in ${r.months} months; about ${euroText(r.amount)} each time.`,
         date: r.nextDate,
         amount: r.amount,
         path: '/money?tab=recurring',

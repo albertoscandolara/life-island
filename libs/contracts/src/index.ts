@@ -36,3 +36,4 @@ export * from './lib/travel.js';
 export * from './lib/fitness.js';
 export * from './lib/dreams.js';
 export * from './lib/property-address.js';
+export * from './lib/text-format.js';

@@ -1,40 +1,25 @@
+import { dateText, euro } from '@life-island/records-ui';
 import { UTILITIES, type UtilityKind } from '@life-island/contracts';
 
-const euro = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-});
-const euroRound = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
 const compact = new Intl.NumberFormat('en-GB', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
 const number = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 });
-const day = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
 const monthName = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
   timeZone: 'UTC',
 });
 
-export const formatEuro = (value: number): string => euro.format(value);
+/** Money and dates as every area writes them (records-ui). */
+export const formatEuro = (value: number): string => euro(value);
 /** Whole euros, for big figures and axis ticks. */
-export const formatEuroRound = (value: number): string =>
-  euroRound.format(value);
+export const formatEuroRound = (value: number): string => euro(value, false);
 /** Axis ticks: in full under 10,000, compact above. */
 export const formatTick = (value: number, max: number): string =>
-  max >= 10_000 ? `€${compact.format(value)}` : euroRound.format(value);
+  max >= 10_000 ? `€${compact.format(value)}` : euro(value, false);
 export const formatNumber = (value: number): string => number.format(value);
-export const formatDate = (iso: string): string =>
-  day.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`));
+export const formatDate = (iso: string): string => dateText(iso);
 
 /** `2026-03` → "Mar 2026", `2026-Q1` → "Q1 2026", `2026` → "2026". */
 export function bucketLabel(key: string, short = false): string {

@@ -21,6 +21,7 @@ import {
   type RuleItemDto,
   type ScoreBandDto,
   type ScoreItemDto,
+  euroText,
 } from '@life-island/contracts';
 
 /*
@@ -422,8 +423,7 @@ export function readRuleItems(value: unknown): RuleItemDto[] {
   return items;
 }
 
-const money = (n: number) =>
-  n.toLocaleString('en-GB', { style: 'currency', currency: 'EUR' });
+const money = (n: number) => euroText(n);
 
 /** Which template keys of each type carry a workplace value (all, if not listed). */
 const READ_BY_TYPE: Partial<
