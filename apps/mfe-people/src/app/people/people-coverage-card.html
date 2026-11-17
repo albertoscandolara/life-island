@@ -1,0 +1,39 @@
+<ui-card heading="Who has what">
+  <p class="li-intro">
+    The latest version of each document, for everyone at home.
+  </p>
+  <div class="li-table-wrap">
+    <table class="li-table coverage">
+      <thead>
+        <tr>
+          <th scope="col">Person</th>
+          @for (type of idTypes; track type) {
+          <th scope="col">{{ typeLabel(type) }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of coverageRows(); track row.person.id) {
+        <tr>
+          <th scope="row">
+            <button
+              type="button"
+              class="link-button"
+              (click)="open.emit(row.person.id)"
+            >
+              {{ personName(row.person) }}
+            </button>
+          </th>
+          @for (cell of row.cells; track cell.type) {
+          <td>
+            <ui-badge [tone]="coverageTones[cell.state]"
+              >{{ coverageText(cell) }}</ui-badge
+            >
+          </td>
+          }
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>

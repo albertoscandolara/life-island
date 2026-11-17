@@ -10,20 +10,11 @@ import {
 } from '@angular/core';
 import {
   entityParam,
-  ID_DOCUMENT_STATUS_LABELS,
-  ID_DOCUMENT_TYPES,
-  identifiesSomeone,
   PERSON_FIELD_LABELS,
   PERSON_FIELDS,
-  RELATION_KINDS,
-  RELATION_LABELS,
-  type ChangeSuggestion,
-  type IdDocumentStatus,
-  type PendingReviewDto,
   type PeopleOverviewDto,
   type PersonDto,
   type PersonField,
-  type RelationKind,
   type ResidenceHouseDto,
   type TaxCodeCheckStatus,
   type UpdatePersonRequest,
@@ -40,45 +31,11 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { PeopleApi } from '../api/people-api';
-import {
-  alertText,
-  coverage,
-  masked,
-  personName,
-  typeLabel,
-  type CoverageCell,
-  type CoverageState,
-} from './labels';
-
-/** The choices you make on one document waiting for review. */
-interface Draft {
-  /** The person it belongs to; 'new' creates one from it. */
-  personId: string;
-  accept: Set<PersonField>;
-}
-
-const STATUS_TONES: Record<IdDocumentStatus, UiTone> = {
-  current: 'success',
-  expired: 'danger',
-  superseded: 'neutral',
-  lost: 'warning',
-  stolen: 'warning',
-  withdrawn: 'warning',
-};
-
-const SUGGESTION_LABELS: Record<ChangeSuggestion, string> = {
-  accept: 'Take it',
-  keep_current: 'Keep yours',
-  check: 'Check it',
-};
-
-const COVERAGE_TONES: Record<CoverageState, UiTone> = {
-  current: 'success',
-  expiring: 'warning',
-  expired: 'danger',
-  unusable: 'warning',
-  missing: 'neutral',
-};
+import { PeopleCoverageCard } from './people-coverage-card';
+import { PeopleHouseholdCard } from './people-household-card';
+import { PeopleReviewCard } from './people-review-card';
+import { PeopleSeriesCard } from './people-series-card';
+import { alertText, masked, personName, typeLabel } from './labels';
 
 const TAX_CODE_BADGES: Record<
   TaxCodeCheckStatus,
@@ -88,12 +45,6 @@ const TAX_CODE_BADGES: Record<
   mismatch: { text: 'Does not match', tone: 'warning' },
   invalid: { text: 'Not a valid code', tone: 'danger' },
   unknown: null,
-};
-
-const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
-  accept: 'success',
-  keep_current: 'neutral',
-  check: 'warning',
 };
 
 /**
@@ -106,6 +57,10 @@ const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    PeopleCoverageCard,
+    PeopleHouseholdCard,
+    PeopleReviewCard,
+    PeopleSeriesCard,
     UiAlert,
     UiBadge,
     UiButton,
@@ -116,7 +71,7 @@ const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
   ],
   host: { 'data-character': 'para', class: 'people' },
   templateUrl: './people-page.html',
-  styleUrl: './people-page.css',
+  styleUrls: ['./people-bits.css', './people-page.css'],
 })
 export class PeoplePage {
   private readonly api = inject(PeopleApi);
@@ -125,7 +80,6 @@ export class PeoplePage {
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
-  private readonly drafts = signal<Record<string, Draft>>({});
   /** Remove or merge, being confirmed on the selected person. */
   protected readonly action = signal<'remove' | 'merge' | null>(null);
   /** The duplicate picked for a merge. */
@@ -139,33 +93,16 @@ export class PeoplePage {
   protected readonly editing = signal<Record<PersonField, string> | null>(null);
   /** Tax codes and document numbers are hidden until you ask. */
   protected readonly revealed = signal(false);
-  /** The relation being added to the selected person. */
-  protected readonly relationDraft = signal<{
-    personId: string;
-    kind: RelationKind;
-  }>({ personId: '', kind: 'partner' });
 
-  protected readonly idTypes = ID_DOCUMENT_TYPES;
-  protected readonly relationKinds = RELATION_KINDS;
-  protected readonly relationLabels = RELATION_LABELS;
-  protected readonly coverageTones = COVERAGE_TONES;
   protected readonly taxCodeBadges = TAX_CODE_BADGES;
 
   protected readonly fields = PERSON_FIELDS;
   protected readonly fieldLabels = PERSON_FIELD_LABELS;
-  protected readonly statusLabels = ID_DOCUMENT_STATUS_LABELS;
-  protected readonly statusTones = STATUS_TONES;
-  protected readonly suggestionLabels = SUGGESTION_LABELS;
-  protected readonly suggestionTones = SUGGESTION_TONES;
 
   protected readonly people = computed(() => this.overview()?.people ?? []);
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
-  /** Everyone against the four document types: the coverage grid. */
-  protected readonly coverageRows = computed(() =>
-    this.people().map((person) => ({ person, cells: coverage(person) })),
-  );
   protected readonly selected = computed(
     () =>
       this.people().find((p) => p.id === this.selectedId()) ??
@@ -217,150 +154,14 @@ export class PeoplePage {
     );
   }
 
-  /** The warning of the document itself (a licence category warns apart). */
-  protected alertsOf(person: PersonDto, uploadId: string) {
-    return (
-      person.alerts.find(
-        (a) => a.uploadId === uploadId && a.category === null,
-      ) ?? null
-    );
-  }
-
   /** A tax code or document number, hidden but its end until you ask. */
   protected secret(value: string | null): string | null {
     return masked(value, this.revealed());
   }
 
-  protected coverageText(cell: CoverageCell): string {
-    switch (cell.state) {
-      case 'missing':
-        return 'None';
-      case 'unusable':
-        return 'Lost or withdrawn';
-      case 'expired':
-        return 'Expired';
-      default:
-        return cell.expiryDate
-          ? `Until ${new Date(cell.expiryDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
-          : 'Current';
-    }
-  }
-
-  protected nameOf(id: string | null): string {
-    const person = this.people().find((p) => p.id === id);
-    return person ? personName(person) : 'Someone removed';
-  }
-
-  // ---- household ----------------------------------------------------------
-
-  /** The people this one could still be related to. */
-  protected unrelated(person: PersonDto): PersonDto[] {
-    const related = new Set(person.relations.map((r) => r.personId));
-    return this.others(person).filter((p) => !related.has(p.id));
-  }
-
-  protected addRelation(person: PersonDto): void {
-    const draft = this.relationDraft();
-    const personId = draft.personId || this.unrelated(person)[0]?.id;
-    if (!personId) return;
-    this.run(
-      person.id,
-      () => this.api.setRelation(person.id, { personId, kind: draft.kind }),
-      () => this.relationDraft.set({ personId: '', kind: 'partner' }),
-    );
-  }
-
-  protected removeRelation(person: PersonDto, otherId: string): void {
-    this.run(person.id, () => this.api.removeRelation(person.id, otherId));
-  }
-
-  protected setDependent(person: PersonDto, value: string): void {
-    this.run(person.id, () =>
-      this.api.updatePerson(person.id, { taxDependentOf: value || null }),
-    );
-  }
-
-  // ---- review -------------------------------------------------------------
-
-  protected draft(review: PendingReviewDto): Draft {
-    return (
-      this.drafts()[review.uploadId] ?? {
-        personId: review.personId ?? 'new',
-        accept: new Set(
-          review.changes
-            .filter((c) => c.suggestion === 'accept')
-            .map((c) => c.field),
-        ),
-      }
-    );
-  }
-
-  private update(review: PendingReviewDto, change: Partial<Draft>): void {
-    this.drafts.update((all) => ({
-      ...all,
-      [review.uploadId]: { ...this.draft(review), ...change },
-    }));
-  }
-
-  protected choosePerson(review: PendingReviewDto, personId: string): void {
-    this.update(review, { personId });
-  }
-
-  protected toggle(review: PendingReviewDto, field: PersonField): void {
-    const accept = new Set(this.draft(review).accept);
-    if (accept.has(field)) accept.delete(field);
-    else accept.add(field);
-    this.update(review, { accept });
-  }
-
-  /** The changes against the person you picked (the server compared with its match). */
-  protected changesFor(review: PendingReviewDto) {
-    return this.draft(review).personId === review.personId
-      ? review.changes
-      : [];
-  }
-
-  /** Whether it says whose it is: a document read as nothing never makes a person. */
-  protected readable(review: PendingReviewDto): boolean {
-    return identifiesSomeone(review.holder);
-  }
-
-  protected isNewPerson(review: PendingReviewDto): boolean {
-    return this.draft(review).personId === 'new';
-  }
-
-  protected printed(review: PendingReviewDto) {
-    return this.fields
-      .filter((field) => review.holder[field] !== null)
-      .map((field) => ({ field, value: review.holder[field] }));
-  }
-
-  protected approve(review: PendingReviewDto): void {
-    const draft = this.draft(review);
-    this.run(review.uploadId, () =>
-      this.api.approve(review.uploadId, {
-        personId: draft.personId === 'new' ? null : draft.personId,
-        accept: this.changesFor(review)
-          .map((c) => c.field)
-          .filter((field) => draft.accept.has(field)),
-      }),
-    );
-  }
-
-  protected reject(review: PendingReviewDto): void {
-    this.run(review.uploadId, () => this.api.reject(review.uploadId));
-  }
-
+  /** Brings back a document rejected as not about anyone. */
   protected reopen(uploadId: string): void {
     this.run(uploadId, () => this.api.reopen(uploadId));
-  }
-
-  protected mark(uploadId: string, value: string): void {
-    const status =
-      value === 'lost' || value === 'stolen' || value === 'withdrawn'
-        ? value
-        : null;
-    this.run(uploadId, () => this.api.mark(uploadId, { status }));
   }
 
   // ---- edit a person ------------------------------------------------------
@@ -369,7 +170,6 @@ export class PeoplePage {
     this.selectedId.set(personId);
     this.editing.set(null);
     this.action.set(null);
-    this.relationDraft.set({ personId: '', kind: 'partner' });
   }
 
   // ---- remove and merge ----------------------------------------------------
@@ -510,11 +310,6 @@ export class PeoplePage {
       next: () => {
         this.busy.set(null);
         done?.();
-        this.drafts.update((all) => {
-          const rest = { ...all };
-          delete rest[key];
-          return rest;
-        });
         this.load();
       },
       error: (error: { error?: { message?: string } }) => {

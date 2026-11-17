@@ -5,15 +5,15 @@
 />
 
 @if (error(); as message) {
-<ui-alert tone="danger" class="block">{{ message }}</ui-alert>
+<ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
 } @if (alerts().length) {
-<section class="alerts" aria-label="Renewal warnings">
+<section class="li-alerts" aria-label="Renewal warnings">
   @for (alert of alerts(); track $index) {
   <ui-alert
     [tone]="alert.level === 'expired' ? 'danger' : alert.level === 'missing' ? 'info' : 'warning'"
   >
     <strong>{{ alertText(alert) }}</strong>
-    <span class="muted">
+    <span class="li-muted">
       @if (alert.subject || alert.dueDate === null && alert.level !== 'missing')
       { {{ alert.basis }} } @else { @if (alert.dueDate) { {{ alert.level ===
       'expired' || alert.level === 'grace' ? 'Was due on' : 'Due by' }} {{
@@ -37,13 +37,13 @@
 </section>
 } @if (reviews().length) {
 <cars-review-card
-  class="block"
+  class="li-block"
   [reviews]="reviews()"
   [vehicles]="vehicles()"
   (changed)="load()"
 />
 } @if (overview() && !vehicles().length && !reviews().length && !adding()) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No cars yet" icon="folder">
     <p>
       Load a carta di circolazione, an insurance policy, a bollo receipt or a
@@ -100,7 +100,7 @@ idle) {
   }
 </nav>
 } @if (adding(); as draft) {
-<ui-card heading="Add a car" class="block">
+<ui-card heading="Add a car" class="li-block">
   <form class="edit" (submit)="$event.preventDefault(); add()">
     <label class="edit__field">
       <span>Plate (A)</span>
@@ -123,11 +123,11 @@ idle) {
         (input)="setAdding({ label: $any($event.target).value })"
       />
     </label>
-    <p class="muted small span">
+    <p class="li-muted li-small span">
       The rest of its data comes from its carta di circolazione, through the
       review, or from Edit.
     </p>
-    <footer class="review__actions">
+    <footer class="li-review__actions">
       <button
         uiButton
         variant="ghost"
@@ -181,7 +181,7 @@ idle) {
           where you can file them under another car or reject them. If you sold
           it, set it to <em>Sold</em> instead to keep its history.
         </p>
-        <footer class="review__actions">
+        <footer class="li-review__actions">
           <button
             uiButton
             variant="ghost"
@@ -204,7 +204,7 @@ idle) {
         </footer>
       </div>
       } @else {
-      <dl class="facts">
+      <dl class="li-facts">
         <div>
           <dt>Status</dt>
           <dd>
@@ -235,7 +235,7 @@ idle) {
         }
       </dl>
       @if (vehicle.status !== 'active') {
-      <p class="muted small">
+      <p class="li-muted li-small">
         Not in use: its renewals are shown but never warn.
       </p>
       } }
@@ -246,7 +246,9 @@ idle) {
       <p class="model">
         <ui-icon name="file" [size]="16" />
         <strong>{{ m.filename }}</strong>
-        <span class="muted">{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span>
+        <span class="li-muted"
+          >{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span
+        >
         <button
           uiButton
           variant="ghost"
@@ -259,7 +261,7 @@ idle) {
         </button>
       </p>
       } @else {
-      <p class="muted small">
+      <p class="li-muted li-small">
         It shows as a little drawn car, in its colour, until you load a model.
       </p>
       }
@@ -283,7 +285,7 @@ idle) {
           <ui-icon name="upload" [size]="14" />
           {{ vehicle.model ? 'Replace the model' : 'Load a model' }}
         </button>
-        <small class="muted"
+        <small class="li-muted"
           >A single .glb, .gltf with embedded buffers, or .obj, up to {{ maxMb
           }} MB.</small
         >
@@ -387,12 +389,12 @@ idle) {
           }
         </label>
         } @if (!people().available) {
-        <small class="muted span"
+        <small class="li-muted span"
           >People is not reachable, so the holder and owner are typed for
           now.</small
         >
         }
-        <footer class="review__actions">
+        <footer class="li-review__actions">
           <button
             uiButton
             variant="ghost"
@@ -413,8 +415,8 @@ idle) {
         </footer>
       </form>
       } @else {
-      <div class="table-wrap">
-        <table class="table codes">
+      <div class="li-table-wrap">
+        <table class="li-table codes">
           <thead>
             <tr>
               <th scope="col">Code</th>
@@ -428,13 +430,13 @@ idle) {
               <td><span class="code">{{ row.code }}</span></td>
               <th scope="row">
                 {{ row.meaning }}
-                <span class="muted printed">{{ row.printed }}</span>
+                <span class="li-muted printed">{{ row.printed }}</span>
               </th>
               <td class="codes__value">
                 @for (d of row.fields; track d.field) {
                 <div>
                   @if (row.fields.length > 1) {
-                  <span class="muted small-label">{{ d.label }}:</span>
+                  <span class="li-muted small-label">{{ d.label }}:</span>
                   } @if (value(vehicle, d.field) !== null) {
                   <span class="value">
                     @if (linkedPerson(vehicle, d.field)) {
@@ -451,11 +453,11 @@ idle) {
                   @if (licenceOf(vehicle, d.field); as licence) {
                   <ui-badge [tone]="licence.tone">{{ licence.text }}</ui-badge>
                   } } } @else {
-                  <span class="muted">—</span>
+                  <span class="li-muted">—</span>
                   }
                 </div>
                 } @empty { @if (!row.group) {
-                <span class="muted">Not read by Life Island</span>
+                <span class="li-muted">Not read by Life Island</span>
                 } }
               </td>
             </tr>
@@ -463,7 +465,7 @@ idle) {
           </tbody>
         </table>
       </div>
-      <p class="muted small">
+      <p class="li-muted li-small">
         Codes of the EU registration certificate (Directive 1999/37/EC), as
         printed on the Italian carta di circolazione and documento unico. Last
         changed {{ vehicle.updatedAt | date: 'd MMM y, HH:mm' }}, through the
@@ -491,7 +493,7 @@ idle) {
   </div>
 </div>
 } @if (rejected().length) {
-<details class="rejected">
+<details class="li-rejected">
   <summary>Rejected: {{ rejected().length }} not about any car</summary>
   <ul>
     @for (doc of rejected(); track doc.uploadId) {

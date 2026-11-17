@@ -6,12 +6,15 @@
     >{{ series().versions.length }} {{ series().versions.length === 1 ?
     'version' : 'versions' }}</ui-badge
   >
-  <ol class="versions">
+  <ol class="li-versions">
     @for (version of series().versions; track version.uploadId) {
-    <li class="version" [class.version--old]="version.status === 'superseded'">
-      <span class="version__number">v{{ version.version }}</span>
-      <div class="version__body">
-        <div class="version__line">
+    <li
+      class="li-version"
+      [class.li-version--old]="version.status === 'superseded'"
+    >
+      <span class="li-version__number">v{{ version.version }}</span>
+      <div class="li-version__body">
+        <div class="li-version__line">
           <ui-badge [tone]="statusTones[version.status]"
             >{{ statusLabels[version.status] }}</ui-badge
           >
@@ -20,7 +23,7 @@
             >{{ renewalText(alert) }}</ui-badge
           >
           } @if (version.number) {
-          <span class="mono">{{ version.number }}</span>
+          <span class="li-mono">{{ version.number }}</span>
           }
         </div>
         <p class="li-muted li-small">
@@ -79,7 +82,7 @@
         </select>
         }
       </div>
-      <div class="version__actions">
+      <div class="li-version__actions">
         <a
           uiButton
           variant="ghost"

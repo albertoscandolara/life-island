@@ -11,14 +11,17 @@
     suggested as a new car.
   </p>
   @for (review of reviews(); track review.uploadId) {
-  <article class="review" [class.review--busy]="busy() === review.uploadId">
-    <header class="review__head">
+  <article
+    class="li-review"
+    [class.li-review--busy]="busy() === review.uploadId"
+  >
+    <header class="li-review__head">
       <div>
-        <h3 class="review__title">
+        <h3 class="li-review__title">
           {{ typeLabel(review.type) }} @if (review.role) {
           <span>· {{ roleLabels[review.role] }}</span>
           } @if (review.registrationNumber) {
-          <span class="mono">· {{ review.registrationNumber }}</span>
+          <span class="li-mono">· {{ review.registrationNumber }}</span>
           }
         </h3>
         <p class="li-muted">
@@ -39,7 +42,7 @@
     </header>
 
     @if (review.facts.length) {
-    <dl class="facts">
+    <dl class="li-facts">
       @for (fact of review.facts; track fact.label) {
       <div>
         <dt>{{ fact.label }}</dt>
@@ -55,16 +58,16 @@
     } @else if (!review.vehicleId) {
     <ui-alert tone="warning">
       <strong>A new car?</strong> None of your cars has the plate
-      <span class="mono">{{ review.registrationNumber ?? review.vin }}</span>.
-      Add it as a new car, or pick the right car if the plate was misread.
+      <span class="li-mono">{{ review.registrationNumber ?? review.vin }}</span
+      >. Add it as a new car, or pick the right car if the plate was misread.
     </ui-alert>
     } @if (review.joins; as joins) {
     <ui-alert tone="info">
       <strong>Same policy as one you have.</strong> It prints
-      <span class="mono">{{ joins.number }}</span>, like the record that already
-      has {{ joins.documentCount }} {{ joins.documentCount === 1 ? 'document' :
-      'documents' }}: approved, it joins that record instead of making a new
-      version.
+      <span class="li-mono">{{ joins.number }}</span>, like the record that
+      already has {{ joins.documentCount }} {{ joins.documentCount === 1 ?
+      'document' : 'documents' }}: approved, it joins that record instead of
+      making a new version.
     </ui-alert>
     } @if (review.outdated) {
     <ui-alert tone="info">
@@ -73,7 +76,7 @@
     </ui-alert>
     }
 
-    <label class="review__whose">
+    <label class="li-review__whose">
       <span>Which car?</span>
       <select
         class="ui-input compact"
@@ -104,7 +107,7 @@
         (input)="setDraftLabel(review, $any($event.target).value)"
       />
     </label>
-    <p class="sub">A new car with what it prints</p>
+    <p class="li-review__label">A new car with what it prints</p>
     <div class="li-table-wrap">
       <table class="li-table">
         <thead>
@@ -133,7 +136,7 @@
       car afterwards if something printed is right.
     </ui-alert>
     } @else if (changesFor(review).length) {
-    <p class="sub">New or different from what you have</p>
+    <p class="li-review__label">New or different from what you have</p>
     <div class="li-table-wrap">
       <table class="li-table">
         <thead>
@@ -188,7 +191,7 @@
     </p>
     }
 
-    <footer class="review__actions">
+    <footer class="li-review__actions">
       <button
         uiButton
         variant="ghost"

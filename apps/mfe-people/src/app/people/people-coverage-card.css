@@ -1,0 +1,4 @@
+.coverage td,
+.coverage th {
+  white-space: nowrap;
+}
