@@ -3,6 +3,35 @@
   heading="730 tax return"
   subtitle="Every document that goes into your 730, year by year: deductible expenses with their invoice and payment proof, ready for the commercialista."
 >
+  <ui-info-guide
+    uiPageActions
+    heading="About the 730"
+    [(open)]="guideOpen"
+    [(topic)]="guideTopic"
+    (closed)="onGuideClosed()"
+  >
+    <ui-info-topic
+      key="basics"
+      label="The 730, in short"
+      [intro]="guideIntro()"
+    >
+      <tax-730-basics [taxYear]="guideYear()" />
+    </ui-info-topic>
+    <ui-info-topic
+      key="rates"
+      label="Rates and caps"
+      intro="The rate, cap and franchigia of each kind of expense, and over how many years it comes back. For expenses of {{ guideYear() }}."
+    >
+      <tax-730-rates [taxYear]="guideYear()" />
+    </ui-info-topic>
+    <ui-info-topic
+      key="glossary"
+      label="Glossary"
+      intro="The words on your return, in plain language. Search in English or Italian."
+    >
+      <tax-glossary />
+    </ui-info-topic>
+  </ui-info-guide>
   @if (years()?.length) {
   <a uiButton variant="secondary" uiPageActions [href]="workbookUrl()" download>
     <ui-icon name="download" [size]="18" /> Excel, every year
@@ -12,7 +41,7 @@
 
 @if (error(); as message) {
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
-} <tax-730-guide [taxYear]="guideYear()" /> @if (years() === null) {
+} @if (years() === null) {
 <p class="loading">Loading your tax years…</p>
 } @else if (!years()!.length) {
 <ui-empty-state icon="inbox" heading="No 730 expenses yet">
@@ -141,8 +170,6 @@
   (pick)="selectYear($event)"
   class="block"
 />
-} @case ('glossary') {
-<tax-glossary-card />
 } @default {
 <tax-deductions-card [dossier]="d" class="deductions" />
 

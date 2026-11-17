@@ -13,6 +13,7 @@ export * from './lib/dropzone/dropzone';
 export * from './lib/empty-state/empty-state';
 export * from './lib/form-field/form-field';
 export * from './lib/icon/icon';
+export * from './lib/info/info-guide';
 export * from './lib/page-header/page-header';
 export * from './lib/progress-bar/progress-bar';
 export * from './lib/status-dot/status-dot';

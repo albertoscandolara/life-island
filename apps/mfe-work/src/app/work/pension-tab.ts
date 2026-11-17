@@ -34,7 +34,6 @@ import {
 import type { Observable } from 'rxjs';
 import { WorkApi } from '../api/work-api';
 import { euro, parseAmount, periodText, safeUrl } from './labels';
-import { guideText, PENSION_GUIDE } from './pension-guide';
 
 /** A fund as you type it. */
 export interface FundDraft {
@@ -136,8 +135,7 @@ export function paymentRequest(
 }
 
 /**
- * Pension fund: how a fondo pensione works in plain words, your funds, what
- * your payslips and your own transfers paid in year by year against the
+ * Pension fund: your funds, what your payslips and your own transfers paid in year by year against the
  * deduction limit, the value of your position from its statements, and what
  * the 730 and the fund need from you.
  */
@@ -153,6 +151,8 @@ export class PensionTab {
   readonly changed = output<void>();
   /** Opens the TFR tab, with the company-or-fund comparison. */
   readonly showTfr = output<void>();
+  /** Opens the Work guide on how a pension fund works. */
+  readonly showGuide = output<void>();
 
   private readonly api = inject(WorkApi);
 
@@ -163,7 +163,6 @@ export class PensionTab {
   protected readonly kindLabels = PENSION_FUND_KIND_LABELS;
   protected readonly paymentKinds = PENSION_PAYMENT_KINDS;
   protected readonly paymentKindLabels = PENSION_PAYMENT_KIND_LABELS;
-  protected readonly guide = PENSION_GUIDE;
 
   protected readonly fundDraft = signal<FundDraft | null>(null);
   protected readonly statementDraft = signal<StatementDraft | null>(null);
@@ -212,10 +211,6 @@ export class PensionTab {
     const t = this.pension().thisYear;
     return t ? Math.round((t.projected / t.limit) * 100) : null;
   });
-
-  protected text(value: string): string {
-    return guideText(value, this.limits());
-  }
 
   protected fundName(id: string | null): string {
     return this.funds().find((f) => f.id === id)?.name ?? '';

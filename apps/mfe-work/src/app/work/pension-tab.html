@@ -9,8 +9,8 @@
     <p class="muted">
       A pension fund (fondo pensione) is retirement savings on top of your INPS
       pension: you, your employer and your TFR pay in, and what you pay comes
-      off your taxes. Read how it works below. Already a member? Add your fund,
-      or approve a payslip that shows it.
+      off your taxes. The guide explains how it works. Already a member? Add
+      your fund, or approve a payslip that shows it.
     </p>
     <div class="actions">
       <button uiButton size="sm" type="button" (click)="startFund()">
@@ -24,6 +24,15 @@
         (click)="showTfr.emit()"
       >
         <ui-icon name="chart" [size]="16" /> Company or fund? Compare
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="showGuide.emit()"
+      >
+        <ui-icon name="book" [size]="16" /> How a pension fund works
       </button>
     </div>
   </ui-empty-state>
@@ -895,36 +904,3 @@
   </ul>
 </ui-card>
 }
-
-<!-- How it works ----------------------------------------------------------- -->
-<ui-card heading="How a pension fund works" class="block">
-  <p class="muted intro">
-    In plain words, at the rules of 2026. The figures above are estimates for
-    planning: your fund and your CAF have the last word.
-  </p>
-  <div class="guide">
-    @for (s of guide; track s.id; let first = $first) {
-    <details class="guide__section" [open]="first && newcomer()">
-      <summary>{{ s.title }}</summary>
-      @for (p of s.body; track $index) {
-      <p>{{ text(p) }}</p>
-      } @if (s.points?.length) {
-      <ul class="bullets">
-        @for (p of s.points; track $index) {
-        <li>{{ text(p) }}</li>
-        }
-      </ul>
-      } @if (s.id === 'worth') {
-      <button type="button" class="link" (click)="showTfr.emit()">
-        Open the comparison in the TFR tab
-      </button>
-      }
-    </details>
-    }
-  </div>
-  <p class="note muted">
-    Sources: @for (s of pension().sources; track s.url; let last = $last) {
-    <a [href]="s.url" target="_blank" rel="noopener">{{ s.label }}</a>{{ last ?
-    '' : ' · ' }} }
-  </p>
-</ui-card>

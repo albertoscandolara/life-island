@@ -1,4 +1,4 @@
-/* Pension fund: this year's deduction, the funds, year by year, statements and the guide. */
+/* Pension fund: this year's deduction, the funds, year by year, and statements. */
 :host {
   display: block;
 }
@@ -63,38 +63,6 @@
 
 .danger {
   color: var(--tone-danger);
-}
-
-.guide {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.guide__section {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-}
-
-.guide__section summary {
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.guide__section p {
-  margin: var(--space-2) 0 0;
-  color: var(--text-secondary);
-  line-height: 1.55;
-}
-
-.guide__section .bullets {
-  margin-top: var(--space-2);
-  color: var(--text-secondary);
-}
-
-.guide__section .link {
-  margin-top: var(--space-3);
 }
 
 .table td.notice {

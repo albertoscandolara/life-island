@@ -43,6 +43,8 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiInfoGuide,
+  UiInfoTopic,
   UiPageHeader,
   type UiIconName,
   type UiTone,
@@ -55,6 +57,7 @@ import { EvaluationsTab } from './evaluations-tab';
 import { JobsTab } from './jobs-tab';
 import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
+import { PensionGuideTopic } from './pension-guide-topic';
 import { PensionTab } from './pension-tab';
 import { TfrTab } from './tfr-tab';
 import { ToolsTab, type OfferDraft } from './tools-tab';
@@ -179,6 +182,7 @@ const today = () => new Date().toISOString().slice(0, 10);
     JobsTab,
     PayAnalysisTab,
     PayslipsTab,
+    PensionGuideTopic,
     PensionTab,
     TfrTab,
     ToolsTab,
@@ -190,6 +194,8 @@ const today = () => new Date().toISOString().slice(0, 10);
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiInfoGuide,
+    UiInfoTopic,
     UiPageHeader,
   ],
   host: { 'data-character': 'pachy', class: 'work' },
@@ -205,6 +211,9 @@ export class WorkPage {
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
   protected readonly tab = signal<WorkTab>(this.initialTab());
+  /** The Work guide: reading matter kept out of the tabs, opened on demand. */
+  protected readonly guideOpen = signal(false);
+  protected readonly guideTopic = signal('pension');
   protected readonly selectedId = signal<string | null>(null);
   private readonly drafts = signal<Record<string, Draft>>({});
   /** The values being edited on the selected workplace, or null when not editing. */
@@ -349,12 +358,33 @@ export class WorkPage {
       this.selectedId.set(id);
       this.tab.set('workplaces');
     });
+    // `?guide=pension` opens the guide, from a link anywhere on the island.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      const topic = query.get('guide');
+      if (topic) this.showGuide(topic);
+    });
     this.load();
   }
 
   private initialTab(): WorkTab {
     const tab = this.route.snapshot.queryParamMap.get('tab');
     return TABS.some((t) => t.id === tab) ? (tab as WorkTab) : 'career';
+  }
+
+  protected showGuide(topic: string): void {
+    this.guideTopic.set(topic);
+    this.guideOpen.set(true);
+  }
+
+  /** A closed guide leaves the URL, so a reload does not open it again. */
+  protected onGuideClosed(): void {
+    if (!this.route.snapshot.queryParamMap.get('guide')) return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { guide: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   protected setTab(tab: WorkTab): void {

@@ -72,6 +72,8 @@ export class TfrTab {
   readonly pension = input<PensionOverviewDto | null>(null);
   /** Opens the Pension fund tab. */
   readonly showPension = output<void>();
+  /** Opens the Work guide on how a pension fund works. */
+  readonly showGuide = output<void>();
 
   protected readonly euro = euro;
   protected readonly periodText = periodText;

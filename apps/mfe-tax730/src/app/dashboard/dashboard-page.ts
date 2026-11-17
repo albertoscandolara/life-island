@@ -6,6 +6,7 @@ import {
   inject,
   input,
   signal,
+  untracked,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import type {
@@ -24,12 +25,15 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiInfoGuide,
+  UiInfoTopic,
   UiPageHeader,
 } from '@life-island/design-system';
 import { EntityLink } from '@life-island/entities-ui';
 import { Tax730Api } from '../api/tax730-api';
 import { DocumentPicker, type PickedDocument } from '../picker/document-picker';
-import { Tax730Guide } from '../guide/tax730-guide';
+import { Tax730Basics, tax730Intro } from '../guide/tax730-basics';
+import { Tax730Rates } from '../guide/tax730-rates';
 import { DeductionsCard } from './deductions-card';
 import { ReturnCard } from './return-card';
 import { ExpenseEdit } from './expense-edit';
@@ -38,18 +42,23 @@ import { MonthChart } from './month-chart';
 import { YearComparison } from './year-comparison';
 import { formatDate, formatEuro, ROLE_LABELS, typeLabel } from './format';
 import { EuroCard } from '../explain/euro-card';
-import { GlossaryCard } from '../explain/glossary-card';
+import { GlossaryList } from '../explain/glossary-list';
 import { SettlementCard } from '../explain/settlement-card';
 import { StepsCard } from '../explain/steps-card';
 import { TrendCard } from '../explain/trend-card';
 import { WhatIfCard } from '../explain/what-if-card';
 
-/** The three views of a year: its tax explained, its expenses, the glossary. */
+/**
+ * The two views of a year: its tax explained, its expenses. What the 730 is,
+ * its rates and its words are in the page's guide, not in a view.
+ */
 export const DASHBOARD_VIEWS = [
   { id: 'explained', label: 'Your tax, explained', icon: 'chart' },
   { id: 'expenses', label: 'Expenses and documents', icon: 'file' },
-  { id: 'glossary', label: 'Glossary', icon: 'info' },
 ] as const;
+
+/** The topics of the page's guide, for `?guide=` in the URL. */
+export const GUIDE_TOPICS = ['basics', 'rates', 'glossary'] as const;
 export type DashboardView = (typeof DASHBOARD_VIEWS)[number]['id'];
 
 type PickerTarget =
@@ -82,14 +91,17 @@ type PickerTarget =
     ExpensePairs,
     ExpenseEdit,
     MonthChart,
-    Tax730Guide,
+    Tax730Basics,
+    Tax730Rates,
+    UiInfoGuide,
+    UiInfoTopic,
     EntityLink,
     StepsCard,
     EuroCard,
     SettlementCard,
     WhatIfCard,
     TrendCard,
-    GlossaryCard,
+    GlossaryList,
   ],
   host: { 'data-character': 'ankylo', class: 'tax730' },
   templateUrl: './dashboard-page.html',
@@ -103,6 +115,8 @@ export class DashboardPage {
   readonly year = input<string>();
   /** `?view=expenses` from the URL; the explanations by default. */
   readonly view = input<string>();
+  /** `?guide=glossary` from the URL: opens the guide on that topic. */
+  readonly guide = input<string>();
 
   protected readonly views = DASHBOARD_VIEWS;
   protected readonly currentView = computed<DashboardView>(() => {
@@ -111,6 +125,9 @@ export class DashboardPage {
       ? (asked as DashboardView)
       : 'explained';
   });
+
+  protected readonly guideOpen = signal(false);
+  protected readonly guideTopic = signal<string>('basics');
 
   protected readonly years = signal<TaxYearDto[] | null>(null);
   protected readonly dossier = signal<TaxYearDossierDto | null>(null);
@@ -135,6 +152,8 @@ export class DashboardPage {
     () => this.selectedYear() ?? new Date().getFullYear() - 1,
   );
 
+  protected readonly guideIntro = computed(() => tax730Intro(this.guideYear()));
+
   protected readonly formatEuro = formatEuro;
   protected readonly formatDate = formatDate;
   protected readonly typeLabel = typeLabel;
@@ -149,6 +168,32 @@ export class DashboardPage {
     effect(() => {
       const year = this.selectedYear();
       if (year !== null) this.loadDossier(year);
+    });
+    effect(() => {
+      // `?view=glossary` was the glossary before it moved into the guide.
+      const asked =
+        this.guide() ?? (this.view() === 'glossary' ? 'glossary' : undefined);
+      if (!asked) return;
+      untracked(() => {
+        this.guideTopic.set(
+          (GUIDE_TOPICS as readonly string[]).includes(asked)
+            ? asked
+            : 'basics',
+        );
+        this.guideOpen.set(true);
+      });
+    });
+  }
+
+  /** A closed guide leaves the URL, so a reload does not open it again. */
+  protected onGuideClosed(): void {
+    if (!this.guide() && this.view() !== 'glossary') return;
+    void this.router.navigate([], {
+      queryParams: {
+        guide: null,
+        view: this.view() === 'glossary' ? null : this.view(),
+      },
+      queryParamsHandling: 'merge',
     });
   }
 

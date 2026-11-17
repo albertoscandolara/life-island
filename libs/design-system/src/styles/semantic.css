@@ -193,3 +193,24 @@
   --ai-soft: color-mix(in srgb, var(--violet-400) 9%, var(--surface-card));
   --ai-border: color-mix(in srgb, var(--violet-400) 30%, var(--border-subtle));
 }
+
+/*
+ * Guide identity (ui-info-guide, ui-info-topic): one calm blue, used only for
+ * reading matter (what a thing is, how it works, the words it uses), so a
+ * guide looks the same in every module and never reads as data.
+ */
+:root {
+  --info-accent: var(--sky-600);
+  --info-text: color-mix(in srgb, var(--sky-600) 85%, var(--ink-900));
+  --info-soft: color-mix(in srgb, var(--sky-600) 6%, var(--surface-card));
+  --info-border: color-mix(in srgb, var(--sky-600) 26%, var(--border-subtle));
+  --info-rule: color-mix(in srgb, var(--sky-600) 9%, transparent);
+}
+
+:root[data-theme='dark'] {
+  --info-accent: var(--sky-400);
+  --info-text: var(--sky-300);
+  --info-soft: color-mix(in srgb, var(--sky-400) 8%, var(--surface-card));
+  --info-border: color-mix(in srgb, var(--sky-400) 30%, var(--border-subtle));
+  --info-rule: color-mix(in srgb, var(--sky-400) 8%, transparent);
+}

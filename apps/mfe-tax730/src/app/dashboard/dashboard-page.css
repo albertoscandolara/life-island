@@ -375,7 +375,7 @@ tax-return-card {
   }
 }
 
-/* Views of the year: the tax explained, the expenses, the glossary. */
+/* Views of the year: the tax explained, the expenses. */
 .views {
   display: flex;
   flex-wrap: wrap;
