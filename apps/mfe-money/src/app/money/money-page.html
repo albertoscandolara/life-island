@@ -307,19 +307,12 @@
           </button>
         </span>
       </div>
-      <div
-        class="meter"
-        role="meter"
-        [attr.aria-valuenow]="b.spent"
-        aria-valuemin="0"
-        [attr.aria-valuemax]="b.monthlyLimit"
-        [attr.aria-label]="category(b.category)"
-      >
-        <span
-          [class]="'meter__fill meter__fill--' + budgetTone(b.share)"
-          [style.width.%]="b.share * 100 > 100 ? 100 : b.share * 100"
-        ></span>
-      </div>
+      <ui-progress-bar
+        size="md"
+        [value]="b.share * 100"
+        [tone]="budgetTone(b.share)"
+        [label]="category(b.category) + ': share of the budget spent'"
+      />
     </li>
     }
   </ul>

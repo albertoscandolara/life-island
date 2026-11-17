@@ -76,16 +76,11 @@
       }
     </span>
     @if (g.progress !== null) {
-    <div
-      class="progress"
-      role="progressbar"
-      [attr.aria-valuenow]="g.progress"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      [attr.aria-label]="'Progress of ' + g.title"
-    >
-      <span class="progress__fill" [style.width.%]="g.progress"></span>
-    </div>
+    <ui-progress-bar
+      size="md"
+      [value]="g.progress"
+      [label]="'Progress of ' + g.title"
+    />
     <span class="li-small li-muted"
       >{{ g.progress }}% · {{ g.steps.length }} steps</span
     >

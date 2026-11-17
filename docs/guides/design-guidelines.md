@@ -59,13 +59,14 @@ The island hub is the only real 3D scene a page depends on (plus a character's a
 
 Every chart is drawn by the design system, so they all share axes, tooltips, legends and colours:
 
-| Question                                             | Chart                                    |
-| ---------------------------------------------------- | ---------------------------------------- |
-| How much, period by period (and its parts)?          | `<ui-column-chart>` (stacked or grouped) |
-| How does a value move over time, or year over year?  | `<ui-line-chart>`                        |
-| Where is it heading, in one glance next to a number? | `<ui-sparkline>`                         |
-| How is one total split?                              | `<ui-segmented-bar>`                     |
-| A small count per week or month against a goal       | `<li-bars>`                              |
+| Question                                             | Chart                                     |
+| ---------------------------------------------------- | ----------------------------------------- |
+| How much, period by period (and its parts)?          | `<ui-column-chart>` (stacked or grouped)  |
+| How does a value move over time, or year over year?  | `<ui-line-chart>`                         |
+| Where is it heading, in one glance next to a number? | `<ui-sparkline>`                          |
+| How is one total split?                              | `<ui-segmented-bar>`                      |
+| A small count per week or month against a goal       | `<li-bars>`                               |
+| How far along, or how much of a budget is used?      | `<ui-progress-bar>` (`tone` for a budget) |
 
 - **Colour follows the thing, never the rank.** Named entities have their own tokens (`--viz-electricity`, `--viz-gross`, `--viz-property-1`…). Anything else (topics, kinds, people) takes the categorical palette in order, `--viz-1` to `--viz-6`, and keeps its slot in every chart of the area. A seventh series goes into `--viz-other` ("Other"). A new named entity gets a token in `semantic.css`, in both themes.
 - **Bars start at zero; lines may not.** Say so when a line's axis does not start at zero.

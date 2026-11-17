@@ -23,6 +23,7 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiProgressBar,
 } from '@life-island/design-system';
 import {
   LiBars,
@@ -138,6 +139,7 @@ const EMOJI: Record<WorkoutKind, string> = {
   selector: 'fitness-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    UiProgressBar,
     AiTool,
     LiBars,
     LiDue,

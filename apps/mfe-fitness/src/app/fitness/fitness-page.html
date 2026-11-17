@@ -27,16 +27,12 @@
       >{{ d.stats.thisWeek }}
       <span class="li-small">/ {{ d.goalMinutes }} min</span></span
     >
-    <div
+    <ui-progress-bar
       class="meter"
-      role="progressbar"
-      [attr.aria-valuenow]="progress()"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-label="Active minutes this week against the goal"
-    >
-      <span [style.width.%]="progress()"></span>
-    </div>
+      size="md"
+      [value]="progress()"
+      label="Active minutes this week against the goal"
+    />
   </div>
   <div class="li-tile">
     <span class="li-tile__label">Streak</span>

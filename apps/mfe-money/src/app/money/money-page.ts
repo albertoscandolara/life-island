@@ -26,6 +26,8 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiProgressBar,
+  type UiProgressTone,
 } from '@life-island/design-system';
 import {
   LiBars,
@@ -124,6 +126,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
   selector: 'money-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    UiProgressBar,
     AiTool,
     LiBars,
     LiRecordDialog,
@@ -355,8 +358,8 @@ export class MoneyPage {
     this.budgets.add({ category });
   }
 
-  protected budgetTone(share: number): string {
-    return share > 1 ? 'danger' : share > 0.85 ? 'warning' : 'good';
+  protected budgetTone(share: number): UiProgressTone {
+    return share > 1 ? 'danger' : share > 0.85 ? 'warning' : 'success';
   }
 
   // CSV import
