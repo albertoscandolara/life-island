@@ -23,6 +23,7 @@ import {
   pensionPaymentRequestSchema,
   pensionStatementRequestSchema,
   type DeadlineDto,
+  type LifeAttentionDto,
   careerEventRequestSchema,
   careerFeedbackRequestSchema,
   createWorkplaceRequestSchema,
@@ -204,6 +205,12 @@ export class WorkController {
   }
 
   // ---- pension fund ----------------------------------------------------------
+
+  /** What needs you, for the hub badge: pension dates and documents to review. */
+  @Get('attention')
+  attention(): Promise<LifeAttentionDto> {
+    return this.work.attention();
+  }
 
   /** The pension fund's dates (last day to top up, the non-deducted notice), for the Agenda. */
   @Get('deadlines')

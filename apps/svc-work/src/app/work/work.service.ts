@@ -8,9 +8,11 @@ import {
 import type { ServiceDb } from '@life-island/be-common';
 import {
   deadlineWindow,
+  isoAddDays,
   PENSION_STATEMENT_CATEGORY,
   PLATFORM_STALE_DAYS,
   type DeadlineDto,
+  type LifeAttentionDto,
   type DeadlinesQuery,
   type PensionConfirmStatementRequest,
   type PensionFundRequest,
@@ -389,6 +391,26 @@ export class WorkService {
   }
 
   /** The pension fund's dates, for the Agenda. */
+  /**
+   * What needs you, for the hub badge (`GET /attention`): pension fund dates
+   * already past or within 30 days (a transfer takes time), and the career
+   * documents waiting for review.
+   */
+  async attention(today = todayIso()): Promise<LifeAttentionDto> {
+    const { pension, reviews } = await this.overview(today);
+    return {
+      expired: pensionDeadlines(pension, {
+        from: '0000-01-01',
+        to: isoAddDays(today, -1),
+      }).length,
+      expiring: pensionDeadlines(pension, {
+        from: today,
+        to: isoAddDays(today, 30),
+      }).length,
+      toReview: reviews.length,
+    };
+  }
+
   async deadlines(query: DeadlinesQuery): Promise<DeadlineDto[]> {
     const today = todayIso();
     const overview = await this.overview(today);

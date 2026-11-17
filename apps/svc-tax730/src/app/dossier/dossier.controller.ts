@@ -22,6 +22,7 @@ import {
   setExpensePairingRequestSchema,
   updateExpenseRequestSchema,
   type DeadlineDto,
+  type LifeAttentionDto,
   type DossierExpenseDto,
   type ExpenseDto,
   type Tax730DocumentCandidateDto,
@@ -45,6 +46,12 @@ export class DossierController {
     @Inject(ExportsService) private readonly exports: ExportsService,
     @Inject(IngestionFiles) private readonly files: IngestionFiles,
   ) {}
+
+  /** What needs you, for the hub badge: returns late or due soon, pairs to confirm. */
+  @Get('attention')
+  attention(): Promise<LifeAttentionDto> {
+    return this.dossier.attention();
+  }
 
   /** The filing deadline of each year, done once its return is uploaded (read by the Agenda). */
   @Get('deadlines')

@@ -37,6 +37,7 @@ import {
   type CarsPeopleDto,
   deadlinesQuerySchema,
   type DeadlineDto,
+  type LifeAttentionDto,
   type EntityRefDto,
 } from '@life-island/contracts';
 import { CarModels } from './car-models.js';
@@ -75,6 +76,12 @@ export class CarsController {
   @Get('entities')
   async entities(): Promise<EntityRefDto[]> {
     return carEntities(await this.cars.overview(undefined, false));
+  }
+
+  /** What needs you, for the hub badge: late and soon renewals, documents to review. */
+  @Get('attention')
+  attention(): Promise<LifeAttentionDto> {
+    return this.cars.attention();
   }
 
   /** Every renewal date of the cars in use, for the Agenda. */

@@ -36,6 +36,7 @@ import {
   deadlineWindow,
   inDeadlineWindow,
   type DeadlineDto,
+  type LifeAttentionDto,
   type DeadlinesQuery,
   RENEWABLE_LABELS,
 } from '@life-island/contracts';
@@ -166,6 +167,23 @@ export class CarsService {
           ];
         }),
       );
+  }
+
+  /**
+   * What needs you, for the hub badge (`GET /attention`): renewals of the
+   * cars in use that expired or are in their grace period, those expiring
+   * soon, and the documents waiting for review. Counted from the same
+   * warnings the page shows on top.
+   */
+  async attention(today = todayIso()): Promise<LifeAttentionDto> {
+    const { alerts, reviews: waiting } = await this.overview(today);
+    return {
+      expired: alerts.filter(
+        (a) => a.level === 'expired' || a.level === 'grace',
+      ).length,
+      expiring: alerts.filter((a) => a.level === 'expiring').length,
+      toReview: waiting.length,
+    };
   }
 
   async overview(
