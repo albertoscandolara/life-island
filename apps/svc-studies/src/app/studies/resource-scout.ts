@@ -1,5 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import {
   BadRequestException,
   ConflictException,
@@ -12,15 +10,15 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
-  aiToolModel,
-  describeAiTools,
-  isAiToolEnabled,
   readSettings,
-  recordAiToolUse,
-  stepUsage,
   type AiToolDescription,
   type ServiceDb,
 } from '@life-island/be-common';
+import {
+  AiAssistant,
+  describeAiSteps,
+  type AiAssistantStep,
+} from '@life-island/be-nest';
 import {
   applyOutlineChanges,
   learningPath,
@@ -33,7 +31,6 @@ import {
   STUDY_SCOUT_NONE,
   STUDY_SCOUT_SUBJECT_SETTING,
   STUDY_SCOUT_TOOL,
-  type AiStepUsage,
   type LearningPath,
   type OutlineChangeDto,
   type OutlineDecision,
@@ -64,7 +61,6 @@ import {
   scoutRequest,
   type ScanScope,
 } from './scout.js';
-import { explain } from './study-coach.js';
 
 const SERVICE = 'svc-studies';
 /** How often the scheduler looks whether a scan is due. */
@@ -83,7 +79,7 @@ const RETRY_AFTER_MS = 12 * 3600_000;
 @Injectable()
 export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(ResourceScout.name);
-  private readonly client: Anthropic | null;
+  private readonly ai: AiAssistant;
   private timer: NodeJS.Timeout | null = null;
   private first: NodeJS.Timeout | null = null;
   private running = false;
@@ -92,9 +88,13 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     @Inject(CONFIG) private readonly config: StudiesConfig,
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
   ) {
-    this.client = config.anthropicApiKey
-      ? new Anthropic({ apiKey: config.anthropicApiKey, maxRetries: 2 })
-      : null;
+    this.ai = new AiAssistant({
+      toolId: STUDY_SCOUT_TOOL,
+      service: SERVICE,
+      apiKey: config.anthropicApiKey,
+      defaultModel: config.coachModel,
+      svc,
+    });
   }
 
   private get db() {
@@ -102,16 +102,7 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   async onApplicationBootstrap(): Promise<void> {
-    await describeAiTools(
-      this.svc.pool,
-      this.svc.schema,
-      SERVICE,
-      describeScoutTool(this.config, this.client !== null),
-    ).catch((error: unknown) =>
-      this.logger.warn(
-        `Could not describe the resource scout: ${String(error)}`,
-      ),
-    );
+    await this.ai.describe([RESEARCH_STEP, FORMAT_STEP]);
     if (!this.config.scoutSchedule) return;
     const tick = () =>
       void this.tick().catch((error: unknown) =>
@@ -141,11 +132,8 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /** Whether a scan can call Claude now: a key, and the switches in Settings. */
-  async usesAi(): Promise<boolean> {
-    return (
-      this.client !== null &&
-      (await isAiToolEnabled(this.svc.pool, this.svc.schema, STUDY_SCOUT_TOOL))
-    );
+  usesAi(): Promise<boolean> {
+    return this.ai.active();
   }
 
   /** The path under watch and how often, from the settings replica. */
@@ -294,7 +282,7 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
       throw new BadRequestException(
         'Pick the path to keep current first (Settings → App settings → Studies).',
       );
-    if (!this.client)
+    if (!this.ai.configured)
       throw new ServiceUnavailableException(
         'The resource scout searches the web with the Claude API: set ANTHROPIC_API_KEY in .env and restart svc-studies.',
       );
@@ -330,88 +318,35 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
   // ---- the scan ------------------------------------------------------------
 
   private async scan(scanId: string, pathId: string): Promise<void> {
-    const client = this.client!;
-    const steps: AiStepUsage[] = [];
-    let model = this.config.coachModel;
     try {
       const catalogue = await this.catalogue();
-      const path = learningPath(pathId, catalogue)!;
+      // The path exists: the scan was started for it.
+      const path = learningPath(pathId, catalogue) as LearningPath;
       const scope = await this.scope(path);
-      model =
-        (await aiToolModel(this.svc.pool, this.svc.schema, STUDY_SCOUT_TOOL)) ??
-        model;
       const request = scoutRequest(scope);
-
-      const messages: Anthropic.MessageParam[] = [
-        { role: 'user', content: request },
-      ];
-      let research: Anthropic.Message | null = null;
-      for (let turn = 0; turn < 4; turn++) {
-        const started = Date.now();
-        research = await client.messages.create({
-          model,
-          max_tokens: 16000,
-          output_config: { effort: 'medium' },
-          system: SCOUT_RESEARCH,
-          tools: [
-            { type: 'web_search_20260209', name: 'web_search', max_uses: 12 },
-          ],
-          messages,
-        });
-        steps.push(stepUsage('research', research, Date.now() - started));
-        if (research.stop_reason !== 'pause_turn') break;
-        messages.push({ role: 'assistant', content: research.content });
-      }
-      if (!research || research.stop_reason === 'pause_turn')
-        throw new ScoutError('The web search took too long. Try again later.');
-      if (research.stop_reason === 'refusal')
-        throw new ScoutError('Claude declined to run this scan.');
-      const notes = textOf(research);
-      if (!notes.trim())
-        throw new ScoutError('The web search found nothing to report.');
-
-      const started = Date.now();
-      const formatted = await client.messages.create({
-        model,
-        max_tokens: 16000,
-        output_config: {
-          effort: 'low',
-          format: zodOutputFormat(scoutOutputSchema),
+      const { output, model } = await this.ai.research({
+        research: { step: RESEARCH_STEP, user: request, maxSearches: 12 },
+        format: {
+          step: FORMAT_STEP,
+          user: (notes) => `${request}\n\n<notes>\n${notes}\n</notes>`,
+          output: scoutOutputSchema,
         },
-        system: SCOUT_FORMAT,
-        messages: [
-          {
-            role: 'user',
-            content: `${request}\n\n<notes>\n${notes}\n</notes>`,
-          },
-        ],
       });
-      steps.push(stepUsage('format', formatted, Date.now() - started));
-      if (formatted.stop_reason === 'max_tokens')
-        throw new ScoutError('The findings came out too long and were cut.');
-      const output = scoutOutputSchema.parse(JSON.parse(textOf(formatted)));
       const result = await this.save(scanId, scope, output);
       await this.db
         .update(scoutScans)
-        .set({
-          status: 'done',
-          ...result,
-          model: formatted.model,
-          finishedAt: new Date(),
-        })
+        .set({ status: 'done', ...result, model, finishedAt: new Date() })
         .where(eq(scoutScans.id, scanId));
-      await this.record(steps);
     } catch (error) {
-      await this.record(steps, error);
       this.logger.error(`Resource scan failed: ${String(error)}`);
       await this.db
         .update(scoutScans)
         .set({
           status: 'error',
           error:
-            error instanceof ScoutError
+            error instanceof ServiceUnavailableException
               ? error.message
-              : explain(error, model).replace('write the plan', 'run the scan'),
+              : 'The scan could not finish. Try again later.',
           finishedAt: new Date(),
         })
         .where(eq(scoutScans.id, scanId))
@@ -564,29 +499,6 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
       .set({ status: decision, decidedAt: new Date() })
       .where(eq(outlineChanges.id, id));
   }
-
-  private async record(steps: AiStepUsage[], error?: unknown): Promise<void> {
-    if (!steps.length && !error) return;
-    await recordAiToolUse(this.svc.pool, this.svc.schema, {
-      toolId: STUDY_SCOUT_TOOL,
-      service: SERVICE,
-      outcome: error ? 'error' : 'ok',
-      error: error ? String(error) : null,
-      steps,
-    }).catch((failure: unknown) =>
-      this.logger.warn(
-        `Could not record a use of ${STUDY_SCOUT_TOOL}: ${String(failure)}`,
-      ),
-    );
-  }
-}
-
-class ScoutError extends Error {}
-
-function textOf(message: Anthropic.Message): string {
-  return message.content
-    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-    .join('');
 }
 
 export function resourceDto(row: ScoutResourceRow): ScoutResourceDto {
@@ -641,45 +553,38 @@ export function scanDto(row: ScoutScanRow): ScoutScanDto {
   };
 }
 
+/** The scout's two requests: a web search, then its notes structured. */
+const RESEARCH_STEP: AiAssistantStep = {
+  stepId: 'research',
+  label: 'Search the web',
+  system: SCOUT_RESEARCH,
+  userTemplate:
+    'Today: {date}\nPath: {name} (topic: {topic})\n{summary}\n\n# Steps to scan\n{for the stage with your next step and the one after: each step with its detail, outcome, hand-picked and pinned resources}\n\n# Dismissed (never suggest)\n{the addresses you dismissed}\n\n# The other stages of the path (context only)\n{titles}',
+  outputFormat: null,
+  effort: 'medium',
+  maxTokens: 16000,
+  tools: ['web_search (up to 12 searches)'],
+};
+
+const FORMAT_STEP: AiAssistantStep = {
+  stepId: 'format',
+  label: 'Structure the findings',
+  system: SCOUT_FORMAT,
+  userTemplate: '{the same request}\n\n<notes>\n{the research notes}\n</notes>',
+  outputFormat: 'scoutOutput',
+  effort: 'low',
+  maxTokens: 16000,
+};
+
 /** How the scout calls the model, as the info button in Settings shows it. */
 export function describeScoutTool(
   config: Pick<StudiesConfig, 'coachModel'>,
   available: boolean,
 ): AiToolDescription[] {
   return [
-    {
-      toolId: STUDY_SCOUT_TOOL,
-      available,
-      steps: [
-        {
-          stepId: 'research',
-          label: 'Search the web',
-          model: config.coachModel,
-          effort: 'medium',
-          maxTokens: 16000,
-          thinking: 'adaptive (default)',
-          tools: ['web_search (up to 12 searches)'],
-          system: SCOUT_RESEARCH,
-          userTemplate:
-            'Today: {date}\nPath: {name} (topic: {topic})\n{summary}\n\n# Steps to scan\n{for the stage with your next step and the one after: each step with its detail, outcome, hand-picked and pinned resources}\n\n# Dismissed (never suggest)\n{the addresses you dismissed}\n\n# The other stages of the path (context only)\n{titles}',
-          outputFormat: null,
-          promptCaching: false,
-        },
-        {
-          stepId: 'format',
-          label: 'Structure the findings',
-          model: config.coachModel,
-          effort: 'low',
-          maxTokens: 16000,
-          thinking: 'adaptive (default)',
-          tools: [],
-          system: SCOUT_FORMAT,
-          userTemplate:
-            '{the same request}\n\n<notes>\n{the research notes}\n</notes>',
-          outputFormat: 'scoutOutput (structured output)',
-          promptCaching: false,
-        },
-      ],
-    },
+    describeAiSteps(STUDY_SCOUT_TOOL, available, config.coachModel, [
+      RESEARCH_STEP,
+      FORMAT_STEP,
+    ]),
   ];
 }
