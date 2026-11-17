@@ -10,6 +10,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { AppModule } from './app.module.js';
 import type { IngestionConfig } from './config.js';
+import { applyHttpSecurity } from '@life-island/be-nest';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../../drizzle', import.meta.url),
@@ -67,6 +68,7 @@ export async function createApp(
     type: 'application/octet-stream',
     limit: MAX_UPLOAD_BYTES + 1024,
   });
+  applyHttpSecurity(app, { service: 'svc-ingestion', config });
   app.enableShutdownHooks();
   return app;
 }

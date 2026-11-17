@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Only 01 and 02 run at init; 03 is the isolation check, run on demand.
@@ -31,7 +31,7 @@ services:
     image: chrislusf/seaweedfs:3.97
     command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024
     ports:
-      - '${STORAGE_S3_PORT:-8333}:8333'
+      - '${STORAGE_BIND:-127.0.0.1}:${STORAGE_S3_PORT:-8333}:8333'
     volumes:
       - storage-data:/data
       - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
@@ -47,8 +47,8 @@ services:
     image: nats:2.11-alpine
     command: -js -sd /data -m 8222
     ports:
-      - '${NATS_PORT:-4222}:4222'
-      - '${NATS_MONITOR_PORT:-8222}:8222'
+      - '127.0.0.1:${NATS_PORT:-4222}:4222'
+      - '127.0.0.1:${NATS_MONITOR_PORT:-8222}:8222'
     volumes:
       - nats-data:/data
     healthcheck:
@@ -66,12 +66,13 @@ services:
   gateway:
     image: caddy:2.10-alpine
     ports:
-      - '${GATEWAY_PORT:-8080}:80'
+      - '${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8080}:80'
     environment:
       # Sign-in for everything behind the gateway: `basic` turns it on (set
       # GATEWAY_USER and GATEWAY_PASSWORD_HASH, see infra/caddy/README.md);
-      # `off` is for local development only.
-      GATEWAY_AUTH: ${GATEWAY_AUTH:-off}
+      # `off` is for local development only. No default: unset, the gateway
+      # refuses to start rather than publish the island without sign-in.
+      GATEWAY_AUTH: ${GATEWAY_AUTH:?Set GATEWAY_AUTH in .env (off on your own machine, basic when published)}
       GATEWAY_USER: ${GATEWAY_USER:-}
       GATEWAY_PASSWORD_HASH: ${GATEWAY_PASSWORD_HASH:-}
     volumes:

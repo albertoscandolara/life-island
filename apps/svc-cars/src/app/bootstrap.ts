@@ -4,6 +4,7 @@ import { createServiceDb, migrateServiceSchema } from '@life-island/be-common';
 import { fileURLToPath } from 'node:url';
 import { AppModule } from './app.module.js';
 import type { CarsConfig } from './config.js';
+import { applyHttpSecurity } from '@life-island/be-nest';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../../drizzle', import.meta.url),
@@ -29,6 +30,7 @@ export async function createApp(
 ): Promise<INestApplication> {
   await runMigrations(config.databaseUrl);
   const app = await NestFactory.create(AppModule.forRoot(config, options));
+  applyHttpSecurity(app, { service: 'svc-cars', config });
   app.enableShutdownHooks();
   return app;
 }

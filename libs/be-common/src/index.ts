@@ -10,3 +10,4 @@ export * from './lib/storage.js';
 export * from './lib/record-loader.js';
 export * from './lib/model-files.js';
 export * from './lib/ai-tools.js';
+export * from './lib/production-guard.js';
