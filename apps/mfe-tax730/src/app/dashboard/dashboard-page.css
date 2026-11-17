@@ -342,6 +342,11 @@ tax-return-card {
   margin-bottom: var(--space-3);
 }
 
+.doc__shared {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 .expense__paired {
   display: flex;
   align-items: center;

@@ -57,8 +57,10 @@ function expense(
         description: null,
         kind: 'PAYMENT',
         automatic: false,
+        paysToo: [],
       },
     ],
+    paidTogetherWith: [],
     ...overrides,
   };
 }

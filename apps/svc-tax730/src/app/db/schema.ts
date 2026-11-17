@@ -60,6 +60,15 @@ export const expenses = tax730.table(
     }),
     /** Your decision on pairing: CONFIRMED (with `paired_with`) or SEPARATE; null leaves it automatic. */
     pairing: text('pairing'),
+    /**
+     * The other invoices this payment paid too, when one transfer paid
+     * several invoices and you confirmed it (with `paired_with` the first).
+     * By id; an id that no longer exists is ignored.
+     */
+    paysToo: uuid('pays_too')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
     /** The document's template fields as you reviewed them. */
     documentFields: jsonb('document_fields'),
     approvedAt: timestamp('approved_at', { withTimezone: true }).notNull(),

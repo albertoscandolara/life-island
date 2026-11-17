@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import type {
   DossierExpenseDto,
+  SharedPaymentExpenseDto,
   Tax730ExpenseKind,
 } from '@life-island/contracts';
 import { UiBadge, UiButton, UiIcon } from '@life-island/design-system';
@@ -45,6 +46,11 @@ const KIND_LABELS: Record<Tax730ExpenseKind, string> = {
               <span class="pair__main">
                 <span class="pair__issuer">{{ p.issuer }}</span>
                 <span class="pair__desc">{{ p.description || '–' }}</span>
+                @if (p.paysToo.length) {
+                  <span class="pair__desc"
+                    >One transfer, also paid: {{ paysTooText(p.paysToo) }}</span
+                  >
+                }
               </span>
               <ui-badge [tone]="p.kind === 'PAYMENT' ? 'info' : 'neutral'">{{
                 kindLabels[p.kind]
@@ -193,4 +199,10 @@ export class ExpensePairs {
   protected readonly toReview = computed(() =>
     this.expense().paired.some((p) => p.automatic),
   );
+
+  protected paysTooText(expenses: readonly SharedPaymentExpenseDto[]): string {
+    return expenses
+      .map((e) => `${e.description || e.issuer} (${formatEuro(e.amount)})`)
+      .join(', ');
+  }
 }

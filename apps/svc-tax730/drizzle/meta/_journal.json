@@ -29,6 +29,13 @@
       "when": 1794617057953,
       "tag": "0003_attachment_chosen",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794872446412,
+      "tag": "0004_shared_payments",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
 import { Router } from '@angular/router';
 import type {
   DossierExpenseDto,
+  SharedPaymentExpenseDto,
   Tax730AttachmentDto,
   Tax730AttachmentRole,
   TaxYearDossierDto,
@@ -217,6 +218,17 @@ export class DashboardPage {
       others ? `${others} ${others === 1 ? 'invoice' : 'invoices'}` : '',
     ].filter(Boolean);
     return `Paired with ${parts.join(' and ')}`;
+  }
+
+  /** "Paid together with LESO … (304,00 €)": one transfer for several invoices. */
+  protected paidTogetherSummary(expense: DossierExpenseDto): string {
+    return `Paid in one transfer with ${this.sharedList(expense.paidTogetherWith)}`;
+  }
+
+  protected sharedList(expenses: readonly SharedPaymentExpenseDto[]): string {
+    return expenses
+      .map((e) => `${e.description || e.issuer} (${formatEuro(e.amount)})`)
+      .join(', ');
   }
 
   protected needsReview(expense: DossierExpenseDto): boolean {

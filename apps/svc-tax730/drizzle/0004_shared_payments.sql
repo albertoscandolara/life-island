@@ -1,0 +1,1 @@
+ALTER TABLE "tax730"."expenses" ADD COLUMN "pays_too" uuid[] DEFAULT '{}'::uuid[] NOT NULL;
