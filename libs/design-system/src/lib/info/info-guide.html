@@ -1,0 +1,73 @@
+@if (!buttonless()) {
+<button
+  type="button"
+  class="ui-info-trigger"
+  aria-haspopup="dialog"
+  [attr.aria-expanded]="open()"
+  (click)="show()"
+>
+  <span class="ui-info-trigger__mark" aria-hidden="true"
+    ><ui-icon name="book" [size]="14"
+  /></span>
+  {{ label() }}
+</button>
+}
+
+<!-- Backdrop clicks close the drawer; the keyboard equivalent is Escape (the cancel event). -->
+<!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+<dialog
+  #dialog
+  class="ui-info-drawer"
+  [attr.aria-labelledby]="headingId"
+  (cancel)="onCancel($event)"
+  (click)="onClick($event)"
+>
+  <div class="ui-info-drawer__panel">
+    <header class="ui-info-drawer__head">
+      <span class="ui-info-drawer__mark" aria-hidden="true"
+        ><ui-icon name="book" [size]="20"
+      /></span>
+      <div class="ui-info-drawer__titles">
+        <span class="ui-info-drawer__eyebrow">Guide · read any time</span>
+        <h2 class="ui-info-drawer__heading" [id]="headingId">
+          {{ heading() }}
+        </h2>
+      </div>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        [iconOnly]="true"
+        type="button"
+        aria-label="Close the guide"
+        (click)="close()"
+      >
+        <ui-icon name="x" [size]="18" />
+      </button>
+    </header>
+
+    @if (topics().length > 1) {
+    <div class="ui-info-drawer__tabs" role="tablist" aria-label="Topics">
+      @for (t of topics(); track t.key()) {
+      <button
+        type="button"
+        role="tab"
+        class="ui-info-drawer__tab"
+        [id]="t.tabId"
+        [attr.aria-selected]="t === current()"
+        [attr.aria-controls]="t.panelId"
+        [attr.tabindex]="t === current() ? 0 : -1"
+        (click)="pick(t)"
+        (keydown)="onTabKey($event)"
+      >
+        {{ t.label() }}
+      </button>
+      }
+    </div>
+    }
+
+    <div #body class="ui-info-drawer__body">
+      <ng-content />
+    </div>
+  </div>
+</dialog>

@@ -134,7 +134,7 @@ Each expense folder is "date - invoice no. - supplier - description"; each file 
 
 ### Your tax, explained
 
-The 730 page has three views of a year (`?view=` in the URL): **Your tax, explained** (the default), **Expenses and documents** and **Glossary**. The explanations are drawn in the browser from the year's return (`taxReturn` of `GET tax-years`): the filed figures when a return is uploaded, the forecast otherwise, and a Filed/Forecast switch when both exist. `apps/mfe-tax730/src/app/explain/explain.ts` holds the arithmetic (unit-tested), the cards only draw it:
+The 730 page has two views of a year (`?view=` in the URL): **Your tax, explained** (the default) and **Expenses and documents**. What the 730 is, the rates and caps of each expense and the glossary are in the page's **Guide** (`?guide=basics|rates|glossary`), see [Guides](#guides-reading-matter-on-demand). The explanations are drawn in the browser from the year's return (`taxReturn` of `GET tax-years`): the filed figures when a return is uploaded, the forecast otherwise, and a Filed/Forecast switch when both exist. `apps/mfe-tax730/src/app/explain/explain.ts` holds the arithmetic (unit-tested), the cards only draw it:
 
 - **How your tax is calculated**: income, deductible charges, taxable income, the gross tax bracket by bracket (`irpefByBracket` in `libs/contracts`, on the brackets of `irpefBrackets`, five until 2021), the credits, net tax, withholdings and advances, down to the result, each step in plain words, then a waterfall from the gross tax to the result.
 - **Credit or debit**: what the result means with a 730 (July payslip) or with Redditi PF, and the F24s of the year: the credit pays the balance and the next advances first, then what you still pay and the credit left to carry over or claim back.
@@ -385,3 +385,11 @@ Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Travel, Fitnes
 | Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                   |
 
 The hub shows the next six dates under **Coming up**, from `GET /api/agenda/upcoming`.
+
+## Guides: reading matter on demand
+
+Anything a page says that is not your data (what a thing is, how it works, the words it uses, rates and rules that hold for everyone) goes in the page's guide, never in a card or tab beside the data: once you know it, it is only clutter. `<ui-info-guide>` (design system) puts a small **Guide** button where you place it, usually in the page header's `uiPageActions`, and opens a drawer from the side (full screen on a phone) with one tab per `<ui-info-topic key label intro>`. The book mark, the blue `--info-*` tokens, the ruled header and the typography of what goes inside (headings, lists, tables, `<details>` folds, `.ui-info-sources`) are the same in every module, as the violet is for AI.
+
+- Open it from elsewhere on the page with `[(open)]` and `[(topic)]`; link to it from another area with `?guide=<topic>` (the page opens it and drops the parameter when it closes).
+- Content tied to your data (a chart's legend, the codes of your own registration certificate, an empty state that says what to upload) stays on the page.
+- Today: the 730 (`basics`, `rates`, `glossary`) and Work (`pension`, how a pension fund works).

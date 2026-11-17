@@ -3,38 +3,70 @@ import {
   Component,
   computed,
   input,
-  signal,
 } from '@angular/core';
 import {
-  pensionDeductionLimit,
   tax730DeductionRules,
   type Tax730DeductionRule,
 } from '@life-island/contracts';
-import { UiButton, UiCard, UiIcon } from '@life-island/design-system';
 import { formatEuro } from '../dashboard/format';
 
 const percent = (rate: number) => `${Math.round(rate * 100)}%`;
 
 /**
- * What the 730 is, how a year of it goes, what goes in it and what comes
- * back, with the rates and caps of each kind of expense for the year shown.
+ * The rate, cap, franchigia and years of each kind of expense for one tax
+ * year, with where the figures come from. Reading matter: a topic of the
+ * page's guide.
  */
 @Component({
-  selector: 'tax-730-guide',
+  selector: 'tax-730-rates',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiCard, UiButton, UiIcon],
-  templateUrl: './tax730-guide.html',
-  styleUrl: './tax730-guide.css',
+  template: `
+    <div class="ui-info-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Expense</th>
+            <th scope="col">730 row</th>
+            <th scope="col" class="ui-info-num">Rate</th>
+            <th scope="col" class="ui-info-num">Cap</th>
+            <th scope="col" class="ui-info-num">Franchigia</th>
+            <th scope="col" class="ui-info-num">Years</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rules(); track r.group) {
+            @if (r.rate !== null) {
+              <tr>
+                <th scope="row">{{ r.label.en }}</th>
+                <td>{{ r.row730 }}</td>
+                <td class="ui-info-num">{{ rateText(r) }}</td>
+                <td class="ui-info-num">{{ capText(r) }}</td>
+                <td class="ui-info-num">
+                  {{ r.franchigia ? formatEuro(r.franchigia) : '–' }}
+                </td>
+                <td class="ui-info-num">{{ r.instalments }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="ui-info-sources">
+      Figures for the 730/2026; check each year's instructions with your
+      commercialista. Sources:
+      @for (s of sources; track s.url; let last = $last) {
+        <a [href]="s.url" target="_blank" rel="noopener">{{ s.name }}</a>
+        @if (!last) {
+          ,
+        }
+      }
+    </p>
+  `,
 })
-export class Tax730Guide {
+export class Tax730Rates {
   /** The year the expenses are from. */
   readonly taxYear = input.required<number>();
 
-  protected readonly open = signal(false);
-  protected readonly filingYear = computed(() => this.taxYear() + 1);
-  protected readonly pensionLimit = computed(() =>
-    pensionDeductionLimit(this.taxYear()),
-  );
   protected readonly rules = computed(() =>
     tax730DeductionRules(this.taxYear()),
   );

@@ -45,7 +45,11 @@
       employer {{ euro(tfr().employerContributions) }} } @else { Your TFR stays
       with the company }
     </span>
-    <button type="button" class="link small" (click)="showPension.emit()">
+    <button
+      type="button"
+      class="link small"
+      (click)="tfr().inFund ? showPension.emit() : showGuide.emit()"
+    >
       {{ tfr().inFund ? 'Follow it in Pension fund' : 'How a pension fund works'
       }}
     </button>

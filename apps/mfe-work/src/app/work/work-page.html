@@ -2,7 +2,28 @@
   emblem="💼"
   heading="Work"
   subtitle="Every workplace you have had, read from payslips, evaluations and contracts: your career on a timeline, your pay and your performance reviews year by year, a feedback on where to go next, and the hiring platforms you signed up to."
-/>
+>
+  @if (overview(); as data) {
+  <ui-info-guide
+    uiPageActions
+    heading="Work, in plain words"
+    [(open)]="guideOpen"
+    [(topic)]="guideTopic"
+    (closed)="onGuideClosed()"
+  >
+    <ui-info-topic
+      key="pension"
+      label="Pension fund"
+      intro="How a pension fund (fondo pensione) works, at the rules of 2026: who pays in, what you deduct, what you get back and when."
+    >
+      <work-pension-guide
+        [pension]="data.pension"
+        (showTfr)="guideOpen.set(false); setTab('tfr')"
+      />
+    </ui-info-topic>
+  </ui-info-guide>
+  }
+</ui-page-header>
 
 <nav class="tabs" aria-label="Work">
   @for (t of tabs; track t.id) {
@@ -996,6 +1017,7 @@
   [tfr]="data.tfr"
   [pension]="data.pension"
   (showPension)="setTab('pension')"
+  (showGuide)="showGuide('pension')"
 />
 }
 <!-- =============================================================== pension -->
@@ -1004,6 +1026,7 @@
   [pension]="data.pension"
   (changed)="load()"
   (showTfr)="setTab('tfr')"
+  (showGuide)="showGuide('pension')"
 />
 }
 <!-- ================================================================== jobs -->
