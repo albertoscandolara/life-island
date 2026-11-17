@@ -1,12 +1,12 @@
 @let s = scout(); @let last = scan();
 <ui-ai-panel
   heading="Resource scout"
-  class="block"
+  class="li-block"
   [state]="running() ? 'working' : 'idle'"
   [offline]="!s.ai"
 >
   <li-ai-tool uiAiPanelActions toolId="studies.resource-scout" />
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     The scout keeps one path current: every few months it searches the web for
     the best recent resources for the stage you are on and the next one, checks
     the ones you pinned for anything outdated, and may propose a step to add or
@@ -20,7 +20,7 @@
       @if (s.nextScanOn) { Next scan {{ dateText(s.nextScanOn) }}, then every {{
       s.cadenceMonths }} month{{ s.cadenceMonths === 1 ? '' : 's' }}. }
     </p>
-    <div class="actions">
+    <div class="li-actions">
       <button
         uiButton
         type="button"
@@ -47,7 +47,7 @@
       watching this one stops that. } @else { The scout is not watching any
       path. }
     </p>
-    <div class="actions">
+    <div class="li-actions">
       <button
         uiButton
         variant="secondary"
@@ -62,13 +62,13 @@
   </div>
 
   @if (!s.ai) {
-  <p class="muted small">
+  <p class="li-muted li-small">
     Scans need the resource scout on in Settings → AI tools, and a Claude API
     key. Until then each step keeps its hand-picked resources and what you
     pinned.
   </p>
   } @if (last) {
-  <p class="small scout-last">
+  <p class="li-small scout-last">
     @if (last.status === 'running') {
     <ui-ai-status state="working">Searching the web…</ui-ai-status>
     } @else if (last.status === 'error') {
@@ -85,7 +85,7 @@
   </p>
   } @if (proposals().length) {
   <h3 class="scout-heading">Proposed changes to the outline</h3>
-  <ul class="plain scout-changes">
+  <ul class="li-list scout-changes">
     @for (c of proposals(); track c.id) {
     <li class="scout-change">
       <p>
@@ -96,10 +96,10 @@
         stageTitle(c.stageId) }} }
       </p>
       @if (c.detail) {
-      <p class="small">{{ c.detail }}</p>
+      <p class="li-small">{{ c.detail }}</p>
       }
-      <p class="muted small">Why: {{ c.reason }}</p>
-      <div class="actions">
+      <p class="li-muted li-small">Why: {{ c.reason }}</p>
+      <div class="li-actions">
         <button
           uiButton
           size="sm"
@@ -123,7 +123,7 @@
     </li>
     }
   </ul>
-  <p class="muted small">
+  <p class="li-muted li-small">
     Your progress is kept by step: a retired step leaves the path but its notes
     and time stay recorded.
   </p>

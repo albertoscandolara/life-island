@@ -10,7 +10,7 @@
     >
       <span class="path-card__emblem" aria-hidden="true">{{ p.emblem }}</span>
       <strong>{{ p.name }}</strong>
-      <span class="muted small">
+      <span class="li-muted li-small">
         @if (pr?.status === 'following') { Following · } @else if (pr?.status
         === 'paused') { Paused · } {{ percent(p.id) }}% · {{ pr?.hoursTotal }} h
       </span>
@@ -21,14 +21,14 @@
 </ul>
 
 @let path = selected(); @let pr = progress();
-<ui-card class="block">
+<ui-card class="li-block">
   <div class="path-head">
     <span class="path-head__emblem" aria-hidden="true">{{ path.emblem }}</span>
     <div>
       <h2 class="path-head__title">{{ path.name }}</h2>
-      <p class="muted">{{ path.summary }}</p>
+      <p class="li-muted">{{ path.summary }}</p>
     </div>
-    <div class="actions">
+    <div class="li-actions">
       @if (pr.status !== 'following') {
       <button
         uiButton
@@ -82,12 +82,12 @@
       [value]="(pr.hoursDone / pr.hoursTotal) * 100"
       [label]="path.name + ' progress'"
     />
-    <p class="small">
+    <p class="li-small">
       {{ pr.doneSteps }} of {{ pr.totalSteps }} steps · {{ pr.hoursDone }} of {{
       pr.hoursTotal }} h · {{ duration(pr.minutesLogged) }} logged @if
       (pr.projectedOn) { · at your pace, done by
       <strong>{{ dateText(pr.projectedOn) }}</strong> } @if (pr.behind) {
-      <span class="warn">· behind your target</span> }
+      <span class="li-warn">· behind your target</span> }
     </p>
     <label class="target">
       <span>Finish by</span>
@@ -109,12 +109,12 @@
 />
 
 @for (stage of path.stages; track stage.id; let i = $index) {
-<section class="stage block" [attr.aria-label]="stage.title">
+<section class="stage li-block" [attr.aria-label]="stage.title">
   <header class="stage__head">
     <span class="stage__number">{{ i + 1 }}</span>
     <div>
       <h3 class="stage__title">{{ stage.title }}</h3>
-      <p class="muted small">{{ stage.goal }}</p>
+      <p class="li-muted li-small">{{ stage.goal }}</p>
     </div>
     <ui-badge
       [tone]="stageDone(stage.steps) === stage.steps.length ? 'success' : 'neutral'"
@@ -131,7 +131,7 @@
       <div class="step__head">
         <div>
           <strong class="step__title">{{ step.title }}</strong>
-          <span class="muted small step__meta"
+          <span class="li-muted li-small step__meta"
             >{{ kindLabels[step.kind] }} · about {{ step.hours }} h @if
             (data().scout.paces[step.id]; as pace) { · {{ paceLabels[pace] }} }
             @if (sp?.minutes) { · {{ duration(sp!.minutes) }} logged } @if
@@ -175,10 +175,10 @@
       </ul>
       } @if (scouted().get(step.id); as found) {
       <div class="scouted">
-        <p class="scouted__head small">
+        <p class="scouted__head li-small">
           <ui-ai-badge label="Scout" /> Found for this step
         </p>
-        <ul class="plain scouted__list">
+        <ul class="li-list scouted__list">
           @for (r of found; track r.id) {
           <li
             class="scouted__item"
@@ -190,20 +190,20 @@
                 >{{ r.title }} <ui-icon name="external" [size]="12"
               /></a>
               } @else { {{ r.title }} }
-              <span class="muted small">
+              <span class="li-muted li-small">
                 {{ resourceKinds[r.kind] }}@if (r.publishedOn) { · {{
                 r.publishedOn }} } · {{ r.free ? 'Free' : 'Paid' }}@if (r.status
                 === 'pinned') { · pinned }
               </span>
-              <span class="small">{{ r.why }}</span>
+              <span class="li-small">{{ r.why }}</span>
               @if (r.outdated) {
-              <span class="warn small"
+              <span class="li-warn li-small"
                 ><ui-icon name="alert" [size]="12" /> Outdated: {{ r.outdated
                 }}</span
               >
               }
             </div>
-            <div class="actions">
+            <div class="li-actions">
               @if (r.status === 'suggested' || r.outdated) {
               <button
                 uiButton
@@ -236,11 +236,11 @@
       </div>
       }
       <div class="step__foot">
-        <span class="muted small">Log today:</span>
+        <span class="li-muted li-small">Log today:</span>
         @for (m of quick; track m) {
         <button
           type="button"
-          class="chip chip--sm"
+          class="li-chip chip--sm"
           [disabled]="busy() === step.id"
           (click)="logTime(step.id, m)"
         >
@@ -249,7 +249,7 @@
         }
         <button
           type="button"
-          class="link small"
+          class="li-link li-small"
           (click)="notesOpen.set(notesOpen() === step.id ? null : step.id)"
         >
           {{ sp?.notes ? 'Your notes' : 'Add notes' }}
@@ -266,7 +266,7 @@
         (blur)="saveNotes(step.id, $any($event.target).value)"
       ></textarea>
       } @else {
-      <p class="muted small notes">{{ sp?.notes }}</p>
+      <p class="li-muted li-small notes">{{ sp?.notes }}</p>
       } }
     </li>
     }

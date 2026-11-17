@@ -1,11 +1,11 @@
 <ui-ai-panel
   heading="Study coach"
-  class="block"
+  class="li-block"
   [state]="asking() ? 'working' : 'idle'"
   [offline]="!data().aiCoach"
 >
   <li-ai-tool uiAiPanelActions toolId="studies.study-coach" />
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     @if (data().aiCoach) { Claude reads what you recorded here (the paths you
     follow and each step's status, courses, exams ahead, your weeks against the
     goal) and plans your week, or answers your question. Your accounts and notes
@@ -53,10 +53,10 @@
   [heading]="plan.question ? plan.question : 'Your week'"
   kind="result"
   [offline]="plan.source !== 'claude'"
-  class="block"
+  class="li-block"
 >
-  <div uiAiPanelActions class="actions">
-    <span class="muted small"
+  <div uiAiPanelActions class="li-actions">
+    <span class="li-muted li-small"
       >{{ dateText(plan.createdAt) }} · {{ duration(totalMinutes(plan)) }}</span
     >
     <button
@@ -76,13 +76,17 @@
   <ol class="focus">
     @for (f of plan.output.focus; track $index) {
     <li>
-      <div class="row">
+      <div class="li-row">
         <strong>{{ f.title }}</strong>
-        <span class="muted small">{{ f.hours }} h</span>
+        <span class="li-muted li-small">{{ f.hours }} h</span>
       </div>
-      <p class="muted small">{{ f.why }}</p>
+      <p class="li-muted li-small">{{ f.why }}</p>
       @if (pathOf(f.stepId); as path) {
-      <button type="button" class="link small" (click)="openPath.emit(path)">
+      <button
+        type="button"
+        class="li-link li-small"
+        (click)="openPath.emit(path)"
+      >
         Open the step
       </button>
       }
@@ -96,7 +100,7 @@
     <li class="day">
       <span class="day__name">{{ s.day }}</span>
       <span class="day__time">{{ duration(s.minutes) }}</span>
-      <span class="small">{{ s.what }}</span>
+      <span class="li-small">{{ s.what }}</span>
     </li>
     }
   </ul>
@@ -110,14 +114,14 @@
   }
 </ui-ai-panel>
 } @if (data().plans.length > 1) {
-<ui-card heading="Earlier plans" class="block">
-  <ul class="plain">
+<ui-card heading="Earlier plans" class="li-block">
+  <ul class="li-list">
     @for (p of data().plans; track p.id) {
-    <li class="row">
-      <button type="button" class="link" (click)="shownId.set(p.id)">
+    <li class="li-row">
+      <button type="button" class="li-link" (click)="shownId.set(p.id)">
         {{ p.question ?? 'Your week' }}
       </button>
-      <span class="muted small"
+      <span class="li-muted li-small"
         >{{ dateText(p.createdAt) }} · {{ p.source === 'claude' ? 'AI' : 'Life
         Island rules' }}</span
       >
