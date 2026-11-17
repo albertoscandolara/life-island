@@ -17,8 +17,8 @@
   </p>
 
   @if (course(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); saveCourse()">
-    <label class="form__wide">
+  <form class="li-form" (submit)="$event.preventDefault(); saveCourse()">
+    <label class="li-form__wide">
       <span>Title</span>
       <input
         class="ui-input"
@@ -146,7 +146,7 @@
         (input)="setCourse({ completedOn: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Certificate of completion (link)</span>
       <input
         class="ui-input"
@@ -157,7 +157,7 @@
         (input)="setCourse({ certificateUrl: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Notes</span>
       <textarea
         class="ui-input"
@@ -167,7 +167,7 @@
         (input)="setCourse({ notes: $any($event.target).value })"
       ></textarea>
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button uiButton type="submit" [loading]="busy() === (d.id ?? 'course')">
         {{ d.id ? 'Save' : 'Add' }}
       </button>
@@ -308,8 +308,8 @@
   </div>
 
   @if (certification(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); saveCertification()">
-    <label class="form__wide">
+  <form class="li-form" (submit)="$event.preventDefault(); saveCertification()">
+    <label class="li-form__wide">
       <span>Name</span>
       <input
         class="ui-input"
@@ -390,7 +390,7 @@
         (input)="setCertification({ expiresOn: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Credential (link)</span>
       <input
         class="ui-input"
@@ -401,7 +401,7 @@
         (input)="setCertification({ credentialUrl: $any($event.target).value })"
       />
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         type="submit"

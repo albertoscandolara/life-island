@@ -3,15 +3,15 @@
 }
 
 <!-- ============================================================ offer -->
-<ui-card heading="Compare a job offer" class="block no-print">
-  <p class="muted intro">
+<ui-card heading="Compare a job offer" class="li-block no-print">
+  <p class="li-muted li-intro">
     Type the offer as the recruiter says it (RAL, months, welfare, bonus): both
     packages are turned into yearly net euros with the {{ year }} IRPEF rules,
     your contribution rate ({{ baseline().contributionRatePct }}%) and your
     surtaxes ({{ baseline().surtaxRatePct }}%, {{ baseline().surtaxSource ===
     'certificate' ? 'from your latest CU' : 'a typical figure' }}).
   </p>
-  <form class="form" (submit)="$event.preventDefault()">
+  <form class="li-form" (submit)="$event.preventDefault()">
     <label>
       <span>Company</span>
       <input
@@ -88,17 +88,17 @@
   </form>
 
   @if (comparison(); as c) { @if (c.current || c.offer) {
-  <div class="table-wrap">
-    <table class="table compare">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap compare">
       <thead>
         <tr>
           <th scope="col"></th>
           @if (c.current) {
-          <th scope="col" class="num">{{ c.current.label }}</th>
+          <th scope="col" class="li-num">{{ c.current.label }}</th>
           } @if (c.offer) {
-          <th scope="col" class="num">{{ c.offer.label }}</th>
+          <th scope="col" class="li-num">{{ c.offer.label }}</th>
           } @if (c.current && c.offer) {
-          <th scope="col" class="num">Difference</th>
+          <th scope="col" class="li-num">Difference</th>
           }
         </tr>
       </thead>
@@ -106,70 +106,70 @@
         <tr>
           <th scope="row">RAL</th>
           @if (c.current) {
-          <td class="num">{{ euro(c.current.ral) }}</td>
+          <td class="li-num">{{ euro(c.current.ral) }}</td>
           } @if (c.offer) {
-          <td class="num">{{ euro(c.offer.ral) }}</td>
+          <td class="li-num">{{ euro(c.offer.ral) }}</td>
           } @if (c.current && c.offer) {
-          <td class="num">{{ signedEuro(difference(pick.ral)) }}</td>
+          <td class="li-num">{{ signedEuro(difference(pick.ral)) }}</td>
           }
         </tr>
         <tr>
           <th scope="row">Net a year (estimated)</th>
           @if (c.current) {
-          <td class="num">{{ euro(c.current.net) }}</td>
+          <td class="li-num">{{ euro(c.current.net) }}</td>
           } @if (c.offer) {
-          <td class="num">{{ euro(c.offer.net) }}</td>
+          <td class="li-num">{{ euro(c.offer.net) }}</td>
           } @if (c.current && c.offer) {
-          <td class="num">{{ signedEuro(difference(pick.net)) }}</td>
+          <td class="li-num">{{ signedEuro(difference(pick.net)) }}</td>
           }
         </tr>
         <tr>
           <th scope="row">Net a month</th>
           @if (c.current) {
-          <td class="num">
+          <td class="li-num">
             {{ euro(c.current.netMonthly) }}
-            <span class="muted">× {{ c.current.monthsPaid }}</span>
+            <span class="li-muted">× {{ c.current.monthsPaid }}</span>
           </td>
           } @if (c.offer) {
-          <td class="num">
+          <td class="li-num">
             {{ euro(c.offer.netMonthly) }}
-            <span class="muted">× {{ c.offer.monthsPaid }}</span>
+            <span class="li-muted">× {{ c.offer.monthsPaid }}</span>
           </td>
           } @if (c.current && c.offer) {
-          <td class="num">{{ signedEuro(difference(pick.netMonthly)) }}</td>
+          <td class="li-num">{{ signedEuro(difference(pick.netMonthly)) }}</td>
           }
         </tr>
         <tr>
           <th scope="row">Welfare</th>
           @if (c.current) {
-          <td class="num">{{ euro(c.current.welfare) }}</td>
+          <td class="li-num">{{ euro(c.current.welfare) }}</td>
           } @if (c.offer) {
-          <td class="num">{{ euro(c.offer.welfare) }}</td>
+          <td class="li-num">{{ euro(c.offer.welfare) }}</td>
           } @if (c.current && c.offer) {
-          <td class="num">{{ signedEuro(difference(pick.welfare)) }}</td>
+          <td class="li-num">{{ signedEuro(difference(pick.welfare)) }}</td>
           }
         </tr>
         <tr>
           <th scope="row">Bonus, after tax</th>
           @if (c.current) {
-          <td class="num">{{ euro(c.current.bonus) }}</td>
+          <td class="li-num">{{ euro(c.current.bonus) }}</td>
           } @if (c.offer) {
-          <td class="num">{{ euro(c.offer.bonus) }}</td>
+          <td class="li-num">{{ euro(c.offer.bonus) }}</td>
           } @if (c.current && c.offer) {
-          <td class="num">{{ signedEuro(difference(pick.bonus)) }}</td>
+          <td class="li-num">{{ signedEuro(difference(pick.bonus)) }}</td>
           }
         </tr>
         @if (c.offer && (c.offer.benefits || c.offer.costs)) {
         <tr>
           <th scope="row">Benefits less extra costs</th>
           @if (c.current) {
-          <td class="num">–</td>
+          <td class="li-num">–</td>
           }
-          <td class="num">
+          <td class="li-num">
             {{ signedEuro(c.offer.benefits - c.offer.costs) }}
           </td>
           @if (c.current) {
-          <td class="num">
+          <td class="li-num">
             {{ signedEuro(c.offer.benefits - c.offer.costs) }}
           </td>
           }
@@ -178,12 +178,12 @@
         <tr class="total">
           <th scope="row">Worth a year</th>
           @if (c.current) {
-          <td class="num">{{ euro(c.current.total) }}</td>
+          <td class="li-num">{{ euro(c.current.total) }}</td>
           } @if (c.offer) {
-          <td class="num">{{ euro(c.offer.total) }}</td>
+          <td class="li-num">{{ euro(c.offer.total) }}</td>
           } @if (c.current && c.offer) {
           <td
-            class="num"
+            class="li-num"
             [class.up]="(difference(pick.total) ?? 0) > 0"
             [class.down]="(difference(pick.total) ?? 0) < 0"
           >
@@ -194,7 +194,7 @@
       </tbody>
     </table>
   </div>
-  <p class="note muted">
+  <p class="note li-muted">
     @if (c.current && breakEven(); as even) { With the welfare, benefits and
     costs you typed, an offer needs a RAL of about {{ euro(even) }} to leave you
     as well off as now. } @if (baseline().net12 !== null) { Your payslips paid
@@ -203,7 +203,7 @@
     payslips differ by a few euros a month.
   </p>
   } @else {
-  <p class="muted">
+  <p class="li-muted">
     Type the offer's RAL. Your current package shows once your payslips give a
     monthly salary.
   </p>
@@ -213,12 +213,12 @@
 <!-- =========================================================== market -->
 <ui-ai-panel
   heading="Market check"
-  class="block no-print"
+  class="li-block no-print"
   [state]="checking() ? 'working' : 'idle'"
   [offline]="!aiMarketCheck()"
 >
   <li-ai-tool uiAiPanelActions toolId="work.market-check" />
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     @if (aiMarketCheck()) { Claude searches the web for recent public salary
     ranges (surveys, job boards, recruiter reports) for your role and area and
     sets your RAL against them. Only the role, area, level, CCNL, years of
@@ -226,7 +226,7 @@
     with the Claude API: it needs ANTHROPIC_API_KEY in .env (restart svc-work
     after setting it) and the tool on in Settings → AI tools. }
   </p>
-  <form class="form" (submit)="$event.preventDefault(); checkMarket()">
+  <form class="li-form" (submit)="$event.preventDefault(); checkMarket()">
     <label>
       <span>Role</span>
       <input
@@ -247,7 +247,7 @@
         (input)="region.set($any($event.target).value)"
       />
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         type="submit"
@@ -266,9 +266,9 @@
 
   @if (shownCheck(); as m) {
   <div class="market">
-    <div class="row">
+    <div class="li-row">
       <h3 class="market__title">{{ m.role }} · {{ m.region }}</h3>
-      <div class="actions">
+      <div class="li-actions">
         <ui-badge [tone]="positionTones[m.position]"
           >{{ positionLabels[m.position] }}</ui-badge
         >
@@ -286,14 +286,14 @@
     </div>
     <p>{{ m.summary }}</p>
     @if (m.ranges.length) {
-    <div class="table-wrap">
-      <table class="table">
+    <div class="li-table-wrap">
+      <table class="li-table li-table--nowrap">
         <thead>
           <tr>
             <th scope="col">Source</th>
-            <th scope="col" class="num">Low</th>
-            <th scope="col" class="num">Median</th>
-            <th scope="col" class="num">High</th>
+            <th scope="col" class="li-num">Low</th>
+            <th scope="col" class="li-num">Median</th>
+            <th scope="col" class="li-num">High</th>
             <th scope="col">Your RAL ({{ euro(m.ral) }})</th>
           </tr>
         </thead>
@@ -304,11 +304,13 @@
               <a [href]="r.url" target="_blank" rel="noopener"
                 >{{ r.source }}</a
               >
-              <span class="block-line muted small">{{ r.description }}</span>
+              <span class="block-line li-muted li-small"
+                >{{ r.description }}</span
+              >
             </th>
-            <td class="num">{{ euro(r.low) }}</td>
-            <td class="num">{{ euro(r.median) }}</td>
-            <td class="num">{{ euro(r.high) }}</td>
+            <td class="li-num">{{ euro(r.low) }}</td>
+            <td class="li-num">{{ euro(r.median) }}</td>
+            <td class="li-num">{{ euro(r.high) }}</td>
             <td>
               @if (markerAt(r.low, r.high, m.ral) !== null) {
               <span class="range" aria-hidden="true">
@@ -332,7 +334,7 @@
       }
     </ul>
     }
-    <p class="note muted">
+    <p class="note li-muted">
       Checked {{ periodText(m.createdAt.slice(0, 10)) }}@if (m.model) { by {{
       m.model }} }. Public ranges are rough: open each source to see what it
       covers.
@@ -340,12 +342,12 @@
   </div>
   } @if (marketChecks().length > 1) {
   <h3 class="values__group">Earlier checks</h3>
-  <ul class="plain">
+  <ul class="li-list">
     @for (m of marketChecks(); track m.id) {
     <li>
       <button
         type="button"
-        class="link"
+        class="li-link"
         [class.link--on]="shownCheck()?.id === m.id"
         (click)="shownCheckId.set(m.id)"
       >
@@ -359,8 +361,8 @@
 </ui-ai-panel>
 
 <!-- ============================================================ brief -->
-<ui-card heading="Your negotiation brief" class="block brief">
-  <div uiCardActions class="actions no-print">
+<ui-card heading="Your negotiation brief" class="li-block brief">
+  <div uiCardActions class="li-actions no-print">
     <button
       uiButton
       variant="secondary"
@@ -380,7 +382,7 @@
       Print
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     One page to bring to your next review, from your payslips, evaluations,
     goals and market check. @if (brief().employer) { {{ brief().employer }}@if
     (brief().role) {, {{ brief().role }}}@if (brief().level) {, level {{
@@ -395,7 +397,7 @@
       <dd>
         <strong>{{ f.value }}</strong>
         @if (f.detail) {
-        <span class="muted small block-line">{{ f.detail }}</span>
+        <span class="li-muted li-small block-line">{{ f.detail }}</span>
         }
       </dd>
     </div>
@@ -433,7 +435,7 @@
     <div class="feedback__cols">
       @if (t.strengths.length) {
       <section>
-        <h4 class="muted small">Your arguments</h4>
+        <h4 class="li-muted li-small">Your arguments</h4>
         <ul class="bullets bullets--good">
           @for (s of t.strengths; track $index) {
           <li>{{ s }}</li>
@@ -442,7 +444,7 @@
       </section>
       } @if (t.watchouts.length) {
       <section>
-        <h4 class="muted small">What they may say, and your answer</h4>
+        <h4 class="li-muted li-small">What they may say, and your answer</h4>
         <ul class="bullets bullets--warn">
           @for (w of t.watchouts; track $index) {
           <li>{{ w }}</li>
@@ -456,17 +458,17 @@
       @for (s of t.suggestions; track $index) {
       <li>
         <strong>{{ s.title }}</strong>
-        <p class="muted">{{ s.detail }}</p>
+        <p class="li-muted">{{ s.detail }}</p>
       </li>
       }
     </ol>
     }
-    <p class="note muted">
+    <p class="note li-muted">
       Written {{ periodText(t.createdAt.slice(0, 10)) }} {{ t.source ===
       'claude' ? 'by Claude' : "by Life Island's own rules" }}.
     </p>
     }
-    <div class="form__buttons no-print">
+    <div class="li-form__buttons no-print">
       <button
         uiButton
         variant="secondary"
@@ -480,7 +482,7 @@
       @if (writing()) {
       <ui-ai-status state="working">Preparing what to say…</ui-ai-status>
       } @else {
-      <span class="muted small">
+      <span class="li-muted li-small">
         @if (aiFeedback()) { Claude reads this brief with the rest of your
         career and prepares what to say. } @else { The career feedback tool is
         off or has no API key, so the points come from Life Island's own rules.

@@ -70,7 +70,7 @@
 <div class="li-grid">
   <ui-card heading="Log study time">
     @let d = draft();
-    <form class="form" (submit)="$event.preventDefault(); log()">
+    <form class="li-form" (submit)="$event.preventDefault(); log()">
       <label>
         <span>Day</span>
         <input
@@ -95,7 +95,7 @@
         />
       </label>
       <div
-        class="form__wide li-chips quick"
+        class="li-form__wide li-chips quick"
         role="group"
         aria-label="Quick durations"
       >
@@ -110,7 +110,7 @@
         </button>
         }
       </div>
-      <label class="form__wide">
+      <label class="li-form__wide">
         <span>On</span>
         <select
           class="ui-input"
@@ -143,7 +143,7 @@
           </optgroup>
         </select>
       </label>
-      <label class="form__wide">
+      <label class="li-form__wide">
         <span>Note</span>
         <input
           class="ui-input"
@@ -153,7 +153,7 @@
           (input)="set({ note: $any($event.target).value })"
         />
       </label>
-      <div class="form__buttons">
+      <div class="li-form__buttons">
         <button uiButton type="submit" [loading]="busy()">
           <ui-icon name="plus" [size]="16" /> Log it
         </button>

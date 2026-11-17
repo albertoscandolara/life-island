@@ -1,64 +1,70 @@
 @if (!stats().payslips) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No payslips on record yet" icon="file">
-    <p class="muted">
+    <p class="li-muted">
       Load your payslips (cedolini) in the documents app and approve them in "To
       review": your pay month by month and year by year appear here.
     </p>
   </ui-empty-state>
 </ui-card>
 } @else {
-<section class="tiles" aria-label="Your pay in numbers">
-  <div class="tile tile--lead">
-    <span class="tile__label">Monthly salary (gross)</span>
-    <strong class="tile__value"
+<section class="li-tiles" aria-label="Your pay in numbers">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Monthly salary (gross)</span>
+    <strong class="li-tile__value"
       >{{ euro(stats().currentMonthlySalary) }}</strong
     >
-    <span class="tile__hint">
+    <span class="li-tile__hint">
       @if (stats().currentLevel) { Level {{ stats().currentLevel }} } @if
       (stats().currentEmployer) { · {{ stats().currentEmployer }} }
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Growth on record</span>
-    <strong class="tile__value" [class.up]="(stats().salaryGrowthPct ?? 0) > 0"
+  <div class="li-tile">
+    <span class="li-tile__label">Growth on record</span>
+    <strong
+      class="li-tile__value"
+      [class.up]="(stats().salaryGrowthPct ?? 0) > 0"
       >{{ pct(stats().salaryGrowthPct) }}</strong
     >
-    <span class="tile__hint">
+    <span class="li-tile__hint">
       @if (stats().annualGrowthPct !== null) { {{ pct(stats().annualGrowthPct)
       }} a year } @else { first to latest monthly salary }
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Since the last rise</span>
-    <strong class="tile__value">
+  <div class="li-tile">
+    <span class="li-tile__label">Since the last rise</span>
+    <strong class="li-tile__value">
       @if (stats().monthsSinceLastRise !== null) { {{
       duration(stats().monthsSinceLastRise) }} } @else { none on record }
     </strong>
-    <span class="tile__hint">Rises and promotions read from your payslips</span>
+    <span class="li-tile__hint"
+      >Rises and promotions read from your payslips</span
+    >
   </div>
-  <div class="tile">
-    <span class="tile__label">Take-home</span>
-    <strong class="tile__value">
+  <div class="li-tile">
+    <span class="li-tile__label">Take-home</span>
+    <strong class="li-tile__value">
       @if (stats().netRatio !== null) { {{ ((stats().netRatio ?? 0) *
       100).toFixed(0) }}% } @else { – }
     </strong>
-    <span class="tile__hint">Net over gross, last 12 months</span>
+    <span class="li-tile__hint">Net over gross, last 12 months</span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Time off left</span>
-    <strong class="tile__value">{{ hours(stats().vacationLeft) }}</strong>
-    <span class="tile__hint">Vacation; ROL {{ hours(stats().leaveLeft) }}</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Time off left</span>
+    <strong class="li-tile__value">{{ hours(stats().vacationLeft) }}</strong>
+    <span class="li-tile__hint"
+      >Vacation; ROL {{ hours(stats().leaveLeft) }}</span
+    >
   </div>
 </section>
 
 @if (stats().checks.length) {
-<ui-alert tone="warning" class="block">
+<ui-alert tone="warning" class="li-block">
   <strong
     >{{ stats().checks.length }} payslip{{ stats().checks.length === 1 ? ' is' :
     's are' }} not fully in these figures.</strong
   >
-  <span class="muted"
+  <span class="li-muted"
     >Some values could not be read from them. Open each one, then fill the
     values in or use Parse again in the documents app.</span
   >
@@ -73,12 +79,12 @@
   </ul>
 </ui-alert>
 } @if (stats().missingMonths.length) {
-<ui-alert tone="info" class="block">
+<ui-alert tone="info" class="li-block">
   No payslip on record for {{ stats().missingMonths.map(periodText).join(', ')
   }}. Load them to complete the picture.
 </ui-alert>
 } @if (payChart().buckets.length) {
-<ui-card heading="Pay month by month" class="block">
+<ui-card heading="Pay month by month" class="li-block">
   <ui-column-chart
     [buckets]="payChart().buckets"
     [series]="payChart().series"
@@ -91,49 +97,51 @@
   />
 </ui-card>
 } @if (stats().years.length) {
-<ui-card heading="Year by year" class="block">
-  <div class="table-wrap">
-    <table class="table">
+<ui-card heading="Year by year" class="li-block">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
       <thead>
         <tr>
           <th scope="col">Year</th>
-          <th scope="col" class="num">Payslips</th>
-          <th scope="col" class="num">Gross</th>
-          <th scope="col" class="num">Of which extra pay</th>
-          <th scope="col" class="num">Net</th>
-          <th scope="col" class="num">Income tax</th>
-          <th scope="col" class="num">Contributions</th>
-          <th scope="col" class="num">Welfare</th>
-          <th scope="col" class="num">TFR accrued</th>
+          <th scope="col" class="li-num">Payslips</th>
+          <th scope="col" class="li-num">Gross</th>
+          <th scope="col" class="li-num">Of which extra pay</th>
+          <th scope="col" class="li-num">Net</th>
+          <th scope="col" class="li-num">Income tax</th>
+          <th scope="col" class="li-num">Contributions</th>
+          <th scope="col" class="li-num">Welfare</th>
+          <th scope="col" class="li-num">TFR accrued</th>
           @if (hasPensionFund()) {
-          <th scope="col" class="num">Pension fund</th>
+          <th scope="col" class="li-num">Pension fund</th>
           }
-          <th scope="col" class="num">Average net</th>
+          <th scope="col" class="li-num">Average net</th>
         </tr>
       </thead>
       <tbody>
         @for (y of stats().years; track y.year) {
         <tr>
           <th scope="row">{{ y.year }}</th>
-          <td class="num">{{ y.payslips }}</td>
-          <td class="num">{{ euro(y.gross) }}</td>
-          <td class="num">{{ y.extraPay ? euro(y.extraPay) : '–' }}</td>
-          <td class="num">{{ euro(y.net) }}</td>
-          <td class="num">{{ euro(y.incomeTax) }}</td>
-          <td class="num">{{ euro(y.contributions) }}</td>
-          <td class="num">{{ y.welfare ? euro(y.welfare) : '–' }}</td>
-          <td class="num">{{ y.severance ? euro(y.severance) : '–' }}</td>
+          <td class="li-num">{{ y.payslips }}</td>
+          <td class="li-num">{{ euro(y.gross) }}</td>
+          <td class="li-num">{{ y.extraPay ? euro(y.extraPay) : '–' }}</td>
+          <td class="li-num">{{ euro(y.net) }}</td>
+          <td class="li-num">{{ euro(y.incomeTax) }}</td>
+          <td class="li-num">{{ euro(y.contributions) }}</td>
+          <td class="li-num">{{ y.welfare ? euro(y.welfare) : '–' }}</td>
+          <td class="li-num">{{ y.severance ? euro(y.severance) : '–' }}</td>
           @if (hasPensionFund()) {
-          <td class="num">{{ y.pensionFund ? euro(y.pensionFund) : '–' }}</td>
+          <td class="li-num">
+            {{ y.pensionFund ? euro(y.pensionFund) : '–' }}
+          </td>
           }
-          <td class="num">{{ euro(y.averageNet) }}</td>
+          <td class="li-num">{{ euro(y.averageNet) }}</td>
         </tr>
         }
       </tbody>
     </table>
   </div>
   @if (hasPensionFund()) {
-  <p class="note muted">
+  <p class="note li-muted">
     Pension fund: your contribution, the employer's and the TFR sent to the
     fund, from the payslips. The Pension fund tab follows them against the
     yearly deduction limit.
@@ -144,27 +152,27 @@
 
 <!-- Certificazione Unica: what each employer declared, next to your payslips -->
 @if (certificates().length) {
-<ui-card heading="Certificazione Unica" class="block">
-  <p class="muted">
+<ui-card heading="Certificazione Unica" class="li-block">
+  <p class="li-muted">
     What each employer declared to the tax office for the year, next to the
     payslips you have. A difference means a payslip is missing or differs from
     the one the employer counted.
   </p>
-  <div class="table-wrap">
-    <table class="table">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
       <thead>
         <tr>
           <th scope="col">Year</th>
           <th scope="col">Employer</th>
-          <th scope="col" class="num">Income (CU)</th>
-          <th scope="col" class="num">Your payslips</th>
-          <th scope="col" class="num">Difference</th>
-          <th scope="col" class="num">IRPEF withheld (CU)</th>
-          <th scope="col" class="num">Your payslips</th>
-          <th scope="col" class="num">Difference</th>
-          <th scope="col" class="num">Net tax</th>
+          <th scope="col" class="li-num">Income (CU)</th>
+          <th scope="col" class="li-num">Your payslips</th>
+          <th scope="col" class="li-num">Difference</th>
+          <th scope="col" class="li-num">IRPEF withheld (CU)</th>
+          <th scope="col" class="li-num">Your payslips</th>
+          <th scope="col" class="li-num">Difference</th>
+          <th scope="col" class="li-num">Net tax</th>
           @if (cuPensionFund()) {
-          <th scope="col" class="num">Pension fund deducted</th>
+          <th scope="col" class="li-num">Pension fund deducted</th>
           }
         </tr>
       </thead>
@@ -173,24 +181,24 @@
         <tr>
           <th scope="row">{{ c.year }}</th>
           <td>{{ c.workplaceName }}</td>
-          <td class="num">{{ euro(c.income) }}</td>
-          <td class="num">
+          <td class="li-num">{{ euro(c.income) }}</td>
+          <td class="li-num">
             {{ euro(c.payslipIncome) }} @if (c.payslipIncomeKind === 'gross') {
-            <span class="muted">(gross)</span> }
+            <span class="li-muted">(gross)</span> }
           </td>
-          <td class="num" [class.up]="matches(c.incomeGap)">
+          <td class="li-num" [class.up]="matches(c.incomeGap)">
             {{ gap(c.incomeGap) }}
           </td>
-          <td class="num">{{ euro(c.irpefWithheld) }}</td>
-          <td class="num">{{ euro(c.payslipIncomeTax) }}</td>
-          <td class="num" [class.up]="matches(c.taxGap)">
+          <td class="li-num">{{ euro(c.irpefWithheld) }}</td>
+          <td class="li-num">{{ euro(c.payslipIncomeTax) }}</td>
+          <td class="li-num" [class.up]="matches(c.taxGap)">
             {{ gap(c.taxGap) }}
           </td>
-          <td class="num">{{ euro(c.netTax) }}</td>
+          <td class="li-num">{{ euro(c.netTax) }}</td>
           @if (cuPensionFund()) {
-          <td class="num">
+          <td class="li-num">
             {{ euro(c.pensionFundDeducted) }} @if (c.pensionFundNotDeducted) {
-            <span class="muted small"
+            <span class="li-muted li-small"
               >+ {{ euro(c.pensionFundNotDeducted) }} not</span
             >
             }
@@ -202,11 +210,11 @@
     </table>
   </div>
   @for (c of certificates(); track c.uploadId) { @if (!c.payslips) {
-  <p class="muted">
+  <p class="li-muted">
     {{ c.year }} · {{ c.workplaceName }}: no payslips of that year on record.
   </p>
   } @else if (c.missingMonths.length) {
-  <p class="muted">
+  <p class="li-muted">
     {{ c.year }} · {{ c.workplaceName }}: no payslip for {{
     c.missingMonths.map(periodText).join(', ') }}.
   </p>

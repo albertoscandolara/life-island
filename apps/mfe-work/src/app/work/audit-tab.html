@@ -1,35 +1,40 @@
 @if (!audit().checkedPayslips) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No payslips to check yet" icon="check">
-    <p class="muted">
+    <p class="li-muted">
       Approve your payslips in "To review": each one is then checked against the
       rules of your CCNL here.
     </p>
   </ui-empty-state>
 </ui-card>
 } @else {
-<section class="tiles" aria-label="Your payslips checked">
+<section class="li-tiles" aria-label="Your payslips checked">
   @for (c of counts(); track c.severity) {
-  <div class="tile" [class.tile--lead]="c.severity === 'problem' && c.count">
-    <span class="tile__label">{{ severityLabels[c.severity] }}</span>
-    <strong class="tile__value">{{ c.count }}</strong>
-    <span class="tile__hint">
+  <div
+    class="li-tile"
+    [class.li-tile--lead]="c.severity === 'problem' && c.count"
+  >
+    <span class="li-tile__label">{{ severityLabels[c.severity] }}</span>
+    <strong class="li-tile__value">{{ c.count }}</strong>
+    <span class="li-tile__hint">
       @switch (c.severity) { @case ('problem') { A rule the payslip seems to
       break } @case ('check') { Worth asking the payroll office } @default {
       Worth knowing } }
     </span>
   </div>
   }
-  <div class="tile">
-    <span class="tile__label">Payslips checked</span>
-    <strong class="tile__value">{{ audit().checkedPayslips }}</strong>
-    <span class="tile__hint">{{ audit().agreement ?? 'CCNL not read' }}</span>
+  <div class="li-tile">
+    <span class="li-tile__label">Payslips checked</span>
+    <strong class="li-tile__value">{{ audit().checkedPayslips }}</strong>
+    <span class="li-tile__hint"
+      >{{ audit().agreement ?? 'CCNL not read' }}</span
+    >
   </div>
 </section>
 
-<ui-card heading="Your payslips against the CCNL" class="block">
+<ui-card heading="Your payslips against the CCNL" class="li-block">
   @if (!audit().rulesKnown) {
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     Life Island knows the rules of the Metalmeccanici industria CCNL only; your
     payslips say {{ audit().agreement ?? 'no agreement' }}. The checks below are
     the ones that hold for every contract.
@@ -38,7 +43,7 @@
   <ul class="findings">
     @for (f of audit().findings; track $index) {
     <li class="finding">
-      <div class="row">
+      <div class="li-row">
         <strong>{{ f.title }}</strong>
         <ui-badge [tone]="severityTones[f.severity]"
           >{{ severityLabels[f.severity] }}</ui-badge
@@ -47,7 +52,7 @@
       <p class="finding__detail">{{ f.detail }}</p>
       @if (f.uploadId) {
       <a
-        class="small"
+        class="li-small"
         [href]="previewUrl(f.uploadId)"
         target="_blank"
         rel="noopener"
@@ -67,7 +72,7 @@
     }
   </ul>
   }
-  <p class="note muted">
+  <p class="note li-muted">
     A check, not legal advice: company agreements, apprenticeships and part time
     change the rules. Ask your payroll office or union (patronato) about
     anything flagged. Rules from @for (s of audit().sources; track s.url; let
@@ -77,9 +82,9 @@
   </p>
 </ui-card>
 
-<ui-card heading="Why your net changed" class="block">
+<ui-card heading="Why your net changed" class="li-block">
   @if (netChanges().length) {
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     Each monthly payslip against the one before: what raised your net (green)
     and what lowered it (red). Surtaxes, the IRPEF adjustment and tax credits
     are read from payslips parsed from now on; until then they are in "other".
@@ -87,10 +92,12 @@
   <ol class="changes">
     @for (c of netChanges(); track c.uploadId) {
     <li class="change">
-      <div class="row">
+      <div class="li-row">
         <strong
           >{{ periodText(c.period) }}
-          <span class="muted small">vs {{ periodText(c.previousPeriod) }}</span>
+          <span class="li-muted li-small"
+            >vs {{ periodText(c.previousPeriod) }}</span
+          >
         </strong>
         <span class="change__total">
           {{ euro(c.net) }}
@@ -121,13 +128,13 @@
         }
       </ul>
       } @else {
-      <p class="muted small">The same net as the month before.</p>
+      <p class="li-muted li-small">The same net as the month before.</p>
       }
     </li>
     }
   </ol>
   } @else {
-  <p class="muted">Two monthly payslips with their net are needed.</p>
+  <p class="li-muted">Two monthly payslips with their net are needed.</p>
   }
 </ui-card>
 }

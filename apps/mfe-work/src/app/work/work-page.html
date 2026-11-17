@@ -43,7 +43,7 @@
 </nav>
 
 @if (error(); as message) {
-<ui-alert tone="danger" class="block">
+<ui-alert tone="danger" class="li-block">
   {{ message }}
   <button
     uiButton
@@ -56,16 +56,16 @@
   </button>
 </ui-alert>
 } @if (!overview() && !error()) {
-<p class="muted">Loading your career…</p>
+<p class="li-muted">Loading your career…</p>
 } @if (overview(); as data) { @switch (tab()) {
 <!-- ================================================================ career -->
 @case ('career') { @if (reviews().length) {
-<ui-alert tone="warning" class="block">
+<ui-alert tone="warning" class="li-block">
   <strong
     >{{ reviews().length }} work document{{ reviews().length === 1 ? '' : 's' }}
     to review.</strong
   >
-  <span class="muted">They count here only once you approve them.</span>
+  <span class="li-muted">They count here only once you approve them.</span>
   <button
     uiButton
     variant="ghost"
@@ -78,9 +78,9 @@
 </ui-alert>
 } @if (stats(); as s) { @if (!s.payslips && !data.timeline.length &&
 !data.evaluations.count) {
-<ui-card class="block">
+<ui-card class="li-block">
   <ui-empty-state heading="No career on record yet" icon="chart">
-    <p class="muted">
+    <p class="li-muted">
       Load your payslips (cedolini), evaluations or employment contracts in the
       documents app. Each one suggests what it prints for its workplace: approve
       it in "To review" and your timeline and statistics appear here.
@@ -88,37 +88,37 @@
   </ui-empty-state>
 </ui-card>
 } @else {
-<section class="tiles" aria-label="Your career in numbers">
-  <div class="tile tile--lead">
-    <span class="tile__label">Monthly salary (gross)</span>
-    <strong class="tile__value">{{ euro(s.currentMonthlySalary) }}</strong>
-    <span class="tile__hint">
+<section class="li-tiles" aria-label="Your career in numbers">
+  <div class="li-tile li-tile--lead">
+    <span class="li-tile__label">Monthly salary (gross)</span>
+    <strong class="li-tile__value">{{ euro(s.currentMonthlySalary) }}</strong>
+    <span class="li-tile__hint">
       @if (s.currentLevel) { Level {{ s.currentLevel }} } @if
       (s.currentEmployer) { · {{ s.currentEmployer }} }
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">Growth on record</span>
-    <strong class="tile__value" [class.up]="(s.salaryGrowthPct ?? 0) > 0"
+  <div class="li-tile">
+    <span class="li-tile__label">Growth on record</span>
+    <strong class="li-tile__value" [class.up]="(s.salaryGrowthPct ?? 0) > 0"
       >{{ pct(s.salaryGrowthPct) }}</strong
     >
-    <span class="tile__hint">
+    <span class="li-tile__hint">
       @if (s.annualGrowthPct !== null) { {{ pct(s.annualGrowthPct) }} a year }
       @else { first to latest monthly salary }
     </span>
   </div>
-  <div class="tile">
-    <span class="tile__label">At your workplace</span>
-    <strong class="tile__value">{{ duration(s.tenureMonths) }}</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">At your workplace</span>
+    <strong class="li-tile__value">{{ duration(s.tenureMonths) }}</strong>
+    <span class="li-tile__hint"
       >Career on record {{ duration(s.careerMonths) }}</span
     >
   </div>
   @if (data.evaluations.latest; as l) {
-  <div class="tile">
-    <span class="tile__label">Latest evaluation</span>
-    <strong class="tile__value">{{ scoreText(l.score, l.maxScore) }}</strong>
-    <span class="tile__hint">
+  <div class="li-tile">
+    <span class="li-tile__label">Latest evaluation</span>
+    <strong class="li-tile__value">{{ scoreText(l.score, l.maxScore) }}</strong>
+    <span class="li-tile__hint">
       {{ l.cycle ?? periodText(l.date) }} @if (data.evaluations.scoreChange !==
       null) { · {{ signed(data.evaluations.scoreChange) }} } @if ((l.payoutPct
       ?? l.band?.pct ?? null) !== null) { · {{ l.payoutPct ?? l.band?.pct }}% of
@@ -126,18 +126,18 @@
     </span>
   </div>
   } @if (bonusShare(); as b) {
-  <div class="tile">
-    <span class="tile__label">Bonus in your pay</span>
-    <strong class="tile__value">{{ b.bonusShareOfGrossPct }}%</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">Bonus in your pay</span>
+    <strong class="li-tile__value">{{ b.bonusShareOfGrossPct }}%</strong>
+    <span class="li-tile__hint"
       >{{ euro(b.bonus) }} of {{ euro(b.gross) }} gross in {{ b.year }}</span
     >
   </div>
   } @if (data.evaluations.latest?.role ?? s.currentLevel; as role) {
-  <div class="tile">
-    <span class="tile__label">Role</span>
-    <strong class="tile__value tile__value--text">{{ role }}</strong>
-    <span class="tile__hint"
+  <div class="li-tile">
+    <span class="li-tile__label">Role</span>
+    <strong class="li-tile__value tile__value--text">{{ role }}</strong>
+    <span class="li-tile__hint"
       >@if (s.monthsSinceLastRise !== null) { Last rise {{
       duration(s.monthsSinceLastRise) }} ago } @else { No rise on record }</span
     >
@@ -146,8 +146,8 @@
 </section>
 
 @if (years().length) {
-<ui-card heading="Pay and evaluations, year by year" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="Pay and evaluations, year by year" class="li-block">
+  <div uiCardActions class="li-actions">
     <button
       uiButton
       variant="ghost"
@@ -167,17 +167,17 @@
       Performance reviews
     </button>
   </div>
-  <div class="table-wrap">
-    <table class="table">
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
       <thead>
         <tr>
           <th scope="col">Year</th>
-          <th scope="col" class="num">Gross</th>
-          <th scope="col" class="num">Net</th>
-          <th scope="col" class="num">Evaluations</th>
-          <th scope="col" class="num">Average score</th>
-          <th scope="col" class="num">Bonus</th>
-          <th scope="col" class="num">Bonus share of gross</th>
+          <th scope="col" class="li-num">Gross</th>
+          <th scope="col" class="li-num">Net</th>
+          <th scope="col" class="li-num">Evaluations</th>
+          <th scope="col" class="li-num">Average score</th>
+          <th scope="col" class="li-num">Bonus</th>
+          <th scope="col" class="li-num">Bonus share of gross</th>
           <th scope="col">Role</th>
         </tr>
       </thead>
@@ -185,12 +185,12 @@
         @for (y of years(); track y.year) {
         <tr>
           <th scope="row">{{ y.year }}</th>
-          <td class="num">{{ y.payslips ? euro(y.gross) : '–' }}</td>
-          <td class="num">{{ y.payslips ? euro(y.net) : '–' }}</td>
-          <td class="num">{{ y.evaluations || '–' }}</td>
-          <td class="num">{{ scoreText(y.averageScore) }}</td>
-          <td class="num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
-          <td class="num">
+          <td class="li-num">{{ y.payslips ? euro(y.gross) : '–' }}</td>
+          <td class="li-num">{{ y.payslips ? euro(y.net) : '–' }}</td>
+          <td class="li-num">{{ y.evaluations || '–' }}</td>
+          <td class="li-num">{{ scoreText(y.averageScore) }}</td>
+          <td class="li-num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
+          <td class="li-num">
             {{ y.bonusShareOfGrossPct === null ? '–' : y.bonusShareOfGrossPct +
             '%' }}
           </td>
@@ -200,7 +200,7 @@
       </tbody>
     </table>
   </div>
-  <p class="muted note">
+  <p class="li-muted note">
     Gross and net come from your payslips; scores and bonus from your
     evaluations. A year with payslips but no evaluation, or the other way round,
     shows a dash.
@@ -208,8 +208,8 @@
 </ui-card>
 } } }
 
-<ui-card heading="Timeline" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="Timeline" class="li-block">
+  <div uiCardActions class="li-actions">
     <label class="switch">
       <input
         type="checkbox"
@@ -230,7 +230,7 @@
   </div>
 
   @if (eventDraft(); as e) {
-  <form class="form" (submit)="$event.preventDefault(); saveEvent()">
+  <form class="li-form" (submit)="$event.preventDefault(); saveEvent()">
     <label>
       <span>Date</span>
       <input
@@ -254,7 +254,7 @@
         }
       </select>
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>What</span>
       <input
         class="ui-input"
@@ -289,7 +289,7 @@
         (input)="setEvent({ amount: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Notes</span>
       <textarea
         class="ui-input"
@@ -299,7 +299,7 @@
         (input)="setEvent({ detail: $any($event.target).value })"
       ></textarea>
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button uiButton type="submit" [loading]="busy() === 'event'">
         Add to the timeline
       </button>
@@ -314,7 +314,7 @@
     </div>
   </form>
   } @if (!timeline().length) {
-  <p class="muted">
+  <p class="li-muted">
     Nothing yet. Promotions, rises, new roles and evaluations appear here as you
     approve your documents; add courses, certifications and projects yourself.
   </p>
@@ -343,9 +343,9 @@
           </div>
           <p class="event__title">{{ event.title }}</p>
           @if (event.detail) {
-          <p class="event__detail muted">{{ event.detail }}</p>
+          <p class="event__detail li-muted">{{ event.detail }}</p>
           }
-          <p class="event__meta muted">
+          <p class="event__meta li-muted">
             @if (event.workplaceName) { {{ event.workplaceName }} · } @if
             (event.source === 'manual') { added by you } @else { from your
             documents }
@@ -407,20 +407,20 @@
 
 <!-- ================================================================ review -->
 @case ('review') {
-<ui-card heading="To review" class="block">
+<ui-card heading="To review" class="li-block">
   @if (reviews().length) {
   <ui-badge uiCardActions tone="warning"
     >{{ reviews().length }} waiting</ui-badge
   >
   }
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     A new work document never changes a workplace on its own. Pick which
     workplace each one is about and which printed values to take. An employer
     you do not have yet is suggested as a new workplace.
   </p>
   @if (!reviews().length) {
   <ui-empty-state heading="Nothing to review" icon="check">
-    <p class="muted">
+    <p class="li-muted">
       Payslips, evaluations and employment contracts you load in the documents
       app show up here.
     </p>
@@ -433,7 +433,7 @@
           {{ typeLabel(review.type) }} @if (review.employerName) { · {{
           review.employerName }} }
         </h3>
-        <p class="muted">{{ review.title }}</p>
+        <p class="li-muted">{{ review.title }}</p>
       </div>
       <a
         uiButton
@@ -509,7 +509,7 @@
         (input)="setDraftLabel(review, $any($event.target).value)"
       />
     </label>
-    <p class="muted small">
+    <p class="li-muted li-small">
       It is created with every value the document prints:
     </p>
     <dl class="facts">
@@ -521,7 +521,7 @@
       }
     </dl>
     } @else if (changesFor(review).length) {
-    <p class="muted small">
+    <p class="li-muted li-small">
       What it would change on {{ nameOf(draft(review).workplaceId) }}:
     </p>
     <ul class="changes">
@@ -537,7 +537,8 @@
         </label>
         <span class="change__values">
           @if (change.current !== null) {
-          <s class="muted">{{ valueText(change.field, change.current) }}</s> → }
+          <s class="li-muted">{{ valueText(change.field, change.current) }}</s>
+          → }
           <strong>{{ valueText(change.field, change.proposed) }}</strong>
         </span>
         <ui-badge [tone]="suggestionTones[change.suggestion]"
@@ -548,7 +549,7 @@
     </ul>
     } @else if (!isNew(review) && draft(review).workplaceId ===
     review.workplaceId) {
-    <p class="muted small">It prints nothing new for this workplace.</p>
+    <p class="li-muted li-small">It prints nothing new for this workplace.</p>
     }
 
     <footer class="review__buttons">
@@ -569,10 +570,10 @@
 </ui-card>
 
 @if (rejected().length) {
-<ui-card heading="Set aside" class="block">
-  <ul class="plain">
+<ui-card heading="Set aside" class="li-block">
+  <ul class="li-list">
     @for (r of rejected(); track r.uploadId) {
-    <li class="row">
+    <li class="li-row">
       <span>{{ typeLabel(r.type) }} · {{ r.title }}</span>
       <button
         uiButton
@@ -601,7 +602,7 @@
       (click)="select(w.id)"
     >
       <span class="list__name">{{ workplaceName(w) }}</span>
-      <span class="muted small">
+      <span class="li-muted li-small">
         {{ workplaceStatusLabels[w.status] }} @if (w.values.level) { · {{
         w.values.level }} } @if (w.tenureMonths !== null) { · {{
         duration(w.tenureMonths) }} }
@@ -609,7 +610,7 @@
     </button>
     } @if (adding(); as a) {
     <form
-      class="form form--narrow"
+      class="li-form li-form--narrow"
       (submit)="$event.preventDefault(); addWorkplace()"
     >
       <label>
@@ -631,7 +632,7 @@
           (input)="setAdding({ label: $any($event.target).value })"
         />
       </label>
-      <div class="form__buttons">
+      <div class="li-form__buttons">
         <button
           uiButton
           type="submit"
@@ -666,7 +667,7 @@
 
   @if (selected(); as w) {
   <ui-card [heading]="workplaceName(w)" class="detail">
-    <div uiCardActions class="actions">
+    <div uiCardActions class="li-actions">
       <ui-badge [tone]="w.status === 'current' ? 'success' : 'neutral'"
         >{{ workplaceStatusLabels[w.status] }}</ui-badge
       >
@@ -684,7 +685,7 @@
     </div>
 
     @if (editing(); as e) {
-    <form class="form" (submit)="$event.preventDefault(); saveEdit(w)">
+    <form class="li-form" (submit)="$event.preventDefault(); saveEdit(w)">
       <label>
         <span>Call it</span>
         <input
@@ -708,7 +709,7 @@
         </select>
       </label>
       @for (g of groups; track g.group) {
-      <h3 class="form__group">{{ g.label }}</h3>
+      <h3 class="li-form__group">{{ g.label }}</h3>
       @for (d of g.fields; track d.field) {
       <label [for]="'wp-' + d.field">
         <span>{{ d.label }}</span>
@@ -738,7 +739,7 @@
         }
       </label>
       } }
-      <label class="form__wide">
+      <label class="li-form__wide">
         <span>Notes</span>
         <textarea
           class="ui-input"
@@ -748,7 +749,7 @@
           (input)="editMeta({ notes: $any($event.target).value })"
         ></textarea>
       </label>
-      <div class="form__buttons">
+      <div class="li-form__buttons">
         <button uiButton type="submit" [loading]="busy() === w.id">Save</button>
         <button
           uiButton
@@ -783,16 +784,16 @@
 
     <h3 class="values__group">Documents</h3>
     @if (!w.documents.length) {
-    <p class="muted">No document approved for this workplace yet.</p>
+    <p class="li-muted">No document approved for this workplace yet.</p>
     } @else {
-    <div class="table-wrap">
-      <table class="table">
+    <div class="li-table-wrap">
+      <table class="li-table li-table--nowrap">
         <thead>
           <tr>
             <th scope="col">When</th>
             <th scope="col">Document</th>
-            <th scope="col" class="num">Gross</th>
-            <th scope="col" class="num">Net</th>
+            <th scope="col" class="li-num">Gross</th>
+            <th scope="col" class="li-num">Net</th>
             <th scope="col"><span class="ui-visually-hidden">Open</span></th>
           </tr>
         </thead>
@@ -802,10 +803,10 @@
             <th scope="row">{{ periodText(d.period) }}</th>
             <td>
               {{ typeLabel(d.type) }}
-              <span class="muted small">· {{ d.title }}</span>
+              <span class="li-muted li-small">· {{ d.title }}</span>
             </td>
-            <td class="num">{{ d.gross === null ? '–' : euro(d.gross) }}</td>
-            <td class="num">{{ d.net === null ? '–' : euro(d.net) }}</td>
+            <td class="li-num">{{ d.gross === null ? '–' : euro(d.gross) }}</td>
+            <td class="li-num">{{ d.net === null ? '–' : euro(d.net) }}</td>
             <td>
               <a
                 uiButton
@@ -867,7 +868,7 @@
   } @else {
   <ui-card class="detail">
     <ui-empty-state heading="No workplace yet" icon="home">
-      <p class="muted">
+      <p class="li-muted">
         Approve a payslip in "To review" and its employer becomes a workplace,
         or add one by hand.
       </p>
@@ -881,12 +882,12 @@
 @case ('feedback') {
 <ui-ai-panel
   heading="Career feedback"
-  class="block"
+  class="li-block"
   [state]="asking() ? 'working' : 'idle'"
   [offline]="!data.aiFeedback"
 >
   <li-ai-tool uiAiPanelActions toolId="work.career-feedback" />
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     @if (data.aiFeedback) { Claude reads what you approved here (workplaces,
     timeline, pay statistics, evaluations, hiring platforms) and answers. Tax
     codes, employee codes and addresses are never sent. } @else { Without a
@@ -919,9 +920,9 @@
   [heading]="f.question ? f.question : 'Your career feedback'"
   kind="result"
   [offline]="f.source !== 'claude'"
-  class="block feedback"
+  class="li-block feedback"
 >
-  <div uiAiPanelActions class="actions">
+  <div uiAiPanelActions class="li-actions">
     <button
       uiButton
       variant="ghost"
@@ -961,12 +962,12 @@
     @for (s of f.suggestions; track $index) {
     <li>
       <strong>{{ s.title }}</strong>
-      <p class="muted">{{ s.detail }}</p>
+      <p class="li-muted">{{ s.detail }}</p>
     </li>
     }
   </ol>
   }
-  <p class="muted small">
+  <p class="li-muted li-small">
     Written {{ periodText(f.createdAt.slice(0, 10)) }} from {{ f.documentsUsed
     }} document{{ f.documentsUsed === 1 ? '' : 's' }}@if (f.model) { by {{
     f.model }} }. A starting point for your own judgement, not professional
@@ -974,13 +975,13 @@
   </p>
 </ui-ai-panel>
 } @if (feedback().length > 1) {
-<ui-card heading="Earlier feedback" class="block">
-  <ul class="plain">
+<ui-card heading="Earlier feedback" class="li-block">
+  <ul class="li-list">
     @for (f of feedback(); track f.id) {
-    <li class="row">
+    <li class="li-row">
       <button
         type="button"
-        class="link"
+        class="li-link"
         [class.link--on]="shownFeedback()?.id === f.id"
         (click)="shownFeedbackId.set(f.id)"
       >
@@ -1038,8 +1039,8 @@
   (compare)="compareOffer($event)"
 />
 } @case ('platforms') {
-<ui-card heading="Hiring platforms" class="block">
-  <div uiCardActions class="actions">
+<ui-card heading="Hiring platforms" class="li-block">
+  <div uiCardActions class="li-actions">
     <button
       uiButton
       variant="secondary"
@@ -1050,7 +1051,7 @@
       <ui-icon name="plus" [size]="16" /> Add one
     </button>
   </div>
-  <p class="muted intro">
+  <p class="li-muted li-intro">
     The job sites you signed up to, one click away. A profile not updated for {{
     staleDays }} days is flagged, so your CV never lags behind your career.
   </p>
@@ -1063,7 +1064,7 @@
   </div>
 
   @if (platformDraft(); as d) {
-  <form class="form" (submit)="$event.preventDefault(); savePlatform()">
+  <form class="li-form" (submit)="$event.preventDefault(); savePlatform()">
     <label>
       <span>Name</span>
       <input
@@ -1074,7 +1075,7 @@
         (input)="setPlatform({ name: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Link</span>
       <input
         class="ui-input"
@@ -1118,7 +1119,7 @@
         (input)="setPlatform({ profileUpdatedAt: $any($event.target).value })"
       />
     </label>
-    <label class="form__wide">
+    <label class="li-form__wide">
       <span>Notes</span>
       <textarea
         class="ui-input"
@@ -1129,7 +1130,7 @@
         (input)="setPlatform({ notes: $any($event.target).value })"
       ></textarea>
     </label>
-    <div class="form__buttons">
+    <div class="li-form__buttons">
       <button
         uiButton
         type="submit"
@@ -1149,7 +1150,7 @@
   </form>
   } @if (!platforms().length && !platformDraft()) {
   <ui-empty-state heading="No platform yet" icon="external">
-    <p class="muted">Pick one above, or add any other with its link.</p>
+    <p class="li-muted">Pick one above, or add any other with its link.</p>
   </ui-empty-state>
   }
 
@@ -1162,24 +1163,24 @@
         >
         <div>
           <strong>{{ p.name }}</strong>
-          <span class="muted small block-line">{{ hostOf(p.url) }}</span>
+          <span class="li-muted li-small block-line">{{ hostOf(p.url) }}</span>
         </div>
         <ui-badge [tone]="p.status === 'active' ? 'success' : 'neutral'"
           >{{ platformStatusLabels[p.status] }}</ui-badge
         >
       </div>
       @if (p.account) {
-      <p class="small">
+      <p class="li-small">
         Signed up as <span class="mono">{{ p.account }}</span>
       </p>
       }
-      <p class="small" [class.stale]="p.stale">
+      <p class="li-small" [class.stale]="p.stale">
         @if (p.profileUpdatedAt) { Profile updated {{
         periodText(p.profileUpdatedAt) }} } @else { Profile update date unknown
         } @if (p.stale) { · time to refresh it }
       </p>
       @if (p.notes) {
-      <p class="muted small">{{ p.notes }}</p>
+      <p class="li-muted li-small">{{ p.notes }}</p>
       }
       <div class="platform__buttons">
         @if (safeUrl(p.url); as url) {

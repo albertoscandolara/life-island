@@ -3,15 +3,6 @@
   display: block;
 }
 
-.block {
-  display: block;
-  margin-bottom: var(--space-6);
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
 .block-line {
   display: block;
 }
@@ -519,7 +510,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tile,
   .event,
   .review,
   .platform {

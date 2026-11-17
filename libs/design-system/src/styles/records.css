@@ -257,6 +257,54 @@
   text-decoration: line-through;
 }
 
+/* ---- inline forms --------------------------------------------------------- */
+/* A form inside a block: labelled fields in a grid, buttons on their own row. */
+.li-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.li-form--narrow {
+  grid-template-columns: 1fr;
+}
+
+.li-form label {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.li-form__wide {
+  grid-column: 1 / -1;
+}
+
+.li-form__group {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.li-form__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+}
+
+/* Dense numeric tables (payslips, yearly figures) keep each value on one line. */
+.li-table--nowrap th,
+.li-table--nowrap td {
+  white-space: nowrap;
+}
+
 /* ---- tables --------------------------------------------------------------- */
 .li-table-wrap {
   overflow-x: auto;
