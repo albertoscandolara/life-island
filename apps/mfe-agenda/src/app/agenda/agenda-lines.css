@@ -1,0 +1,86 @@
+/* The lines of the agenda: a dated entry (EntryList) or a thing that waits
+   with no date (WaitingList). */
+.line {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+.line--done {
+  opacity: 0.6;
+}
+.line--done .title {
+  text-decoration: line-through;
+}
+.line--auto .title {
+  text-decoration: none;
+}
+.date {
+  display: grid;
+  place-items: center;
+  width: var(--space-12);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  line-height: 1.1;
+}
+.date--late {
+  background: var(--tone-danger-soft);
+  color: var(--tone-danger);
+}
+.date__day {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.date__month {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+}
+.body {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.title {
+  font-weight: 600;
+}
+.detail {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.side {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: end;
+}
+.buttons {
+  display: flex;
+  gap: var(--space-1);
+}
+@media (max-width: 40rem) {
+  .line {
+    grid-template-columns: auto 1fr;
+  }
+  .side {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.badge {
+  display: grid;
+  place-items: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-lg);
+}

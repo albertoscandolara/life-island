@@ -223,14 +223,20 @@ export class DreamsService implements OnApplicationBootstrap {
   /** The island badge: only steps waiting for their check-in. Dreams never count as late. */
   async attention(): Promise<LifeAttentionDto> {
     const all = await this.states();
-    return {
-      expired: 0,
-      expiring: 0,
-      toReview: all.reduce(
-        (n, { dto }) => n + dto.steps.filter((s) => s.awaitingCheckIn).length,
-        0,
-      ),
-    };
+    const items = all.flatMap(({ dto }) =>
+      dto.steps
+        .filter((s) => s.awaitingCheckIn)
+        .map((s) => ({
+          id: `check-in:${s.id}`,
+          kind: 'check-in',
+          title: `How did “${s.title}” go?`,
+          detail: `A step towards “${dto.title}”: a short check-in tells the next step.`,
+          since: s.doneOn,
+          path: '/dreams',
+          action: 'Check in',
+        })),
+    );
+    return { expired: 0, expiring: 0, toReview: items.length, items };
   }
 
   /** What the areas a dream shares say now, as Claude would read it. */

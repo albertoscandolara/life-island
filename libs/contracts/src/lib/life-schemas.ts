@@ -53,6 +53,50 @@ export interface LifeAttentionDto {
   expired: number;
   expiring: number;
   toReview: number;
+  /**
+   * The things behind the counts that have no date of their own, so the
+   * Agenda can list them: a document to approve, a suggestion, a check-in,
+   * an item running out. Dated ones reach the Agenda through `GET /deadlines`.
+   */
+  items?: LifeAttentionItemDto[];
+}
+
+/** One undated thing an area needs you for, as the Agenda lists it. */
+export interface LifeAttentionItemDto {
+  /** Unique within its area, stable while the thing waits. */
+  id: string;
+  /** What kind of thing, within the area: `document`, `suggestion`, `check-in`… */
+  kind: string;
+  /** What to do, short: "Approve the insurance policy". */
+  title: string;
+  detail: string | null;
+  /** The day it started waiting, when known (the upload date, the day it was done). */
+  since: string | null;
+  /** Where it is handled in the Life Island app, e.g. `/cars`. */
+  path: string;
+  /** The button that opens it, verb first: "Review", "Check in". */
+  action: string;
+}
+
+/**
+ * A read document that waits for your approval in an area (Cars, People,
+ * Work…), as an attention item: its title, what it is and since when.
+ */
+export function documentToReview(
+  doc: { uploadId: string; title: string; uploadedAt: string },
+  path: string,
+  ...about: (string | null | undefined)[]
+): LifeAttentionItemDto {
+  const detail = about.filter((part): part is string => !!part).join(' · ');
+  return {
+    id: `document:${doc.uploadId}`,
+    kind: 'document',
+    title: doc.title,
+    detail: detail || null,
+    since: doc.uploadedAt.slice(0, 10),
+    path,
+    action: 'Review',
+  };
 }
 
 /** An AI tool's answer kept by a module, with who wrote it. */

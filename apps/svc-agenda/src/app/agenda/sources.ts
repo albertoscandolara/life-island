@@ -1,8 +1,11 @@
 import { Logger } from '@nestjs/common';
 import {
+  ATTENTION_SOURCES,
   DEADLINE_SOURCES,
   type AgendaSourceDto,
+  type AgendaWaitingDto,
   type DeadlineDto,
+  type LifeAttentionItemDto,
 } from '@life-island/contracts';
 
 /*
@@ -63,6 +66,63 @@ export async function readDeadlines(
     deadlines: results.flatMap((r) => r.deadlines),
     sources: results.map((r) => r.status),
   };
+}
+
+/**
+ * Reads `GET /attention` from every area for the undated things that wait for
+ * you (its `items`). An area that does not answer is left out: its own badge
+ * on the island still counts them, and the Agenda's dates say it is down.
+ */
+export async function readWaiting(
+  sources: Readonly<Record<string, string>>,
+  fetcher: typeof fetch = fetch,
+): Promise<AgendaWaitingDto[]> {
+  const results = await Promise.all(
+    ATTENTION_SOURCES.map(async (source) => {
+      const base = sources[source.module];
+      if (!base) return [];
+      try {
+        const response = await fetcher(`${base}/attention`, {
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = (await response.json()) as { items?: unknown } | null;
+        return (Array.isArray(body?.items) ? body.items : [])
+          .filter(isAttentionItem)
+          .map((item): AgendaWaitingDto => ({
+            ...item,
+            detail: item.detail ?? null,
+            since:
+              typeof item.since === 'string' &&
+              /^\d{4}-\d{2}-\d{2}/.test(item.since)
+                ? item.since.slice(0, 10)
+                : null,
+            key: `${source.module}:${item.id}`,
+            module: source.module,
+          }));
+      } catch (error) {
+        logger.debug(`${source.module} attention: ${describe(error)}`);
+        return [];
+      }
+    }),
+  );
+  // Oldest first: what has waited longest; undated ones after.
+  return results
+    .flat()
+    .sort((a, b) => (a.since ?? '9999').localeCompare(b.since ?? '9999'));
+}
+
+function isAttentionItem(value: unknown): value is LifeAttentionItemDto {
+  const i = value as Partial<LifeAttentionItemDto> | null;
+  return (
+    !!i &&
+    typeof i.id === 'string' &&
+    typeof i.title === 'string' &&
+    typeof i.path === 'string' &&
+    i.path.startsWith('/') &&
+    typeof i.action === 'string' &&
+    typeof i.kind === 'string'
+  );
 }
 
 function isDeadline(value: unknown): value is DeadlineDto {

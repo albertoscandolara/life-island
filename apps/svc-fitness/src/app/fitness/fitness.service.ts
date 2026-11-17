@@ -175,12 +175,22 @@ export class FitnessService implements OnApplicationBootstrap {
       .select()
       .from(fitnessEvents)
       .where(eq(fitnessEvents.done, false));
+    const past = rows.filter((e) => e.date < day);
     return {
       expired: 0,
       expiring: rows.filter(
         (e) => e.date >= day && e.date <= isoAddDays(day, 7),
       ).length,
-      toReview: rows.filter((e) => e.date < day).length,
+      toReview: past.length,
+      items: past.map((e) => ({
+        id: `event:${e.id}`,
+        kind: 'event-result',
+        title: `How did ${e.name} go?`,
+        detail: 'Mark it done with your result, or move it.',
+        since: e.date,
+        path: '/fitness',
+        action: 'Log it',
+      })),
     };
   }
 

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
 import {
+  documentToReview,
   identifiesSomeone,
   PERSON_FIELDS,
   type ApproveReviewRequest,
@@ -358,6 +359,15 @@ export class PeopleService {
       expired: alerts.filter((a) => a.level === 'expired').length,
       expiring: alerts.filter((a) => a.level === 'expiring').length,
       toReview: pending.length,
+      items: pending.map((r) =>
+        documentToReview(
+          r,
+          '/people',
+          r.type ? ID_DOCUMENT_TYPE_LABELS[r.type] : null,
+          [r.holder.firstName, r.holder.lastName].filter(Boolean).join(' ') ||
+            null,
+        ),
+      ),
     };
   }
 

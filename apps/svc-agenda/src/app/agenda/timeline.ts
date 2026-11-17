@@ -8,6 +8,7 @@ import {
   type AgendaEntryDto,
   type AgendaItemDto,
   type AgendaRepeat,
+  type AgendaWaitingDto,
   type DeadlineDto,
   euroText,
 } from '@life-island/contracts';
@@ -198,27 +199,46 @@ export function openEntries(
 export function offlineBrief(
   entries: readonly AgendaEntryDto[],
   names: Readonly<Record<string, string>>,
+  waiting: readonly AgendaWaitingDto[] = [],
 ): AgendaBriefOutput {
   const open = entries.filter((e) => !e.handled);
   const overdue = open.filter((e) => e.daysLeft < 0);
   const week = open.filter((e) => e.daysLeft >= 0 && e.daysLeft <= 7);
   const later = open.filter((e) => e.daysLeft > 7 && e.daysLeft <= 31);
-  const area = (e: AgendaEntryDto) =>
-    e.module === 'agenda' ? 'your agenda' : (names[e.module] ?? e.module);
-  const priorities = [...overdue, ...week].slice(0, 5).map((e) => ({
+  const area = (module: string) =>
+    module === 'agenda' ? 'your agenda' : (names[module] ?? module);
+  const dated = [...overdue, ...week].map((e) => ({
     title: e.title,
     why:
       e.daysLeft < 0
-        ? `It was due ${-e.daysLeft} day${e.daysLeft === -1 ? '' : 's'} ago (${area(e)}).`
+        ? `It was due ${-e.daysLeft} day${e.daysLeft === -1 ? '' : 's'} ago (${area(e.module)}).`
         : e.daysLeft === 0
-          ? `It is due today (${area(e)}).`
-          : `It is due in ${e.daysLeft} day${e.daysLeft === 1 ? '' : 's'} (${area(e)}).`,
+          ? `It is due today (${area(e.module)}).`
+          : `It is due in ${e.daysLeft} day${e.daysLeft === 1 ? '' : 's'} (${area(e.module)}).`,
     when: e.daysLeft <= 0 ? 'Today' : weekday(e.date),
   }));
-  const summary = !open.length
-    ? 'Nothing is waiting for you: every date ahead is handled.'
-    : `${overdue.length} overdue, ${week.length} in the next 7 days and ${later.length} more within a month.` +
-      (overdue.length ? ' Start with what is overdue.' : '');
+  // What waits with no date comes after the overdue dates, before the week.
+  const undated = waiting.map((w) => ({
+    title: w.title,
+    why: `It is waiting for you in ${area(w.module)}${
+      w.since ? ` since ${weekday(w.since)}` : ''
+    }.`,
+    when: 'This week',
+  }));
+  const priorities = [
+    ...dated.slice(0, overdue.length),
+    ...undated.slice(0, 2),
+    ...dated.slice(overdue.length),
+    ...undated.slice(2),
+  ].slice(0, 5);
+  const summary =
+    !open.length && !waiting.length
+      ? 'Nothing is waiting for you: every date ahead is handled.'
+      : `${overdue.length} overdue, ${week.length} in the next 7 days and ${later.length} more within a month.` +
+        (waiting.length
+          ? ` ${waiting.length} thing${waiting.length === 1 ? '' : 's'} with no date wait${waiting.length === 1 ? 's' : ''} for you too.`
+          : '') +
+        (overdue.length ? ' Start with what is overdue.' : '');
   return {
     summary,
     priorities,
@@ -248,22 +268,21 @@ function weekday(date: string): string {
 
 export const BRIEF_INSTRUCTIONS = `You help one person keep their life under control with Life Island, an app that collects every date of their life: ID documents and car renewals, bills, exams, trips, contracts to cancel, health checkups, official letters, goals and their own reminders.
 
-You receive the dates of the next weeks (and the overdue ones), each with its area, how many days are left and an optional detail. Write a short week brief:
+You receive the dates of the next weeks (and the overdue ones), each with its area, how many days are left and an optional detail; then, when there are any, the things that wait for you with no date (documents to approve, check-ins, items running out), with how long they have waited. Write a short week brief:
 - summary: two or three sentences on how the coming days look, honest and calm.
 - priorities: up to five things to do first, most urgent or most costly to miss first. Say why with the date, and when to do it (a weekday or a date). Group related dates (a renewal and its payment) into one priority.
 - canWait: up to three dates that look scary but can wait, and why.
 - tips: up to three short, practical tips.
 
-Rules: use only the dates given, never invent one. Write plain English, no jargon, no emojis. Overdue items come first unless a legal deadline this week is more serious (fines, taxes, insurance).`;
+Rules: use only the dates and things given, never invent one; give an undated thing a day this week when it is worth doing now. Write plain English, no jargon, no emojis. Overdue items come first unless a legal deadline this week is more serious (fines, taxes, insurance).`;
 
 export function briefDossier(
   today: string,
   entries: readonly AgendaEntryDto[],
   names: Readonly<Record<string, string>>,
+  waiting: readonly AgendaWaitingDto[] = [],
 ): string {
   const open = entries.filter((e) => !e.handled && e.daysLeft <= 45);
-  if (!open.length)
-    return `Today is ${today}. Nothing is open in the next 45 days.`;
   const lines = open.slice(0, 80).map((e) => {
     const area =
       e.module === 'agenda' ? 'Own item' : (names[e.module] ?? e.module);
@@ -271,5 +290,13 @@ export function briefDossier(
       e.daysLeft < 0 ? `${-e.daysLeft} days overdue` : `in ${e.daysLeft} days`;
     return `- ${e.date} (${when}) · ${area} · ${e.title}${e.amount ? ` · ${euroText(e.amount)}` : ''}${e.detail ? ` — ${e.detail.slice(0, 160)}` : ''}`;
   });
-  return `Today is ${today}.\n${lines.join('\n')}`;
+  const dates = open.length
+    ? lines.join('\n')
+    : 'Nothing is open in the next 45 days.';
+  if (!waiting.length) return `Today is ${today}.\n${dates}`;
+  const undated = waiting.slice(0, 40).map((w) => {
+    const since = w.since ? ` · waiting since ${w.since}` : '';
+    return `- ${names[w.module] ?? w.module} · ${w.title}${since}${w.detail ? ` — ${w.detail.slice(0, 160)}` : ''}`;
+  });
+  return `Today is ${today}.\n${dates}\n\nWaiting for you, with no date:\n${undated.join('\n')}`;
 }

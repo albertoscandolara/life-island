@@ -56,6 +56,7 @@ export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {
   fitness: 'http://localhost:3018',
   dreams: 'http://localhost:3019',
   taxes: 'http://localhost:3004',
+  groceries: 'http://localhost:3003',
 };
 
 /** `people=http://svc-people:3000,cars=…`; the local ports when unset. */

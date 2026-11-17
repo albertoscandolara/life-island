@@ -20,7 +20,7 @@ A page reads top to bottom in the order you need it:
 - **Every insight ends in an action.** A warning without a button is a worry, not help. The action is, in order of preference: do it here (mark as paid, file the document, log the session), open the place where it is done (a deep link with the record selected), or put it in the Agenda as a reminder. If none exists, the insight is not ready to ship.
 - **One primary button per block.** The accent-filled button is the next step; everything else is secondary or a link.
 - **Empty states teach the next step.** "No bills yet: upload an electricity, gas or water bill" with the button to open the documents app, never a bare "No data".
-- **Count what needs you, everywhere it shows.** A tab, the hub card and the Agenda show the same number for the same thing (the area's `GET /attention`).
+- **Count what needs you, everywhere it shows.** A tab, the hub card and the Agenda show the same number for the same thing (the area's `GET /attention`). A thing with no date that needs you is also listed in that answer's `items`, so the Agenda can show it with its action: never count something the person cannot find and act on.
 
 ## 2. Visual identity: one island, many characters
 
