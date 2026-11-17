@@ -2,16 +2,47 @@
 # Services that are not running yet answer 502 until they exist.
 #
 # Sign-in: GATEWAY_AUTH picks a file from ./auth (off or basic) for every route
-# but the health check. See README.md in this folder.
+# but the health check. It has no default: an unset value names no file and
+# the gateway refuses to start, so a forgotten setting never publishes the
+# island without sign-in. See README.md in this folder and docs/security.md.
 {
 	admin off
+	servers {
+		# Requests and headers bigger than this are refused before any service sees them.
+		max_header_size 32KB
+	}
 }
 
 (protected) {
-	import /etc/caddy/auth/{$GATEWAY_AUTH:off}.caddy
+	import /etc/caddy/auth/{$GATEWAY_AUTH}.caddy
+}
+
+(hardening) {
+	header {
+		# HTTPS only for a year once the site was opened over HTTPS (ignored over plain HTTP).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+		-X-Powered-By
+	}
+	# Never pass on identity or internal headers a client made up.
+	request_header -X-User-Id
+	request_header -X-User-Role
+	request_header -X-Internal-Token
+	# Uploads go straight to storage; the largest body a service takes is a file
+	# sent through the API (25 MB).
+	request_body {
+		max_size 26MB
+	}
 }
 
 :80 {
+	import hardening
+
 	handle /healthz {
 		respond "ok" 200
 	}

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { AppModule } from './app.module.js';
 import { LOCAL_STUDIES_DATABASE_URL, type StudiesConfig } from './config.js';
+import { applyHttpSecurity } from '@life-island/be-nest';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../../drizzle', import.meta.url),
@@ -88,6 +89,7 @@ export async function createApp(
     await runMigrations(config.databaseUrl);
   }
   const app = await NestFactory.create(AppModule.forRoot(config, options));
+  applyHttpSecurity(app, { service: 'svc-studies', config });
   app.enableShutdownHooks();
   return app;
 }
