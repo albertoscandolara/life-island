@@ -16,31 +16,19 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { VehicleDto } from '@life-island/contracts';
-import type { Material, Mesh, Object3D } from 'three';
+import {
+  loadOwnModel,
+  loadSceneKit,
+  toHex,
+  type SceneKit,
+} from '@life-island/scene-kit';
 import { CarsApi } from '../api/cars-api';
-import { GarageScene, type GaragePalette } from './garage-scene';
-import { paintColour, vehicleName } from './labels';
-
-/** Loads a car's own model (glTF, GLB or OBJ); three.js loaders come only when needed. */
-async function loadModel(
-  url: string,
-  car: VehicleDto,
-  plain: () => Material,
-): Promise<Object3D> {
-  if (car.model?.format === 'OBJ') {
-    const { OBJLoader } =
-      await import('three/examples/jsm/loaders/OBJLoader.js');
-    const object = await new OBJLoader().loadAsync(url);
-    // An OBJ comes without its .mtl: paint it plainly.
-    object.traverse((child) => {
-      if ((child as Mesh).isMesh) (child as Mesh).material = plain();
-    });
-    return object;
-  }
-  const { GLTFLoader } =
-    await import('three/examples/jsm/loaders/GLTFLoader.js');
-  return (await new GLTFLoader().loadAsync(url)).scene;
-}
+import {
+  GARAGE_KIT_URL,
+  GarageScene,
+  type GaragePalette,
+} from './garage-scene';
+import { carShape, paintColour, vehicleName } from './labels';
 
 /**
  * Your cars in 3D, side by side on their parking spots: the drawn car wears
@@ -230,6 +218,8 @@ export class GarageView {
   );
 
   private scene: GarageScene | null = null;
+  /** The garage's Blender models, loaded once for every rebuild of the scene. */
+  private kit: Promise<SceneKit | null> | null = null;
   private readonly injector = inject(Injector);
 
   constructor() {
@@ -257,12 +247,20 @@ export class GarageView {
             return;
           }
           const scene = this.scene;
+          this.kit ??= loadSceneKit(GARAGE_KIT_URL);
+          void this.kit.then((kit) => {
+            if (kit && this.scene === scene)
+              scene.useKit(
+                kit,
+                Object.fromEntries(cars.map((v) => [v.id, carShape(v.values)])),
+              );
+          });
           const selected = untracked(() => this.selectedId());
           scene.select(selected ? [selected] : []);
           for (const car of cars) {
             if (!car.model) continue;
             const url = this.api.modelUrl(car.id, car.model.uploadedAt);
-            loadModel(url, car, () => scene.plainMaterial())
+            loadOwnModel(url, car.model.format, () => scene.plainMaterial())
               .then((model) => {
                 if (this.scene === scene) scene.setModel(car.id, model);
               })
@@ -303,6 +301,7 @@ export class GarageView {
         resize.disconnect();
         theme.disconnect();
         this.scene?.dispose();
+        void this.kit?.then((kit) => kit?.dispose());
       });
     });
     effect(() => {
@@ -362,25 +361,4 @@ export class GarageView {
     probe.remove();
     return palette;
   }
-}
-
-/** `rgb(…)`, `rgba(…)` or `color(srgb …)` to `#rrggbb` (what three.js reads). */
-export function toHex(css: string): string {
-  const srgb = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(css);
-  const rgb = /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(css);
-  const channels = srgb
-    ? srgb.slice(1, 4).map((v) => Number(v) * 255)
-    : rgb
-      ? rgb.slice(1, 4).map(Number)
-      : [128, 128, 128];
-  return (
-    '#' +
-    channels
-      .map((v) =>
-        Math.round(Math.max(0, Math.min(255, v)))
-          .toString(16)
-          .padStart(2, '0'),
-      )
-      .join('')
-  );
 }

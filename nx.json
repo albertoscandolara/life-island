@@ -34,7 +34,8 @@
         "libs/settings-ui/**/*",
         "libs/auth-ui/**/*",
         "libs/entities-ui/**/*",
-        "libs/records-ui/**/*"
+        "libs/records-ui/**/*",
+        "libs/scene-kit/**/*"
       ]
     },
     {

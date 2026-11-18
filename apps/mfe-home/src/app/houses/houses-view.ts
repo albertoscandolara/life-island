@@ -15,34 +15,21 @@ import {
   viewChildren,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import type { PropertyDto } from '@life-island/contracts';
-import type { Material, Mesh, Object3D } from 'three';
+import {
+  loadOwnModel,
+  loadSceneKit,
+  toHex,
+  type SceneKit,
+} from '@life-island/scene-kit';
 import { HomeApi } from '../api/home-api';
 import { propertyColor } from '../shared/format';
 import { PropertyStore } from '../shared/property-store';
 import { selectionParams } from '../shared/selection';
-import { HousesScene, type HousesPalette } from './houses-scene';
-
-/** Loads a house's own model (glTF, GLB or OBJ); three.js loaders come only when needed. */
-async function loadModel(
-  url: string,
-  house: PropertyDto,
-  plain: () => Material,
-): Promise<Object3D> {
-  if (house.model?.format === 'OBJ') {
-    const { OBJLoader } =
-      await import('three/examples/jsm/loaders/OBJLoader.js');
-    const object = await new OBJLoader().loadAsync(url);
-    // An OBJ comes without its .mtl: paint it like the drawn houses.
-    object.traverse((child) => {
-      if ((child as Mesh).isMesh) (child as Mesh).material = plain();
-    });
-    return object;
-  }
-  const { GLTFLoader } =
-    await import('three/examples/jsm/loaders/GLTFLoader.js');
-  return (await new GLTFLoader().loadAsync(url)).scene;
-}
+import {
+  HOUSES_KIT_URL,
+  HousesScene,
+  type HousesPalette,
+} from './houses-scene';
 
 /**
  * Your homes in 3D: one small house per property, its roof in the property's
@@ -241,6 +228,8 @@ export class HousesView {
   protected readonly color = propertyColor;
 
   private scene: HousesScene | null = null;
+  /** The houses' Blender models, loaded once for every rebuild of the scene. */
+  private kit: Promise<SceneKit | null> | null = null;
   private readonly injector = inject(Injector);
 
   constructor() {
@@ -268,11 +257,19 @@ export class HousesView {
             return;
           }
           const scene = this.scene;
+          this.kit ??= loadSceneKit(HOUSES_KIT_URL);
+          void this.kit.then((kit) => {
+            if (kit && this.scene === scene)
+              scene.useKit(
+                kit,
+                Object.fromEntries(homes.map((p) => [p.id, p.type])),
+              );
+          });
           scene.select(untracked(() => this.selected()));
           for (const house of homes) {
             if (!house.model) continue;
             const url = this.api.modelUrl(house.id, house.model.uploadedAt);
-            loadModel(url, house, () => scene.plainMaterial())
+            loadOwnModel(url, house.model.format, () => scene.plainMaterial())
               .then((model) => {
                 if (this.scene === scene) scene.setModel(house.id, model);
               })
@@ -313,6 +310,7 @@ export class HousesView {
         resize.disconnect();
         theme.disconnect();
         this.scene?.dispose();
+        void this.kit?.then((kit) => kit?.dispose());
       });
     });
     effect(() => this.scene?.select(this.selected()));
@@ -389,25 +387,4 @@ export class HousesView {
     probe.remove();
     return palette;
   }
-}
-
-/** `rgb(…)`, `rgba(…)` or `color(srgb …)` to `#rrggbb` (what three.js reads). */
-export function toHex(css: string): string {
-  const srgb = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(css);
-  const rgb = /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(css);
-  const channels = srgb
-    ? srgb.slice(1, 4).map((v) => Number(v) * 255)
-    : rgb
-      ? rgb.slice(1, 4).map(Number)
-      : [128, 128, 128];
-  return (
-    '#' +
-    channels
-      .map((v) =>
-        Math.round(Math.max(0, Math.min(255, v)))
-          .toString(16)
-          .padStart(2, '0'),
-      )
-      .join('')
-  );
 }

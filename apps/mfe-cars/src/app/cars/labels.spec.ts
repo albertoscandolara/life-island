@@ -1,6 +1,7 @@
 import type { RenewalAlertDto } from '@life-island/contracts';
 import {
   alertText,
+  carShape,
   paintColour,
   typeLabel,
   valueText,
@@ -105,5 +106,27 @@ describe('labels', () => {
     expect(paintColour('white')).toBe('#eef0f2');
     expect(paintColour('MAGENTA')).toBeNull();
     expect(paintColour(null)).toBeNull();
+  });
+});
+
+describe('carShape', () => {
+  it('reads the bodywork code of a car', () => {
+    expect(carShape({ bodyworkCode: 'AA' })).toBe('sedan');
+    expect(carShape({ bodyworkCode: 'AC' })).toBe('wagon');
+    expect(carShape({ bodyworkCode: 'af' })).toBe('mpv');
+    expect(carShape({ bodyworkCode: 'AE' })).toBe('coupe');
+  });
+
+  it('knows motorbikes, vans and off-roaders from the category or kind', () => {
+    expect(carShape({ categoryCode: 'L3e' })).toBe('motorbike');
+    expect(carShape({ kindKey: 'moped' })).toBe('motorbike');
+    expect(carShape({ categoryCode: 'N1' })).toBe('van');
+    expect(carShape({ kindKey: 'goods_vehicle' })).toBe('van');
+    expect(carShape({ categoryCode: 'M1G', bodyworkCode: 'AF' })).toBe('suv');
+  });
+
+  it('falls back to a small hatchback', () => {
+    expect(carShape({})).toBe('hatchback');
+    expect(carShape({ bodyworkCode: 'ZZ' })).toBe('hatchback');
   });
 });

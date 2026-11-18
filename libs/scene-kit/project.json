@@ -1,0 +1,32 @@
+{
+  "name": "scene-kit",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/scene-kit/src",
+  "prefix": "li",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:shared"],
+  "targets": {
+    "test": {
+      "executor": "@nx/angular:unit-test",
+      "options": {
+        "watch": false,
+        "buildTarget": "scene-kit:test-build:development"
+      }
+    },
+    "test-build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "project": "libs/scene-kit/ng-package.json",
+        "tsConfig": "libs/scene-kit/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/scene-kit/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      }
+    }
+  }
+}

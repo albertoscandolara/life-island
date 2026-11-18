@@ -9,6 +9,7 @@ import {
   type RenewalDto,
   type VehicleField,
   type VehicleValue,
+  type VehicleValues,
 } from '@life-island/contracts';
 
 const DEFINITION = new Map(VEHICLE_FIELD_DEFINITIONS.map((d) => [d.field, d]));
@@ -137,4 +138,46 @@ export function paintColour(value: VehicleValue | undefined): string | null {
   if (typeof value !== 'string') return null;
   const name = value.toLowerCase();
   return PAINTS.find(([words]) => words.test(name))?.[1] ?? null;
+}
+
+/** The shapes the garage has a Blender model for (tools/scene-models). */
+export type CarShape =
+  | 'hatchback'
+  | 'sedan'
+  | 'wagon'
+  | 'suv'
+  | 'mpv'
+  | 'coupe'
+  | 'van'
+  | 'motorbike';
+
+/**
+ * Which model stands for the car in the garage, from its registration
+ * certificate: the kind (J.1), the category (J) and the bodywork (J.2). A
+ * small hatchback when nothing says otherwise.
+ */
+export function carShape(values: Partial<VehicleValues>): CarShape {
+  const text = (value: VehicleValue | undefined) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : '';
+  const kind = text(values.kindKey).toLowerCase();
+  const category = text(values.categoryCode);
+  const body = text(values.bodyworkCode);
+  if (['motorcycle', 'moped'].includes(kind) || category.startsWith('L'))
+    return 'motorbike';
+  if (
+    ['goods_vehicle', 'motor_caravan'].includes(kind) ||
+    category.startsWith('N') ||
+    /^(BA|BB|BC|BE|SA)/.test(body)
+  )
+    return 'van';
+  if (category === 'M1G') return 'suv';
+  const byBody: Record<string, CarShape> = {
+    AA: 'sedan',
+    AB: 'hatchback',
+    AC: 'wagon',
+    AD: 'coupe',
+    AE: 'coupe',
+    AF: 'mpv',
+  };
+  return byBody[body.slice(0, 2)] ?? 'hatchback';
 }

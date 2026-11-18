@@ -1,0 +1,10 @@
+{
+  "name": "@life-island/scene-kit",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "three": "^0.187.0",
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false,
+  "private": true
+}

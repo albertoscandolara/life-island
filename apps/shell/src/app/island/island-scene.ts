@@ -23,7 +23,11 @@ import {
   PCFSoftShadowMap,
   WebGLRenderer,
 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {
+  loadSceneKit,
+  placeKitModel,
+  type SceneKit,
+} from '@life-island/scene-kit';
 import type { IslandModule } from '../hub/modules';
 import { islandFov, islandLayout, type IslandLayout } from './island-layout';
 import { coastline, islandProps, peakScale } from './island-props';
@@ -100,7 +104,7 @@ export class IslandScene {
   private readonly materials = new Map<string, MeshStandardMaterial>();
   private readonly raycaster = new Raycaster();
   private readonly geometries: BufferGeometry[] = [];
-  private readonly kitMaterials = new Set<Material>();
+  private kit: SceneKit | null = null;
   private readonly sun = new DirectionalLight(0xffffff, 1.6);
   private readonly sky = new HemisphereLight(0xffffff, 0x445566, 1.3);
   private readonly peak = new Group();
@@ -157,24 +161,15 @@ export class IslandScene {
    * primitives, so it always works.
    */
   async loadKit(url = ISLAND_KIT_URL): Promise<boolean> {
-    try {
-      const gltf = await new GLTFLoader().loadAsync(url);
-      if (this.disposed) return false;
-      const models = new Map<string, Object3D>();
-      gltf.scene.traverse((object) => {
-        if (object instanceof Mesh) {
-          const list = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-          list.forEach((material) => this.kitMaterials.add(material));
-        }
-        if (object.parent === gltf.scene) models.set(object.name, object);
-      });
-      this.applyKit(models);
-      return true;
-    } catch {
+    const kit = await loadSceneKit(url);
+    if (!kit) return false;
+    if (this.disposed) {
+      kit.dispose();
       return false;
     }
+    this.kit = kit;
+    this.applyKit(kit.models);
+    return true;
   }
 
   start(): void {
@@ -295,7 +290,7 @@ export class IslandScene {
   dispose(): void {
     this.disposed = true;
     cancelAnimationFrame(this.frame);
-    this.kitMaterials.forEach((material) => material.dispose());
+    this.kit?.dispose();
     this.geometries.forEach((geometry) => geometry.dispose());
     this.materials.forEach((material) => material.dispose());
     this.renderer.dispose();
@@ -483,7 +478,7 @@ export class IslandScene {
   }
 
   /** Puts the kit's models in place of the primitives (see loadKit). */
-  private applyKit(models: Map<string, Object3D>): void {
+  private applyKit(models: ReadonlyMap<string, Object3D>): void {
     const peak = models.get('peak');
     if (peak) {
       this.peak.clear();
@@ -535,13 +530,9 @@ export class IslandScene {
    * they follow the theme, and whose `tint` is the zone's accent.
    */
   private place(model: Object3D, zone?: string): Object3D {
-    const copy = model.clone(true);
-    copy.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      const swap = (material: Material) => {
-        const name = material.name;
+    return placeKitModel(
+      model,
+      (name) => {
         if (name === 'tint')
           return this.material(`smooth:zone:${zone ?? 'none'}`, true);
         // Walls, sails and clouds stay light in both themes (`wall`); the
@@ -549,13 +540,10 @@ export class IslandScene {
         if (name === 'foam') return this.material('smooth:wall', true);
         if ((PALETTE_SLOTS as readonly string[]).includes(name))
           return this.material(`smooth:${name}`, true);
-        return material;
-      };
-      object.material = Array.isArray(object.material)
-        ? object.material.map(swap)
-        : swap(object.material);
-    });
-    return copy;
+        return null;
+      },
+      true,
+    );
   }
 
   private palm(angle: number, radius: number): void {

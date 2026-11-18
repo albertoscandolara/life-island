@@ -28,6 +28,7 @@
       "@life-island/design-system": ["./libs/design-system/src/index.ts"],
       "@life-island/entities-ui": ["./libs/entities-ui/src/index.ts"],
       "@life-island/records-ui": ["./libs/records-ui/src/index.ts"],
+      "@life-island/scene-kit": ["./libs/scene-kit/src/index.ts"],
       "@life-island/settings-ui": ["./libs/settings-ui/src/index.ts"]
     }
   }

@@ -3,7 +3,7 @@ Builds the island kit: every landmark, prop and the peak of the 3D island hub,
 modelled in Blender and exported to one glTF binary that the shell loads
 (`apps/shell/public/island/island-kit.glb`).
 
-Run it with Blender's Python module (`pip install bpy`, Python 3.13) or with
+Run it with Blender's Python module (it shares tools/scene-models/kit.py) (`pip install bpy`, Python 3.13) or with
 Blender itself:
 
     python3 tools/island-models/build_island_kit.py
@@ -25,11 +25,14 @@ Conventions the shell relies on (island-scene.ts):
 import math
 import os
 import random
+import sys
 
-import bpy
-import bmesh
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scene-models"))
 
-random.seed(7)
+import bpy  # noqa: E402
+import kit  # noqa: E402
+from kit import blob, box, cone, cyl, export, model, prism, sphere, start, torus  # noqa: E402
+
 OUT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..",
@@ -40,8 +43,6 @@ OUT = os.path.join(
     "island",
     "island-kit.glb",
 )
-
-bpy.ops.wm.read_factory_settings(use_empty=True)
 
 # ---- materials ---------------------------------------------------------------
 
@@ -73,146 +74,9 @@ FIXED = {
     "book-3": "#81b29a",
     "snow": "#ffffff",
 }
-M = {}
+start(PALETTE, FIXED)
 
-
-def hex_rgba(value):
-    value = value.lstrip("#")
-    srgb = [int(value[i : i + 2], 16) / 255 for i in (0, 2, 4)]
-    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in srgb]
-    return (*linear, 1.0)
-
-
-for name, colour in {**PALETTE, **FIXED}.items():
-    material = bpy.data.materials.new(name)
-    material.use_nodes = True
-    bsdf = material.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = hex_rgba(colour)
-    bsdf.inputs["Roughness"].default_value = 0.35 if name in ("gold", "window") else 0.8
-    if name == "gold":
-        bsdf.inputs["Metallic"].default_value = 0.6
-    M[name] = material
-
-# ---- building blocks ---------------------------------------------------------
-
-parts = []
-
-
-def _finish(obj, mat, smooth, bevel, segments=1):
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    if bevel:
-        modifier = obj.modifiers.new("bevel", "BEVEL")
-        modifier.width = bevel
-        modifier.segments = segments
-        modifier.limit_method = "ANGLE"
-        bpy.ops.object.modifier_apply(modifier="bevel")
-    obj.data.materials.clear()
-    obj.data.materials.append(M[mat])
-    if smooth:
-        bpy.ops.object.shade_smooth()
-    else:
-        bpy.ops.object.shade_flat()
-    parts.append(obj)
-    return obj
-
-
-def box(mat, size, loc, rot=(0, 0, 0), bevel=0.02, smooth=False):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
-    obj = bpy.context.active_object
-    obj.scale = size
-    return _finish(obj, mat, smooth, bevel)
-
-
-def cyl(mat, radius, depth, loc, rot=(0, 0, 0), v=16, bevel=0.0, smooth=True, r2=None):
-    if r2 is None:
-        bpy.ops.mesh.primitive_cylinder_add(
-            vertices=v, radius=radius, depth=depth, location=loc, rotation=rot
-        )
-    else:
-        bpy.ops.mesh.primitive_cone_add(
-            vertices=v, radius1=radius, radius2=r2, depth=depth, location=loc, rotation=rot
-        )
-    obj = bpy.context.active_object
-    return _finish(obj, mat, smooth and v >= 8, bevel)
-
-
-def cone(mat, radius, depth, loc, rot=(0, 0, 0), v=16, smooth=False, scale=(1, 1, 1)):
-    bpy.ops.mesh.primitive_cone_add(
-        vertices=v, radius1=radius, radius2=0, depth=depth, location=loc, rotation=rot
-    )
-    obj = bpy.context.active_object
-    obj.scale = scale
-    return _finish(obj, mat, smooth, 0)
-
-
-def sphere(mat, radius, loc, scale=(1, 1, 1), seg=16, rings=10, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=seg, ring_count=rings, radius=radius, location=loc, rotation=rot
-    )
-    obj = bpy.context.active_object
-    obj.scale = scale
-    return _finish(obj, mat, True, 0)
-
-
-def blob(mat, radius, loc, scale=(1, 1, 1), sub=1, jitter=0.0, smooth=False):
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=sub, radius=radius, location=loc)
-    obj = bpy.context.active_object
-    obj.scale = scale
-    if jitter:
-        for vertex in obj.data.vertices:
-            vertex.co *= 1 + random.uniform(-jitter, jitter)
-    return _finish(obj, mat, smooth, 0)
-
-
-def torus(mat, major, minor, loc, rot=(0, 0, 0), seg=24, scale=(1, 1, 1)):
-    bpy.ops.mesh.primitive_torus_add(
-        major_radius=major,
-        minor_radius=minor,
-        major_segments=seg,
-        minor_segments=8,
-        location=loc,
-        rotation=rot,
-    )
-    obj = bpy.context.active_object
-    obj.scale = scale
-    return _finish(obj, mat, True, 0)
-
-
-def prism(mat, width, depth, height, loc, bevel=0.02):
-    """A gable roof: a triangle `width` wide and `height` tall, `depth` long (along Y)."""
-    mesh = bpy.data.meshes.new("prism")
-    w, d, h = width / 2, depth / 2, height
-    verts = [(-w, -d, 0), (w, -d, 0), (0, -d, h), (-w, d, 0), (w, d, 0), (0, d, h)]
-    faces = [(0, 1, 2), (5, 4, 3), (0, 3, 4, 1), (1, 4, 5, 2), (0, 2, 5, 3)]
-    mesh.from_pydata(verts, [], faces)
-    obj = bpy.data.objects.new("prism", mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.location = loc
-    bpy.context.view_layer.objects.active = obj
-    for other in bpy.context.selected_objects:
-        other.select_set(False)
-    obj.select_set(True)
-    return _finish(obj, mat, False, bevel)
-
-
-def model(name):
-    """Joins the parts made since the last call into one object called `name`."""
-    global parts
-    for obj in bpy.context.selected_objects:
-        obj.select_set(False)
-    for obj in parts:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = parts[0]
-    bpy.ops.object.join()
-    joined = bpy.context.active_object
-    joined.name = name
-    joined.data.name = name
-    # The model stands on the world origin, whichever part was joined into.
-    bpy.context.scene.cursor.location = (0, 0, 0)
-    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-    parts = []
-    return joined
-
+# ---- island details ----------------------------------------------------------
 
 def flowers(spots, colours=("red", "yellow", "pink", "lilac")):
     for i, (x, y) in enumerate(spots):
@@ -470,14 +334,14 @@ bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=12, radius=0.36, lo
 balloon = bpy.context.active_object
 balloon.scale = (1, 1, 1.15)
 bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-balloon.data.materials.append(M["tint"])
-balloon.data.materials.append(M["foam"])
+balloon.data.materials.append(kit.M["tint"])
+balloon.data.materials.append(kit.M["foam"])
 for face in balloon.data.polygons:
     centre = face.center
     sector = int(((math.atan2(centre.y, centre.x) + math.pi) / (2 * math.pi)) * 8)
     face.material_index = sector % 2
 bpy.ops.object.shade_smooth()
-parts.append(balloon)
+kit.parts.append(balloon)
 cone("tint", 0.17, 0.2, (0, 0, G + 0.6), rot=(math.pi, 0, 0), v=16, smooth=True)
 box("wood", (0.24, 0.24, 0.17), (0, 0, G + 0.33), bevel=0.03)
 for x in (-0.09, 0.09):
@@ -532,13 +396,13 @@ for vertex in peak.data.vertices:
         vertex.co.x *= 1 + random.uniform(-0.12, 0.12)
         vertex.co.y *= 1 + random.uniform(-0.12, 0.12)
         vertex.co.z += random.uniform(-0.06, 0.06)
-peak.data.materials.append(M["rock"])
-peak.data.materials.append(M["snow"])
-peak.data.materials.append(M["grass"])
+peak.data.materials.append(kit.M["rock"])
+peak.data.materials.append(kit.M["snow"])
+peak.data.materials.append(kit.M["grass"])
 for face in peak.data.polygons:
     face.material_index = 1 if face.center.z > 1.55 else (2 if face.center.z < 0.35 else 0)
 bpy.ops.object.shade_flat()
-parts.append(peak)
+kit.parts.append(peak)
 # A waterfall down the front and a pool at its foot.
 box("water", (0.12, 0.05, 0.9), (0.12, -0.6, 0.75), rot=(0.42, 0, 0), bevel=0.02)
 cyl("water", 0.32, 0.04, (0.12, -1.0, 0.27), v=16, smooth=False)
@@ -624,18 +488,4 @@ model("prop-umbrella")
 
 # ---- export ------------------------------------------------------------------
 
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
-bpy.ops.object.select_all(action="SELECT")
-bpy.ops.export_scene.gltf(
-    filepath=OUT,
-    export_format="GLB",
-    use_selection=True,
-    export_apply=True,
-    export_yup=True,
-    export_texcoords=False,
-    export_normals=True,
-    export_materials="EXPORT",
-    export_cameras=False,
-    export_lights=False,
-)
-print(f"island kit: {OUT} ({os.path.getsize(OUT) // 1024} KB)")
+export(OUT)
