@@ -55,12 +55,8 @@
           "tableFrom": "bill_overrides",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -275,12 +271,8 @@
           "tableFrom": "bills",
           "tableTo": "organizations",
           "schemaTo": "home",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supplier_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -289,12 +281,8 @@
           "tableFrom": "bills",
           "tableTo": "supply_points",
           "schemaTo": "home",
-          "columnsFrom": [
-            "supply_point_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supply_point_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -303,12 +291,8 @@
           "tableFrom": "bills",
           "tableTo": "supply_contracts",
           "schemaTo": "home",
-          "columnsFrom": [
-            "contract_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contract_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -317,12 +301,8 @@
           "tableFrom": "bills",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -332,9 +312,7 @@
         "bills_upload_id_unique": {
           "name": "bills_upload_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "upload_id"
-          ]
+          "columns": ["upload_id"]
         }
       },
       "policies": {},
@@ -514,12 +492,8 @@
           "tableFrom": "house_document_overrides",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -597,12 +571,8 @@
           "tableFrom": "house_reviews",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1189,12 +1159,8 @@
           "tableFrom": "supply_contracts",
           "tableTo": "supply_points",
           "schemaTo": "home",
-          "columnsFrom": [
-            "supply_point_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supply_point_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1203,12 +1169,8 @@
           "tableFrom": "supply_contracts",
           "tableTo": "organizations",
           "schemaTo": "home",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supplier_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1218,9 +1180,7 @@
         "supply_contracts_natural_key_unique": {
           "name": "supply_contracts_natural_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "natural_key"
-          ]
+          "columns": ["natural_key"]
         }
       },
       "policies": {},
@@ -1293,12 +1253,8 @@
           "tableFrom": "supply_points",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1307,12 +1263,8 @@
           "tableFrom": "supply_points",
           "tableTo": "organizations",
           "schemaTo": "home",
-          "columnsFrom": [
-            "distributor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["distributor_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1322,9 +1274,7 @@
         "supply_points_code_unique": {
           "name": "supply_points_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -1391,12 +1341,8 @@
           "tableFrom": "tax_expense_links",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1405,12 +1351,8 @@
           "tableFrom": "tax_expense_links",
           "tableTo": "works",
           "schemaTo": "home",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["work_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1452,12 +1394,8 @@
           "tableFrom": "work_documents",
           "tableTo": "works",
           "schemaTo": "home",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["work_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1465,10 +1403,7 @@
       "compositePrimaryKeys": {
         "work_documents_work_id_upload_id_pk": {
           "name": "work_documents_work_id_upload_id_pk",
-          "columns": [
-            "work_id",
-            "upload_id"
-          ]
+          "columns": ["work_id", "upload_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1591,12 +1526,8 @@
           "tableFrom": "works",
           "tableTo": "properties",
           "schemaTo": "home",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
