@@ -98,6 +98,8 @@ const CATEGORY_WORDS: Record<string, RegExp> = {
   WATER_BILL: /(acqua|water|acque)/i,
   ELECTRICITY_BILL: /(electricity|energia elettrica|\bluce\b|kwh)/i,
   GAS_BILL: /(\bgas\b|metano|\bsmc\b)/i,
+  INTERNET_BILL:
+    /(\bfibra\b|\badsl\b|\bftth\b|abbonamento internet|codice (di )?migrazione|conto telefonico)/i,
   HOME: /\b(bolletta|affitto|rent|condominio|acqua|luce|gas)\b/i,
   MEDICAL: /(farmacia|pharmacy|medic|doctor|dottor|visita|clinic)/i,
   TAX_DEDUCTIBLE: /(farmacia|pharmacy|medic|visita|scuola|school)/i,

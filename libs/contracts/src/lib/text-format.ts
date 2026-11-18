@@ -33,6 +33,24 @@ export function euroText(
   return (cents ? WITH_CENTS : WHOLE).format(value).replace(/\s/g, ' ');
 }
 
+const PER_UNIT = new Intl.NumberFormat('it-IT', {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 4,
+});
+
+/**
+ * A price per unit: "0,1234 €/kWh" (a metered price needs its 3rd and 4th
+ * decimal), "30,98 €/month" (a fee, in cents); "–" when there is no value.
+ */
+export function unitPriceText(
+  value: number | null | undefined,
+  unit: string,
+): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '–';
+  if (unit === '€/month') return `${euroText(value).replace(' €', '')} ${unit}`;
+  return `${PER_UNIT.format(value)} ${unit}`;
+}
+
 /** Documents print names in capitals: "ALBERTO" reads as "Alberto". */
 export function displayName(name: string): string {
   if (name !== name.toUpperCase()) return name;

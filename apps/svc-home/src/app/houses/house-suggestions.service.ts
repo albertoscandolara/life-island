@@ -326,7 +326,8 @@ export class HouseSuggestionsService {
     if (newest.get(`${reading.propertyId}:${reading.utility}`) === reading)
       return reading;
     const values = { ...reading.values };
-    delete values[supplierField(reading.utility)];
+    const supplier = supplierField(reading.utility);
+    if (supplier) delete values[supplier];
     delete values[pointField(reading.utility)];
     return { ...reading, values };
   }

@@ -2,6 +2,7 @@ import {
   billingPeriod,
   matchProperty,
   readBill,
+  readBillFacts,
   toNumber,
   utilityOf,
   type DocumentLike,
@@ -13,6 +14,9 @@ const parentOf = new Map<string, string | null>([
   ['ELECTRICITY_BILL', 'BILL'],
   ['GAS_BILL', 'BILL'],
   ['WATER_BILL', 'BILL'],
+  ['INTERNET_BILL', 'BILL'],
+  ['TELECOM_BILL', 'BILL'],
+  ['MOBILE_PHONE_BILL', 'BILL'],
   ['ENEL_BILL', 'ELECTRICITY_BILL'],
   ['PROPERTY', null],
   ['PONZILOVO', 'PROPERTY'],
@@ -218,6 +222,7 @@ describe('readBill', () => {
       currency: 'EUR',
       consumption: 210,
       unit: 'Smc',
+      fee: null,
     });
   });
 
@@ -248,5 +253,87 @@ describe('readBill', () => {
     expect(bill?.utility).toBe('WATER');
     expect(bill?.utilityOverridden).toBe(true);
     expect(bill?.unit).toBe('m³');
+  });
+});
+
+describe('internet bills', () => {
+  /** A monthly internet bill, as the template reads it (made-up figures). */
+  const internet = (fields: DocumentLike['fields'] = {}): DocumentLike => ({
+    uploadId: 'net1',
+    title: 'Conto telefonico',
+    categories: ['BILL', 'INTERNET_BILL'],
+    fields: {
+      provider: 'Fibra Esempio S.p.A.',
+      supplier_tax_code: 'IT 01234567890',
+      invoice_number: 'F2600000001',
+      customer_code: 'P0000000001',
+      line_number: '045 1234567',
+      migration_code: 'ABC01234567890123 X',
+      offer_name: 'Internet 200',
+      offer_start_date: '2020-06-18',
+      billing_period: '2025-12-01/2025-12-31',
+      subscription_period: '2026-01-01/2026-01-31',
+      issue_date: '2026-01-12',
+      due_date: '2026-02-11',
+      subscription_fee: '30,98',
+      total_amount: '30,98',
+      payment_method: 'Domiciliazione bancaria',
+      ...fields,
+    },
+  });
+
+  it('is a fourth utility, by its category or by what only it prints', () => {
+    expect(utilityOf(['INTERNET_BILL'], null, parentOf)).toBe('INTERNET');
+    expect(utilityOf(['BILL', 'TELECOM_BILL'], null, parentOf)).toBe(
+      'INTERNET',
+    );
+    expect(
+      utilityOf(['BILL'], { migration_code: 'ABC0123456789' }, parentOf),
+    ).toBe('INTERNET');
+    // A mobile phone bill is not a home line.
+    expect(utilityOf(['MOBILE_PHONE_BILL'], null, parentOf)).toBeNull();
+  });
+
+  it('counts in the month its fee pays for, with no consumption', () => {
+    const bill = readBill(internet(), [], parentOf, null);
+    expect(bill).toMatchObject({
+      utility: 'INTERNET',
+      periodStart: '2026-01-01',
+      periodEnd: '2026-01-31',
+      dueDate: '2026-02-11',
+      amount: 30.98,
+      fee: 30.98,
+      consumption: null,
+      unit: '',
+    });
+  });
+
+  it('is on its line: the number, else the migration code', () => {
+    const facts = readBillFacts(internet().fields ?? {}, 'INTERNET');
+    expect(facts).toMatchObject({
+      supplyPointCode: '0451234567',
+      customerCode: 'P0000000001',
+      supplierTaxCode: '01234567890',
+      offerName: 'Internet 200',
+      offerStart: '2020-06-18',
+      directDebit: true,
+    });
+    expect(
+      readBillFacts(internet({ line_number: null }).fields ?? {}, 'INTERNET')
+        .supplyPointCode,
+    ).toBe('ABC01234567890123X');
+  });
+
+  it('finds its house by its line, once the line is the house’s', () => {
+    const house: PropertyLike = {
+      id: 'p3',
+      matchTerms: [],
+      supplyCodes: ['0451234567'],
+      categoryIds: [],
+    };
+    expect(readBill(internet(), [house], parentOf, null)).toMatchObject({
+      propertyId: 'p3',
+      assignment: 'SUPPLY_CODE',
+    });
   });
 });

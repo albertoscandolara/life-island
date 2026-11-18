@@ -362,3 +362,48 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Is the price going up? One block per utility, two side by side on wide screens. */
+.prices-card,
+.internet-card {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.prices-card .note {
+  margin: 0 0 var(--space-4);
+}
+
+.prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: var(--space-5);
+}
+
+.price {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.price__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.price__value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.offer {
+  margin: 0;
+}
+
+.offer ui-icon {
+  vertical-align: -2px;
+  margin-right: var(--space-1);
+}

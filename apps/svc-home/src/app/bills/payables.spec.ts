@@ -21,6 +21,7 @@ const bill = (over: Partial<BillDto> = {}): BillDto => ({
   currency: 'EUR',
   consumption: null,
   unit: 'kWh',
+  fee: null,
   invoiceNumber: '123',
   totalDue: 84.37,
   supplierId: 's1',

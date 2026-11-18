@@ -97,9 +97,9 @@ const sameValues = (row: BillRow, values: BillValues) =>
 
 /**
  * Keeps the bill entities in step with your bill documents: every bill of
- * electricity, gas or water becomes a row of `bills`, tied to its supplier
- * (an organization, by tax code or else by name), its supply point (by POD,
- * PDR or water code) and its supply contract (supplier × customer code ×
+ * electricity, gas, water or internet becomes a row of `bills`, tied to its
+ * supplier (an organization, by tax code or else by name), its supply point
+ * (by POD, PDR, water code or internet line) and its supply contract (supplier × customer code ×
  * supply point). Idempotent: run it as often as anything changes.
  *
  * A new supply point takes the house its first bill matched; from then on
@@ -315,13 +315,20 @@ export async function syncBillsIn(db: Db): Promise<void> {
             supplyPointId: point?.id ?? null,
             customerCode: facts.customerCode,
             offerName: facts.offerName,
+            offerStart: facts.offerStart,
           })
           .returning();
-      } else if (facts.offerName && facts.offerName !== contract.offerName) {
+      } else if (
+        (facts.offerName && facts.offerName !== contract.offerName) ||
+        (facts.offerStart && facts.offerStart !== contract.offerStart)
+      ) {
         // Bills come oldest first: the newest bill's offer stays.
         [contract] = await db
           .update(supplyContracts)
-          .set({ offerName: facts.offerName })
+          .set({
+            offerName: facts.offerName ?? contract.offerName,
+            offerStart: facts.offerStart ?? contract.offerStart,
+          })
           .where(eq(supplyContracts.id, contract.id))
           .returning();
       }
@@ -362,6 +369,7 @@ export async function syncBillsIn(db: Db): Promise<void> {
       currency: read.currency,
       consumption: read.consumption,
       unit: read.unit,
+      fee: read.fee,
       provider: read.provider,
       customerId: read.customerId,
     };

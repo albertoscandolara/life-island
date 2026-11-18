@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 /*
  * The Home area (svc-home): your properties, the utility bills of each one
- * (electricity, gas, water) and the works done on them (renovations, repairs).
+ * (electricity, gas, water, internet) and the works done on them (renovations, repairs).
  * A house is an entity like a person in People: what documents say about it
  * is suggested, and reaches the house only once you approve it.
  * Bills are read from the documents you confirmed with a bill category; works
@@ -13,18 +13,30 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 // Utilities
 
-export const UTILITY_KINDS = ['ELECTRICITY', 'GAS', 'WATER'] as const;
+export const UTILITY_KINDS = [
+  'ELECTRICITY',
+  'GAS',
+  'WATER',
+  'INTERNET',
+] as const;
 export type UtilityKind = (typeof UTILITY_KINDS)[number];
 export const utilityKindSchema = z.enum(UTILITY_KINDS);
 
 export interface UtilityInfo {
   label: string;
-  /** Unit of the consumption printed on the bill. */
+  /** Unit of the consumption printed on the bill; empty when nothing is metered. */
   unit: string;
   /** The document category that marks a bill of this utility (its descendants count too). */
   categoryId: string;
-  /** Template field holding the consumption, in `unit`. */
-  consumptionField: string;
+  /** Template field holding the consumption, in `unit`; null when nothing is metered. */
+  consumptionField: string | null;
+  /**
+   * Whether its bills measure what you used (kWh, Smc, m³). Internet is a
+   * flat fee: no meter, no consumption, no cost per unit.
+   */
+  metered: boolean;
+  /** What its supply point is called: POD, PDR, the water code, the line. */
+  pointLabel: string;
 }
 
 export const UTILITIES: Record<UtilityKind, UtilityInfo> = {
@@ -33,20 +45,63 @@ export const UTILITIES: Record<UtilityKind, UtilityInfo> = {
     unit: 'kWh',
     categoryId: 'ELECTRICITY_BILL',
     consumptionField: 'electricity_consumption',
+    metered: true,
+    pointLabel: 'POD',
   },
   GAS: {
     label: 'Gas',
     unit: 'Smc',
     categoryId: 'GAS_BILL',
     consumptionField: 'gas_consumption',
+    metered: true,
+    pointLabel: 'PDR',
   },
   WATER: {
     label: 'Water',
     unit: 'm³',
     categoryId: 'WATER_BILL',
     consumptionField: 'water_consumption',
+    metered: true,
+    pointLabel: 'Supply code',
+  },
+  INTERNET: {
+    label: 'Internet',
+    unit: '',
+    categoryId: 'INTERNET_BILL',
+    consumptionField: null,
+    metered: false,
+    pointLabel: 'Line',
   },
 };
+
+/** The unit of a utility's price: "€/kWh", "€/Smc", "€/m³", "€/month". */
+export const priceUnitOf = (utility: UtilityKind): string =>
+  UTILITIES[utility].metered ? `€/${UTILITIES[utility].unit}` : '€/month';
+
+/**
+ * What you pay for what you get on one bill, the same idea for every
+ * utility: amount per unit billed for a metered one (it moves with the
+ * price, not with how much you used; null without a consumption), the
+ * monthly fee for internet (else its whole amount).
+ */
+export function billUnitPrice(bill: {
+  utility: UtilityKind;
+  amount: number;
+  consumption: number | null;
+  fee: number | null;
+}): number | null {
+  if (UTILITIES[bill.utility].metered)
+    return bill.consumption !== null && bill.consumption > 0 && bill.amount > 0
+      ? Math.round((bill.amount / bill.consumption) * 10_000) / 10_000
+      : null;
+  const price = bill.fee ?? bill.amount;
+  return price > 0 ? Math.round(price * 100) / 100 : null;
+}
+
+/** The utilities whose bills measure a consumption, in their fixed order. */
+export const METERED_UTILITIES: readonly UtilityKind[] = UTILITY_KINDS.filter(
+  (kind) => UTILITIES[kind].metered,
+);
 
 // ---------------------------------------------------------------------------
 // Houses (the `properties` of svc-home)
@@ -171,7 +226,7 @@ export interface PropertyDto {
   matchTerms: string[];
   /**
    * Every supply point code it has had: POD (electricity), PDR (gas), the
-   * water supply code, typed by you or read from its bills. Never a
+   * water supply code, the internet line, typed by you or read from its bills. Never a
    * customer code: that belongs to a supply contract.
    */
   supplyCodes: string[];
@@ -252,6 +307,7 @@ export const createPropertyRequestSchema = z.object({
       ELECTRICITY: supplyCode,
       GAS: supplyCode,
       WATER: supplyCode,
+      INTERNET: supplyCode,
     })
     .partial()
     .optional(),
@@ -322,6 +378,7 @@ export const HOUSE_FIELDS = [
   'electricityPoint',
   'gasPoint',
   'waterPoint',
+  'internetLine',
   'owners',
 ] as const;
 export type HouseField = (typeof HOUSE_FIELDS)[number];
@@ -334,6 +391,7 @@ export const SUPPLY_POINT_FIELDS: Record<UtilityKind, HouseField> = {
   ELECTRICITY: 'electricityPoint',
   GAS: 'gasPoint',
   WATER: 'waterPoint',
+  INTERNET: 'internetLine',
 };
 
 /** The utility of a supply point field, or null for another field. */
@@ -345,13 +403,15 @@ export function supplyPointUtility(field: HouseField): UtilityKind | null {
 
 /**
  * The utility a supply code is for, by its shape: a POD is IT, 3 digits, E
- * and more (IT001E12345678), a PDR is 14 digits. A water code has no fixed
- * shape: null.
+ * and more (IT001E12345678), a PDR is 14 digits, an Italian landline (the
+ * number of an internet line) is 0 and 7 to 10 digits (0451234567). A
+ * water code has no fixed shape: null.
  */
 export function supplyCodeUtility(code: string): UtilityKind | null {
   const plain = code.replace(/[\s\-./]/g, '').toUpperCase();
   if (/^IT\d{3}E[0-9A-Z]{5,}$/.test(plain)) return 'ELECTRICITY';
   if (/^\d{14}$/.test(plain)) return 'GAS';
+  if (/^0\d{7,10}$/.test(plain)) return 'INTERNET';
   return null;
 }
 
@@ -375,6 +435,7 @@ export const HOUSE_FIELD_LABELS: Record<HouseField, string> = {
   electricityPoint: 'Electricity supply point (POD)',
   gasPoint: 'Gas supply point (PDR)',
   waterPoint: 'Water supply code',
+  internetLine: 'Internet line (number or migration code)',
   owners: 'Owner',
 };
 
@@ -464,9 +525,16 @@ export interface BillDto {
   dueDate: string | null;
   amount: number;
   currency: string;
-  /** Consumption in the utility's unit; null when the bill does not print it. */
+  /** Consumption in the utility's unit; null when the bill does not print it (never for internet). */
   consumption: number | null;
   unit: string;
+  /**
+   * The recurring fee of the offer in this bill (an internet subscription,
+   * "Abbonamento Internet 200"); the rest of `amount` are extras: calls,
+   * options, router installments, late fees. Null when the bill does not
+   * print it apart.
+   */
+  fee: number | null;
   /** Invoice number as printed; with the supplier, the bill's natural key. */
   invoiceNumber: string | null;
   /** What was left to pay, when it differs from the total (credits, earlier bills). */
@@ -872,6 +940,32 @@ export interface SupplyContractDto {
   directDebit: boolean | null;
   /** Whether its bills count as paid on their own: `autoPay`, else `directDebit`. */
   autoPaid: boolean;
+  /** The day the offer started, as its bills print it ("Internet 200 dal 18/06/2020"). */
+  offerStart: string | null;
+  /**
+   * What you pay for what you get on its latest bill: € per unit for a
+   * metered utility (amount over consumption), the monthly fee for internet.
+   */
+  price: number | null;
+  /** "€/kWh", "€/Smc", "€/m³", "€/month". */
+  priceUnit: string;
+  /** The last change of its price worth a look; null when it held. */
+  priceChange: BillPriceChangeDto | null;
+}
+
+/**
+ * A price that moved: a flat fee that changed from one bill to the next, or
+ * a price per unit that moved by 15% or more against the bills before (a
+ * new tariff, a promo that ended).
+ */
+export interface BillPriceChangeDto {
+  /** The price before: the bill before (a fee), the median of the few before (per unit). */
+  from: number;
+  to: number;
+  /** The first day billed at the new price (its period start, else its issue date). */
+  since: string;
+  /** The bill that first has the new price. */
+  uploadId: string;
 }
 
 /**
@@ -887,11 +981,16 @@ export type UpdateSupplyContractRequest = z.input<
   typeof updateSupplyContractRequestSchema
 >;
 
-/** Where electricity, gas or water is delivered: it belongs to a house and outlives contracts. */
+/**
+ * Where electricity, gas or water is delivered, or the internet line: it
+ * belongs to a house and outlives contracts. An internet line is known by
+ * its number (or, without one, its migration code); a new provider that
+ * keeps the number is a new contract on the same line.
+ */
 export interface SupplyPointDto {
   id: string;
   utility: UtilityKind;
-  /** POD, PDR or water customer code, without spaces. */
+  /** POD, PDR, water customer code or internet line, without spaces. */
   code: string;
   /** The house it delivers to; null until one is known. Its bills follow it. */
   propertyId: string | null;

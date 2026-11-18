@@ -1,7 +1,7 @@
 <ui-page-header
   emblem="⚡"
   heading="Bills"
-  subtitle="Electricity, gas and water of your houses: what you pay, what you use and how it changes, read from the bills you confirmed."
+  subtitle="Electricity, gas, water and internet of your houses: what you pay, what you use and how the price changes, read from the bills you confirmed."
 >
 </ui-page-header>
 
@@ -19,8 +19,9 @@
 <p class="loading">Reading your bills…</p>
 } @else if (!bills()!.length) {
 <ui-empty-state icon="inbox" heading="No bills yet">
-  Load your electricity, gas and water bills in the documents app. Once you
-  confirm them with a bill category they show up here, filed under their home.
+  Load your electricity, gas, water and internet bills in the documents app.
+  Once you confirm them with a bill category they show up here, filed under
+  their home.
 </ui-empty-state>
 } @else {
 <!-- Filters: one row, above everything they scope. -->
@@ -185,10 +186,12 @@
     </header>
     <span class="tile__value">{{ formatEuroRound(s.amount) }}</span>
     <span class="tile__meta">
-      @if (s.consumption) { {{ formatNumber(s.consumption) }} {{
+      @if (!info[s.utility].metered) { @if (s.unitCost !== null) { {{
+      formatPrice(s.unitCost, s.utility) }} on average } @else { No fee on these
+      bills } } @else if (s.consumption) { {{ formatNumber(s.consumption) }} {{
       info[s.utility].unit }} @if (s.unitCost !== null) { · {{
-      formatEuro(s.unitCost) }}/{{ info[s.utility].unit }} } } @else { No
-      consumption on these bills }
+      formatPrice(s.unitCost, s.utility) }} } } @else { No consumption on these
+      bills }
     </span>
     <ui-sparkline
       [values]="trends()[s.utility]"
@@ -302,6 +305,155 @@
 </section>
 }
 
+<ui-card heading="Is the price going up?" class="prices-card">
+  <p class="li-muted small note">
+    What you pay for what you get: € per kWh, Smc or m³ (so a cold winter is not
+    a price rise) and the monthly fee of internet, against the same months a
+    year ago. Axes do not start at zero.
+  </p>
+  <div class="prices">
+    @for (p of prices(); track p.utility) {
+    <section
+      class="price"
+      [attr.aria-label]="utilityLabel(p.utility) + ' price'"
+    >
+      <header class="price__head">
+        <span
+          class="utility__key"
+          [style.background]="utilityColor(p.utility)"
+        ></span>
+        <strong>{{ utilityLabel(p.utility) }}</strong>
+        <span class="price__value">{{ formatPrice(p.last, p.utility) }}</span>
+        @if (p.change !== null) {
+        <ui-badge
+          [tone]="p.rising ? 'warning' : p.change <= -0.05 ? 'success' : 'neutral'"
+        >
+          {{ percent(p.change) }} on a year ago
+        </ui-badge>
+        }
+      </header>
+      @if (p.empty) {
+      <p class="li-muted small">
+        @if (info[p.utility].metered) { These bills print no consumption, so
+        there is no price per {{ info[p.utility].unit }}. } @else { No bills in
+        this period. }
+      </p>
+      } @else {
+      <ui-line-chart
+        [categories]="p.categories"
+        [series]="p.series"
+        [format]="priceFormat(p.utility)"
+        [title]="bucketTitle(p.buckets)"
+        [zero]="false"
+        [area]="false"
+        [step]="p.step"
+        [height]="150"
+        [ariaLabel]="utilityLabel(p.utility) + ' price over time, axis not from zero'"
+      />
+      <table class="ui-visually-hidden">
+        <caption>
+          {{ utilityLabel(p.utility) }} price ({{ p.unit }})
+        </caption>
+        <tbody>
+          @for (b of p.buckets; track b; let i = $index) {
+          <tr>
+            <th scope="row">{{ label(b) }}</th>
+            <td>{{ formatPrice(p.series[0].values[i], p.utility) }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+      } @for (o of p.offers; track o.key) {
+      <p class="offer small">
+        @if (o.house && !selected()) {
+        <span class="li-muted">{{ o.house }}:</span> } {{ o.offer ?? 'Its offer'
+        }} with @if (o.supplier) {
+        <li-entity-link kind="organization" [name]="o.supplier" /> } @else { an
+        unknown supplier } @if (o.since) {
+        <span class="li-muted">{{ since(o.since) }}</span> }
+      </p>
+      } @if (p.rising) {
+      <p class="offer small">
+        <ui-icon name="alert" [size]="14" /> Its price is {{ percent(p.change!)
+        }} on a year ago: compare offers with other suppliers. A supplier that
+        changed its terms lets you leave without penalties.
+      </p>
+      }
+    </section>
+    }
+  </div>
+</ui-card>
+
+@if (internet(); as net) {
+<ui-card
+  heading="Internet: the fee and what comes on top"
+  class="internet-card"
+>
+  <span uiCardActions class="card-actions">
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="toggleTable('internet')"
+    >
+      <ui-icon [name]="tableFor()['internet'] ? 'chart' : 'file'" [size]="16" />
+      {{ tableFor()['internet'] ? 'Chart' : 'Table' }}
+    </button>
+  </span>
+  @if (tableFor()['internet']) {
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
+      <thead>
+        <tr>
+          <th scope="col">Period</th>
+          <th scope="col" class="li-num">Fee</th>
+          <th scope="col" class="li-num">Extras</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (b of net.buckets; track b; let i = $index) {
+        <tr>
+          <th scope="row">{{ label(b) }}</th>
+          <td class="li-num">{{ formatEuro(net.series[0].values[i] ?? 0) }}</td>
+          <td class="li-num">{{ formatEuro(net.series[1].values[i] ?? 0) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  } @else {
+  <ui-column-chart
+    [buckets]="net.buckets"
+    [series]="net.series"
+    mode="stacked"
+    [format]="formatAxis()"
+    [label]="label"
+    [shortLabel]="short()"
+    [height]="200"
+    ariaLabel="Internet fee and extras over time"
+  />
+  }
+  <p class="small">
+    @if (net.extras > 0) { {{ formatEuro(net.extras) }} of extras on top of the
+    fee in this period: calls, options or installments. Check them on the bills
+    below. } @else { No extras on top of the fee in this period. }
+  </p>
+  @for (m of net.missing; track m.key) {
+  <p class="small offer">
+    <ui-icon name="alert" [size]="14" />
+    No bill from {{ m.provider ?? 'your provider' }} for {{ monthList(m.months)
+    }}: the totals miss {{ m.months.length === 1 ? 'that month' : 'those months'
+    }}.
+  </p>
+  } @if (net.missing.length) {
+  <a uiButton variant="secondary" size="sm" [href]="documentsUrl">
+    <ui-icon name="upload" [size]="16" /> Load the missing bills
+  </a>
+  }
+</ui-card>
+}
+
 <div class="grid grid--even">
   <ui-card heading="Year over year">
     <span uiCardActions class="card-actions">
@@ -312,7 +464,7 @@
         (change)="yoyUtility.set($any(value($event)))"
       >
         <option value="ALL">Cost of every utility (€)</option>
-        @for (kind of utilities(); track kind) {
+        @for (kind of metered(); track kind) {
         <option [value]="kind">
           {{ utilityLabel(kind) }} use ({{ info[kind].unit }})
         </option>
@@ -346,7 +498,7 @@
           <span class="li-muted">
             @if (c.stat?.consumption) { {{ formatNumber(c.stat!.consumption) }}
             {{ c.unit }} @if (c.stat!.unitCost !== null) { · avg {{
-            formatEuro(c.stat!.unitCost!) }}/{{ c.unit }} } }
+            formatPrice(c.stat!.unitCost!, c.utility) }} } }
           </span>
         </header>
         @if (c.empty) {
@@ -392,7 +544,7 @@
               'Utility' : groupBy() === 'property' ? 'Home' : 'Provider' }}
             </th>
             <th scope="col" class="li-num">Bills</th>
-            @for (kind of utilities(); track kind) {
+            @for (kind of metered(); track kind) {
             <th scope="col" class="li-num">{{ info[kind].unit }}</th>
             }
             <th scope="col" class="li-num">Amount</th>
@@ -403,7 +555,7 @@
           <tr>
             <th scope="row">{{ groupLabel(row.key) }}</th>
             <td class="li-num">{{ row.bills }}</td>
-            @for (kind of utilities(); track kind) {
+            @for (kind of metered(); track kind) {
             <td class="li-num">
               {{ row.consumption[kind] === undefined ? '–' :
               formatNumber(row.consumption[kind]!) }}
@@ -415,7 +567,7 @@
           </tr>
           } @empty {
           <tr>
-            <td [attr.colspan]="3 + utilities().length" class="li-muted">
+            <td [attr.colspan]="3 + metered().length" class="li-muted">
               No bills in this period.
             </td>
           </tr>

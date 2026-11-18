@@ -42,6 +42,18 @@ export type ReadBill = Omit<
   | 'bankPayment'
 >;
 
+/**
+ * An internet bill by its own categories when no INTERNET_BILL is among
+ * them: a category of yours (or one the AI proposed) whose id says so,
+ * "TELECOM_BILL", "FIBRA", "ADSL". A mobile phone bill is not one.
+ */
+const INTERNET_CATEGORY =
+  /(^|_)(INTERNET|FIBRA|FIBER|FIBRE|ADSL|VDSL|FTTH|FTTC|FWA|BROADBAND|TELECOM|TLC|WIFI|LANDLINE|TELEFONIA_FISSA|LINEA_FISSA)(_|$)/;
+const NOT_INTERNET_CATEGORY = /(^|_)(MOBILE|MOBILI|CELLULARE|SIM)(_|$)/;
+/** Fields only an internet bill prints. */
+const INTERNET_FIELDS =
+  /^(line_number|numero_linea|migration_code|codice_migrazione|subscription_fee|subscription_period)$/;
+
 export interface OverrideLike {
   manualProperty: boolean;
   propertyId: string | null;
@@ -89,12 +101,22 @@ export function utilityOf(
       if (kind) return kind;
     }
   const all = expandCategories(categories, parentOf);
-  if (!all.has('BILL') || !fields) return null;
-  return (
-    UTILITY_KINDS.find(
-      (kind) => toNumber(fields[UTILITIES[kind].consumptionField]) !== null,
-    ) ?? null
-  );
+  if (!all.has('BILL')) return null;
+  const metered = UTILITY_KINDS.find((kind) => {
+    const field = UTILITIES[kind].consumptionField;
+    return field !== null && toNumber(fields?.[field]) !== null;
+  });
+  if (metered) return metered;
+  // A bill with no meter: internet, by its categories or the fields it prints.
+  const ids = [...all];
+  if (
+    ids.some((id) => INTERNET_CATEGORY.test(id)) &&
+    !ids.some((id) => NOT_INTERNET_CATEGORY.test(id))
+  )
+    return 'INTERNET';
+  return Object.keys(fields ?? {}).some((key) => INTERNET_FIELDS.test(key))
+    ? 'INTERNET'
+    : null;
 }
 
 export function toNumber(value: unknown): number | null {
@@ -149,11 +171,40 @@ export function billingPeriod(
   return start && end && start <= end ? { start, end } : null;
 }
 
+/**
+ * The days an internet bill's fee pays for: its subscription period
+ * ("Periodo abbonamento"), billed a month ahead of the traffic in its
+ * billing period. Null when it prints none.
+ */
+export function subscriptionPeriod(
+  fields: Fields,
+): { start: string; end: string } | null {
+  const period = fields['subscription_period'];
+  if (typeof period === 'string') {
+    const [start, end] = period.split('/').map((part) => asDate(part.trim()));
+    if (start && end)
+      return start <= end ? { start, end } : { start: end, end: start };
+  }
+  const start = asDate(fields['subscription_period_start']);
+  const end = asDate(fields['subscription_period_end']);
+  return start && end && start <= end ? { start, end } : null;
+}
+
+/** The recurring fee printed apart from the extras (internet), else null. */
+export function feeOf(fields: Fields): number | null {
+  for (const key of ['subscription_fee', 'monthly_fee', 'canone']) {
+    const value = toNumber(fields[key]);
+    if (value !== null) return Math.round(value * 100) / 100;
+  }
+  return null;
+}
+
 function amountOf(fields: Fields): number | null {
   const total = toNumber(fields['total_amount']);
   if (total !== null) return total;
   for (const [key, value] of Object.entries(fields)) {
-    if (!/amount|total|importo/.test(key)) continue;
+    if (!/amount|total|importo/.test(key) || /taxable|imponibile/.test(key))
+      continue;
     const number = toNumber(value);
     if (number !== null) return number;
   }
@@ -161,7 +212,10 @@ function amountOf(fields: Fields): number | null {
 }
 
 function consumptionOf(fields: Fields, utility: UtilityKind): number | null {
-  const own = toNumber(fields[UTILITIES[utility].consumptionField]);
+  const field = UTILITIES[utility].consumptionField;
+  // Nothing is metered on an internet line: a "consumo" there is minutes or GB.
+  if (field === null) return null;
+  const own = toNumber(fields[field]);
   if (own !== null) return own;
   for (const [key, value] of Object.entries(fields)) {
     if (!/consumption|consumo/.test(key)) continue;
@@ -187,7 +241,9 @@ export const normalizeText = (text: string): string =>
 function codesOf(fields: Fields): string[] {
   return Object.entries(fields)
     .filter(([key]) =>
-      /customer|pod|pdr|supply|cliente|utenza|contract/.test(key),
+      /customer|pod|pdr|supply|cliente|utenza|contract|line_number|migration/.test(
+        key,
+      ),
     )
     .map(([, value]) => asText(value))
     .filter((value): value is string => value !== null)
@@ -269,7 +325,7 @@ export function matchProperty(
 
 /**
  * What Bills shows of a document: null when it is not a bill of electricity,
- * gas or water, when you excluded it, or when it has no amount to count.
+ * gas, water or internet, when you excluded it, or when it has no amount to count.
  */
 export function readBill(
   document: DocumentLike,
@@ -286,7 +342,11 @@ export function readBill(
   const amount = amountOf(fields);
   if (amount === null) return null;
 
-  const period = billingPeriod(fields);
+  // An internet bill counts in the month its fee pays for, a month ahead
+  // of the traffic it bills.
+  const period =
+    (utility === 'INTERNET' ? subscriptionPeriod(fields) : null) ??
+    billingPeriod(fields);
   const issueDate = firstOf(
     fields,
     ['issue_date', 'document_date', 'invoice_date', 'date'],
@@ -319,6 +379,7 @@ export function readBill(
     currency: firstOf(fields, ['currency'], asText) ?? 'EUR',
     consumption: consumptionOf(fields, utility),
     unit: UTILITIES[utility].unit,
+    fee: feeOf(fields),
   };
 }
 
@@ -342,11 +403,13 @@ export interface BillFacts {
   supplierName: string | null;
   /** Codice fiscale or VAT number of the supplier, normalised (no `IT`, no spaces). */
   supplierTaxCode: string | null;
-  /** POD, PDR or water supply code, normalised. */
+  /** POD, PDR, water supply code or internet line, normalised. */
   supplyPointCode: string | null;
   customerCode: string | null;
   distributorName: string | null;
   offerName: string | null;
+  /** The day the offer started, when printed ("Internet 200 dal 18/06/2020"). */
+  offerStart: string | null;
   /** Paid by direct debit (true), another way (false), or not printed (null). */
   directDebit: boolean | null;
 }
@@ -411,16 +474,37 @@ export function organizationKeys(org: {
 }
 
 /**
+ * The supply point of an internet bill: its line. The number of the line
+ * first (it stays when you change provider and keep it), else the
+ * migration code, else what the template calls the supply point.
+ */
+function internetLine(fields: Fields): string | null {
+  const line = firstOf(
+    fields,
+    ['line_number', 'numero_linea', 'phone_number', 'supply_point_code'],
+    asText,
+  );
+  const migration = firstOf(
+    fields,
+    ['migration_code', 'codice_migrazione'],
+    asText,
+  );
+  const code = line ?? migration;
+  return code ? normalizeCode(code) : null;
+}
+
+/**
  * The entity facts of a bill. The supply point code is the POD (electricity)
  * or PDR (gas) when printed; older templates kept it in `customer_id`, which
  * counts when it has a POD or PDR shape, and always for water, whose bills
- * have one code for the supply.
+ * have one code for the supply. An internet bill's supply point is its line.
  */
 export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
   const legacy = asText(fields['customer_id']);
   const legacyCode = legacy ? normalizeCode(legacy) : null;
   const legacyIsPoint =
     legacyCode !== null &&
+    utility !== 'INTERNET' &&
     (utility === 'WATER' ||
       (utility === 'ELECTRICITY' ? POD : PDR).test(legacyCode));
   const printed = firstOf(
@@ -452,11 +536,14 @@ export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
       asText,
     ),
     supplierTaxCode: taxCode ? normalizeTaxCode(taxCode) : null,
-    supplyPointCode: printed
-      ? normalizeCode(printed)
-      : legacyIsPoint
-        ? legacyCode
-        : null,
+    supplyPointCode:
+      utility === 'INTERNET'
+        ? internetLine(fields)
+        : printed
+          ? normalizeCode(printed)
+          : legacyIsPoint
+            ? legacyCode
+            : null,
     customerCode:
       firstOf(fields, ['customer_code', 'codice_cliente'], asText) ??
       (legacyIsPoint ? null : legacy),
@@ -466,6 +553,11 @@ export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
       asText,
     ),
     offerName: firstOf(fields, ['offer_name', 'offer'], asText),
+    offerStart: firstOf(
+      fields,
+      ['offer_start_date', 'offer_start', 'activation_date'],
+      asDate,
+    ),
     directDebit: readDirectDebit(fields),
   };
 }

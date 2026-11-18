@@ -64,6 +64,13 @@
       "when": 1794991487784,
       "tag": "0008_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795041721808,
+      "tag": "0009_internet_bills",
+      "breakpoints": true
     }
   ]
 }

@@ -41,7 +41,8 @@ const NAME_FIELDS: ReadonlySet<HouseField> = new Set([
   'insurer',
 ]);
 
-const SUPPLIER_OF: Record<UtilityKind, HouseScalarField> = {
+/** The house field of each utility's supplier; an internet provider is read from its line's contract. */
+const SUPPLIER_OF: Partial<Record<UtilityKind, HouseScalarField>> = {
   ELECTRICITY: 'electricitySupplier',
   GAS: 'gasSupplier',
   WATER: 'waterSupplier',
@@ -258,7 +259,8 @@ export function readHouse(
       'supplier',
       'merchant_name',
     ]);
-    if (supplier) values[SUPPLIER_OF[utility]] = supplier;
+    const supplierField = SUPPLIER_OF[utility];
+    if (supplier && supplierField) values[supplierField] = supplier;
     // Only the supply point (POD, PDR) is the house's. The customer code is
     // the supply contract's: a new supplier, subentro or voltura changes it.
     // One supply point per utility: a gas bill's PDR never replaces the POD.
@@ -472,8 +474,9 @@ export function proposeHouseChanges(
 }
 
 /** The supplier field of a utility. */
-export const supplierField = (utility: UtilityKind): HouseScalarField =>
-  SUPPLIER_OF[utility];
+export const supplierField = (
+  utility: UtilityKind,
+): HouseScalarField | undefined => SUPPLIER_OF[utility];
 
 /** The supply point field of a utility. */
 export const pointField = (utility: UtilityKind): HouseScalarField =>
