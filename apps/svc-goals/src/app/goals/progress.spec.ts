@@ -1,5 +1,5 @@
 import { HABIT_HISTORY_DAYS, isoAddDays } from '@life-island/contracts';
-import { withChecks } from './progress';
+import { withChecks } from './progress.js';
 
 const habit = {
   id: 'h1',
