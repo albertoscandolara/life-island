@@ -1,0 +1,77 @@
+<ui-dialog [(open)]="open" heading="Search the island" size="md">
+  <div class="box">
+    <ui-icon name="search" [size]="18" />
+    <input
+      #box
+      class="box__input"
+      type="search"
+      role="combobox"
+      aria-label="Search the island"
+      aria-autocomplete="list"
+      [attr.aria-expanded]="groups().length > 0"
+      [attr.aria-controls]="listId"
+      [attr.aria-activedescendant]="groups().length ? optionId(active()) : null"
+      placeholder="A name, a plate, a reminder, an area…"
+      autocomplete="off"
+      spellcheck="false"
+      [value]="query()"
+      (input)="type($any($event.target).value)"
+      (keydown)="key($event)"
+    />
+  </div>
+
+  <div class="results" [id]="listId" role="listbox" aria-label="Results">
+    @for (group of groups(); track group.label; let g = $index) {
+    <div class="group" role="group" [attr.aria-labelledby]="listId + '-g' + g">
+      <p class="group__label" [id]="listId + '-g' + g">{{ group.label }}</p>
+      @for (r of group.rows; track r.index) {
+      <!-- The box's arrows and Enter are the keyboard way to pick a result. -->
+      <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+      <div
+        class="row"
+        role="option"
+        [id]="optionId(r.index)"
+        [class.row--on]="active() === r.index"
+        [class.row--add]="r.row.type === 'add'"
+        [attr.aria-selected]="active() === r.index"
+        (pointermove)="active.set(r.index)"
+        (click)="choose(r.row)"
+      >
+        @if (r.row.type === 'open') { @let item = r.row.item;
+        <span class="row__emblem ui-token ui-token--sm" aria-hidden="true">
+          {{ item.emblem }}
+        </span>
+        <span class="row__text">
+          <span class="row__title">{{ item.title }}</span>
+          @if (item.detail) {
+          <span class="row__detail">{{ item.detail }}</span>
+          }
+        </span>
+        } @else {
+        <span class="row__emblem ui-token ui-token--sm" aria-hidden="true">
+          {{ r.row.emblem }}
+        </span>
+        <span class="row__text">
+          <span class="row__title">{{ r.row.title }}</span>
+        </span>
+        <ui-icon class="row__plus" name="plus" [size]="16" />
+        }
+      </div>
+      }
+    </div>
+    }
+  </div>
+
+  <p class="status" role="status">
+    @if (query().trim()) { @if (!found()) { Nothing on the island matches “{{
+    query().trim() }}”. } } @else { @if (datesLoading()) { Reading the Agenda… }
+    @else { Find an area, a person, a house, a car, a company or a date. } }
+  </p>
+
+  <div uiDialogFooter class="keys" aria-hidden="true">
+    <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+    <span><kbd>Enter</kbd> open</span>
+    <span><kbd>Esc</kbd> close</span>
+    <span><kbd>{{ shortcut }}</kbd> or <kbd>/</kbd> from any page</span>
+  </div>
+</ui-dialog>

@@ -102,3 +102,31 @@
   display: block;
   animation: ui-rise-in var(--duration-slow) var(--ease-out) both;
 }
+
+/* Search and Add are buttons dressed as the bar's links. */
+button.topbar__link {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar__link:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 2px;
+}
+
+.topbar__kbd {
+  padding: 0 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+@media (width <= 48rem), (pointer: coarse) {
+  .topbar__kbd {
+    display: none;
+  }
+}

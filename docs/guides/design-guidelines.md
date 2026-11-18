@@ -104,6 +104,7 @@ When a chart type is missing, add it to `libs/design-system/src/lib/charts/` wit
 - **State lives in the URL.** The open tab, the selected record and the filters are query parameters, so a link from the Agenda or another area opens exactly the right place.
 - **Phones are first-class.** Every page works at 360 px: tiles wrap, tabs scroll, wide tables scroll inside `.table-wrap`, dialogs and the Guide go full screen.
 - **Keyboard and screen readers.** Every action is a real button or link, focus is visible (`--focus-ring`), icons that carry meaning have a label, and status is never shown by colour alone.
+- **Found from anywhere.** Whatever has a name or a date can be found by the island's search (Ctrl/⌘K): publish entities through `GET /entities` and dates through `GET /deadlines`, and give each a `path` that opens it. A search that finds nothing still ends in an action: add what you typed as a reminder or to the shopping list.
 - **Plain words.** Buttons are verbs ("File the receipt", "Mark as paid"); titles say what you get ("What each year really paid you"); a number always says compared with what.
 
 ## 6. Review checklist

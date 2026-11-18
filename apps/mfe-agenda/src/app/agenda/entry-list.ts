@@ -5,10 +5,9 @@ import {
   output,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { AgendaEntryDto } from '@life-island/contracts';
+import { agendaArea, type AgendaEntryDto } from '@life-island/contracts';
 import { UiButton, UiIcon } from '@life-island/design-system';
 import { LiDue, euro } from '@life-island/records-ui';
-import { areaOf } from './areas';
 
 /** A list of agenda lines: date, what, which area, days left, and Done. */
 @Component({
@@ -115,7 +114,7 @@ export class EntryList {
   readonly edit = output<AgendaEntryDto>();
 
   protected readonly euro = euro;
-  protected readonly area = areaOf;
+  protected readonly area = agendaArea;
 
   protected day(date: string): string {
     return String(Number(date.slice(8, 10)));

@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   AGENDA_CATEGORY_LABELS,
   AGENDA_REPEAT_LABELS,
+  agendaArea,
   isoAddDays,
   type AgendaBriefDto,
   type AgendaEntryDto,
@@ -26,6 +27,7 @@ import {
   UiPageHeader,
 } from '@life-island/design-system';
 import {
+  AGENDA_ITEM_FIELDS,
   LiRecordDialog,
   LiTabs,
   RecordEditor,
@@ -33,15 +35,12 @@ import {
   dayText,
   errorText,
   euro,
-  liOptions,
   localToday,
   monthText,
-  type LiField,
   type LiTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { AgendaApi } from '../api/agenda-api';
-import { areaOf } from './areas';
 import { CalendarCard } from './calendar-card';
 import { DigestCard } from './digest-card';
 import { EntryList } from './entry-list';
@@ -49,34 +48,6 @@ import { WaitingList } from './waiting-list';
 
 type AgendaTab = 'now' | 'ahead' | 'items' | 'brief' | 'email';
 const SERVICE = 'svc-agenda';
-
-const ITEM_FIELDS: readonly LiField[] = [
-  {
-    key: 'title',
-    label: 'What',
-    type: 'text',
-    required: true,
-    wide: true,
-    placeholder: 'Call the plumber, Anna’s birthday…',
-  },
-  { key: 'date', label: 'Date', type: 'date', required: true },
-  { key: 'time', label: 'Time', type: 'time', hint: 'Optional' },
-  {
-    key: 'repeat',
-    label: 'Repeats',
-    type: 'select',
-    required: true,
-    options: liOptions(AGENDA_REPEAT_LABELS),
-  },
-  {
-    key: 'category',
-    label: 'Kind',
-    type: 'select',
-    required: true,
-    options: liOptions(AGENDA_CATEGORY_LABELS),
-  },
-  { key: 'notes', label: 'Notes', type: 'textarea' },
-];
 
 /**
  * Agenda (Compy): every date of the island in one place. What is overdue and
@@ -119,7 +90,7 @@ export class AgendaPage {
   /** The areas shown; empty shows all. */
   protected readonly areaFilter = signal<string | null>(null);
   protected readonly showHandled = signal(false);
-  protected readonly itemFields = ITEM_FIELDS;
+  protected readonly itemFields = AGENDA_ITEM_FIELDS;
   protected readonly items = new RecordEditor(
     this.api,
     'items',
@@ -129,7 +100,7 @@ export class AgendaPage {
   protected readonly dateText = dateText;
   protected readonly monthText = monthText;
   protected readonly dayText = dayText;
-  protected readonly area = areaOf;
+  protected readonly area = agendaArea;
 
   // The week brief
   protected readonly question = signal('');
@@ -214,7 +185,7 @@ export class AgendaPage {
     for (const w of this.data()?.waiting ?? [])
       counts.set(w.module, (counts.get(w.module) ?? 0) + 1);
     return [...counts.entries()]
-      .map(([module, count]) => ({ module, count, ...areaOf(module) }))
+      .map(([module, count]) => ({ module, count, ...agendaArea(module) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
