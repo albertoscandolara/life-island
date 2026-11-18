@@ -60,3 +60,33 @@ export function observeWidth(
   observer.observe(element);
   return () => observer.disconnect();
 }
+
+/**
+ * A y-scale that need not start at zero (a lab value, a weight): from a
+ * round number below `min` to one above `max`, with 4–5 round ticks.
+ */
+export function niceRange(
+  min: number,
+  max: number,
+  target = 4,
+): { min: number; max: number; ticks: number[] } {
+  if (!Number.isFinite(min) || !Number.isFinite(max))
+    return { min: 0, max: 1, ticks: [0, 1] };
+  if (min > max) [min, max] = [max, min];
+  // One value alone: a window around it, so the line sits in the middle.
+  const span = max - min || Math.abs(max) * 0.2 || 1;
+  const raw = span / target;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step =
+    [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw) ??
+    10 * power;
+  const round = (n: number) => Math.round(n * 1e6) / 1e6;
+  let bottom = Math.floor((max === min ? min - span / 2 : min) / step) * step;
+  let top = Math.ceil((max === min ? max + span / 2 : max) / step) * step;
+  if (top === bottom) top = bottom + step;
+  bottom = round(bottom);
+  top = round(top);
+  const ticks: number[] = [];
+  for (let t = bottom; t <= top + step / 2; t += step) ticks.push(round(t));
+  return { min: bottom, max: top, ticks };
+}

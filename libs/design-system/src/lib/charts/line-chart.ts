@@ -10,7 +10,19 @@ import {
   signal,
 } from '@angular/core';
 import type { UiChartSeries } from './column-chart';
-import { labelEvery, niceScale, observeWidth } from './scale';
+import { labelEvery, niceRange, niceScale, observeWidth } from './scale';
+
+/** A range drawn behind the lines: a normal range, a budget, a target zone. */
+export interface UiChartBand {
+  /** Bottom of the band; null runs it to the bottom of the plot. */
+  low: number | null;
+  /** Top of the band; null runs it to the top of the plot. */
+  high: number | null;
+  /** Its name in the legend, e.g. "Normal range". */
+  label: string;
+  /** A colour token; the positive tone by default. */
+  color?: string;
+}
 
 const LEFT = 64;
 const TOP = 16;
@@ -25,12 +37,18 @@ const BOTTOM = 28;
   selector: 'ui-line-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (series().length > 1) {
+    @if (series().length > 1 || band()) {
       <ul class="legend" role="list">
         @for (s of series(); track s.id) {
           <li>
             <span class="key key--line" [style.background]="s.color"></span
             >{{ s.label }}
+          </li>
+        }
+        @if (band(); as b) {
+          <li>
+            <span class="key key--band" [style.background]="bandColor()"></span
+            >{{ b.label }}
           </li>
         }
       </ul>
@@ -45,6 +63,16 @@ const BOTTOM = 28;
         (pointermove)="track($event)"
         (pointerleave)="hovered.set(null)"
       >
+        @if (bandBox(); as box) {
+          <rect
+            class="band"
+            [attr.x]="left"
+            [attr.y]="box.y"
+            [attr.width]="plotWidth()"
+            [attr.height]="box.height"
+            [attr.fill]="bandColor()"
+          />
+        }
         @for (tick of scale().ticks; track tick) {
           <line
             class="grid"
@@ -174,6 +202,13 @@ export class UiLineChart {
   readonly ariaLabel = input('Chart');
   /** A soft wash under a single line. */
   readonly area = input(true);
+  /** A range behind the lines (a lab value's normal range, a target zone). */
+  readonly band = input<UiChartBand | null>(null);
+  /**
+   * Whether the axis starts at zero. Off for values that live far from it
+   * (a weight, a lab value): say so in the card's note.
+   */
+  readonly zero = input(true);
 
   protected readonly left = LEFT;
   protected readonly top = TOP;
@@ -192,11 +227,36 @@ export class UiLineChart {
     labelEvery(this.categories().length, this.plotWidth(), 44),
   );
 
-  protected readonly scale = computed(() =>
-    niceScale(
-      Math.max(0, ...this.series().flatMap((s) => s.values.map((v) => v ?? 0))),
-    ),
+  protected readonly scale = computed(() => {
+    const values = this.series().flatMap((s) =>
+      s.values.filter((v): v is number => v !== null),
+    );
+    const band = this.band();
+    const bounds = [band?.low, band?.high].filter(
+      (v): v is number => typeof v === 'number',
+    );
+    if (this.zero()) {
+      return { min: 0, ...niceScale(Math.max(0, ...values, ...bounds)) };
+    }
+    const all = [...values, ...bounds];
+    return all.length
+      ? niceRange(Math.min(...all), Math.max(...all))
+      : { min: 0, max: 1, ticks: [0, 1] };
+  });
+
+  protected readonly bandColor = computed(
+    () => this.band()?.color ?? 'var(--tone-success)',
   );
+
+  /** The band clipped to the plot, or null when it is outside it. */
+  protected readonly bandBox = computed(() => {
+    const band = this.band();
+    if (!band || (band.low === null && band.high === null)) return null;
+    const { min, max } = this.scale();
+    const top = this.y(Math.min(max, band.high ?? max));
+    const bottom = this.y(Math.max(min, band.low ?? min));
+    return bottom > top ? { y: top, height: bottom - top } : null;
+  });
 
   protected readonly lines = computed(() =>
     this.series().map((s) => {
@@ -218,9 +278,10 @@ export class UiLineChart {
         (p): p is { x: number; y: number } => p !== null,
       );
       const end = defined[defined.length - 1] ?? null;
+      const base = this.y(this.scale().min);
       const area =
         this.area() && this.series().length === 1 && defined.length > 1
-          ? `M${defined[0].x},${this.y(0)} ${defined.map((p) => `L${p.x},${p.y}`).join(' ')} L${end!.x},${this.y(0)} Z`
+          ? `M${defined[0].x},${base} ${defined.map((p) => `L${p.x},${p.y}`).join(' ')} L${end!.x},${base} Z`
           : null;
       return {
         id: s.id,
@@ -286,7 +347,8 @@ export class UiLineChart {
 
   protected y(value: number): number {
     const plot = this.height() - TOP - BOTTOM;
-    return TOP + plot * (1 - value / this.scale().max);
+    const { min, max } = this.scale();
+    return TOP + plot * (1 - (value - min) / (max - min || 1));
   }
 
   protected track(event: PointerEvent): void {

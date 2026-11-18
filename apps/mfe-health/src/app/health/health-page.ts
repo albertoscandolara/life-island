@@ -24,7 +24,10 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiLineChart,
   UiPageHeader,
+  type UiChartBand,
+  type UiChartSeries,
 } from '@life-island/design-system';
 import {
   LiDue,
@@ -35,6 +38,7 @@ import {
   errorText,
   euro,
   liOptions,
+  monthText,
   localToday,
   type LiField,
   type LiTab,
@@ -54,6 +58,9 @@ const TABS: readonly HealthTab[] = [
   'explain',
 ];
 const SERVICE = 'svc-health';
+
+const seriesKey = (s: { person: string; test: string }) =>
+  `${s.person}|${s.test}`;
 
 const PERSON: LiField = {
   key: 'person',
@@ -190,6 +197,7 @@ const CHECKUP_FIELDS: readonly LiField[] = [
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiLineChart,
     UiPageHeader,
   ],
   host: { 'data-character': 'maia', class: 'health' },
@@ -205,6 +213,10 @@ export class HealthPage {
   protected readonly error = signal<string | null>(null);
   protected readonly tab = signal<string>(this.initialTab());
   protected readonly person = signal<string | null>(null);
+  /** The series in the chart, `person|test`, kept in the URL (`?test=`). */
+  private readonly chartKey = signal<string | null>(
+    this.route.snapshot.queryParamMap.get('test'),
+  );
   protected readonly dateText = dateText;
   protected readonly euro = euro;
   protected readonly suggested = SUGGESTED_CHECKUPS;
@@ -274,6 +286,48 @@ export class HealthPage {
   protected readonly shownCheckups = computed(() =>
     this.mine(this.data()?.checkups ?? []),
   );
+
+  /** The series picked, else the first out of range, else the first. */
+  protected readonly chartSeries = computed<TestSeriesDto | null>(() => {
+    const all = this.shownSeries();
+    return (
+      all.find((s) => seriesKey(s) === this.chartKey()) ??
+      all.find((s) => ['high', 'low'].includes(this.flag(s))) ??
+      all[0] ??
+      null
+    );
+  });
+
+  protected readonly chart = computed(() => {
+    const s = this.chartSeries();
+    if (!s) return null;
+    const series: UiChartSeries[] = [
+      {
+        id: seriesKey(s),
+        label: s.test,
+        color: 'var(--viz-1)',
+        values: s.points.map((p) => p.value),
+      },
+    ];
+    const band: UiChartBand | null =
+      s.low === null && s.high === null
+        ? null
+        : {
+            low: s.low,
+            high: s.high,
+            label: `Normal range (${this.range(s)})`,
+          };
+    const unit = s.unit ? ` ${s.unit}` : '';
+    return {
+      key: seriesKey(s),
+      series,
+      band,
+      categories: s.points.map((p) => monthText(p.date, true)),
+      title: (i: number) => dateText(s.points[i]?.date),
+      format: (v: number) => `${Math.round(v * 100) / 100}${unit}`,
+      label: `${s.test} of ${s.person} over time`,
+    };
+  });
 
   protected readonly activeMedicines = computed(
     () => (this.data()?.medicines ?? []).filter((m) => m.active).length,
@@ -358,6 +412,18 @@ export class HealthPage {
 
   protected days(date: string): number {
     return isoDaysBetween(this.data()?.today ?? localToday(), date);
+  }
+
+  protected readonly seriesKey = seriesKey;
+
+  protected showChart(s: TestSeriesDto): void {
+    this.chartKey.set(seriesKey(s));
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { test: seriesKey(s) },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   protected flag(s: TestSeriesDto): string {

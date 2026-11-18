@@ -21,6 +21,8 @@ export * from './lib/table/table';
 export * from './lib/theme/theme';
 export * from './lib/theme/theme-toggle';
 export * from './lib/tilt/tilt';
+export * from './lib/charts/calendar';
+export * from './lib/charts/calendar-heatmap';
 export * from './lib/charts/column-chart';
 export * from './lib/charts/line-chart';
 export * from './lib/charts/scale';

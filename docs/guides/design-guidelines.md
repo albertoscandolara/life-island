@@ -77,6 +77,8 @@ Every chart is drawn by the design system, so they all share axes, tooltips, leg
 | ---------------------------------------------------- | ----------------------------------------- |
 | How much, period by period (and its parts)?          | `<ui-column-chart>` (stacked or grouped)  |
 | How does a value move over time, or year over year?  | `<ui-line-chart>`                         |
+| Is a value inside its range (a lab value, a target)? | `<ui-line-chart>` with `band`, `zero` off |
+| Which days are busy, or kept?                        | `<ui-calendar-heatmap>`                   |
 | Where is it heading, in one glance next to a number? | `<ui-sparkline>`                          |
 | How is one total split?                              | `<ui-segmented-bar>`                      |
 | A small count per week or month against a goal       | `<li-bars>`                               |

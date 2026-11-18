@@ -269,7 +269,52 @@
   >Add the values of your last tests to see them over time and get them
   explained.</ui-empty-state
 >
-} @else {
+} @else { @if (chart(); as c) { @let cs = chartSeries()!;
+<ui-card [heading]="'How ' + cs.test + ' moved'" class="li-block">
+  <p class="li-muted li-small chart-note">
+    {{ cs.person }}, every value you added. The axis does not start at zero. @if
+    (c.band) { The green band is the range printed on the report. } Pick another
+    test in the table below.
+  </p>
+  <ui-line-chart
+    [categories]="c.categories"
+    [series]="c.series"
+    [band]="c.band"
+    [zero]="false"
+    [area]="false"
+    [title]="c.title"
+    [format]="c.format"
+    [ariaLabel]="c.label"
+    [height]="220"
+  />
+  <table class="ui-visually-hidden">
+    <caption>
+      {{ c.label }}
+    </caption>
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Value</th>
+    </tr>
+    @for (p of cs.points; track p.date) {
+    <tr>
+      <td>{{ dateText(p.date) }}</td>
+      <td>{{ p.value }} {{ cs.unit }} ({{ p.flag }})</td>
+    </tr>
+    }
+  </table>
+  <div uiCardActions>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="addResultLike(cs)"
+    >
+      <ui-icon name="plus" [size]="16" /> Add a new value
+    </button>
+  </div>
+</ui-card>
+}
 <div class="li-table-wrap li-block">
   <table class="li-table">
     <thead>
@@ -285,8 +330,18 @@
     <tbody>
       @for (s of shownSeries(); track s.person + s.test) { @let last =
       s.points[s.points.length - 1];
-      <tr>
-        <th scope="row">{{ s.test }}</th>
+      <tr [class.row--on]="seriesKey(s) === chart()?.key">
+        <th scope="row">
+          <button
+            type="button"
+            class="li-link"
+            [attr.aria-pressed]="seriesKey(s) === chart()?.key"
+            [attr.aria-label]="'Show ' + s.test + ' of ' + s.person + ' in the chart'"
+            (click)="showChart(s)"
+          >
+            {{ s.test }}
+          </button>
+        </th>
         <td class="li-muted">{{ s.person }}</td>
         <td class="li-num">
           <strong [class.li-bad]="last.flag === 'high' || last.flag === 'low'"

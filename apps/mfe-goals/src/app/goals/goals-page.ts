@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   GOAL_AREA_LABELS,
   isoAddDays,
+  isoWeekStart,
   LIFE_GOAL_STATUS_LABELS,
   type GoalsCoachDto,
   type GoalsOverviewDto,
@@ -21,6 +22,7 @@ import {
   UiAiStatus,
   UiAlert,
   UiButton,
+  UiCalendarHeatmap,
   UiCard,
   UiEmptyState,
   UiIcon,
@@ -132,6 +134,7 @@ const MOODS = [
     UiAiStatus,
     UiAlert,
     UiButton,
+    UiCalendarHeatmap,
     UiCard,
     UiEmptyState,
     UiIcon,
@@ -239,6 +242,36 @@ export class GoalsPage {
     if (!today) return [];
     return Array.from({ length: 7 }, (_, i) => isoAddDays(today, i - 6));
   });
+
+  /**
+   * Each active habit over the last 13 weeks (Monday to today): the days
+   * ticked, and how many weeks reached the target.
+   */
+  protected readonly habitCalendars = computed(() => {
+    const today = this.data()?.today;
+    if (!today) return [];
+    const from = isoAddDays(isoWeekStart(today), -7 * 12);
+    return (this.data()?.habits ?? [])
+      .filter((h) => h.active)
+      .map((h) => {
+        const days = h.checked.filter((d) => d >= from);
+        let weeks = 0;
+        for (let start = from; start <= today; start = isoAddDays(start, 7)) {
+          const end = isoAddDays(start, 6);
+          if (days.filter((d) => d >= start && d <= end).length >= h.perWeek)
+            weeks++;
+        }
+        return {
+          habit: h,
+          from,
+          to: today,
+          values: Object.fromEntries(days.map((d) => [d, 1])),
+          days: days.length,
+          weeks,
+        };
+      });
+  });
+  protected readonly ticked = (v: number) => (v ? 'Done' : 'Not ticked');
 
   protected readonly tabs = computed<LiTab[]>(() => {
     const d = this.data();

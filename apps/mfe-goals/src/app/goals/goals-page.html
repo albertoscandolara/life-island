@@ -230,7 +230,37 @@
   </div>
   }
 </ui-card>
-} @case ('week') {
+@if (habitCalendars().length) {
+<ui-card heading="Did you keep it up?" class="li-block">
+  <p class="li-intro li-muted">
+    The last thirteen weeks, a square a day you ticked. Missed one? Tick it in
+    the grid above while it is still this week.
+  </p>
+  <div class="calendars">
+    @for (c of habitCalendars(); track c.habit.id; let i = $index) {
+    <section class="calendar" [attr.aria-label]="c.habit.title">
+      <h3 class="li-sub calendar__title">{{ c.habit.title }}</h3>
+      <p class="li-small li-muted calendar__sum">
+        {{ c.days }} days ·
+        <span [class.li-good]="c.weeks >= 10"
+          >{{ c.weeks }} of 13 weeks at {{ c.habit.perWeek }} a week</span
+        >
+      </p>
+      <ui-calendar-heatmap
+        [from]="c.from"
+        [to]="c.to"
+        [values]="c.values"
+        [color]="'var(--viz-' + ((i % 6) + 1) + ')'"
+        [format]="ticked"
+        [title]="dayText"
+        [maxCell]="14"
+        [ariaLabel]="c.habit.title + ': the days ticked in the last 13 weeks'"
+      />
+    </section>
+    }
+  </div>
+</ui-card>
+} } @case ('week') {
 <ui-card [heading]="'The week of ' + dateText(d.weekStart)" class="li-block">
   <p class="li-intro li-muted">
     Five minutes on Sunday: what went well, where you got stuck, what comes

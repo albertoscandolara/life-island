@@ -85,6 +85,9 @@ export const habitRequestSchema = z.object({
 });
 export type HabitRequest = z.input<typeof habitRequestSchema>;
 
+/** How far back a habit's checked days go: 13 weeks, for its calendar. */
+export const HABIT_HISTORY_DAYS = 91;
+
 export const habitCheckRequestSchema = z.object({
   date: lifeDate,
   done: z.boolean(),
@@ -135,7 +138,7 @@ export type HabitDto = LifeRecord<{
   perWeek: number;
   active: boolean;
 }> & {
-  /** The days checked in the last 28 days. */
+  /** The days checked in the last HABIT_HISTORY_DAYS days (13 weeks). */
   checked: string[];
   thisWeek: number;
   /** Weeks in a row at target, this one included once it is reached. */

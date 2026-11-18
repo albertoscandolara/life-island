@@ -100,6 +100,15 @@
   opacity: 0.1;
 }
 
+/* A range behind the lines: soft, so the lines stay loud. */
+.band {
+  opacity: 0.12;
+}
+
+.key--band {
+  opacity: 0.35;
+}
+
 .dot {
   stroke: var(--surface-card);
   stroke-width: 2;
