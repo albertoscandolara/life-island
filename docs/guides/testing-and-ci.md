@@ -57,21 +57,33 @@ Without the variables, the suite is reported as skipped and the rest of the test
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every pull request and on every push to `main`. A new push to the same branch cancels the run still in progress.
+`.github/workflows/ci.yml` runs on every pull request and on every push to `main`. A new push to the same branch cancels the run still in progress. It has two jobs that run side by side:
 
-| Step                                           | What it checks                                                                                                                                                                                              |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Checkout with full history                     | `nx affected` needs history to compare commits                                                                                                                                                              |
-| Set up Node 22 with npm cache, `npm ci`        | Exact dependencies from the lockfile                                                                                                                                                                        |
-| `nrwl/nx-set-shas`                             | Sets the comparison base to the last commit on `main` with a green run                                                                                                                                      |
-| `npm run infra:up`                             | Starts Postgres, SeaweedFS, NATS and Caddy in the runner                                                                                                                                                    |
-| `npm run db:check-isolation`                   | Schema isolation still holds                                                                                                                                                                                |
-| `curl …/healthz`                               | Gateway configuration loads                                                                                                                                                                                 |
-| `npx nx format:check`                          | Code is Prettier-formatted                                                                                                                                                                                  |
-| `npx nx sync:check`                            | TypeScript project references are up to date                                                                                                                                                                |
-| `npm run lint:styles`                          | Stylelint: apps use design tokens, no raw colours or px/rem spacing                                                                                                                                         |
-| `npx nx affected -t lint test build typecheck` | Lint (including module boundaries and dependency checks), tests (integration included, since the job sets the `*_DATABASE_URL`, `NATS_URL` and `S3_*` variables), build and type-check for changed projects |
-| `npm run infra:down`                           | Always runs, even after a failure                                                                                                                                                                           |
+- **checks** needs no database. It runs format, lint, build, type-check and the unit tests of every project except the services and `be-common`, three projects at a time.
+- **integration** starts the compose stack and runs the tests of the services and `be-common`, one project at a time, because their integration tests share one database and the reclassification tests briefly hold its global write lock.
+
+| Step                                                  | Job         | What it checks                                                                             |
+| ----------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------ |
+| Checkout with full history                            | both        | `nx affected` needs history to compare commits                                             |
+| Set up Node 22 with npm cache, `npm ci`               | both        | Exact dependencies from the lockfile                                                       |
+| `nrwl/nx-set-shas`                                    | both        | Sets the comparison base to the last commit on `main` with a green run                     |
+| Restore and save the Nx cache                         | both        | Tasks whose inputs did not change since an earlier run are replayed instead of run again   |
+| `npx nx format:check`                                 | checks      | Code is Prettier-formatted                                                                 |
+| `npx nx sync:check`                                   | checks      | TypeScript project references are up to date                                               |
+| `npm run lint:styles`                                 | checks      | Stylelint: apps use design tokens, no raw colours or px/rem spacing                        |
+| `npx nx affected -t lint build typecheck`             | checks      | Lint (including module boundaries and dependency checks), build and type-check             |
+| `npx nx affected -t test --exclude='svc-*,be-common'` | checks      | Unit tests of the apps and libraries                                                       |
+| `npm run infra:up`                                    | integration | Starts Postgres, SeaweedFS, NATS and Caddy in the runner                                   |
+| `npm run db:check-isolation`                          | integration | Schema isolation still holds                                                               |
+| `curl …/healthz`                                      | integration | Gateway configuration loads                                                                |
+| `npx nx affected -t test` on `svc-*` and `be-common`  | integration | Unit and integration tests, with the `*_DATABASE_URL`, `NATS_URL` and `S3_*` variables set |
+| `npm run infra:down`                                  | integration | Always runs, even after a failure                                                          |
+
+### The Nx cache in CI
+
+Both jobs keep Nx's cache in `.nx/cache` and its index in `.nx/workspace-data/*.db` (set by `NX_CACHE_DIRECTORY` and `NX_WORKSPACE_DATA_DIRECTORY`) and carry them between runs with `actions/cache`, one cache per job, capped at 2 GB by `NX_MAX_CACHE_SIZE`. A pull request starts from the latest cache of its own branch, or of `main`. Nx names the index after the machine id, which changes on every runner, so `tools/ci/adopt-nx-cache.sh` renames the restored index before Nx runs. If a cached result ever looks wrong, rerun the job after deleting the `nx-checks-*` or `nx-integration-*` entries under the repository's Actions caches.
+
+A new service or library with integration tests must be picked up by the integration job: name it `svc-*`, or add it to both `--exclude` lists in the workflow.
 
 ### Reproducing CI locally
 
