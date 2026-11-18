@@ -113,6 +113,15 @@ export const ATTENTION_SOURCES = [
   { module: 'groceries', name: 'Groceries', emblem: '🦕', path: '/groceries' },
 ] as const;
 
+/** How an Agenda line names the area it comes from; `agenda` is your own items. */
+export function agendaArea(module: string): { name: string; emblem: string } {
+  if (module === 'agenda') return { name: 'My items', emblem: '🗓️' };
+  const source = ATTENTION_SOURCES.find((s) => s.module === module);
+  return source
+    ? { name: source.name, emblem: source.emblem }
+    : { name: module, emblem: '•' };
+}
+
 // ---------------------------------------------------------------------------
 // Your own items
 // ---------------------------------------------------------------------------

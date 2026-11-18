@@ -37,10 +37,11 @@ import {
   dayText,
   duration,
   errorText,
-  liOptions,
   localToday,
   monthText,
   type LiBar,
+  MEASUREMENT_FIELDS,
+  WORKOUT_FIELDS,
   type LiField,
   type LiTab,
   LiNeedsYou,
@@ -51,56 +52,6 @@ import { FitnessApi } from '../api/fitness-api';
 type FitnessTab = 'week' | 'body' | 'events' | 'plan';
 const TABS: readonly FitnessTab[] = ['week', 'body', 'events', 'plan'];
 const SERVICE = 'svc-fitness';
-
-const WORKOUT_FIELDS: readonly LiField[] = [
-  { key: 'date', label: 'Date', type: 'date', required: true },
-  {
-    key: 'kind',
-    label: 'What',
-    type: 'select',
-    required: true,
-    options: liOptions(WORKOUT_KIND_LABELS),
-  },
-  {
-    key: 'minutes',
-    label: 'Minutes',
-    type: 'number',
-    required: true,
-    min: 1,
-    max: 1440,
-  },
-  {
-    key: 'intensity',
-    label: 'How hard',
-    type: 'select',
-    required: true,
-    options: liOptions(INTENSITY_LABELS),
-    hint: 'Moderate: you can talk, not sing. Hard: only a few words.',
-  },
-  { key: 'distanceKm', label: 'Distance (km)', type: 'number', min: 0 },
-  { key: 'notes', label: 'Notes', type: 'textarea' },
-];
-
-const MEASUREMENT_FIELDS: readonly LiField[] = [
-  { key: 'date', label: 'Date', type: 'date', required: true },
-  { key: 'weightKg', label: 'Weight (kg)', type: 'number', min: 1, max: 400 },
-  { key: 'waistCm', label: 'Waist (cm)', type: 'number', min: 10, max: 300 },
-  {
-    key: 'restingHr',
-    label: 'Resting heart rate',
-    type: 'number',
-    min: 20,
-    max: 220,
-  },
-  {
-    key: 'sleepHours',
-    label: 'Sleep (hours)',
-    type: 'number',
-    min: 0,
-    max: 24,
-  },
-  { key: 'steps', label: 'Steps', type: 'number', min: 0 },
-];
 
 const EVENT_FIELDS: readonly LiField[] = [
   {

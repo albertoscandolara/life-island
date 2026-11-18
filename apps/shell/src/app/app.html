@@ -8,6 +8,24 @@
     </a>
     <div class="topbar__end">
       @if (auth.session()?.ready && auth.user(); as user) {
+      <button
+        type="button"
+        class="topbar__link topbar__search"
+        aria-keyshortcuts="Control+K Meta+K /"
+        (click)="searching.set(true)"
+      >
+        <ui-icon name="search" [size]="18" />
+        <span class="topbar__label">Search</span>
+        <kbd class="topbar__kbd" aria-hidden="true">{{ shortcut }}</kbd>
+      </button>
+      <button
+        type="button"
+        class="topbar__link"
+        (click)="quickAdd()?.openMenu()"
+      >
+        <ui-icon name="plus" [size]="18" />
+        <span class="topbar__label">Add</span>
+      </button>
       <a class="topbar__link" [href]="documentsUrl">
         <ui-icon name="upload" [size]="18" />
         <span class="topbar__label">Documents</span>
@@ -40,3 +58,10 @@
   </div>
 </header>
 <main class="page"><router-outlet /></main>
+@if (auth.session()?.ready && auth.user()) {
+<app-search-dialog
+  [(open)]="searching"
+  (add)="quickAdd()?.start($event.id, $event.text)"
+/>
+<app-quick-add />
+}

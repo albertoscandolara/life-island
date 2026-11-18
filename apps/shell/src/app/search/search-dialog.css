@@ -1,0 +1,132 @@
+.box {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
+.box:focus-within {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: 1px;
+}
+
+.box__input {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-height);
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.results {
+  display: grid;
+  gap: var(--space-3);
+  max-height: min(26rem, 55vh);
+  margin-top: var(--space-3);
+  overflow-y: auto;
+}
+
+.results:empty {
+  display: none;
+}
+
+.group__label {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.row--on {
+  background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.row__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.row__title {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__detail {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__plus {
+  color: var(--text-muted);
+}
+
+.status {
+  min-height: 1.5em;
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-inline-end: auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-inline-end: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  font: inherit;
+  text-align: center;
+}
+
+/* On a phone there is no keyboard to explain. */
+@media (pointer: coarse) {
+  .keys {
+    display: none;
+  }
+}
+
+/* The box draws the focus ring around the icon and the field together. */
+.box__input:focus,
+.box__input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

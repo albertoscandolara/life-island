@@ -255,7 +255,9 @@ The front end is two Angular apps, built and deployed separately and served on o
 
 - **Runtime manifest:** `shell/public/federation.manifest.json` maps remote names to URLs and is swapped per environment, so a remote redeploys without rebuilding the shell.
 - **Shared singletons:** Angular, RxJS and the design system. The shell loads the token CSS once; remotes import it themselves only in standalone mode.
-- **Shell responsibilities:** the island hub, routing, auth, a link to the documents app, toasts, theme switch.
+- **Shell responsibilities:** the island hub, routing, auth, a link to the documents app, toasts, theme switch, search and quick add.
+- **Search (Ctrl/⌘K or `/`):** one box in the top bar over the areas and pages, every area's `GET /entities` (EntityDirectory) and the Agenda's dates; a result opens the page that owns it. It reads nothing of its own: a new entity kind or a new dated thing shows up once its area publishes it.
+- **Quick add:** the top bar's "Add" saves a reminder, something to buy, a workout or a measurement through that area's own records API, with the form the area itself uses (`QUICK_ADD_KINDS` in records-ui). A new kind is added there, never as a second form in the shell.
 - **Communication:** URL first (`/review?upload=…`); cross-module notifications through a typed `window` CustomEvent bus in `fe-common`; no shared global store.
 - **Data:** a remote talks only to its own service through the gateway (`/api/<service>`), with clients generated from OpenAPI.
 

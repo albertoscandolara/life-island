@@ -39,7 +39,7 @@ import {
   monthText,
   percent,
   type LiBar,
-  type LiField,
+  SHOPPING_ITEM_FIELDS,
   type LiTab,
   LiNeedsYou,
 } from '@life-island/records-ui';
@@ -49,24 +49,6 @@ import { GroceriesApi } from '../api/groceries-api';
 type GroceriesTab = 'list' | 'prices' | 'spending';
 const TABS: readonly GroceriesTab[] = ['list', 'prices', 'spending'];
 const SERVICE = 'svc-groceries';
-
-const ITEM_FIELDS: readonly LiField[] = [
-  { key: 'name', label: 'Item', type: 'text', required: true },
-  {
-    key: 'quantity',
-    label: 'How much',
-    type: 'text',
-    placeholder: '2 packs, 1 kg…',
-  },
-  {
-    key: 'category',
-    label: 'Aisle',
-    type: 'select',
-    required: true,
-    options: liOptions(GROCERY_CATEGORY_LABELS),
-  },
-  { key: 'done', label: 'In the cart', type: 'checkbox' },
-];
 
 /**
  * Groceries (Trice): your shopping list, what you buy and how its price
@@ -108,7 +90,7 @@ export class GroceriesPage {
   protected readonly euro = euro;
   protected readonly dateText = dateText;
   protected readonly percent = percent;
-  protected readonly itemFields = ITEM_FIELDS;
+  protected readonly itemFields = SHOPPING_ITEM_FIELDS;
   protected readonly categories = liOptions(GROCERY_CATEGORY_LABELS);
   protected readonly list = new RecordEditor(
     this.api,

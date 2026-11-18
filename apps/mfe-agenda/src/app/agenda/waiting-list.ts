@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { AgendaWaitingDto } from '@life-island/contracts';
+import { agendaArea, type AgendaWaitingDto } from '@life-island/contracts';
 import { UiButton, UiIcon } from '@life-island/design-system';
 import { dateText } from '@life-island/records-ui';
-import { areaOf } from './areas';
 
 /**
  * What the areas wait on you for with no date: a document to approve, a
@@ -54,6 +53,6 @@ import { areaOf } from './areas';
 export class WaitingList {
   readonly items = input.required<readonly AgendaWaitingDto[]>();
 
-  protected readonly area = areaOf;
+  protected readonly area = agendaArea;
   protected readonly dateText = dateText;
 }
