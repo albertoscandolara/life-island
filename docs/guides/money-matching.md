@@ -2,8 +2,8 @@
 
 A bank movement already says who was paid, how much and when. Money matching
 pairs each movement of your accounts with the item of another area it paid (a
-bill in Houses, a car cost or fine, a subscription's charge, an expense of the
-730), so
+bill in Houses, a car cost or fine, a subscription's charge, a payslip's pay,
+a grocery receipt, an expense of the 730), so
 you confirm a payment once and every area knows it. Nothing is typed twice and
 no payment proof is uploaded by hand for a bill.
 
@@ -115,6 +115,9 @@ longer lists the item, `changed` when it now costs less than what is linked,
 
 ## What the area does: `paymentEventHandler`
 
+Every area declares the table with `paymentsTable(schema)`
+(`libs/be-common/src/lib/payments-table.ts`) and groups its rows with
+`paymentsByKey` (libs/contracts).
 `libs/be-common/src/lib/payments.ts` applies both events to the area's own
 `payments` table (one row per `linkId`). An undone link keeps its row with
 `unlinked_at`, so redelivery or the two events arriving out of order never
@@ -129,6 +132,8 @@ counting it as due.
 | Houses        | Each counted bill with a due (or issue) date and something to pay; window from 3 days before issue to 45 after due                                                                                                                                                                                                                                                                                                                                                                                              | `bankPayment` on the bill; its Agenda date is done; no "due soon" badge                                                                                                                                                                                           |
 | Cars          | Each priced cost with a day (insurance, road tax, inspection, fuel, service, repairs…), window from 10 days before to 45 after, key `cars:cost:<upload id>`. Each fine with an amount, key `cars:fine:<upload id>`: proposed at its reduced amount with a tolerance up to the full one (paid within 5 days or within 60), from the violation to 60 days after the last day to pay (90 days of notice assumed until you add it). A late fine at half the maximum is over the tolerance: link what it can by hand | `bankPayment` on the cost. A fine paid at least its reduced amount is **paid** on that day (its deadlines and warning go); less is shown as a partial payment                                                                                                     |
 | Subscriptions | Each charge of a contract, every billing cycle counted from its renewal day (or start): never before the start, during a free trial, after the end of one that does not renew, or after a cancellation. Priced at the cost of that day (price history); tolerance 0.1; `autoPay` as the contract; window from 5 days before to 10 after; key `subscriptions:charge:<id>.<day>`                                                                                                                                  | `lastCharge` on the contract. A charge over the price raises "charged more than its price" on Attention, with **Update the cost** in Contracts & subscriptions, until the cost is updated. Moving the renewal day renames the charges: their links show as `gone` |
+| Work          | Each payslip with a month and a net pay, money **in** from the employer (its name and your label as payees); window from the 15th of the month paid to the 20th of the next; key `work:payslip:<upload id>`                                                                                                                                                                                                                                                                                                     | `bankPayment` on the payslip: "Received" with its day in the documents table                                                                                                                                                                                      |
+| Groceries     | Each receipt paid by card, or whose way of paying was not read (never cash or meal vouchers), in euros; window from the day before to 5 days after the purchase; key `groceries:receipt:<id>`                                                                                                                                                                                                                                                                                                                   | `bankPayment` on the receipt: "Paid by card" on the latest receipts                                                                                                                                                                                               |
 | 730           | Each counted expense (one paired into another is paid through that one); window from 30 days before its date to 90 after                                                                                                                                                                                                                                                                                                                                                                                        | `bankPayment` on the expense; it is **paid traceably** (also in the deduction estimate), shown as "Paid by bank". The payment proof document is still asked for: the CAF wants it                                                                                 |
 
 ## Tests
@@ -146,6 +151,10 @@ counting it as due.
 - `apps/svc-subscriptions/src/app/subscriptions/payables.spec.ts` and
   `subscriptions.int.spec.ts`: charge days and prices, a price rise matched as
   "check it" and linked whole, the last charge, its warning and its undo.
+- `apps/svc-work/src/app/work/payables.spec.ts`, `work.int.spec.ts`,
+  `apps/svc-groceries/src/app/receipts/payables.spec.ts` and
+  `receipts.int.spec.ts`: pay coming in, card receipts (never cash), the
+  payment shown and undone.
 - `apps/svc-tax730/src/app/dossier/dossier.int.spec.ts`: the expense payables,
   a matched payment making an expense traceable while the receipt is still
   asked, and its undo.

@@ -44,6 +44,7 @@ import {
   type PayablesQuery,
   type PaymentRecord,
   bankPaymentOf,
+  paymentsByKey,
   RENEWABLE_LABELS,
 } from '@life-island/contracts';
 import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
@@ -252,7 +253,7 @@ export class CarsService {
       // The costs and fines matched to bank movements in Money, still linked.
       this.svc.db.select().from(payments).where(isNull(payments.unlinkedAt)),
     ]);
-    const paymentsOf = groupBy(paymentRows, (p) => p.payableKey);
+    const paymentsOf = paymentsByKey(paymentRows);
     const bankPayment = (key: string, due: number) =>
       bankPaymentOf(due, (paymentsOf.get(key) ?? []) as PaymentRecord[]);
     // A fine counts as paid from its reduced amount: fineOf decides `full`.

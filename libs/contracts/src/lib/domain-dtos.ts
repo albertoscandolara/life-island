@@ -53,6 +53,8 @@ export interface ReceiptDto {
   total: number;
   paymentMethod: string | null;
   itemCount: number;
+  /** The card payment matched to it in Money; null when none is. */
+  bankPayment: BankPaymentDto | null;
 }
 
 export interface ReceiptDetailDto extends ReceiptDto {

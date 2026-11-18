@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PensionOverviewDto } from './pension-fund.js';
+import type { BankPaymentDto } from './payables.js';
 import type {
   JobApplicationDto,
   JobSearchStatsDto,
@@ -492,6 +493,8 @@ export interface CareerDocumentDto {
   facts: WorkFactDto[];
   uploadedAt: string;
   reviewedAt: string;
+  /** A payslip's pay, as bank movements matched in Money received it; null when none is. */
+  bankPayment: BankPaymentDto | null;
 }
 
 export interface WorkplaceDto {

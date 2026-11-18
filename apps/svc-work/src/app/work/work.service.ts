@@ -40,6 +40,11 @@ import {
   type WorkplaceDto,
   type WorkplaceField,
   type WorkplaceValue,
+  bankPaymentOf,
+  paymentsByKey,
+  type PayableDto,
+  type PayablesQuery,
+  type PaymentRecord,
 } from '@life-island/contracts';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -52,6 +57,7 @@ import {
   hiringPlatforms,
   jobApplications,
   marketChecks,
+  payments,
   pensionDismissedDocuments,
   pensionFunds,
   pensionNotices,
@@ -90,6 +96,7 @@ import {
   sortApplications,
 } from './checks.js';
 import { buildEvaluationStats } from './evaluations.js';
+import { payslipPayableKey, payslipPayables } from './payables.js';
 import {
   buildPension,
   matchFund,
@@ -152,6 +159,40 @@ export class WorkService {
     @Inject(CareerAdvisor) private readonly advisor: CareerAdvisor,
   ) {}
 
+  /** The pay of every payslip, for Money matching (`GET /payables`). */
+  async payables(
+    query: PayablesQuery,
+    today = todayIso(),
+  ): Promise<PayableDto[]> {
+    const { workplaces: list } = await this.overview(today);
+    return list.flatMap((w) =>
+      payslipPayables(
+        {
+          name: workplaceName(w),
+          payees: [
+            ...new Set(
+              [w.values.employerName, w.label].flatMap((n) =>
+                typeof n === 'string' && n.trim() ? [n.trim()] : [],
+              ),
+            ),
+          ],
+        },
+        w.documents,
+        query,
+      ),
+    );
+  }
+
+  /** The payments matched in Money, still linked, by payable key. */
+  private async paymentsByKey(): Promise<Map<string, PaymentRecord[]>> {
+    return paymentsByKey(
+      await this.svc.db
+        .select()
+        .from(payments)
+        .where(isNull(payments.unlinkedAt)),
+    );
+  }
+
   async overview(today = todayIso()): Promise<WorkOverviewDto> {
     const [
       docs,
@@ -182,6 +223,7 @@ export class WorkService {
         .limit(5),
       this.svc.db.select().from(jobApplications),
     ]);
+    const paid = await this.paymentsByKey();
     const career = this.career(
       docs,
       rows,
@@ -209,6 +251,13 @@ export class WorkService {
               facts: d.reading.facts,
               uploadedAt: doc.row.uploadedAt.toISOString(),
               reviewedAt: reviewOf.get(d.uploadId)!.decidedAt.toISOString(),
+              bankPayment:
+                doc.type === 'PAYSLIP' && d.reading.net
+                  ? bankPaymentOf(
+                      d.reading.net,
+                      paid.get(payslipPayableKey(d.uploadId)) ?? [],
+                    )
+                  : null,
             } satisfies CareerDocumentDto;
           })
           .sort((a, b) => (b.period ?? '').localeCompare(a.period ?? ''));

@@ -806,7 +806,17 @@
               <span class="li-muted li-small">· {{ d.title }}</span>
             </td>
             <td class="li-num">{{ d.gross === null ? '–' : euro(d.gross) }}</td>
-            <td class="li-num">{{ d.net === null ? '–' : euro(d.net) }}</td>
+            <td class="li-num">
+              {{ d.net === null ? '–' : euro(d.net) }} @if (d.bankPayment; as
+              paid) {
+              <ui-badge
+                [tone]="paid.full ? 'success' : 'warning'"
+                [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
+                >{{ paid.full ? 'Received' : euro(paid.paid) + ' received' }} {{
+                dateText(paid.lastDate) }}</ui-badge
+              >
+              }
+            </td>
             <td>
               <a
                 uiButton

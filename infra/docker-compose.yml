@@ -324,7 +324,7 @@ services:
       # The spending review uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # The areas whose bills and expenses Money matches with your movements (GET /payables).
-      PAYABLE_SOURCES: home=http://svc-home:3000,cars=http://svc-cars:3000,subscriptions=http://svc-subscriptions:3000,taxes=http://svc-tax730:3000
+      PAYABLE_SOURCES: home=http://svc-home:3000,cars=http://svc-cars:3000,subscriptions=http://svc-subscriptions:3000,work=http://svc-work:3000,groceries=http://svc-groceries:3000,taxes=http://svc-tax730:3000
     depends_on: *service-deps
 
   svc-agenda:

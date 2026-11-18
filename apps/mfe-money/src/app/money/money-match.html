@@ -102,7 +102,7 @@
   }
 </ui-card>
 
-<ui-card heading="Still to pay" class="li-block">
+<ui-card heading="Still to pay or receive" class="li-block">
   @if (!open().length) {
   <p class="li-muted">
     Everything your areas expect in these months is matched or proposed above.
@@ -119,14 +119,21 @@
           } @else { {{ p.title }} }
         </span>
         <strong class="match__amount">
-          {{ euro(leftOf(p.amount, p.linked)) }}
+          {{ p.direction === 'in' ? '+' : '' }}{{ euro(leftOf(p.amount,
+          p.linked)) }}
         </strong>
       </div>
       <div class="li-meta">
         <span>{{ p.areaName }}</span>
-        <span>due {{ dateText(p.date) }}</span>
+        <span
+          >{{ p.direction === 'in' ? 'expected' : 'due' }} {{ dateText(p.date)
+          }}</span
+        >
         @if (p.linked > 0) {
-        <span>{{ euro(p.linked) }} already paid</span>
+        <span
+          >{{ euro(p.linked) }} already {{ p.direction === 'in' ? 'received' :
+          'paid' }}</span
+        >
         } @if (p.autoPay) {
         <span>direct debit</span>
         }
@@ -135,7 +142,7 @@
       <div class="li-actions">
         <select
           class="ui-input compact match__pick"
-          [attr.aria-label]="'The movement that paid ' + p.title"
+          [attr.aria-label]="'The movement of ' + p.title"
           (change)="pick(p, $any($event.target).value)"
         >
           @for (mv of list; track mv.id) {
@@ -153,7 +160,8 @@
           [disabled]="busy()"
           (click)="linkPicked(p)"
         >
-          Paid by this, {{ euro(pickedAmount(p)) }}
+          {{ p.direction === 'in' ? 'Received with this' : 'Paid by this' }}, {{
+          euro(pickedAmount(p)) }}
         </button>
       </div>
       } @else {

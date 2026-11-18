@@ -1,6 +1,8 @@
 import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
+  PAYMENT_EVENTS,
+  paymentEventHandler,
   settingChangedHandler,
   startEventConsumer,
   type ServiceDb,
@@ -74,6 +76,19 @@ export class AppModule {
                         durableName: 'work-settings',
                         eventTypes: [SETTING_CHANGED_EVENT],
                         handle: settingChangedHandler(db.schema),
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The bank payments you match in Money.
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'work-payments',
+                        eventTypes: PAYMENT_EVENTS,
+                        handle: paymentEventHandler(db.schema, 'work'),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,
