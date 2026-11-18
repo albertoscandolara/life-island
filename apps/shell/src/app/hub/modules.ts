@@ -24,6 +24,8 @@ export interface IslandModule {
     | null;
   emblem: string;
   name: string;
+  /** A shorter name for the island's label, when the full one is long. */
+  islandName?: string;
   mission: string;
   /** Route in this app, served by the area's remote; null while it is planned. */
   path: string | null;
@@ -141,6 +143,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     character: 'para',
     emblem: '🪪',
     name: 'People & IDs',
+    islandName: 'People',
     mission:
       'Identity cards, passports, health cards and licences of everyone at home: every version kept, a review before personal data changes, and a warning before one expires.',
     path: '/people',
@@ -174,6 +177,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     character: 'allo',
     emblem: '📑',
     name: 'Contracts & subscriptions',
+    islandName: 'Contracts',
     mission:
       'Every contract and subscription: what it costs a year, when it renews, the date to cancel by, its price history, and an advisor for renewals.',
     path: '/subscriptions',
@@ -196,6 +200,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     character: 'rex',
     emblem: '🎯',
     name: 'Goals & habits',
+    islandName: 'Goals',
     mission:
       'Where you want to go and the next step to get there, daily habits with streaks, a weekly review, and a coach for when you are stuck.',
     path: '/goals',

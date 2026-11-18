@@ -28,12 +28,24 @@
       >{{ d.accounts.length }} account{{ d.accounts.length === 1 ? '' : 's'
       }}</span
     >
+    <li-delta
+      [now]="d.totals.balance"
+      [before]="d.totals.balanceMonthAgo"
+      better="up"
+      against="a month ago"
+    />
   </div>
   <div class="li-tile">
     <span class="li-tile__label">In this month</span>
     <span class="li-tile__value li-good"
       >{{ euro(d.totals.incomeThisMonth, false) }}</span
     >
+    <li-delta
+      [now]="d.totals.incomeThisMonth"
+      [before]="d.totals.lastMonthToDate.income"
+      better="up"
+      against="last month by today"
+    />
   </div>
   <div
     class="li-tile"
@@ -43,6 +55,12 @@
     <span class="li-tile__value"
       >{{ euro(d.totals.spendingThisMonth, false) }}</span
     >
+    <li-delta
+      [now]="d.totals.spendingThisMonth"
+      [before]="d.totals.lastMonthToDate.spending"
+      better="down"
+      against="last month by today"
+    />
   </div>
   <div
     class="li-tile"
@@ -143,8 +161,36 @@
             · usually {{ euro(c.average, false) }}</span
           >
           @if (c.average > 20 && c.thisMonth > c.average * 1.3) {
-          <span class="li-warn li-small"> ▲</span> }
+          <span class="li-warn li-small"
+            ><span aria-hidden="true"> ▲</span>
+            <span class="ui-visually-hidden">above usual</span></span
+          >
+          }
         </span>
+        @if (c.average > 20 && c.thisMonth > c.average * 1.3) {
+        <span class="li-actions category-actions">
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="seeCategory(c.category)"
+          >
+            See the movements
+          </button>
+          @if (!hasBudget(c.category)) {
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="addBudget(c.category)"
+          >
+            Set a budget
+          </button>
+          }
+        </span>
+        }
       </li>
       }
     </ul>

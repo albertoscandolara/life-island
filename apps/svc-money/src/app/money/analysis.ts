@@ -67,6 +67,40 @@ export function monthFlows(
   });
 }
 
+/**
+ * What came in and went out from the 1st of last month to the same day, so
+ * "this month so far" is compared with a month of the same length.
+ */
+export function lastMonthToDate(
+  transactions: readonly TransactionDto[],
+  today: string,
+): { income: number; spending: number } {
+  const lastMonth = isoAddMonths(`${today.slice(0, 7)}-01`, -1).slice(0, 7);
+  const own = transactions.filter(
+    (t) =>
+      t.date.startsWith(lastMonth) && t.date.slice(8, 10) <= today.slice(8, 10),
+  );
+  return {
+    income: round(own.filter(isIncome).reduce((s, t) => s + t.amount, 0)),
+    spending: round(-own.filter(isSpending).reduce((s, t) => s + t.amount, 0)),
+  };
+}
+
+/** The total balance one month ago: today's, minus what moved since. */
+export function balanceMonthAgo(
+  accounts: readonly AccountDto[],
+  transactions: readonly TransactionDto[],
+  today: string,
+): number {
+  const since = isoAddMonths(today, -1);
+  const open = accounts.filter((a) => !a.archived);
+  const ids = new Set(open.map((a) => a.id));
+  const moved = transactions
+    .filter((t) => ids.has(t.accountId) && t.date > since)
+    .reduce((s, t) => s + t.amount, 0);
+  return round(open.reduce((s, a) => s + a.balance, 0) - moved);
+}
+
 function spentIn(
   transactions: readonly TransactionDto[],
   month: string,

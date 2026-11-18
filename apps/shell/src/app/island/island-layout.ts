@@ -63,3 +63,52 @@ export function gapBetweenNeighbours(layout: IslandLayout): number {
   const chord = 2 * layout.ringRadius * Math.sin(Math.PI / n);
   return chord - 2 * ZONE_FOOTPRINT;
 }
+
+/** A zone label on screen: its anchor (bottom centre) and its size, in CSS pixels. */
+export interface PlacedLabel {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** 0 when the zone is behind the island, 1 when it faces you. */
+  facing: number;
+}
+
+/** Labels on zones turned further away than this hide (until hovered or focused). */
+export const LABEL_MIN_FACING = 0.35;
+/** The least free space kept between two labels that both show. */
+export const LABEL_GAP = 4;
+
+/**
+ * Which labels show this frame. Front labels win: they are placed first, and
+ * a label that would overlap one already placed, or whose zone faces away,
+ * hides. The hovered (or focused) label always shows, so the label you are
+ * using never disappears under your pointer.
+ */
+export function visibleLabels(
+  labels: readonly PlacedLabel[],
+  pinned: string | null,
+): Set<string> {
+  const order = [...labels].sort(
+    (a, b) =>
+      Number(b.id === pinned) - Number(a.id === pinned) || b.facing - a.facing,
+  );
+  const placed: PlacedLabel[] = [];
+  const shown = new Set<string>();
+  for (const label of order) {
+    const forced = label.id === pinned;
+    if (!forced && label.facing < LABEL_MIN_FACING) continue;
+    const clash = placed.some(
+      (other) =>
+        Math.abs(label.x - other.x) * 2 <
+          label.width + other.width + LABEL_GAP * 2 &&
+        Math.abs(label.y - other.y) * 2 <
+          label.height + other.height + LABEL_GAP * 2,
+    );
+    if (clash && !forced) continue;
+    placed.push(label);
+    shown.add(label.id);
+  }
+  return shown;
+}

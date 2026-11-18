@@ -7,6 +7,29 @@
     Each zone of the island looks after one area of your life, built from the
     documents you loaded and confirmed.
   </p>
+  @if (today(); as t) {
+  <nav class="today" aria-label="Today on your island" data-character="compy">
+    <span class="today__label">Today</span>
+    @if (t.late || t.today || t.waiting) { @if (t.late) {
+    <a class="today__chip today__chip--late" routerLink="/agenda"
+      ><strong>{{ t.late }}</strong> late</a
+    >
+    } @if (t.today) {
+    <a class="today__chip today__chip--today" routerLink="/agenda"
+      ><strong>{{ t.today }}</strong> due today</a
+    >
+    } @if (t.waiting) {
+    <a class="today__chip" routerLink="/agenda"
+      ><strong>{{ t.waiting }}</strong> waiting for you</a
+    >
+    } } @else {
+    <span class="today__calm">Nothing late or due today.</span>
+    }
+    <a class="today__all" routerLink="/agenda"
+      >Open the agenda <ui-icon name="chevron-right" [size]="16"
+    /></a>
+  </nav>
+  }
 </section>
 
 @if (show3d()) { @defer (on idle) {

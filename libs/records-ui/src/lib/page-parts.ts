@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { UiIcon, type UiIconName } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
-import { daysText } from './format';
+import { daysText, delta } from './format';
 
 /*
  * The parts every record-keeping area's page is made of: its tabs, its stat
@@ -315,6 +315,66 @@ export class LiDue {
     if (days <= this.warnDays()) return 'warning';
     return 'neutral';
   });
+}
+
+/**
+ * The comparison under a stat tile's number: an arrow, the change and what
+ * it is measured against ("▲ +12% vs same day last month"). Green or red
+ * from `better`, never colour alone: the arrow and the words say it too.
+ * Renders nothing when there is nothing to compare with.
+ */
+@Component({
+  selector: 'li-delta',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (change(); as c) {
+      <span class="li-delta li-delta--{{ c.tone }}">
+        <span aria-hidden="true">{{
+          c.direction === 'up' ? '▲' : c.direction === 'down' ? '▼' : '='
+        }}</span>
+        <span class="ui-visually-hidden">{{
+          c.direction === 'up'
+            ? 'Up'
+            : c.direction === 'down'
+              ? 'Down'
+              : 'Unchanged'
+        }}</span>
+        {{ c.direction === 'flat' ? 'no change vs' : c.text + ' vs' }}
+        {{ against() }}
+      </span>
+    }
+  `,
+  styles: `
+    :host {
+      display: block;
+    }
+    .li-delta {
+      display: inline-flex;
+      align-items: baseline;
+      gap: var(--space-1);
+      font-size: var(--text-xs);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+    }
+    .li-delta--success {
+      color: var(--tone-success);
+    }
+    .li-delta--danger {
+      color: var(--tone-danger);
+    }
+  `,
+})
+export class LiDelta {
+  readonly now = input.required<number | null | undefined>();
+  readonly before = input.required<number | null | undefined>();
+  /** Which way is good news; 'none' for a number that is neither. */
+  readonly better = input<'up' | 'down' | 'none'>('up');
+  readonly unit = input<'euro' | 'number' | 'points'>('euro');
+  /** What it is compared with: "last month", "same day last month", "your goal". */
+  readonly against = input.required<string>();
+  protected readonly change = computed(() =>
+    delta(this.now(), this.before(), this.better(), this.unit()),
+  );
 }
 
 /**

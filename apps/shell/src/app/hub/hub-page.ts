@@ -13,6 +13,7 @@ import {
   ISLAND_VIEW_SETTING,
   type AgendaEntryDto,
   type AgendaUpcomingDto,
+  type LifeAttentionDto,
   type PeopleAttentionDto,
 } from '@life-island/contracts';
 import { BrowserSettings, hiddenAreas } from '@life-island/settings-ui';
@@ -50,6 +51,9 @@ export class HubPage {
     Record<string, { text: string; tone: UiTone }>
   >({});
 
+  /** Every area's own `GET /attention` answer, by module id. */
+  protected readonly counts = signal<Record<string, LifeAttentionDto>>({});
+
   /** The next dates from every area (the Agenda), for the "Coming up" strip. */
   protected readonly upcoming = signal<readonly AgendaEntryDto[]>([]);
 
@@ -67,6 +71,7 @@ export class HubPage {
       if (module.attentionUrl)
         this.http.get<PeopleAttentionDto>(module.attentionUrl).subscribe({
           next: (counts) => {
+            this.counts.update((all) => ({ ...all, [module.id]: counts }));
             const badge = attentionBadge(counts);
             if (badge)
               this.attention.update((all) => ({ ...all, [module.id]: badge }));
@@ -101,6 +106,13 @@ export class HubPage {
       : [],
   );
 
+  /** The "Today" strip over the island: what is late, due today, waiting for you. */
+  protected readonly today = computed(() =>
+    this.comingUp().length || Object.keys(this.counts()).length
+      ? todayCounts(this.upcoming(), this.counts(), this.modules())
+      : null,
+  );
+
   protected emblem(module: string): string {
     return (
       DEADLINE_SOURCES.find((source) => source.module === module)?.emblem ??
@@ -130,6 +142,30 @@ export function attentionBadge(
   return {
     text: parts.join(' · '),
     tone: counts.expired ? 'danger' : counts.expiring ? 'warning' : 'info',
+  };
+}
+
+/**
+ * The three numbers of the hub's "Today" strip. Late dates come from the
+ * Agenda's own count (every area's dates, handled ones left out); what waits
+ * with no date is the `items` of each area you use, as the Agenda lists them.
+ */
+export function todayCounts(
+  upcoming: readonly AgendaEntryDto[],
+  counts: Record<string, LifeAttentionDto>,
+  modules: readonly IslandModule[],
+): { late: number; today: number; waiting: number } {
+  const used = new Set(modules.map((m) => m.id));
+  const late =
+    counts['agenda']?.expired ??
+    upcoming.filter((entry) => entry.daysLeft < 0).length;
+  const waiting = Object.entries(counts)
+    .filter(([id]) => id !== 'agenda' && used.has(id))
+    .reduce((sum, [, c]) => sum + (c.items?.length ?? 0), 0);
+  return {
+    late,
+    today: upcoming.filter((entry) => entry.daysLeft === 0).length,
+    waiting,
   };
 }
 

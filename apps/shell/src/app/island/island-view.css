@@ -64,6 +64,12 @@
   will-change: transform;
 }
 
+/* A label hidden behind the island or under a nearer one: it still takes
+   keyboard focus, and focusing it pins it (visibleLabels) so it shows. */
+.label--hidden .label__button {
+  pointer-events: none;
+}
+
 .label__button {
   display: inline-flex;
   align-items: center;
@@ -149,5 +155,24 @@
 
   .label__soon {
     display: none;
+  }
+}
+
+/* Small phones: only the emblem shows; the name is still the button's label. */
+@media (width <= 30rem) {
+  .label__name {
+    display: none;
+  }
+
+  .label__button {
+    padding: var(--space-1);
+  }
+
+  .label--on .label__name {
+    display: inline;
+  }
+
+  .label--on .label__button {
+    padding-right: var(--space-3);
   }
 }

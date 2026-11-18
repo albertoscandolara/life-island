@@ -69,6 +69,7 @@ To add an area: create `apps/mfe-<area>` (copy `mfe-tax730`, tag it `scope:<area
 
 `apps/shell/src/app/island/` draws a low-poly island with three.js: a zone per area with its own landmark, palms and a peak, all built from primitives (nothing to download).
 
+- Labels never pile up: a label whose zone faces away, or that would cover a nearer one, hides until you hover or focus its zone (`visibleLabels` in `island-layout.ts`); long names have a short `islandName`, and below 480 px only the emblem shows.
 - Hover a zone or its label to highlight it and pause the drift; drag to turn the island; click to fly the camera in, then the router opens the area. Labels are real buttons, so it works by keyboard too.
 - Colours come from design-system tokens (`--island-*` in `island-view.css`), resolved at runtime and repainted when the theme changes.
 - three.js loads lazily with `@defer (on idle)`. With `prefers-reduced-motion`, or without WebGL, the hub shows only the area cards under the island, which always open every area.
@@ -385,7 +386,7 @@ Agenda, Money, Goals & habits, Health, Contracts & subscriptions, Travel, Fitnes
 | Dreams         | the dates you give chosen steps                                                                                                            | dream questions, small steps |
 | Agenda itself  | your own reminders (one-off, weekly, monthly, yearly) and the Italian calendar (tax dates, bollo, holidays; can be turned off in Settings) | week brief                   |
 
-The hub shows the next six dates under **Coming up**, from `GET /api/agenda/upcoming`.
+The hub shows the next six dates under **Coming up**, from `GET /api/agenda/upcoming`, and a **Today** strip above the island: how many dates are late (the Agenda's own count), how many are due today and how many undated things wait for you (the `items` of every area you use), each opening the Agenda.
 
 ## Guides: reading matter on demand
 

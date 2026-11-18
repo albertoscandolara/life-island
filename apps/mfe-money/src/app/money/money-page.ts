@@ -31,6 +31,7 @@ import {
 } from '@life-island/design-system';
 import {
   LiBars,
+  LiDelta,
   LiRecordDialog,
   LiTabs,
   RecordEditor,
@@ -129,6 +130,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     UiProgressBar,
     AiTool,
     LiBars,
+    LiDelta,
     LiRecordDialog,
     LiTabs,
     UiAiPanel,
@@ -352,6 +354,17 @@ export class MoneyPage {
 
   protected editMovement(t: TransactionDto): void {
     this.movements.edit(t);
+  }
+
+  /** Opens the movements of one category, this month's first. */
+  protected seeCategory(category: string): void {
+    this.categoryFilter.set(category);
+    this.accountFilter.set(null);
+    this.setTab('movements');
+  }
+
+  protected hasBudget(category: string): boolean {
+    return !!this.data()?.budgets.some((b) => b.category === category);
   }
 
   protected addBudget(category?: string): void {

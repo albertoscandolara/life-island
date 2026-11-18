@@ -30,7 +30,7 @@
       (click)="choose(module)"
     >
       <span class="label__emblem" aria-hidden="true">{{ module.emblem }}</span>
-      <span class="label__name">{{ module.name }}</span>
+      <span class="label__name">{{ module.islandName ?? module.name }}</span>
       @if (!module.path) {
       <span class="label__soon">soon</span>
       }
