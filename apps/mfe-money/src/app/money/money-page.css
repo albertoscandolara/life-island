@@ -60,3 +60,19 @@
   flex-basis: 100%;
   justify-content: flex-end;
 }
+
+/* What a movement paid in other areas (Money matching): shared .li-chip, smaller. */
+.paid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.paid .li-chip {
+  min-height: 0;
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}

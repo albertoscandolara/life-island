@@ -109,6 +109,11 @@ can change only while it keeps its direction and stays at or above what is
 linked. The `movement_links` foreign key is `restrict`, so nothing removes a
 linked movement behind these routes.
 
+On the Movements tab, each movement shows what it paid (`paidItems` of
+`GET /overview`) as chips that open the item, and the movement's edit dialog
+says that deleting it, or changing it so it no longer covers the item, undoes
+the match.
+
 The "To match" tab also shows each link's status: `gone` when the area no
 longer lists the item, `changed` when it now costs less than what is linked,
 `unknown` when the area did not answer.

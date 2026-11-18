@@ -22,12 +22,15 @@ import {
   type TransactionDto,
   type TransactionImportRequest,
   euroText,
+  PAYABLE_SOURCES,
+  type MovementPaidItemDto,
 } from '@life-island/contracts';
 import { desc, eq, gte, inArray } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from '../config.js';
 import {
   accounts,
   budgets,
+  movementLinks,
   spendingReviews,
   transactions,
   type SpendingReviewRow,
@@ -93,25 +96,52 @@ export class MoneyService implements OnApplicationBootstrap {
   /** Accounts, the last 13 months of movements and everything computed from them. */
   private async state(day: string) {
     const since = isoAddMonths(`${day.slice(0, 7)}-01`, -12);
-    const [accountRows, txRows, budgetRows, olderSums] = await Promise.all([
-      this.db.select().from(accounts).orderBy(accounts.name),
-      this.db
-        .select()
-        .from(transactions)
-        .where(gte(transactions.date, since))
-        .orderBy(desc(transactions.date), desc(transactions.createdAt)),
-      this.db.select().from(budgets).orderBy(budgets.category),
-      // Movements older than 13 months still count in the balances.
-      this.svc.pool.query<{ account_id: string; date: string; total: string }>(
-        `select t.account_id, min(t.date)::text as date, sum(t.amount) as total
+    const [accountRows, txRows, budgetRows, olderSums, linkRows] =
+      await Promise.all([
+        this.db.select().from(accounts).orderBy(accounts.name),
+        this.db
+          .select()
+          .from(transactions)
+          .where(gte(transactions.date, since))
+          .orderBy(desc(transactions.date), desc(transactions.createdAt)),
+        this.db.select().from(budgets).orderBy(budgets.category),
+        // Movements older than 13 months still count in the balances.
+        this.svc.pool.query<{
+          account_id: string;
+          date: string;
+          total: string;
+        }>(
+          `select t.account_id, min(t.date)::text as date, sum(t.amount) as total
            from ${this.svc.schema}.transactions t
            join ${this.svc.schema}.accounts a on a.id = t.account_id
           where t.date < $1 and t.date >= a.opening_date
           group by t.account_id`,
-        [since],
-      ),
-    ]);
+          [since],
+        ),
+        this.db
+          .select({ link: movementLinks })
+          .from(movementLinks)
+          .innerJoin(
+            transactions,
+            eq(transactions.id, movementLinks.transactionId),
+          )
+          .where(gte(transactions.date, since))
+          .orderBy(movementLinks.createdAt),
+      ]);
     const txs = txRows.map(toTransactionDto);
+    const paidItems = linkRows.map(({ link }): MovementPaidItemDto => {
+      const source = PAYABLE_SOURCES.find((s) => s.module === link.module);
+      return {
+        movementId: link.transactionId,
+        module: link.module,
+        areaName: source?.name ?? link.module,
+        emblem: source?.emblem ?? '•',
+        title: link.title,
+        path: link.path,
+        amount: link.amount,
+        auto: link.auto,
+      };
+    });
     const older: TransactionDto[] = olderSums.rows.map((r) => ({
       id: `older:${r.account_id}`,
       accountId: r.account_id,
@@ -140,6 +170,7 @@ export class MoneyService implements OnApplicationBootstrap {
         movements: txs.filter((t) => t.accountId === a.id).length,
       })),
       transactions: txs,
+      paidItems,
       budgets: budgetDtos,
       recurring: recurringCharges(txs, day),
       months,
@@ -163,6 +194,7 @@ export class MoneyService implements OnApplicationBootstrap {
       today: day,
       accounts: state.accounts,
       transactions: state.transactions,
+      paidItems: state.paidItems,
       budgets: state.budgets,
       recurring: state.recurring,
       months: state.months,

@@ -280,7 +280,21 @@
       @for (t of filtered().slice(0, shown()); track t.id) {
       <tr>
         <td class="nowrap">{{ dateText(t.date) }}</td>
-        <td>{{ t.description }}</td>
+        <td>
+          {{ t.description }} @if (paidOf().get(t.id); as items) {
+          <span class="paid">
+            @for (item of items; track $index) {
+            <a
+              class="li-chip"
+              [routerLink]="item.path"
+              [title]="'Matched in Money: ' + item.title + ', ' + euro(item.amount) + (item.auto ? ', on its own' : '')"
+              ><span aria-hidden="true">{{ item.emblem }}</span> {{ item.title
+              }}</a
+            >
+            }
+          </span>
+          }
+        </td>
         <td class="li-muted">{{ category(t.category) }}</td>
         <td class="li-muted">{{ accountName()(t.accountId) }}</td>
         <td class="li-num" [class.li-good]="t.amount > 0">
@@ -629,6 +643,7 @@
   [error]="movements.error()"
   (save)="movements.save($event)"
   (remove)="movements.remove()"
+  [intro]="movementIntro()"
 />
 <li-record-dialog
   heading="Budget"
