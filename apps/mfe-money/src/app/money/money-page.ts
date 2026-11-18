@@ -5,7 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import {
   ACCOUNT_KIND_LABELS,
   MONEY_CATEGORIES,
@@ -47,6 +47,7 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { MoneyApi } from '../api/money-api';
@@ -157,12 +158,10 @@ const BUDGET_FIELDS: readonly LiField[] = [
 })
 export class MoneyPage {
   private readonly api = inject(MoneyApi);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
   protected readonly data = signal<MoneyOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'overview');
   protected readonly euro = euro;
   protected readonly dateText = dateText;
   protected readonly monthText = monthText;
@@ -410,19 +409,8 @@ export class MoneyPage {
     this.load();
   }
 
-  private initialTab(): MoneyTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab') as MoneyTab | null;
-    return tab && TABS.includes(tab) ? tab : 'overview';
-  }
-
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'overview' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

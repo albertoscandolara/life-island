@@ -43,6 +43,7 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { HealthApi } from '../api/health-api';
@@ -211,7 +212,7 @@ export class HealthPage {
 
   protected readonly data = signal<HealthOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'checkups');
   protected readonly person = signal<string | null>(null);
   /** The series in the chart, `person|test`, kept in the URL (`?test=`). */
   private readonly chartKey = signal<string | null>(
@@ -370,21 +371,8 @@ export class HealthPage {
     this.load();
   }
 
-  private initialTab(): HealthTab {
-    const tab = this.route.snapshot.queryParamMap.get(
-      'tab',
-    ) as HealthTab | null;
-    return tab && TABS.includes(tab) ? tab : 'checkups';
-  }
-
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'checkups' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

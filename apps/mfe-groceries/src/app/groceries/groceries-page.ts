@@ -42,6 +42,8 @@ import {
   SHOPPING_ITEM_FIELDS,
   type LiTab,
   LiNeedsYou,
+  onRecordsChanged,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { GroceriesApi } from '../api/groceries-api';
@@ -86,7 +88,7 @@ export class GroceriesPage {
 
   protected readonly data = signal<GroceriesOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'list');
   protected readonly euro = euro;
   protected readonly dateText = dateText;
   protected readonly percent = percent;
@@ -217,23 +219,12 @@ export class GroceriesPage {
 
   constructor() {
     this.load();
-  }
-
-  private initialTab(): GroceriesTab {
-    const tab = this.route.snapshot.queryParamMap.get(
-      'tab',
-    ) as GroceriesTab | null;
-    return tab && TABS.includes(tab) ? tab : 'list';
+    // Added from the island's "Add" menu while this page is open.
+    onRecordsChanged(this.api.base, () => this.load());
   }
 
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'list' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

@@ -34,6 +34,9 @@ import {
   areaItems,
   dateItems,
   entityItems,
+  readRecent,
+  RECENT_SEARCH_KEY,
+  rememberRecent,
   SEARCH_GROUP_LABELS,
   searchIsland,
   shortcutLabel,
@@ -76,6 +79,8 @@ export class SearchDialog {
   protected readonly active = signal(0);
   protected readonly entries = signal<readonly AgendaEntryDto[]>([]);
   protected readonly datesLoading = signal(false);
+  /** What you opened from search lately, newest first. */
+  private readonly recent = signal<SearchItem[]>(this.readRecentItems());
   private datesRead = 0;
 
   private readonly input = viewChild<ElementRef<HTMLInputElement>>('box');
@@ -109,13 +114,24 @@ export class SearchDialog {
 
   protected readonly groups = computed(() => {
     const text = this.query().trim();
-    const found = text ? searchIsland(text, this.items()) : this.next();
+    // An area hidden since it was opened stays out.
+    const recent = this.recent().filter(
+      (r) => !r.id.startsWith('area:') || !this.hidden().has(r.id.slice(5)),
+    );
+    const found: { label: string; item: SearchItem }[] = text
+      ? searchIsland(text, this.items()).map((item) => ({
+          label: SEARCH_GROUP_LABELS[item.group as SearchGroup],
+          item,
+        }))
+      : [
+          ...recent.map((item) => ({ label: 'Opened lately', item })),
+          ...this.next()
+            .filter((item) => !recent.some((r) => r.id === item.id))
+            .map((item) => ({ label: 'Coming up', item })),
+        ];
     const groups: { label: string; rows: { row: Row; index: number }[] }[] = [];
     let index = 0;
-    for (const item of found) {
-      const label = text
-        ? SEARCH_GROUP_LABELS[item.group as SearchGroup]
-        : 'Coming up';
+    for (const { label, item } of found) {
       let group = groups.find((g) => g.label === label);
       if (!group) groups.push((group = { label, rows: [] }));
       group.rows.push({ row: { type: 'open', item }, index: index++ });
@@ -183,7 +199,29 @@ export class SearchDialog {
     this.open.set(false);
     if (row.type === 'add')
       this.add.emit({ id: row.id, text: this.query().trim() });
-    else void this.router.navigateByUrl(row.item.path);
+    else {
+      this.remember(row.item);
+      void this.router.navigateByUrl(row.item.path);
+    }
+  }
+
+  /** Keeps what you opened at the top of the next search, in this browser. */
+  private remember(item: SearchItem): void {
+    const recent = rememberRecent(this.recent(), item);
+    this.recent.set(recent);
+    try {
+      localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(recent));
+    } catch {
+      // Storage off (a private window): the list lasts for this page only.
+    }
+  }
+
+  private readRecentItems(): SearchItem[] {
+    try {
+      return readRecent(localStorage.getItem(RECENT_SEARCH_KEY));
+    } catch {
+      return [];
+    }
   }
 
   protected optionId(index: number): string {

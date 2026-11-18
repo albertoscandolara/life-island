@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
 import {
   AGENDA_CATEGORY_LABELS,
   AGENDA_REPEAT_LABELS,
@@ -38,6 +37,8 @@ import {
   localToday,
   monthText,
   type LiTab,
+  onRecordsChanged,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { AgendaApi } from '../api/agenda-api';
@@ -47,6 +48,13 @@ import { EntryList } from './entry-list';
 import { WaitingList } from './waiting-list';
 
 type AgendaTab = 'now' | 'ahead' | 'items' | 'brief' | 'email';
+const AGENDA_TABS: readonly AgendaTab[] = [
+  'now',
+  'ahead',
+  'items',
+  'brief',
+  'email',
+];
 const SERVICE = 'svc-agenda';
 
 /**
@@ -81,12 +89,10 @@ const SERVICE = 'svc-agenda';
 })
 export class AgendaPage {
   private readonly api = inject(AgendaApi);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
   protected readonly data = signal<AgendaOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(AGENDA_TABS, 'now');
   /** The areas shown; empty shows all. */
   protected readonly areaFilter = signal<string | null>(null);
   protected readonly showHandled = signal(false);
@@ -226,16 +232,8 @@ export class AgendaPage {
 
   constructor() {
     this.load();
-  }
-
-  private initialTab(): AgendaTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab');
-    return tab === 'ahead' ||
-      tab === 'items' ||
-      tab === 'brief' ||
-      tab === 'email'
-      ? tab
-      : 'now';
+    // Added from the island's "Add" menu while this page is open.
+    onRecordsChanged(this.api.base, () => this.load());
   }
 
   protected readonly dayCount = (n: number) =>
@@ -250,12 +248,6 @@ export class AgendaPage {
 
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'now' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

@@ -225,3 +225,45 @@ export function shortcutLabel(
 ): string {
   return /mac|iphone|ipad/i.test(platform) ? '⌘K' : 'Ctrl K';
 }
+
+/** The browser key of what you opened from search, newest first. */
+export const RECENT_SEARCH_KEY = 'li.search.recent';
+const RECENT_MAX = 5;
+
+/** The list with `item` first, once, at most five long. */
+export function rememberRecent(
+  recent: readonly SearchItem[],
+  item: SearchItem,
+): SearchItem[] {
+  const kept: SearchItem = { ...item, keywords: [] };
+  return [kept, ...recent.filter((r) => r.id !== item.id)].slice(0, RECENT_MAX);
+}
+
+/** What was stored, the entries that are not search items left out. */
+export function readRecent(raw: string | null): SearchItem[] {
+  try {
+    const list: unknown = JSON.parse(raw ?? '[]');
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(
+        (r): r is SearchItem =>
+          !!r &&
+          typeof r.id === 'string' &&
+          typeof r.title === 'string' &&
+          typeof r.path === 'string' &&
+          r.path.startsWith('/') &&
+          !r.path.startsWith('//') &&
+          typeof r.emblem === 'string' &&
+          (r.group === 'area' || r.group === 'entity' || r.group === 'date'),
+      )
+      .map((r) => ({
+        ...r,
+        detail: typeof r.detail === 'string' ? r.detail : null,
+        keywords: [],
+        rank: 0,
+      }))
+      .slice(0, RECENT_MAX);
+  } catch {
+    return [];
+  }
+}

@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
 import {
   INTENSITY_LABELS,
   WORKOUT_KIND_LABELS,
@@ -45,6 +44,8 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  onRecordsChanged,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { FitnessApi } from '../api/fitness-api';
@@ -117,12 +118,10 @@ const EMOJI: Record<WorkoutKind, string> = {
 })
 export class FitnessPage {
   private readonly api = inject(FitnessApi);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
   protected readonly data = signal<FitnessOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'week');
   protected readonly dateText = dateText;
   protected readonly dayText = dayText;
   protected readonly duration = duration;
@@ -221,23 +220,12 @@ export class FitnessPage {
 
   constructor() {
     this.load();
-  }
-
-  private initialTab(): FitnessTab {
-    const tab = this.route.snapshot.queryParamMap.get(
-      'tab',
-    ) as FitnessTab | null;
-    return tab && TABS.includes(tab) ? tab : 'week';
+    // Added from the island's "Add" menu while this page is open.
+    onRecordsChanged(this.api.base, () => this.load());
   }
 
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'week' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {
