@@ -9,6 +9,8 @@ import {
 import { parseOrThrow } from '@life-island/be-nest';
 import {
   listReceiptsQuerySchema,
+  payablesQuerySchema,
+  type PayableDto,
   type Page,
   type ReceiptDetailDto,
   type ReceiptDto,
@@ -30,6 +32,12 @@ export class ReceiptsController {
   @Get('receipts/:id')
   get(@Param('id', ParseUUIDPipe) id: string): Promise<ReceiptDetailDto> {
     return this.receipts.get(id);
+  }
+
+  /** The receipts paid by card, for Money matching (docs/guides/money-matching.md). */
+  @Get('payables')
+  payables(@Query() query: unknown): Promise<PayableDto[]> {
+    return this.receipts.payables(parseOrThrow(payablesQuerySchema, query));
   }
 
   /** Spending per month and item category. */

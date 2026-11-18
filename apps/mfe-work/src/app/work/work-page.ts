@@ -70,6 +70,7 @@ import {
   fieldLabel,
   parseNumber,
   pct,
+  dateText,
   periodText,
   safeUrl,
   scoreText,
@@ -261,6 +262,7 @@ export class WorkPage {
   protected readonly euro = euro;
   protected readonly duration = duration;
   protected readonly periodText = periodText;
+  protected readonly dateText = dateText;
   protected readonly scoreText = scoreText;
   protected readonly signed = signed;
   protected readonly fieldLabel = fieldLabel;

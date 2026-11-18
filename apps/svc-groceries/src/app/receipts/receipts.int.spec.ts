@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   createServiceDb,
+  paymentEventHandler,
   processOnce,
   recordApprovedHandler,
   type ServiceDb,
@@ -9,6 +10,7 @@ import {
 import type {
   EventEnvelope,
   Page,
+  PayableDto,
   ReceiptDetailDto,
   ReceiptDto,
   RecordApprovedV1,
@@ -42,6 +44,12 @@ describe.skipIf(!configured)(
     });
 
     afterAll(async () => {
+      await svc?.pool.query(
+        `delete from grocery.payments where payable_key in
+           (select 'groceries:receipt:' || r.id from grocery.receipts r
+              join grocery.merchants m on m.id = r.merchant_id where m.name like $1)`,
+        [`${merchantName}%`],
+      );
       await svc?.pool.query(
         `delete from grocery.receipts where merchant_id in
            (select id from grocery.merchants where name like $1)`,
@@ -178,6 +186,95 @@ describe.skipIf(!configured)(
       const other = approved({}, 'tax730.expense@1');
       await deliver(other);
       expect(await answers(other.recordId)).toEqual([]);
+    });
+
+    it('lists the receipts paid by card for Money, and shows the matched payment', async () => {
+      const card = approved({
+        ...receipt,
+        purchasedAt: '2026-09-11T08:15:00Z',
+      });
+      const cash = approved({
+        ...receipt,
+        purchasedAt: '2026-09-11T09:15:00Z',
+        paymentMethod: 'cash',
+      });
+      await deliver(card);
+      await deliver(cash);
+      const cardId = (await answers(card.recordId))[0].payload.domainRecordId!;
+      const cashId = (await answers(cash.recordId))[0].payload.domainRecordId!;
+
+      // A movement booked 3 days later still finds it; the cash one never.
+      const payables = (await (
+        await fetch(`${base}/payables?from=2026-09-14&to=2026-09-14`)
+      ).json()) as PayableDto[];
+      const mine = payables.find(
+        (p) => p.key === `groceries:receipt:${cardId}`,
+      );
+      expect(mine).toMatchObject({
+        module: 'groceries',
+        kind: 'receipt',
+        amount: 3.69,
+        direction: 'out',
+        date: '2026-09-11',
+        window: { from: '2026-09-10', to: '2026-09-16' },
+        payees: [merchantName],
+      });
+      expect(payables.some((p) => p.key.endsWith(cashId))).toBe(false);
+      expect(
+        (await fetch(`${base}/payables?from=2026-09-30&to=2026-09-01`)).status,
+      ).toBe(400);
+
+      const pay = (type: string, payload: unknown) =>
+        processOnce(svc.pool, 'grocery', randomUUID(), (client) =>
+          paymentEventHandler('grocery', 'groceries')(
+            {
+              id: randomUUID(),
+              type,
+              source: 'test',
+              occurredAt: new Date().toISOString(),
+              payload,
+            },
+            client,
+          ),
+        );
+      const linkId = randomUUID();
+      await pay('money.payment_linked@1', {
+        linkId,
+        payableKey: mine!.key,
+        module: 'groceries',
+        movementId: randomUUID(),
+        date: '2026-09-12',
+        amount: 3.69,
+        accountName: 'Carta',
+        description: 'PAGAMENTO POS',
+        linkedAt: new Date().toISOString(),
+      });
+      const detail = async () =>
+        (await (
+          await fetch(`${base}/receipts/${cardId}`)
+        ).json()) as ReceiptDetailDto;
+      expect((await detail()).bankPayment).toEqual({
+        paid: 3.69,
+        full: true,
+        lastDate: '2026-09-12',
+        accounts: ['Carta'],
+      });
+      const page = (await (
+        await fetch(`${base}/receipts?from=2026-09-11&to=2026-09-11`)
+      ).json()) as Page<ReceiptDto>;
+      expect(page.items.find((r) => r.id === cardId)?.bankPayment?.full).toBe(
+        true,
+      );
+      expect(page.items.find((r) => r.id === cashId)?.bankPayment).toBeNull();
+
+      await pay('money.payment_unlinked@1', {
+        linkId,
+        payableKey: mine!.key,
+        module: 'groceries',
+        reason: 'undone',
+        unlinkedAt: new Date().toISOString(),
+      });
+      expect((await detail()).bankPayment).toBeNull();
     });
   },
 );

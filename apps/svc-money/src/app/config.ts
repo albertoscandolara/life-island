@@ -45,6 +45,8 @@ export const SERVICE_DB = Symbol('ServiceDb');
 export const LOCAL_PAYABLE_SOURCES: Readonly<Record<string, string>> = {
   home: 'http://localhost:3005',
   cars: 'http://localhost:3007',
+  work: 'http://localhost:3008',
+  groceries: 'http://localhost:3003',
   subscriptions: 'http://localhost:3015',
   taxes: 'http://localhost:3004',
 };

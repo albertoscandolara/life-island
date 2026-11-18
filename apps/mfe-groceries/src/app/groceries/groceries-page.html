@@ -340,6 +340,13 @@
             >{{ dateText(r.purchasedAt) }} · {{ r.itemCount }} items</span
           ></span
         >
+        @if (r.bankPayment; as paid) {
+        <ui-badge
+          tone="success"
+          [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
+          >Paid by card {{ dateText(paid.lastDate) }}</ui-badge
+        >
+        }
         <span class="li-num">{{ euro(r.total) }}</span>
       </li>
       }

@@ -1,17 +1,42 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
 import {
+  bankPaymentOf,
+  paymentsByKey,
+  isoAddDays,
+  isoToday,
   listReceiptsQuerySchema,
+  type PayableDto,
+  type PayablesQuery,
+  type PaymentRecord,
   type Page,
   type ReceiptDetailDto,
   type ReceiptDto,
   type SpendingDto,
 } from '@life-island/contracts';
-import { and, asc, count, desc, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import {
+  receiptDaysFor,
+  receiptPayableKey,
+  receiptPayables,
+} from './payables.js';
+import {
   merchants,
+  payments,
   receiptItems,
   receipts,
   type MerchantRow,
@@ -26,10 +51,13 @@ function nextDay(date: string): Date {
   return day;
 }
 
+const TZ = () => process.env['SETTINGS_TIMEZONE'] || 'Europe/Rome';
+
 export function toReceiptDto(
   row: ReceiptRow,
   merchant: MerchantRow,
   itemCount: number,
+  paid: readonly PaymentRecord[] = [],
 ): ReceiptDto {
   return {
     id: row.id,
@@ -46,6 +74,7 @@ export function toReceiptDto(
     total: row.total,
     paymentMethod: row.paymentMethod,
     itemCount,
+    bankPayment: bankPaymentOf(row.total, paid),
   };
 }
 
@@ -75,9 +104,15 @@ export class ReceiptsService {
         .offset(query.offset),
       this.svc.db.select({ total: count() }).from(receipts).where(where),
     ]);
+    const paid = await this.paymentsOf(rows.map((row) => row.receipt.id));
     return {
       items: rows.map((row) =>
-        toReceiptDto(row.receipt, row.merchant, Number(row.itemCount)),
+        toReceiptDto(
+          row.receipt,
+          row.merchant,
+          Number(row.itemCount),
+          paid.get(receiptPayableKey(row.receipt.id)),
+        ),
       ),
       total,
       limit: query.limit,
@@ -97,8 +132,14 @@ export class ReceiptsService {
       .from(receiptItems)
       .where(eq(receiptItems.receiptId, id))
       .orderBy(asc(receiptItems.position));
+    const paid = await this.paymentsOf([id]);
     return {
-      ...toReceiptDto(row.receipt, row.merchant, items.length),
+      ...toReceiptDto(
+        row.receipt,
+        row.merchant,
+        items.length,
+        paid.get(receiptPayableKey(id)),
+      ),
       items: items.map((item) => ({
         position: item.position,
         rawName: item.rawName,
@@ -112,6 +153,53 @@ export class ReceiptsService {
         (row.receipt.documentFields as ReceiptDetailDto['documentFields']) ??
         null,
     };
+  }
+
+  /** The receipts paid by card, for Money matching (`GET /payables`). */
+  async payables(query: PayablesQuery): Promise<PayableDto[]> {
+    const days = receiptDaysFor(query);
+    // A day of margin each side: purchasedAt is a moment, the day is Italy's.
+    const rows = await this.svc.db
+      .select({ receipt: receipts, merchant: merchants })
+      .from(receipts)
+      .innerJoin(merchants, eq(merchants.id, receipts.merchantId))
+      .where(
+        and(
+          gte(
+            receipts.purchasedAt,
+            new Date(`${isoAddDays(days.from, -1)}T00:00:00Z`),
+          ),
+          lt(receipts.purchasedAt, nextDay(isoAddDays(days.to, 1))),
+        ),
+      );
+    return receiptPayables(
+      rows.map(({ receipt, merchant }) => ({
+        id: receipt.id,
+        merchant: merchant.name,
+        day: isoToday(TZ(), receipt.purchasedAt),
+        total: receipt.total,
+        currency: receipt.currency,
+        paymentMethod: receipt.paymentMethod,
+      })),
+      query,
+    );
+  }
+
+  /** The payments matched in Money to these receipts, still linked, by payable key. */
+  private async paymentsOf(
+    ids: readonly string[],
+  ): Promise<Map<string, PaymentRecord[]>> {
+    if (!ids.length) return new Map();
+    const rows = await this.svc.db
+      .select()
+      .from(payments)
+      .where(
+        and(
+          inArray(payments.payableKey, ids.map(receiptPayableKey)),
+          isNull(payments.unlinkedAt),
+        ),
+      );
+    return paymentsByKey(rows);
   }
 
   /** Spending per month and item category, newest month first. */

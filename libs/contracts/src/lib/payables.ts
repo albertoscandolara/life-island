@@ -576,6 +576,8 @@ export const PAYABLE_MODULES = [
   'home',
   'cars',
   'subscriptions',
+  'work',
+  'groceries',
   'taxes',
 ] as const;
 export type PayableModule = (typeof PAYABLE_MODULES)[number];
@@ -814,4 +816,14 @@ export function bankPaymentOf(
       ...new Set(live.flatMap((p) => (p.accountName ? [p.accountName] : []))),
     ],
   };
+}
+
+/** An area's payment rows by the key of the item they pay. */
+export function paymentsByKey<T extends { payableKey: string }>(
+  rows: readonly T[],
+): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows)
+    map.set(row.payableKey, [...(map.get(row.payableKey) ?? []), row]);
+  return map;
 }

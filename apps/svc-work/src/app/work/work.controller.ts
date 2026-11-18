@@ -17,6 +17,8 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveWorkReviewRequestSchema,
   deadlinesQuerySchema,
+  payablesQuerySchema,
+  type PayableDto,
   pensionConfirmStatementRequestSchema,
   pensionFundRequestSchema,
   pensionNoticeRequestSchema,
@@ -210,6 +212,12 @@ export class WorkController {
   @Get('attention')
   attention(): Promise<LifeAttentionDto> {
     return this.work.attention();
+  }
+
+  /** The pay of every payslip, for Money matching (docs/guides/money-matching.md). */
+  @Get('payables')
+  payables(@Query() query: unknown): Promise<PayableDto[]> {
+    return this.work.payables(parseOrThrow(payablesQuerySchema, query));
   }
 
   /** The pension fund's dates (last day to top up, the non-deducted notice), for the Agenda. */

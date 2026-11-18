@@ -1,7 +1,7 @@
+import { paymentsTable } from '@life-island/be-common';
 import {
   boolean,
   date,
-  index,
   integer,
   jsonb,
   numeric,
@@ -90,25 +90,5 @@ export const settingsReplica = subscriptionsSchema.table('settings_replica', {
  * there. Kept by paymentEventHandler (libs/be-common), the same in every area.
  * Shows the last charge, and what it really cost when the price went up.
  */
-export const payments = subscriptionsSchema.table(
-  'payments',
-  {
-    linkId: uuid('link_id').primaryKey(),
-    payableKey: text('payable_key').notNull(),
-    amount: numeric('amount', {
-      precision: 14,
-      scale: 2,
-      mode: 'number',
-    }).notNull(),
-    /** The day the money moved; null on a link undone before it arrived. */
-    paidOn: date('paid_on', { mode: 'string' }),
-    accountName: text('account_name'),
-    description: text('description'),
-    unlinkedAt: timestamp('unlinked_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index('payments_payable_idx').on(table.payableKey)],
-);
+export const payments = paymentsTable(subscriptionsSchema);
 export type PaymentRow = typeof payments.$inferSelect;

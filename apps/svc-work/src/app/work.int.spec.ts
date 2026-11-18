@@ -2,12 +2,14 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   createServiceDb,
+  paymentEventHandler,
   processOnce,
   type ServiceDb,
 } from '@life-island/be-common';
 import type {
   CareerFeedbackDto,
   EventEnvelope,
+  PayableDto,
   PendingWorkReviewDto,
   WorkOverviewDto,
 } from '@life-island/contracts';
@@ -61,6 +63,10 @@ describe.skipIf(!configured)(
 
     afterAll(async () => {
       if (uploads.length) {
+        await svc?.pool.query(
+          'delete from work.payments where payable_key = any($1)',
+          [uploads.map((id) => `work:payslip:${id}`)],
+        );
         await svc?.pool.query(
           'delete from work.reviews where upload_id = any($1)',
           [uploads],
@@ -223,6 +229,76 @@ describe.skipIf(!configured)(
           .filter((e) => e.workplaceId === workplaceId)
           .map((e) => e.kind),
       ).toEqual(['salary_rise', 'hired']);
+    });
+
+    it('expects the pay of each payslip for Money, and shows it received', async () => {
+      const june = (await overview()).workplaces
+        .find((w) => w.id === workplaceId)!
+        .documents.find((d) => d.period?.startsWith('2026-06'))!;
+      const payables = await json<PayableDto[]>(
+        await send('GET', '/payables?from=2026-06-27&to=2026-06-27'),
+      );
+      const mine = payables.find(
+        (p) => p.key === `work:payslip:${june.uploadId}`,
+      );
+      expect(mine).toMatchObject({
+        module: 'work',
+        kind: 'payslip',
+        amount: 1930,
+        direction: 'in',
+        date: '2026-06-30',
+        window: { from: '2026-06-15', to: '2026-07-20' },
+        payees: [employer, 'Esempio'],
+        path: '/work',
+      });
+      // Only the June payslip is paid in these days (April's window has ended).
+      expect(
+        payables.filter((p) => p.payees.includes(employer)).map((p) => p.key),
+      ).toEqual([mine!.key]);
+
+      const pay = (type: string, payload: unknown) =>
+        processOnce(svc.pool, 'work', randomUUID(), (client) =>
+          paymentEventHandler('work', 'work')(
+            {
+              id: randomUUID(),
+              type,
+              source: 'test',
+              occurredAt: new Date().toISOString(),
+              payload,
+            },
+            client,
+          ),
+        );
+      const linkId = randomUUID();
+      await pay('money.payment_linked@1', {
+        linkId,
+        payableKey: mine!.key,
+        module: 'work',
+        movementId: randomUUID(),
+        date: '2026-06-27',
+        amount: 1930,
+        accountName: 'Conto corrente',
+        description: `BONIFICO DA ${employer} STIPENDIO`,
+        linkedAt: new Date().toISOString(),
+      });
+      const juneNow = async () =>
+        (await overview()).workplaces
+          .find((w) => w.id === workplaceId)!
+          .documents.find((d) => d.uploadId === june.uploadId)!;
+      expect((await juneNow()).bankPayment).toEqual({
+        paid: 1930,
+        full: true,
+        lastDate: '2026-06-27',
+        accounts: ['Conto corrente'],
+      });
+      await pay('money.payment_unlinked@1', {
+        linkId,
+        payableKey: mine!.key,
+        module: 'work',
+        reason: 'undone',
+        unlinkedAt: new Date().toISOString(),
+      });
+      expect((await juneNow()).bankPayment).toBeNull();
     });
 
     it('suggests keeping your values for an older payslip, and counts the gap', async () => {

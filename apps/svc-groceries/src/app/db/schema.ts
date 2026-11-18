@@ -1,3 +1,4 @@
+import { paymentsTable } from '@life-island/be-common';
 import {
   boolean,
   index,
@@ -136,3 +137,11 @@ export const settingsReplica = grocery.table('settings_replica', {
   value: jsonb('value').notNull(),
   changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
 });
+
+/**
+ * The bank payments Money says a receipt was paid with
+ * (`groceries:receipt:<id>`), one row per link you confirmed there. Kept by
+ * paymentEventHandler (libs/be-common), the same in every area.
+ */
+export const payments = paymentsTable(grocery);
+export type PaymentRow = typeof payments.$inferSelect;

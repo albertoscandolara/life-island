@@ -159,6 +159,8 @@ describe.skipIf(!configured)(
         // Not given to this test: said so, and the rest still matched.
         expect.objectContaining({ module: 'cars', ok: false }),
         expect.objectContaining({ module: 'subscriptions', ok: false }),
+        expect.objectContaining({ module: 'work', ok: false }),
+        expect.objectContaining({ module: 'groceries', ok: false }),
         expect.objectContaining({ module: 'taxes', ok: false }),
       ]);
       expect(matches.body.payables.map((p) => p.key)).toEqual([payable().key]);
@@ -215,7 +217,7 @@ describe.skipIf(!configured)(
         (
           await json('POST', '/matches/links', {
             movementId: winnerMovement,
-            items: [{ payableKey: `groceries:receipt:x-${run}`, amount: 1 }],
+            items: [{ payableKey: `dreams:goal:x-${run}`, amount: 1 }],
           })
         ).status,
       ).toBe(400);

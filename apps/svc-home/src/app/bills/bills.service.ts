@@ -11,6 +11,7 @@ import {
   bankPaymentOf,
   type BillDto,
   type BillPaymentDto,
+  paymentsByKey,
 } from '@life-island/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -115,15 +116,12 @@ export class BillsService {
       .from(bills)
       .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
       .leftJoin(supplyContracts, eq(bills.contractId, supplyContracts.id));
-    const payments = new Map<string, PaymentRow[]>();
-    for (const payment of await this.svc.db
-      .select()
-      .from(paymentRows)
-      .where(isNull(paymentRows.unlinkedAt)))
-      payments.set(payment.payableKey, [
-        ...(payments.get(payment.payableKey) ?? []),
-        payment,
-      ]);
+    const payments = paymentsByKey(
+      await this.svc.db
+        .select()
+        .from(paymentRows)
+        .where(isNull(paymentRows.unlinkedAt)),
+    );
     const detected = contractDirectDebit(rows.map((r) => r.bill));
     return rows.map((r) => ({
       bill: toBillDto(

@@ -1,4 +1,4 @@
-import { euro } from '@life-island/records-ui';
+import { dateText, euro } from '@life-island/records-ui';
 import {
   CAREER_EVENT_LABELS,
   CONTRACT_KIND_LABELS,
@@ -37,7 +37,7 @@ export function workplaceName(workplace: {
 }
 
 /** Money as every area writes it ("3.200,00 €"), from records-ui. */
-export { euro };
+export { dateText, euro };
 
 /** Without cents, for chart axes and tiles. */
 export function euroShort(value: number): string {

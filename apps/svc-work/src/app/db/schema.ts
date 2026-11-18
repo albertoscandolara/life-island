@@ -1,3 +1,4 @@
+import { paymentsTable } from '@life-island/be-common';
 import {
   boolean,
   date,
@@ -372,3 +373,11 @@ export const settingsReplica = work.table('settings_replica', {
   value: jsonb('value').notNull(),
   changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
 });
+
+/**
+ * The bank payments Money says a payslip's pay arrived with
+ * (`work:payslip:<upload id>`), one row per link you confirmed there. Kept by
+ * paymentEventHandler (libs/be-common), the same in every area.
+ */
+export const payments = paymentsTable(work);
+export type PaymentRow = typeof payments.$inferSelect;
