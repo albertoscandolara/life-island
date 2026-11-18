@@ -38,6 +38,7 @@ import {
   liOptions,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { GoalsApi } from '../api/goals-api';
@@ -121,6 +122,7 @@ const MOODS = [
   selector: 'goals-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiProgressBar,
     AiTool,
     LiDue,

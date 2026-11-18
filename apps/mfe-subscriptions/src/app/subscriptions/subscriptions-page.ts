@@ -40,6 +40,7 @@ import {
   liOptions,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { SubscriptionsApi } from '../api/subscriptions-api';
@@ -137,6 +138,7 @@ const FIELDS: readonly LiField[] = [
   selector: 'subs-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiSegmentedBar,
     AiTool,
     LiDue,

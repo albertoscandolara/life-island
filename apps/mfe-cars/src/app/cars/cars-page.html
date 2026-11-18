@@ -4,6 +4,8 @@
   subtitle="Every car you have, with every field of its carta di circolazione, its insurance, road tax, revisione and expenses, and a warning before anything has to be renewed."
 />
 
+<li-needs-you module="cars" />
+
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
 } @if (alerts().length) {

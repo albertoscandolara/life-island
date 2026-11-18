@@ -45,6 +45,7 @@ import { scopeHouses, selectedIds } from '../shared/selection';
 import { DocumentPicker } from './document-picker';
 import { TaxExpenses } from './tax-expenses';
 import { WorkDialog } from './work-dialog';
+import { LiNeedsYou } from '@life-island/records-ui';
 
 const STATUS_TONES: Record<WorkStatus, UiTone> = {
   PLANNED: 'info',
@@ -77,6 +78,7 @@ export const workYear = (work: WorkDto): number | null => {
   selector: 'home-home-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     EntityLink,
     UiPageHeader,
     UiCard,

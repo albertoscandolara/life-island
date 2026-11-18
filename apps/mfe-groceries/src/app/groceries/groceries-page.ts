@@ -38,6 +38,7 @@ import {
   type LiBar,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { GroceriesApi } from '../api/groceries-api';
@@ -73,6 +74,7 @@ const ITEM_FIELDS: readonly LiField[] = [
   selector: 'groceries-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     AiTool,
     LiBars,
     LiRecordDialog,

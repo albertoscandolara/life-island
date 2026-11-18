@@ -58,6 +58,7 @@ import {
   valueText,
   vehicleName,
 } from './labels';
+import { LiNeedsYou } from '@life-island/records-ui';
 
 type Definition = (typeof VEHICLE_FIELD_DEFINITIONS)[number];
 
@@ -85,6 +86,7 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
   selector: 'cars-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     EntityLink,
     CarCostsCard,
     CarFinesCard,

@@ -50,6 +50,7 @@ import {
   liOptions,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { DreamsApi } from '../api/dreams-api';
@@ -185,6 +186,7 @@ interface CheckInDraft {
   selector: 'dreams-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     AiTool,
     DreamSky,
     LiRecordDialog,

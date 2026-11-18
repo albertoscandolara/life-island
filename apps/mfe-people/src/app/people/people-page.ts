@@ -36,6 +36,7 @@ import { PeopleHouseholdCard } from './people-household-card';
 import { PeopleReviewCard } from './people-review-card';
 import { PeopleSeriesCard } from './people-series-card';
 import { alertText, masked, personName, typeLabel } from './labels';
+import { LiNeedsYou } from '@life-island/records-ui';
 
 const TAX_CODE_BADGES: Record<
   TaxCodeCheckStatus,
@@ -56,6 +57,7 @@ const TAX_CODE_BADGES: Record<
   selector: 'people-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     DatePipe,
     PeopleCoverageCard,
     PeopleHouseholdCard,
