@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   AGENDA_CATEGORY_LABELS,
   AGENDA_REPEAT_LABELS,
+  isoAddDays,
   type AgendaBriefDto,
   type AgendaEntryDto,
   type AgendaOverviewDto,
@@ -18,6 +19,7 @@ import {
   UiAiStatus,
   UiAlert,
   UiButton,
+  UiCalendarHeatmap,
   UiCard,
   UiEmptyState,
   UiIcon,
@@ -28,7 +30,9 @@ import {
   LiTabs,
   RecordEditor,
   dateText,
+  dayText,
   errorText,
+  euro,
   liOptions,
   localToday,
   monthText,
@@ -94,6 +98,7 @@ const ITEM_FIELDS: readonly LiField[] = [
     UiAiStatus,
     UiAlert,
     UiButton,
+    UiCalendarHeatmap,
     UiCard,
     UiEmptyState,
     UiIcon,
@@ -123,6 +128,7 @@ export class AgendaPage {
   );
   protected readonly dateText = dateText;
   protected readonly monthText = monthText;
+  protected readonly dayText = dayText;
   protected readonly area = areaOf;
 
   // The week brief
@@ -173,6 +179,31 @@ export class AgendaPage {
       month,
       entries,
     }));
+  });
+
+  /** The year ahead as a calendar: how many dates each day holds. */
+  protected readonly yearLoad = computed(() => {
+    const today = this.data()?.today ?? localToday();
+    const byDay = new Map<string, AgendaEntryDto[]>();
+    for (const e of this.entries())
+      if (e.daysLeft >= 0) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
+    const values: Record<string, number> = {};
+    for (const [date, list] of byDay) values[date] = list.length;
+    return {
+      from: today,
+      to: isoAddDays(today, 364),
+      values,
+      detail: (date: string) => {
+        const list = byDay.get(date);
+        if (!list) return null;
+        const total = list.reduce((sum, e) => sum + (e.amount ?? 0), 0);
+        const titles = list.slice(0, 3).map((e) => e.title);
+        if (list.length > 3) titles.push(`${list.length - 3} more`);
+        return [titles.join(', '), total ? euro(total) : null]
+          .filter(Boolean)
+          .join(' · ');
+      },
+    };
   });
 
   /** The areas that have dates, for the filter chips. */
@@ -234,6 +265,16 @@ export class AgendaPage {
       tab === 'email'
       ? tab
       : 'now';
+  }
+
+  protected readonly dayCount = (n: number) =>
+    n === 1 ? '1 date' : `${n} dates`;
+
+  /** A day of the calendar: its month's list, scrolled into view. */
+  protected openMonth(date: string): void {
+    document
+      .getElementById(`month-${date.slice(0, 7)}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   protected setTab(tab: string): void {

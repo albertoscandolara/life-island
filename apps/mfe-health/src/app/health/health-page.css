@@ -63,3 +63,11 @@
 .plain p {
   margin: var(--space-1) 0 0;
 }
+
+.chart-note {
+  margin: 0 0 var(--space-3);
+}
+
+.row--on th {
+  box-shadow: inset 3px 0 0 var(--accent);
+}

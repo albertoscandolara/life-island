@@ -1,4 +1,4 @@
-import { barPath, labelEvery, niceScale } from './scale';
+import { barPath, labelEvery, niceRange, niceScale } from './scale';
 
 describe('chart scales', () => {
   it('rounds the top of the axis to a clean number', () => {
@@ -15,5 +15,29 @@ describe('chart scales', () => {
   it('draws nothing for an empty bar', () => {
     expect(barPath(0, 0, 10, 0)).toBe('');
     expect(barPath(0, 0, 10, 20)).toContain('Q');
+  });
+});
+
+describe('a range that need not start at zero', () => {
+  it('rounds both ends outward', () => {
+    expect(niceRange(182, 241)).toEqual({
+      min: 180,
+      max: 260,
+      ticks: [180, 200, 220, 240, 260],
+    });
+  });
+
+  it('keeps one value in the middle of a window', () => {
+    const r = niceRange(80, 80);
+    expect(r.min).toBeLessThan(80);
+    expect(r.max).toBeGreaterThan(80);
+  });
+
+  it('works below zero and with swapped ends', () => {
+    expect(niceRange(5, -5)).toEqual({
+      min: -5,
+      max: 5,
+      ticks: [-5, -2.5, 0, 2.5, 5],
+    });
   });
 });

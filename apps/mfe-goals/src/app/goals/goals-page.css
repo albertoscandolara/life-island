@@ -136,3 +136,18 @@
   margin-top: var(--space-4);
   font-weight: 600;
 }
+
+.calendars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-5);
+}
+
+.calendar {
+  min-width: 0;
+}
+
+.calendar__title,
+.calendar__sum {
+  margin: 0 0 var(--space-1);
+}

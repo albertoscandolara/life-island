@@ -1,5 +1,6 @@
 import {
   GOAL_AREA_LABELS,
+  HABIT_HISTORY_DAYS,
   isoAddDays,
   isoDaysBetween,
   isoWeekStart,
@@ -79,7 +80,9 @@ export function withChecks(
     streak++;
   return {
     ...habit,
-    checked: checks.filter((d) => d > isoAddDays(today, -28)).sort(),
+    checked: checks
+      .filter((d) => d > isoAddDays(today, -HABIT_HISTORY_DAYS))
+      .sort(),
     thisWeek,
     streak,
   };

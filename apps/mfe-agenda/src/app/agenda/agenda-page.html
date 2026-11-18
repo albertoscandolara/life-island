@@ -161,8 +161,30 @@
   When your areas have renewals, expiries or bills ahead, or you add a reminder,
   they show here month by month.
 </ui-empty-state>
+} @else { @let y = yearLoad();
+<ui-card heading="Which days are heavy" class="li-block">
+  <p class="li-muted li-small year-note">
+    Every open date of the next twelve months, a square a day: the darker, the
+    more is due. Pick a day to open its month below.
+  </p>
+  <ui-calendar-heatmap
+    [from]="y.from"
+    [to]="y.to"
+    [values]="y.values"
+    [format]="dayCount"
+    [title]="dayText"
+    [detail]="y.detail"
+    [pickable]="true"
+    ariaLabel="Dates due in the next twelve months, day by day"
+    (pick)="openMonth($event)"
+  />
+</ui-card>
 } @for (m of months(); track m.month) {
-<section class="group li-block" [attr.aria-label]="monthText(m.month)">
+<section
+  class="group li-block"
+  [id]="'month-' + m.month"
+  [attr.aria-label]="monthText(m.month)"
+>
   <h2 class="li-sub month">
     {{ monthText(m.month) }}
     <span class="li-muted">· {{ m.entries.length }}</span>
