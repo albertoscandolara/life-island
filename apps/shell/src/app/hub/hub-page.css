@@ -70,7 +70,7 @@
 }
 
 .island--placeholder {
-  height: clamp(22rem, 62vh, 40rem);
+  height: clamp(24rem, 70vh, 46rem);
 }
 
 .section-title {

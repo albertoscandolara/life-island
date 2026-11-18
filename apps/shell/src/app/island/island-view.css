@@ -36,7 +36,7 @@
 
   position: relative;
   display: block;
-  height: clamp(24rem, 66vh, 44rem);
+  height: clamp(26rem, 74vh, 50rem);
   overflow: hidden;
   border-radius: var(--card-radius);
   touch-action: pan-y;
@@ -47,11 +47,14 @@
   width: 100%;
   height: 100%;
   cursor: grab;
-  /* The sea fades into the page at the edges, so the island floats on it. */
+  /* The sea fades into the page only near the edges: clear over the island
+     and its clouds, then a quick fall, so it still floats on the page with
+     no box around it. */
   mask-image: radial-gradient(
-    ellipse 50% 48% at 50% 52%,
-    var(--surface-card) 58%,
-    transparent 96%
+    ellipse 56% 56% at 50% 50%,
+    var(--surface-card) 66%,
+    color-mix(in srgb, var(--surface-card) 50%, transparent) 78%,
+    transparent 88%
   );
 }
 
@@ -156,6 +159,11 @@
 
 /* Phones: smaller labels, and "soon" says itself through the dimmer style. */
 @media (width <= 40rem) {
+  /* A squarer canvas, so the island fills its width rather than its height. */
+  :host {
+    height: clamp(22rem, 62vh, 34rem);
+  }
+
   .label__button {
     font-size: var(--text-xs);
   }

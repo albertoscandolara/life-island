@@ -1,5 +1,6 @@
 import {
   gapBetweenNeighbours,
+  islandFov,
   islandLayout,
   visibleLabels,
   MIN_RING_RADIUS,
@@ -79,5 +80,21 @@ describe('visibleLabels', () => {
       'hovered',
     );
     expect([...shown]).toEqual(['hovered']);
+  });
+});
+
+describe('islandFov', () => {
+  it('keeps the usual view on wide screens', () => {
+    expect(islandFov(16 / 9)).toBe(40);
+    expect(islandFov(2.4)).toBe(40);
+  });
+
+  it('widens as the canvas narrows, so the island stays in view across', () => {
+    expect(islandFov(1.2)).toBeGreaterThan(40);
+    expect(islandFov(1)).toBeGreaterThan(islandFov(1.2));
+  });
+
+  it('never stretches the island on tall phones', () => {
+    expect(islandFov(0.5)).toBe(70);
   });
 });
