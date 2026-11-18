@@ -12,6 +12,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { IslandModule } from '../hub/modules';
+import { visibleLabels } from './island-layout';
 import { IslandScene, type IslandPalette } from './island-scene';
 
 /**
@@ -57,19 +58,41 @@ export class IslandView {
         return;
       }
       const scene = this.scene;
+      // Label sizes, measured once and again after a resize (not every frame).
+      let sizes: { width: number; height: number }[] = [];
       scene.onFrame = (positions) => {
         const labels = this.labels();
+        if (sizes.length !== labels.length)
+          sizes = labels.map(({ nativeElement: el }) => ({
+            width: el.offsetWidth,
+            height: el.offsetHeight,
+          }));
+        const shown = visibleLabels(
+          positions.map((position, i) => ({
+            ...position,
+            // The anchor is the label's bottom centre: move to its middle.
+            y: position.y - (sizes[i]?.height ?? 0) / 2,
+            width: sizes[i]?.width ?? 0,
+            height: sizes[i]?.height ?? 0,
+          })),
+          this.hovered(),
+        );
         positions.forEach((position, i) => {
           const label = labels[i]?.nativeElement;
           if (!label) return;
+          const on = shown.has(position.id);
           label.style.transform = `translate(-50%, -100%) translate(${position.x}px, ${position.y}px)`;
-          label.style.opacity = String(0.25 + position.facing * 0.75);
+          label.style.opacity = on
+            ? String(0.55 + position.facing * 0.45)
+            : '0';
+          label.classList.toggle('label--hidden', !on);
           label.style.zIndex = String(Math.round(position.facing * 10));
         });
       };
-      const resize = new ResizeObserver(([entry]) =>
-        scene.resize(entry.contentRect.width, entry.contentRect.height),
-      );
+      const resize = new ResizeObserver(([entry]) => {
+        scene.resize(entry.contentRect.width, entry.contentRect.height);
+        sizes = [];
+      });
       resize.observe(this.host.nativeElement);
       // Repaint when the theme changes (light/dark switch on <html>).
       const theme = new MutationObserver(() =>

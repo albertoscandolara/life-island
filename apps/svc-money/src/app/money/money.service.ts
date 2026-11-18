@@ -34,7 +34,9 @@ import {
   type TransactionRow,
 } from '../db/schema.js';
 import {
+  balanceMonthAgo,
   categorySpend,
+  lastMonthToDate,
   monthFlows,
   offlineReview,
   recurringCharges,
@@ -174,6 +176,12 @@ export class MoneyService implements OnApplicationBootstrap {
           ) / 100,
         incomeThisMonth: thisMonth.income,
         spendingThisMonth: thisMonth.spending,
+        lastMonthToDate: lastMonthToDate(state.transactions, day),
+        balanceMonthAgo: balanceMonthAgo(
+          state.accounts,
+          state.transactions,
+          day,
+        ),
         savingsRate: state.rate,
         recurringYearly: Math.round(
           state.recurring.reduce((s, r) => s + r.yearly, 0),

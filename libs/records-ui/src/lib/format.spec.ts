@@ -1,5 +1,6 @@
 import {
   daysText,
+  delta,
   duration,
   errorText,
   numberOrNull,
@@ -47,5 +48,24 @@ describe('format', () => {
     expect(errorText({ status: 500, error: null }, 'Could not save it.')).toBe(
       'Could not save it.',
     );
+  });
+
+  it('compares a tile with what it is measured against', () => {
+    expect(delta(110, 100, 'up')).toEqual({
+      direction: 'up',
+      tone: 'success',
+      text: '+10%',
+    });
+    expect(delta(110, 100, 'down')?.tone).toBe('danger');
+    expect(delta(80, 100, 'down')).toEqual({
+      direction: 'down',
+      tone: 'success',
+      text: '−20%',
+    });
+    expect(delta(100.4, 100)?.direction).toBe('flat');
+    expect(delta(150, 0)?.text).toBe('+150\u00a0€');
+    expect(delta(0.27, 0.2, 'up', 'points')?.text).toBe('+7 pt');
+    expect(delta(5, null)).toBeNull();
+    expect(delta(5, 3, 'none')?.tone).toBe('neutral');
   });
 });

@@ -1,6 +1,7 @@
 import {
   gapBetweenNeighbours,
   islandLayout,
+  visibleLabels,
   MIN_RING_RADIUS,
   PEAK_RADIUS,
   ZONE_FOOTPRINT,
@@ -44,5 +45,39 @@ describe('islandLayout', () => {
     expect(big.scale).toBeGreaterThan(1);
     // The zones always stand on the island, with sand left before the shore.
     expect(big.islandRadius).toBeGreaterThan(big.ringRadius + ZONE_FOOTPRINT);
+  });
+});
+
+describe('visibleLabels', () => {
+  const label = (id: string, x: number, facing: number, y = 100) => ({
+    id,
+    x,
+    y,
+    width: 100,
+    height: 30,
+    facing,
+  });
+
+  it('keeps the front label when two overlap', () => {
+    const shown = visibleLabels(
+      [label('back', 50, 0.6), label('front', 90, 0.9), label('far', 400, 0.8)],
+      null,
+    );
+    expect([...shown].sort()).toEqual(['far', 'front']);
+  });
+
+  it('hides labels of zones turned away, unless you are on them', () => {
+    expect(visibleLabels([label('behind', 0, 0.1)], null).size).toBe(0);
+    expect(
+      visibleLabels([label('behind', 0, 0.1)], 'behind').has('behind'),
+    ).toBe(true);
+  });
+
+  it('always shows the hovered label, pushing out the one it covers', () => {
+    const shown = visibleLabels(
+      [label('front', 0, 1), label('hovered', 20, 0.5)],
+      'hovered',
+    );
+    expect([...shown]).toEqual(['hovered']);
   });
 });

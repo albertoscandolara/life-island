@@ -5,7 +5,11 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { attentionBadge, HubPage, whenText } from './hub-page';
+import { attentionBadge, HubPage, todayCounts, whenText } from './hub-page';
+import type {
+  AgendaEntryDto,
+  LifeAttentionItemDto,
+} from '@life-island/contracts';
 import { ISLAND_MODULES } from './modules';
 
 describe('HubPage', () => {
@@ -137,5 +141,32 @@ describe('HubPage with Settings → Island', () => {
     expect(element.querySelector('.hidden-note')?.textContent).toContain(
       '2 areas are',
     );
+  });
+
+  it('counts what is late, due today and waiting for the Today strip', () => {
+    const entry = (daysLeft: number) => ({ daysLeft }) as AgendaEntryDto;
+    const modules = ISLAND_MODULES.filter((m) => m.id !== 'travel');
+    expect(
+      todayCounts(
+        [entry(-2), entry(0), entry(0), entry(3)],
+        {
+          agenda: { expired: 4, expiring: 2, toReview: 0 },
+          cars: {
+            expired: 0,
+            expiring: 0,
+            toReview: 1,
+            items: [{} as LifeAttentionItemDto],
+          },
+          // An area you turned off does not count.
+          travel: {
+            expired: 0,
+            expiring: 0,
+            toReview: 0,
+            items: [{} as LifeAttentionItemDto],
+          },
+        },
+        modules,
+      ),
+    ).toEqual({ late: 4, today: 2, waiting: 1 });
   });
 });

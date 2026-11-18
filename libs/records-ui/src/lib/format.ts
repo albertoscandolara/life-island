@@ -126,3 +126,52 @@ export function numberOrNull(value: string | number | null): number | null {
   const n = Number(value.replace(/\s/g, '').replace(',', '.'));
   return value.trim() && Number.isFinite(n) ? n : null;
 }
+
+/** How a tile's number moved against what it is compared with. */
+export interface Delta {
+  /** 'up', 'down' or 'flat' (a change under 1%, or both zero). */
+  direction: 'up' | 'down' | 'flat';
+  /** Good news, bad news or neither, from which way is better. */
+  tone: 'success' | 'danger' | 'neutral';
+  /** "+12%", "−8%", "+150 €" (when the old value is 0), "same". */
+  text: string;
+}
+
+/**
+ * `now` against `before` for a stat tile. `better` says which way is good
+ * news (spending: 'down'; income: 'up'; 'none' for a neutral number).
+ * Null when there is nothing to compare with.
+ */
+export function delta(
+  now: number | null | undefined,
+  before: number | null | undefined,
+  better: 'up' | 'down' | 'none' = 'up',
+  unit: 'euro' | 'number' | 'points' = 'euro',
+): Delta | null {
+  if (now === null || now === undefined || Number.isNaN(now)) return null;
+  if (before === null || before === undefined || Number.isNaN(before))
+    return null;
+  const diff = now - before;
+  let text: string;
+  let flat: boolean;
+  if (unit === 'points') {
+    // Two shares (0–1): the change in percentage points.
+    const points = Math.round(diff * 100);
+    flat = points === 0;
+    text = `${points > 0 ? '+' : '−'}${Math.abs(points)} pt`;
+  } else if (before === 0) {
+    flat = Math.abs(diff) < 0.005;
+    const size =
+      unit === 'euro' ? euro(Math.abs(diff), false) : String(Math.abs(diff));
+    text = `${diff > 0 ? '+' : '−'}${size}`;
+  } else {
+    const share = diff / Math.abs(before);
+    flat = Math.abs(share) < 0.01;
+    text = `${share > 0 ? '+' : '−'}${Math.round(Math.abs(share) * 100)}%`;
+  }
+  if (flat) return { direction: 'flat', tone: 'neutral', text: 'same' };
+  const direction = diff > 0 ? 'up' : 'down';
+  const tone =
+    better === 'none' ? 'neutral' : direction === better ? 'success' : 'danger';
+  return { direction, tone, text };
+}

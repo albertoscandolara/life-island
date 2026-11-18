@@ -230,6 +230,10 @@ export interface MoneyOverviewDto {
     balance: number;
     incomeThisMonth: number;
     spendingThisMonth: number;
+    /** Last month from the 1st to today's day of the month, to compare with this month so far. */
+    lastMonthToDate: { income: number; spending: number };
+    /** The total balance of the open accounts one month ago. */
+    balanceMonthAgo: number;
     /** Over the last 3 full months: what you kept of what came in, 0–1. */
     savingsRate: number | null;
     recurringYearly: number;
