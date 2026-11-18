@@ -7,6 +7,7 @@ import {
   pgSchema,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type {
@@ -84,3 +85,45 @@ export const settingsReplica = money.table('settings_replica', {
   value: jsonb('value').notNull(),
   changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
 });
+
+/**
+ * A movement you confirmed paid (part of) an item of another area: a bill in
+ * Houses, an expense of the 730. The item is named by its payable key; the
+ * area learns of the link from money.payment_linked@1. A movement with links
+ * cannot be removed until they are undone (Money undoes them first).
+ */
+export const movementLinks = money.table(
+  'movement_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => transactions.id, { onDelete: 'restrict' }),
+    payableKey: text('payable_key').notNull(),
+    module: text('module').notNull(),
+    /** What this movement pays of the item (positive). */
+    amount: euro('amount').notNull(),
+    /** The item's title and page when linked, kept if the item goes. */
+    title: text('title').notNull(),
+    path: text('path'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('movement_links_pair').on(t.transactionId, t.payableKey),
+    index('movement_links_payable_idx').on(t.payableKey),
+  ],
+);
+export type MovementLinkRow = typeof movementLinks.$inferSelect;
+
+/** "Not this one": a pair Money never proposes again. */
+export const matchRejections = money.table(
+  'match_rejections',
+  {
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => transactions.id, { onDelete: 'cascade' }),
+    payableKey: text('payable_key').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('match_rejections_pair').on(t.transactionId, t.payableKey)],
+);

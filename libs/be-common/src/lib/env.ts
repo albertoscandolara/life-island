@@ -40,3 +40,23 @@ export function listEnv(
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+/**
+ * The other services a service reads over HTTP, by area:
+ * `people=http://svc-people:3000,cars=…`. `local` (the ports of npm run dev)
+ * when the variable is unset; trailing slashes are dropped.
+ */
+export function sourcesEnv(
+  name: string,
+  local: Readonly<Record<string, string>>,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  const value = env[name];
+  if (!value?.trim()) return { ...local };
+  const sources: Record<string, string> = {};
+  for (const part of value.split(',')) {
+    const [area, url] = part.split('=').map((s) => s.trim());
+    if (area && url) sources[area] = url.replace(/\/+$/, '');
+  }
+  return sources;
+}

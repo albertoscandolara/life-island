@@ -1,6 +1,8 @@
 import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
+  PAYMENT_EVENTS,
+  paymentEventHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
@@ -8,6 +10,7 @@ import { EventsRuntime } from '@life-island/be-nest';
 import { BillLedger } from './bills/bill-ledger.js';
 import { HomeAttentionController } from './attention.controller.js';
 import { HomeDeadlinesController } from './bills/deadlines.controller.js';
+import { HomePayablesController } from './bills/payables.controller.js';
 import { BillsController } from './bills/bills.controller.js';
 import { BillsService } from './bills/bills.service.js';
 import { SupplyPointsController } from './bills/supply-points.controller.js';
@@ -56,6 +59,7 @@ export class AppModule {
         BillsController,
         HomeAttentionController,
         HomeDeadlinesController,
+        HomePayablesController,
         WorksController,
         DocumentsController,
         HousesController,
@@ -101,6 +105,19 @@ export class AppModule {
                         durableName: 'home-document-events',
                         eventTypes: DOCUMENT_EVENTS,
                         handle: applyDocumentEvent,
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The bank payments you match to bills in Money.
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'home-payments',
+                        eventTypes: PAYMENT_EVENTS,
+                        handle: paymentEventHandler(db.schema, 'home'),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,

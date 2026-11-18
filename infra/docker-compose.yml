@@ -323,6 +323,8 @@ services:
       <<: *service-env
       # The spending review uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # The areas whose bills and expenses Money matches with your movements (GET /payables).
+      PAYABLE_SOURCES: home=http://svc-home:3000
     depends_on: *service-deps
 
   svc-agenda:

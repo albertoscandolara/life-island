@@ -12,6 +12,11 @@ import { HealthController } from './health.controller.js';
 import { RecordsController } from './records.controller.js';
 import { MoneyController } from './money/money.controller.js';
 import { MoneyService } from './money/money.service.js';
+import { MatchingController } from './matching/matching.controller.js';
+import {
+  MatchingService,
+  PAYABLES_READER,
+} from './matching/matching.service.js';
 import { collections, RECORDS } from './money/collections.js';
 
 const logger = new Logger('SettingsEvents');
@@ -29,7 +34,12 @@ export class AppModule {
     return {
       module: AppModule,
       // Money's own routes first: the records' `/:collection` routes match anything.
-      controllers: [HealthController, MoneyController, RecordsController],
+      controllers: [
+        HealthController,
+        MoneyController,
+        MatchingController,
+        RecordsController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
@@ -40,6 +50,11 @@ export class AppModule {
           inject: [SERVICE_DB],
         },
         MoneyService,
+        {
+          provide: PAYABLES_READER,
+          useValue: MatchingService.httpReader(config),
+        },
+        MatchingService,
         ...(options.events === false
           ? []
           : [

@@ -481,6 +481,23 @@ export interface BillDto {
    * bill prints, then what the contract's latest bill printed.
    */
   autoPaid: boolean;
+  /**
+   * The bank payments you matched to it in Money (docs/guides/money-matching.md);
+   * null when none is.
+   */
+  bankPayment: BillPaymentDto | null;
+}
+
+/** What Money says was paid of a bill, from the movements you matched. */
+export interface BillPaymentDto {
+  /** In euros, every matched movement together. */
+  paid: number;
+  /** Whether that covers what was due. */
+  full: boolean;
+  /** The day of the latest matched movement. */
+  lastDate: string;
+  /** The accounts it was paid from. */
+  accounts: string[];
 }
 
 export const listBillsQuerySchema = z.object({

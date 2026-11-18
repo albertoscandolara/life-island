@@ -57,6 +57,13 @@
       "when": 1794829670687,
       "tag": "0007_auto_paid_bills",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794991487784,
+      "tag": "0008_payments",
+      "breakpoints": true
     }
   ]
 }

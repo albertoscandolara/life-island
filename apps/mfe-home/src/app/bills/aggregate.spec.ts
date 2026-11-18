@@ -37,6 +37,7 @@ const bill = (overrides: Partial<BillDto>): BillDto => ({
   contractId: null,
   directDebit: null,
   autoPaid: false,
+  bankPayment: null,
   ...overrides,
 });
 

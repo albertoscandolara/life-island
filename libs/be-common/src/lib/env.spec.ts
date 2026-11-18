@@ -1,4 +1,10 @@
-import { booleanEnv, listEnv, numberEnv, requiredEnv } from './env.js';
+import {
+  booleanEnv,
+  listEnv,
+  numberEnv,
+  requiredEnv,
+  sourcesEnv,
+} from './env.js';
 
 describe('environment helpers', () => {
   const env = {
@@ -28,5 +34,13 @@ describe('environment helpers', () => {
     expect(booleanEnv('OFF', true, env)).toBe(false);
     expect(booleanEnv('MISSING', true, env)).toBe(true);
     expect(listEnv('LIST', env)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('reads the services to call, the local ones when unset', () => {
+    const local = { home: 'http://localhost:3005' };
+    expect(sourcesEnv('S', local, {})).toEqual(local);
+    expect(
+      sourcesEnv('S', local, { S: ' home=http://svc-home:3000/ , bad, =x ' }),
+    ).toEqual({ home: 'http://svc-home:3000' });
   });
 });

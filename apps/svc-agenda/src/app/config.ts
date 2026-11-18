@@ -1,4 +1,4 @@
-import { numberEnv } from '@life-island/be-common';
+import { numberEnv, sourcesEnv } from '@life-island/be-common';
 
 export interface ServiceConfig {
   port: number;
@@ -34,7 +34,7 @@ export function loadConfig(
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['AGENDA_AI_MODEL']?.trim() || DEFAULT_AGENDA_AI_MODEL,
-    sources: parseSources(env['AGENDA_SOURCES']),
+    sources: sourcesEnv('AGENDA_SOURCES', LOCAL_AGENDA_SOURCES, env),
   };
 }
 
@@ -58,16 +58,3 @@ export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {
   taxes: 'http://localhost:3004',
   groceries: 'http://localhost:3003',
 };
-
-/** `people=http://svc-people:3000,cars=…`; the local ports when unset. */
-export function parseSources(
-  value: string | undefined,
-): Record<string, string> {
-  if (!value?.trim()) return { ...LOCAL_AGENDA_SOURCES };
-  const sources: Record<string, string> = {};
-  for (const part of value.split(',')) {
-    const [module, url] = part.split('=').map((s) => s.trim());
-    if (module && url) sources[module] = url.replace(/\/+$/, '');
-  }
-  return sources;
-}
