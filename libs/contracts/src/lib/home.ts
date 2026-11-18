@@ -1,3 +1,4 @@
+import type { BankPaymentDto } from './payables.js';
 import { z } from 'zod';
 
 /*
@@ -489,16 +490,7 @@ export interface BillDto {
 }
 
 /** What Money says was paid of a bill, from the movements you matched. */
-export interface BillPaymentDto {
-  /** In euros, every matched movement together. */
-  paid: number;
-  /** Whether that covers what was due. */
-  full: boolean;
-  /** The day of the latest matched movement. */
-  lastDate: string;
-  /** The accounts it was paid from. */
-  accounts: string[];
-}
+export type BillPaymentDto = BankPaymentDto;
 
 export const listBillsQuerySchema = z.object({
   /** A property id, `unassigned`, or nothing for every property. */

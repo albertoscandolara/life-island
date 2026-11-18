@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   createServiceDb,
+  paymentEventHandler,
   processOnce,
   recordApprovedHandler,
   type ServiceDb,
@@ -10,6 +11,7 @@ import type {
   DeadlineDto,
   DossierExpenseDto,
   EventEnvelope,
+  PayableDto,
   RecordApprovedV1,
   Tax730DocumentCandidateDto,
   TaxYearDossierDto,
@@ -829,6 +831,122 @@ describe.skipIf(!configured)(
         `delete from tax730.documents where upload_id = $1`,
         [id],
       );
+    });
+
+    it('lists its expenses for Money; a matched bank payment makes one traceable, the receipt still asked', async () => {
+      const year = 1900 + Math.floor(Math.random() * 40);
+      const uploadId = randomUUID();
+      await apply(
+        'upload.updated@1',
+        uploaded(uploadId, 'Fattura dentista', {
+          total_amount: 350,
+          issue_date: `${year}-06-01`,
+        }),
+      );
+      await apply(
+        'record.approved@1',
+        {
+          recordId: randomUUID(),
+          uploadId,
+          category: 'tax730',
+          targetKey: 'tax730.expense@1',
+          payload: {
+            taxYear: year,
+            expenseType: 'medical',
+            date: `${year}-06-01`,
+            amount: 350,
+            issuer: 'Studio Dentistico Rossi',
+          },
+          approvedAt: new Date().toISOString(),
+        } satisfies RecordApprovedV1,
+        handle,
+      );
+      try {
+        const payables = await json<PayableDto[]>(
+          await fetch(`${base}/payables?from=${year}-06-05&to=${year}-06-05`),
+        );
+        const [mine] = payables.filter((p) =>
+          p.payees.includes('Studio Dentistico Rossi'),
+        );
+        expect(mine).toMatchObject({
+          module: 'taxes',
+          kind: 'expense',
+          amount: 350,
+          direction: 'out',
+          date: `${year}-06-01`,
+          window: { from: `${year}-05-02`, to: `${year}-08-30` },
+          path: '/taxes/730',
+        });
+        expect(mine.key).toMatch(/^taxes:expense:[0-9a-f-]{36}$/);
+
+        const expenseOf = async () =>
+          (
+            await json<TaxYearDossierDto>(
+              await fetch(`${base}/tax-years/${year}`),
+            )
+          ).expenses[0];
+        expect(await expenseOf()).toMatchObject({
+          bankPayment: null,
+          hasPaymentProof: false,
+        });
+
+        const deliver = (type: string, payload: unknown) =>
+          apply(type, payload, paymentEventHandler('tax730', 'taxes'));
+        const linkId = randomUUID();
+        await deliver('money.payment_linked@1', {
+          linkId,
+          payableKey: mine.key,
+          module: 'taxes',
+          movementId: randomUUID(),
+          date: `${year}-06-05`,
+          amount: 350,
+          accountName: 'Conto corrente',
+          description: 'BONIFICO A FAVORE DI STUDIO DENTISTICO ROSSI',
+          linkedAt: new Date().toISOString(),
+        });
+        // Paid traceably, from the bank; the payment proof is still asked for.
+        expect(await expenseOf()).toMatchObject({
+          traceablePayment: true,
+          hasPaymentProof: false,
+          bankPayment: {
+            paid: 350,
+            full: true,
+            lastDate: `${year}-06-05`,
+            accounts: ['Conto corrente'],
+          },
+        });
+
+        await deliver('money.payment_unlinked@1', {
+          linkId,
+          payableKey: mine.key,
+          module: 'taxes',
+          reason: 'undone',
+          unlinkedAt: new Date().toISOString(),
+        });
+        expect((await expenseOf()).bankPayment).toBeNull();
+      } finally {
+        await svc.pool.query(
+          `delete from tax730.payments where payable_key in
+             (select 'taxes:expense:' || id from tax730.expenses where tax_year = $1)`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.attachments where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.expenses where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.tax_years where tax_year = $1`,
+          [year],
+        );
+        await svc.pool.query(
+          `delete from tax730.documents where upload_id = $1`,
+          [uploadId],
+        );
+      }
     });
   },
 );

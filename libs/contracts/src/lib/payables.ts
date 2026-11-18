@@ -570,7 +570,7 @@ export function linkProblem(
  * area joins by publishing the route and adding itself here; Money reads it
  * from PAYABLE_SOURCES (its env), like the Agenda reads AGENDA_SOURCES.
  */
-export const PAYABLE_MODULES = ['home'] as const;
+export const PAYABLE_MODULES = ['home', 'taxes'] as const;
 export type PayableModule = (typeof PAYABLE_MODULES)[number];
 
 /** The areas Money reads payables from, with their name and emblem. */
@@ -763,3 +763,48 @@ export const paymentUnlinkedV1Schema = z.object({
   unlinkedAt: z.iso.datetime({ offset: true }),
 });
 export type PaymentUnlinkedV1 = z.infer<typeof paymentUnlinkedV1Schema>;
+
+/**
+ * What the matched bank movements paid of an item, as its area shows it
+ * (a bill in Houses, an expense of the 730); null when none is.
+ */
+export interface BankPaymentDto {
+  /** In euros, every matched movement together. */
+  paid: number;
+  /** Whether that covers the item's amount. */
+  full: boolean;
+  /** The day of the latest matched movement. */
+  lastDate: string;
+  /** The accounts it was paid from. */
+  accounts: string[];
+}
+
+/** One row of an area's `payments` table (paymentEventHandler, libs/be-common). */
+export interface PaymentRecord {
+  amount: number;
+  paidOn: string | null;
+  accountName: string | null;
+  unlinkedAt: Date | string | null;
+}
+
+/** What an item's payments add up to, only the links still in place. */
+export function bankPaymentOf(
+  due: number,
+  payments: readonly PaymentRecord[],
+): BankPaymentDto | null {
+  const live = payments.filter((p) => p.unlinkedAt === null && p.paidOn);
+  if (!live.length) return null;
+  const paid =
+    Math.round(live.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
+  return {
+    paid,
+    full: paid + CENT >= due,
+    lastDate: live
+      .map((p) => p.paidOn as string)
+      .sort()
+      .at(-1) as string,
+    accounts: [
+      ...new Set(live.flatMap((p) => (p.accountName ? [p.accountName] : []))),
+    ],
+  };
+}

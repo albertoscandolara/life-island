@@ -61,6 +61,7 @@ function expense(
       },
     ],
     paidTogetherWith: [],
+    bankPayment: null,
     ...overrides,
   };
 }

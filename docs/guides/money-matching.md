@@ -118,10 +118,10 @@ counting it as due.
 
 ## Per area
 
-| Area   | Items                                                                                                              | What a link does                                                                                                |
-| ------ | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Houses | Each counted bill with a due (or issue) date and something to pay; window from 3 days before issue to 45 after due | `bankPayment` on the bill; its Agenda date is done; no "due soon" badge                                         |
-| 730    | (next) deductible expenses                                                                                         | The payment is traceable, from the movement. The receipt is still asked for: the document is the proof you keep |
+| Area   | Items                                                                                                                    | What a link does                                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Houses | Each counted bill with a due (or issue) date and something to pay; window from 3 days before issue to 45 after due       | `bankPayment` on the bill; its Agenda date is done; no "due soon" badge                                                                                                           |
+| 730    | Each counted expense (one paired into another is paid through that one); window from 30 days before its date to 90 after | `bankPayment` on the expense; it is **paid traceably** (also in the deduction estimate), shown as "Paid by bank". The payment proof document is still asked for: the CAF wants it |
 
 ## Tests
 
@@ -132,3 +132,6 @@ counting it as due.
   removing movements and accounts, "not this one".
 - `apps/svc-home/src/app/home.int.spec.ts`: the bill payables, and the events
   applied once and in any order.
+- `apps/svc-tax730/src/app/dossier/dossier.int.spec.ts`: the expense payables,
+  a matched payment making an expense traceable while the receipt is still
+  asked, and its undo.

@@ -19,10 +19,12 @@ import {
   deadlinesQuerySchema,
   exportQuerySchema,
   listTax730DocumentsQuerySchema,
+  payablesQuerySchema,
   setExpensePairingRequestSchema,
   updateExpenseRequestSchema,
   type DeadlineDto,
   type LifeAttentionDto,
+  type PayableDto,
   type DossierExpenseDto,
   type ExpenseDto,
   type Tax730DocumentCandidateDto,
@@ -51,6 +53,12 @@ export class DossierController {
   @Get('attention')
   attention(): Promise<LifeAttentionDto> {
     return this.dossier.attention();
+  }
+
+  /** The expenses, for Money matching: a matched bank payment makes one traceable. */
+  @Get('payables')
+  payables(@Query() query: unknown): Promise<PayableDto[]> {
+    return this.dossier.payables(parseOrThrow(payablesQuerySchema, query));
   }
 
   /** The filing deadline of each year, done once its return is uploaded (read by the Agenda). */

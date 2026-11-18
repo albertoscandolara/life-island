@@ -44,4 +44,5 @@ export const SERVICE_DB = Symbol('ServiceDb');
 /** The areas Money reads payables from, on your machine (npm run dev). */
 export const LOCAL_PAYABLE_SOURCES: Readonly<Record<string, string>> = {
   home: 'http://localhost:3005',
+  taxes: 'http://localhost:3004',
 };

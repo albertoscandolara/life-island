@@ -331,7 +331,8 @@
   gap: var(--space-1);
 }
 
-.bill__why {
+.bill__why,
+.bill__paid {
   grid-column: 2;
   justify-self: start;
 }

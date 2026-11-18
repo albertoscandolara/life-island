@@ -156,6 +156,8 @@ describe.skipIf(!configured)(
       expect(matches.status).toBe(200);
       expect(matches.body.sources).toEqual([
         expect.objectContaining({ module: 'home', ok: true, count: 1 }),
+        // Not given to this test: said so, and the rest still matched.
+        expect.objectContaining({ module: 'taxes', ok: false }),
       ]);
       expect(matches.body.payables.map((p) => p.key)).toEqual([payable().key]);
       const suggestion = matches.body.suggestions.find(
@@ -211,10 +213,19 @@ describe.skipIf(!configured)(
         (
           await json('POST', '/matches/links', {
             movementId: winnerMovement,
-            items: [{ payableKey: `taxes:expense:x-${run}`, amount: 1 }],
+            items: [{ payableKey: `cars:cost:x-${run}`, amount: 1 }],
           })
         ).status,
       ).toBe(400);
+      // An area Money reads but cannot reach now: nothing is linked.
+      expect(
+        (
+          await json('POST', '/matches/links', {
+            movementId: winnerMovement,
+            items: [{ payableKey: `taxes:expense:x-${run}`, amount: 1 }],
+          })
+        ).status,
+      ).toBe(503);
 
       const [event] = await events('money.payment_linked@1');
       expect(event).toMatchObject({

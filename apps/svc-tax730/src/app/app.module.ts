@@ -2,6 +2,8 @@ import { Logger, Module, type DynamicModule } from '@nestjs/common';
 import {
   createServiceDb,
   recordApprovedHandler,
+  PAYMENT_EVENTS,
+  paymentEventHandler,
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
@@ -75,6 +77,19 @@ export class AppModule {
                         durableName: 'tax730-document-events',
                         eventTypes: DOCUMENT_EVENTS,
                         handle: applyDocumentEvent,
+                        onError: (error, subject) =>
+                          logger.error(
+                            `Failed to apply ${subject}: ${String(error)}`,
+                          ),
+                      });
+                      // The bank payments you match to expenses in Money.
+                      await startEventConsumer({
+                        pool: db.pool,
+                        nats,
+                        schema: db.schema,
+                        durableName: 'tax730-payments',
+                        eventTypes: PAYMENT_EVENTS,
+                        handle: paymentEventHandler(db.schema, 'taxes'),
                         onError: (error, subject) =>
                           logger.error(
                             `Failed to apply ${subject}: ${String(error)}`,
