@@ -27,7 +27,9 @@ import { AgendaService } from './agenda.service.js';
 import { RECORDS } from './collections.js';
 
 const needsQuerySchema = z.object({
-  module: z.enum(ATTENTION_SOURCES.map((s) => s.module) as [string, ...string[]]),
+  module: z.enum(
+    ATTENTION_SOURCES.map((s) => s.module) as [string, ...string[]],
+  ),
 });
 
 const upcomingQuerySchema = z.object({

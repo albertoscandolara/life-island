@@ -258,7 +258,7 @@ describe.skipIf(!configured)(
       ).toBe(false);
     });
 
-    it("lists what one area needs from you, for the top of its page", async () => {
+    it('lists what one area needs from you, for the top of its page', async () => {
       const cars = await json<NeedsYouDto>('GET', '/needs?module=cars');
       expect(cars.status).toBe(200);
       expect(cars.body.answered).toBe(true);

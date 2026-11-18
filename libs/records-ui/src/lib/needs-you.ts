@@ -65,35 +65,31 @@ export function needsYouLines(
   };
   const dated = needs.entries
     .filter((e) => !e.handled)
-    .map(
-      (e: AgendaEntryDto): NeedsYouLine => ({
-        key: e.key,
-        title: e.title,
-        meta: [
-          e.detail,
-          e.amount !== null ? euro(e.amount) : null,
-          e.time,
-        ].filter((m): m is string => !!m),
-        daysLeft: e.daysLeft,
-        open: openOf(e.path, 'Open'),
-        doneKey: e.key,
-      }),
-    )
-    .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
-  const waiting = needs.waiting.map(
-    (w: AgendaWaitingDto): NeedsYouLine => ({
-      key: w.key,
-      title: w.title,
+    .map((e: AgendaEntryDto): NeedsYouLine => ({
+      key: e.key,
+      title: e.title,
       meta: [
-        w.detail,
-        w.since ? `waiting since ${dateText(w.since)}` : null,
+        e.detail,
+        e.amount !== null ? euro(e.amount) : null,
+        e.time,
       ].filter((m): m is string => !!m),
-      daysLeft: null,
-      // A waiting thing always has its own button: it is what handles it.
-      open: { label: w.action, ...splitPath(w.path) },
-      doneKey: null,
-    }),
-  );
+      daysLeft: e.daysLeft,
+      open: openOf(e.path, 'Open'),
+      doneKey: e.key,
+    }))
+    .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+  const waiting = needs.waiting.map((w: AgendaWaitingDto): NeedsYouLine => ({
+    key: w.key,
+    title: w.title,
+    meta: [
+      w.detail,
+      w.since ? `waiting since ${dateText(w.since)}` : null,
+    ].filter((m): m is string => !!m),
+    daysLeft: null,
+    // A waiting thing always has its own button: it is what handles it.
+    open: { label: w.action, ...splitPath(w.path) },
+    doneKey: null,
+  }));
   // Late dates first, then what waits, then what is coming.
   return [
     ...dated.filter((l) => (l.daysLeft ?? 0) < 0),
@@ -254,9 +250,7 @@ export class LiNeedsYou implements OnInit {
     const needs = this.needs();
     return needs ? needsYouLines(needs, this.router.url) : [];
   });
-  protected readonly shown = computed(() =>
-    this.lines().slice(0, this.max()),
-  );
+  protected readonly shown = computed(() => this.lines().slice(0, this.max()));
 
   ngOnInit(): void {
     this.load();

@@ -203,7 +203,9 @@ export class AgendaService implements OnApplicationBootstrap {
       today: day,
       entries: openEntries(entries, NEEDS_YOU_DAYS)
         .filter((e) => e.module === module)
-        .sort((a, b) => a.daysLeft - b.daysLeft || a.title.localeCompare(b.title)),
+        .sort(
+          (a, b) => a.daysLeft - b.daysLeft || a.title.localeCompare(b.title),
+        ),
       waiting: waiting.filter((w) => w.module === module),
       answered: sources.some((s) => s.module === module && s.ok),
     };
