@@ -47,7 +47,7 @@ A new cross-module feature gets its own identity the same way: tokens in `semant
 
 ## 3. Modern, clean and 3D-friendly, without losing clarity
 
-The island hub is the only real 3D scene a page depends on (plus a character's avatar and a small hero model, such as the Cars garage, when it shows the entity the page is about). Everything else is 2D that _feels_ physical, so the 3D hub and the pages belong to one world:
+The island hub (its models made in Blender, `tools/island-models`) is the only real 3D scene a page depends on (plus a character's avatar and a small hero model, such as the Cars garage, when it shows the entity the page is about). Everything else is 2D that _feels_ physical, so the 3D hub and the pages belong to one world:
 
 - **Tactile, not glossy.** Light falls from the top-left: every raised surface has a bright top edge (`--edge-light`, already inside `--shadow-card` and `--shadow-tile`) and a soft shadow under it. Stat tiles (`.li-tile`) add a short solid lip, like a key you can press; the lead tile's lip and the ribbon on its top edge take the accent. Cards lift to `--shadow-card-hover` when they open something. Bars over content use `--surface-glass` with a backdrop blur. Three levels at most on one screen: page, card, overlay.
 - **Light from one side.** Gradients run at 135° (`--accent-gradient`), highlights sit top-left. Do not add other directions.

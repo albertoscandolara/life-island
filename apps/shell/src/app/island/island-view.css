@@ -20,11 +20,23 @@
     var(--text-primary)
   );
   --island-leaves: var(--tone-success);
+  --island-shallow: color-mix(
+    in srgb,
+    var(--tone-info) 45%,
+    var(--surface-card)
+  );
+  --island-wall: var(--surface-card);
+  /* Windows: pale glass by day; lit, warm and glowing in the dark theme. */
+  --island-window: color-mix(
+    in srgb,
+    var(--tone-info) 30%,
+    var(--surface-card)
+  );
   --island-planned: var(--border-strong);
 
   position: relative;
   display: block;
-  height: clamp(22rem, 62vh, 40rem);
+  height: clamp(24rem, 66vh, 44rem);
   overflow: hidden;
   border-radius: var(--card-radius);
   touch-action: pan-y;
@@ -175,4 +187,17 @@
   .label--on .label__button {
     padding-right: var(--space-3);
   }
+}
+
+:host-context([data-theme='dark']) {
+  --island-wall: color-mix(
+    in srgb,
+    var(--text-primary) 78%,
+    var(--surface-page)
+  );
+  --island-window: color-mix(
+    in srgb,
+    var(--tone-warning) 70%,
+    var(--text-primary)
+  );
 }

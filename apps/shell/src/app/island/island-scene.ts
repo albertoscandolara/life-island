@@ -20,10 +20,29 @@ import {
   SphereGeometry,
   Vector2,
   Vector3,
+  PCFSoftShadowMap,
   WebGLRenderer,
 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { IslandModule } from '../hub/modules';
 import { islandLayout, type IslandLayout } from './island-layout';
+import { coastline, islandProps, peakScale } from './island-props';
+
+/** The models made in Blender (tools/island-models), served by the shell. */
+export const ISLAND_KIT_URL = 'island/island-kit.glb';
+/** How much larger than modelled the kit's landmarks stand on their plinth. */
+const LANDMARK_SCALE = 1.3;
+/** The kit's materials repainted from the design system's tokens. */
+const PALETTE_SLOTS = [
+  'foam',
+  'sand',
+  'grass',
+  'rock',
+  'trunk',
+  'leaves',
+  'water',
+  'window',
+] as const;
 
 /** The colours the scene is painted with, resolved from the design system's tokens. */
 export interface IslandPalette {
@@ -35,6 +54,14 @@ export interface IslandPalette {
   rock: string;
   trunk: string;
   leaves: string;
+  /** Shallow water round the shore. */
+  shallow: string;
+  /** The kit's walls, sails and clouds: light in both themes. */
+  wall: string;
+  /** Windows: pale glass by day, lit at night. */
+  window: string;
+  /** True in the dark theme: windows glow and the light is softer. */
+  night: boolean;
   planned: string;
   /** Accent of each live zone, by module id. */
   zones: Record<string, string>;
@@ -73,6 +100,13 @@ export class IslandScene {
   private readonly materials = new Map<string, MeshStandardMaterial>();
   private readonly raycaster = new Raycaster();
   private readonly geometries: BufferGeometry[] = [];
+  private readonly kitMaterials = new Set<Material>();
+  private readonly sun = new DirectionalLight(0xffffff, 1.6);
+  private readonly sky = new HemisphereLight(0xffffff, 0x445566, 1.3);
+  private readonly peak = new Group();
+  /** The primitive palms, then the kit's props once it has loaded. */
+  private scenery: Object3D[] = [];
+  private disposed = false;
   private frame = 0;
   private hovered: string | null = null;
   private flight: {
@@ -103,6 +137,8 @@ export class IslandScene {
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.layout = islandLayout(modules.length);
     this.home = CAMERA_HOME.clone().multiplyScalar(this.layout.scale);
     this.camera.far = 100 * this.layout.scale;
@@ -113,6 +149,32 @@ export class IslandScene {
     this.island.rotation.y = Math.PI;
     this.build();
     this.setPalette(palette);
+  }
+
+  /**
+   * Swaps the primitive landmarks for the Blender models once the kit has
+   * loaded. Until then (or if it never loads) the island keeps its
+   * primitives, so it always works.
+   */
+  async loadKit(url = ISLAND_KIT_URL): Promise<boolean> {
+    try {
+      const gltf = await new GLTFLoader().loadAsync(url);
+      if (this.disposed) return false;
+      const models = new Map<string, Object3D>();
+      gltf.scene.traverse((object) => {
+        if (object instanceof Mesh) {
+          const list = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+          list.forEach((material) => this.kitMaterials.add(material));
+        }
+        if (object.parent === gltf.scene) models.set(object.name, object);
+      });
+      this.applyKit(models);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   start(): void {
@@ -134,13 +196,15 @@ export class IslandScene {
   }
 
   setPalette(palette: IslandPalette): void {
+    this.sky.intensity = palette.night ? 0.9 : 1.3;
+    this.sun.intensity = palette.night ? 1.1 : 1.6;
     this.scene.fog = new Fog(
       new Color(palette.fog),
       18 * this.layout.scale,
       42 * this.layout.scale,
     );
-    const set = (name: keyof IslandPalette, value: string) =>
-      this.material(name).color.set(value);
+    const set = (name: string, value: string) =>
+      this.painted(name).forEach((material) => material.color.set(value));
     for (const key of [
       'water',
       'foam',
@@ -149,13 +213,24 @@ export class IslandScene {
       'rock',
       'trunk',
       'leaves',
+      'shallow',
+      'window',
+      'wall',
     ] as const)
       set(key, palette[key]);
+    for (const glass of this.painted('window')) {
+      glass.emissive.set(palette.window);
+      glass.emissiveIntensity = palette.night ? 0.9 : 0.12;
+    }
+    const shallow = this.material('shallow');
+    shallow.transparent = true;
+    shallow.opacity = 0.7;
     for (const zone of this.zones) {
       const color = palette.zones[zone.module.id] ?? palette.planned;
-      const material = this.material(`zone:${zone.module.id}`);
-      material.color.set(color);
-      material.emissive.set(color);
+      for (const material of this.painted(`zone:${zone.module.id}`)) {
+        material.color.set(color);
+        material.emissive.set(color);
+      }
     }
   }
 
@@ -212,7 +287,9 @@ export class IslandScene {
   }
 
   dispose(): void {
+    this.disposed = true;
     cancelAnimationFrame(this.frame);
+    this.kitMaterials.forEach((material) => material.dispose());
     this.geometries.forEach((geometry) => geometry.dispose());
     this.materials.forEach((material) => material.dispose());
     this.renderer.dispose();
@@ -245,8 +322,8 @@ export class IslandScene {
       const scale = 1 + zone.hover * 0.12;
       zone.group.scale.setScalar(scale);
       zone.group.position.y = TOP + zone.hover * 0.25;
-      this.material(`zone:${zone.module.id}`).emissiveIntensity =
-        0.08 + zone.hover * 0.35;
+      for (const material of this.painted(`zone:${zone.module.id}`))
+        material.emissiveIntensity = 0.08 + zone.hover * 0.35;
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -269,16 +346,34 @@ export class IslandScene {
     });
   }
 
-  private material(name: string): MeshStandardMaterial {
+  /**
+   * The scene's material called `name`. The primitives are flat-shaded; the
+   * kit's models (`smooth:<slot>`) keep the normals they were modelled with.
+   * Both are painted from the same palette slot.
+   */
+  private material(name: string, smooth = false): MeshStandardMaterial {
     let material = this.materials.get(name);
     if (!material) {
       material = new MeshStandardMaterial({
-        flatShading: true,
+        flatShading: !smooth,
         roughness: 0.85,
       });
+      const twin = this.materials.get(
+        smooth ? name.replace(/^smooth:/, '') : `smooth:${name}`,
+      );
+      if (twin) {
+        material.color.copy(twin.color);
+        material.emissive.copy(twin.emissive);
+        material.emissiveIntensity = twin.emissiveIntensity;
+      }
       this.materials.set(name, material);
     }
     return material;
+  }
+
+  /** Both shadings of a palette slot or zone tint. */
+  private painted(name: string): MeshStandardMaterial[] {
+    return [this.material(name), this.material(`smooth:${name}`, true)];
   }
 
   private mesh(geometry: BufferGeometry, material: Material | string): Mesh {
@@ -290,19 +385,40 @@ export class IslandScene {
   }
 
   private build(): void {
-    this.scene.add(new HemisphereLight(0xffffff, 0x445566, 1.3));
+    this.scene.add(this.sky);
     this.scene.add(new AmbientLight(0xffffff, 0.25));
-    const sun = new DirectionalLight(0xffffff, 1.6);
-    sun.position.set(6, 12, 8);
-    this.scene.add(sun);
+    const radius = this.layout.islandRadius;
+    this.sun.position.set(6, 12, 8).multiplyScalar(this.layout.scale);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0.02;
+    const reach = radius * 1.25;
+    Object.assign(this.sun.shadow.camera, {
+      left: -reach,
+      right: reach,
+      top: reach,
+      bottom: -reach,
+      near: 1,
+      far: 40 * this.layout.scale,
+    });
+    this.scene.add(this.sun);
 
     const water = this.mesh(new CylinderGeometry(40, 40, 0.2, 48), 'water');
     water.position.y = -0.35;
+    water.receiveShadow = true;
     this.scene.add(water);
-    const radius = this.layout.islandRadius;
-    const sides = Math.max(14, Math.round(radius * 2.6));
+    const sides = Math.max(48, Math.round(radius * 10));
+    // Shallow water and foam follow the coast's bays and headlands.
+    const shallow = this.mesh(
+      wobble(new RingGeometry(radius, radius + 2.4, sides * 2, 1), 'xy'),
+      'shallow',
+    );
+    shallow.rotation.x = -Math.PI / 2;
+    shallow.position.y = -0.24;
+    this.island.add(shallow);
     const foam = this.mesh(
-      new RingGeometry(radius + 0.2, radius + 0.9, sides * 2),
+      wobble(new RingGeometry(radius + 0.2, radius + 0.75, sides * 2), 'xy'),
       'foam',
     );
     foam.rotation.x = -Math.PI / 2;
@@ -310,24 +426,30 @@ export class IslandScene {
     this.island.add(foam);
 
     const shore = this.mesh(
-      new CylinderGeometry(radius, radius + 0.5, 0.6, sides),
+      wobble(new CylinderGeometry(radius, radius + 0.5, 0.6, sides), 'xz'),
       'sand',
     );
     shore.position.y = -0.05;
+    shore.receiveShadow = true;
     this.island.add(shore);
     const plateau = this.mesh(
-      new CylinderGeometry(radius - 0.6, radius - 0.2, 0.35, sides),
+      wobble(
+        new CylinderGeometry(radius - 0.6, radius - 0.2, 0.35, sides),
+        'xz',
+      ),
       'grass',
     );
     plateau.position.y = 0.35;
+    plateau.receiveShadow = true;
     this.island.add(plateau);
 
-    const peak = this.mesh(new ConeGeometry(1.3, 2.2, 7), 'rock');
-    peak.position.y = 1.55;
-    this.island.add(peak);
+    // The peak: primitives until the kit's mountain arrives.
+    const rock = this.mesh(new ConeGeometry(1.3, 2.2, 7), 'rock');
+    rock.position.y = 1.55;
     const cap = this.mesh(new ConeGeometry(0.55, 0.7, 7), 'foam');
     cap.position.y = 2.4;
-    this.island.add(cap);
+    this.peak.add(rock, cap);
+    this.island.add(this.peak);
 
     // Palms on the shore, in the gaps between zones (at most eight).
     const angles = this.layout.angles;
@@ -336,6 +458,78 @@ export class IslandScene {
     for (let i = 0; i < gaps; i += every)
       this.palm((angles[i] ?? i * 60) - 180 / gaps, radius - 0.3);
     this.modules.forEach((module, i) => this.zone(module, angles[i] ?? 0));
+  }
+
+  /** Puts the kit's models in place of the primitives (see loadKit). */
+  private applyKit(models: Map<string, Object3D>): void {
+    const peak = models.get('peak');
+    if (peak) {
+      this.peak.clear();
+      const mountain = this.place(peak);
+      mountain.scale.setScalar(peakScale(this.layout));
+      // Its waterfall faces the first zone, the one that faces you first.
+      mountain.rotation.y = Math.PI;
+      this.peak.position.y = 0.5;
+      this.peak.add(mountain);
+    }
+    if (models.has('prop-palm')) {
+      this.scenery.forEach((object) => object.removeFromParent());
+      this.scenery = [];
+      for (const prop of islandProps(this.layout)) {
+        const model = models.get(`prop-${prop.kind}`);
+        if (!model) continue;
+        const object = this.place(model);
+        object.position.set(prop.x, prop.y, prop.z);
+        object.rotation.y = prop.turn;
+        object.scale.setScalar(prop.scale);
+        // A cloud's shadow would only smudge the sea.
+        if (prop.kind === 'cloud')
+          object.traverse((part) => (part.castShadow = false));
+        (prop.on === 'island' ? this.island : this.scene).add(object);
+        this.scenery.push(object);
+      }
+    }
+    const plinth = models.get('plinth');
+    for (const zone of this.zones) {
+      const landmark = models.get(`landmark-${zone.module.landmark}`);
+      if (!landmark || !plinth) continue;
+      zone.group.clear();
+      // Both are modelled round the zone group's origin, the plinth's middle.
+      // The landmark is a little larger than its plinth's grass, so it reads
+      // from the camera's distance; it still stays inside the plinth.
+      const model = this.place(landmark, zone.module.id);
+      model.scale.setScalar(LANDMARK_SCALE);
+      model.position.y = 0.17 * (1 - LANDMARK_SCALE);
+      zone.group.add(this.place(plinth, zone.module.id), model);
+    }
+  }
+
+  /**
+   * A copy of a kit model whose palette materials are the scene's own, so
+   * they follow the theme, and whose `tint` is the zone's accent.
+   */
+  private place(model: Object3D, zone?: string): Object3D {
+    const copy = model.clone(true);
+    copy.traverse((object) => {
+      if (!(object instanceof Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      const swap = (material: Material) => {
+        const name = material.name;
+        if (name === 'tint')
+          return this.material(`smooth:zone:${zone ?? 'none'}`, true);
+        // Walls, sails and clouds stay light in both themes (`wall`); the
+        // primitives' `foam` turns dark with the night.
+        if (name === 'foam') return this.material('smooth:wall', true);
+        if ((PALETTE_SLOTS as readonly string[]).includes(name))
+          return this.material(`smooth:${name}`, true);
+        return material;
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(swap)
+        : swap(object.material);
+    });
+    return copy;
   }
 
   private palm(angle: number, radius: number): void {
@@ -350,6 +544,7 @@ export class IslandScene {
     const rad = (angle * Math.PI) / 180;
     palm.position.set(Math.cos(rad) * radius, 0.2, -Math.sin(rad) * radius);
     this.island.add(palm);
+    this.scenery.push(palm);
   }
 
   private zone(module: IslandModule, angle: number): void {
@@ -607,4 +802,26 @@ export class IslandScene {
     this.island.add(group);
     this.zones.push({ module, group, hover: 0 });
   }
+}
+
+/**
+ * Bends a round geometry's outline to the coast (island-props.ts `coastline`):
+ * every vertex moves out or in along its own direction from the middle.
+ * `plane` is where the circle lies before any rotation: 'xz' for a cylinder,
+ * 'xy' for a ring that is laid flat afterwards.
+ */
+function wobble<T extends BufferGeometry>(geometry: T, plane: 'xz' | 'xy'): T {
+  const position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const other = plane === 'xz' ? -position.getZ(i) : position.getY(i);
+    if (Math.hypot(x, other) < 1e-6) continue;
+    const factor = coastline(Math.atan2(other, x));
+    position.setX(i, x * factor);
+    if (plane === 'xz') position.setZ(i, position.getZ(i) * factor);
+    else position.setY(i, position.getY(i) * factor);
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
 }

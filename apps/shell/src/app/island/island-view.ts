@@ -13,7 +13,11 @@ import {
 } from '@angular/core';
 import type { IslandModule } from '../hub/modules';
 import { visibleLabels } from './island-layout';
-import { IslandScene, type IslandPalette } from './island-scene';
+import {
+  ISLAND_KIT_URL,
+  IslandScene,
+  type IslandPalette,
+} from './island-scene';
 
 /**
  * The 3D island hub: one zone per area of life. Hover a zone (or its label)
@@ -102,6 +106,9 @@ export class IslandView {
         attributeFilter: ['data-theme'],
       });
       scene.start();
+      // The Blender models arrive after the first frame; until then (or if
+      // they never load) the island stands in primitives.
+      void scene.loadKit(new URL(ISLAND_KIT_URL, document.baseURI).href);
       destroyRef.onDestroy(() => {
         resize.disconnect();
         theme.disconnect();
@@ -182,6 +189,10 @@ export class IslandView {
       rock: token('rock'),
       trunk: token('trunk'),
       leaves: token('leaves'),
+      shallow: token('shallow'),
+      window: token('window'),
+      wall: token('wall'),
+      night: luminance(token('fog')) < 0.35,
       planned: token('planned'),
       zones: {},
     };
@@ -212,4 +223,12 @@ export function toHex(css: string): string {
       )
       .join('')
   );
+}
+
+/** Relative luminance (0–1) of a `#rrggbb` colour: tells the dark theme apart. */
+export function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map(
+    (i) => parseInt(hex.slice(i, i + 2), 16) / 255,
+  );
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
