@@ -13,9 +13,11 @@ import {
   isoAddDays,
   isoToday,
   type AgendaBriefDto,
+  type AgendaEntryDto,
   type AgendaItemDto,
   type AgendaOverviewDto,
   type AgendaUpcomingDto,
+  type AgendaWaitingDto,
   type HandledRequest,
   type LifeAttentionDto,
   type LifeQuestionRequest,
@@ -41,8 +43,13 @@ import {
 /** The AI tool of the Agenda (AI_TOOLS in libs/contracts settings.ts). */
 export const BRIEF_TOOL = 'agenda.week-brief';
 
+/** The island's time zone (SETTINGS_TIMEZONE, Europe/Rome by default). */
+export function timeZone(): string {
+  return process.env['SETTINGS_TIMEZONE'] || 'Europe/Rome';
+}
+
 export function today(): string {
-  return isoToday(process.env['SETTINGS_TIMEZONE'] || 'Europe/Rome');
+  return isoToday(timeZone());
 }
 
 const NAMES: Record<string, string> = Object.fromEntries([
@@ -143,6 +150,17 @@ export class AgendaService implements OnApplicationBootstrap {
       isoAddDays(day, days),
     );
     return { today: day, entries: openEntries(entries, days).slice(0, 12) };
+  }
+
+  /** The dates of the next month and what waits with no date, for the email digest. */
+  async openDates(
+    day = today(),
+  ): Promise<{ entries: AgendaEntryDto[]; waiting: AgendaWaitingDto[] }> {
+    const [{ entries }, waiting] = await Promise.all([
+      this.timeline(day, isoAddDays(day, -60), isoAddDays(day, 31)),
+      readWaiting(this.config.sources),
+    ]);
+    return { entries, waiting };
   }
 
   async attention(day = today()): Promise<LifeAttentionDto> {

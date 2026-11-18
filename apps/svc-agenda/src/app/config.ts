@@ -9,6 +9,16 @@ export interface ServiceConfig {
   aiModel: string;
   /** Where each area answers GET /deadlines: `people=http://localhost:3006,…`. */
   sources: Record<string, string>;
+  /**
+   * Where the email digest is sent through: `smtp://host:1025` (the local
+   * mail catcher), `smtps://user:password@smtp.example.com:465`. Null: no
+   * email is sent, and the Agenda says so.
+   */
+  smtpUrl: string | null;
+  /** The sender of the digest: `Life Island <island@example.com>`. */
+  mailFrom: string;
+  /** The island's address, for the links in an email (the gateway). */
+  appUrl: string;
 }
 
 /**
@@ -19,6 +29,8 @@ export interface ServiceConfig {
 export const LOCAL_AGENDA_PORT = 3011;
 export const LOCAL_AGENDA_DATABASE_URL =
   'postgres://agenda_svc:dev_agenda@localhost:5432/life_island';
+export const DEFAULT_MAIL_FROM = 'Life Island <island@localhost>';
+export const DEFAULT_APP_URL = 'http://localhost:8080';
 export const DEFAULT_AGENDA_AI_MODEL = 'claude-haiku-5-5';
 
 export function loadConfig(
@@ -35,11 +47,15 @@ export function loadConfig(
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['AGENDA_AI_MODEL']?.trim() || DEFAULT_AGENDA_AI_MODEL,
     sources: sourcesEnv('AGENDA_SOURCES', LOCAL_AGENDA_SOURCES, env),
+    smtpUrl: env['SMTP_URL']?.trim() || null,
+    mailFrom: env['MAIL_FROM']?.trim() || DEFAULT_MAIL_FROM,
+    appUrl: (env['APP_URL']?.trim() || DEFAULT_APP_URL).replace(/\/+$/, ''),
   };
 }
 
 export const CONFIG = Symbol('ServiceConfig');
 export const SERVICE_DB = Symbol('ServiceDb');
+export const MAILER = Symbol('Mailer');
 
 /** The areas svc-agenda reads, on your machine (npm run dev). */
 export const LOCAL_AGENDA_SOURCES: Readonly<Record<string, string>> = {

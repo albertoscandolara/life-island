@@ -4,7 +4,7 @@ import { createServiceDb, migrateServiceSchema } from '@life-island/be-common';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { AppModule } from './app.module.js';
+import { AppModule, type AppOptions } from './app.module.js';
 import { LOCAL_AGENDA_DATABASE_URL, type ServiceConfig } from './config.js';
 import { applyHttpSecurity } from '@life-island/be-nest';
 
@@ -79,7 +79,7 @@ export async function ensureLocalSchema(
 
 export async function createApp(
   config: ServiceConfig,
-  options: { events?: boolean } = {},
+  options: AppOptions = {},
 ): Promise<INestApplication> {
   try {
     await runMigrations(config.databaseUrl);

@@ -332,6 +332,29 @@ describe.skipIf(!configured)(
       await send('PATCH', `/people/${personId}`, { residenceAddress: null });
     });
 
+    it('keeps an email typed for a person, and refuses one that is not an address', async () => {
+      expect(
+        (
+          await send('PATCH', `/people/${personId}`, {
+            email: '  Mario.Rossi@Example.com ',
+          })
+        ).status,
+      ).toBe(204);
+      expect((await person(personId)).email).toBe('mario.rossi@example.com');
+      const summaries = await json<PersonSummaryDto[]>(
+        await send('GET', '/people'),
+      );
+      expect(summaries.find((p) => p.id === personId)?.email).toBe(
+        'mario.rossi@example.com',
+      );
+      expect(
+        (await send('PATCH', `/people/${personId}`, { email: 'not an email' }))
+          .status,
+      ).toBe(400);
+      await send('PATCH', `/people/${personId}`, { email: '' });
+      expect((await person(personId)).email).toBeNull();
+    });
+
     it('says when the Home area cannot list its houses', async () => {
       const houses = await json<{ available: boolean; houses: unknown[] }>(
         await send('GET', '/houses'),

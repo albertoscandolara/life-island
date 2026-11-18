@@ -27,6 +27,7 @@ export * from './lib/studies.js';
 export * from './lib/life-dates.js';
 export * from './lib/life-schemas.js';
 export * from './lib/agenda.js';
+export * from './lib/digest.js';
 export * from './lib/money.js';
 export * from './lib/goals.js';
 export * from './lib/health.js';

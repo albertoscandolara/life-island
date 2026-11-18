@@ -4,7 +4,12 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ActivatedRoute,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { AI_TOOLS, APP_SETTINGS } from '@life-island/contracts';
 import {
   UiIcon,
@@ -75,6 +80,12 @@ import {
 })
 export class SettingsPage {
   protected readonly search = inject(SettingsSearch);
+
+  constructor() {
+    // `?q=email digest` opens Settings on those settings (a link from another page).
+    const q = inject(ActivatedRoute).snapshot.queryParamMap.get('q');
+    if (q) this.search.query.set(q);
+  }
 
   protected readonly tabs = computed(() => {
     const words = searchWords(this.search.query());

@@ -8,6 +8,18 @@ import {
   studyReminderSettingKey,
 } from './studies.js';
 import { AGENDA_CALENDAR_SETTING } from './agenda.js';
+import {
+  DIGEST_DEFAULTS,
+  DIGEST_FREQUENCIES,
+  DIGEST_FREQUENCY_LABELS,
+  DIGEST_FREQUENCY_SETTING,
+  DIGEST_MONTH_DAY_SETTING,
+  DIGEST_NOBODY,
+  DIGEST_RECIPIENT_SETTING,
+  DIGEST_TIME_SETTING,
+  DIGEST_WEEKDAY_SETTING,
+  DIGEST_WEEKDAYS,
+} from './digest.js';
 import { LEARNING_PATHS } from './studies-paths.js';
 import {
   STUDY_SCOUT_CADENCE_SETTING,
@@ -921,8 +933,9 @@ export interface AppSettingDefinition {
   /**
    * `number`: a whole number between min and max, in `unit`. `time`: `HH:MM`.
    * `modules`: island areas, comma-separated (the ones you hide).
+   * `person`: a person of People, by id (`none` while nobody is picked).
    */
-  type: 'boolean' | 'choice' | 'number' | 'time' | 'modules';
+  type: 'boolean' | 'choice' | 'number' | 'time' | 'modules' | 'person';
   options?: readonly AppSettingOption[];
   min?: number;
   max?: number;
@@ -1302,6 +1315,67 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     usedBy: ['svc-agenda'],
   },
   {
+    key: DIGEST_FREQUENCY_SETTING,
+    group: 'Email digest',
+    label: 'How often',
+    description:
+      'An email with what is overdue, what is coming and what waits for you in every area. Daily looks 3 days ahead, weekly 7, monthly a month. Nothing to say, nothing is sent.',
+    type: 'choice',
+    options: DIGEST_FREQUENCIES.map((value) => ({
+      value,
+      label: DIGEST_FREQUENCY_LABELS[value],
+    })),
+    default: DIGEST_DEFAULTS.frequency,
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
+    key: DIGEST_RECIPIENT_SETTING,
+    group: 'Email digest',
+    label: 'Send it to',
+    description:
+      'A person of People: the digest goes to the email on their page. Add or change it there with Edit.',
+    type: 'person',
+    default: DIGEST_NOBODY,
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
+    key: DIGEST_TIME_SETTING,
+    group: 'Email digest',
+    label: 'At',
+    description: 'The time it is sent, on the island’s clock.',
+    type: 'time',
+    default: DIGEST_DEFAULTS.time,
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
+    key: DIGEST_WEEKDAY_SETTING,
+    group: 'Email digest',
+    label: 'Weekly: on',
+    description: 'The day a weekly digest is sent.',
+    type: 'choice',
+    options: DIGEST_WEEKDAYS,
+    default: String(DIGEST_DEFAULTS.weekday),
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
+    key: DIGEST_MONTH_DAY_SETTING,
+    group: 'Email digest',
+    label: 'Monthly: on day',
+    description:
+      'The day of the month a monthly digest is sent (up to the 28th, so every month has it).',
+    type: 'number',
+    min: 1,
+    max: 28,
+    unit: 'of the month',
+    default: DIGEST_DEFAULTS.monthDay,
+    scope: 'server',
+    usedBy: ['svc-agenda'],
+  },
+  {
     ...reminder(
       SUBSCRIPTIONS_WARN_DAYS_SETTING,
       'Contract cancel-by date',
@@ -1585,6 +1659,14 @@ export function invalidSettingValue(
         : `${key} takes a time of day, HH:MM`;
     case 'modules':
       return typeof value === 'string' ? null : `${key} takes area ids`;
+    case 'person':
+      return typeof value === 'string' &&
+        (value === DIGEST_NOBODY ||
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            value,
+          ))
+        ? null
+        : `${key} takes a person's id, or ${DIGEST_NOBODY}`;
     default:
       return setting.options?.some((option) => option.value === value)
         ? null

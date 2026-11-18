@@ -259,7 +259,14 @@
           <span>{{ fieldLabels[field] }}</span>
           <input
             class="ui-input compact"
-            [type]="field === 'birthDate' ? 'date' : 'text'"
+            [type]="
+              field === 'birthDate'
+                ? 'date'
+                : field === 'email'
+                  ? 'email'
+                  : 'text'
+            "
+            [attr.autocomplete]="field === 'email' ? 'email' : null"
             [value]="values[field]"
             (input)="setValue(field, $any($event.target).value)"
           />
@@ -313,6 +320,13 @@
             } @if (person.age !== null && person.age < 18) {
             <ui-badge tone="info">Minor</ui-badge>
             }
+          </dd>
+          } @else if (field === 'email') {
+          <dd [class.li-muted]="!person.email">
+            @if (person.email) {
+            <a [href]="'mailto:' + person.email">{{ person.email }}</a>
+            } @else { Not set: add it with Edit to send this person the Agenda
+            digest }
           </dd>
           } @else {
           <dd [class.li-muted]="!person[field]">

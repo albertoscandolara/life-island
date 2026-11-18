@@ -1,4 +1,5 @@
 import {
+  displayName,
   ID_DOCUMENT_TYPE_LABELS,
   ID_DOCUMENT_TYPES,
   type ExpiryAlertDto,
@@ -11,16 +12,7 @@ export function typeLabel(type: IdDocumentType | null): string {
   return type ? ID_DOCUMENT_TYPE_LABELS[type] : 'ID document';
 }
 
-/** Documents print names in capitals: "ALBERTO" reads as "Alberto". */
-export function displayName(name: string): string {
-  if (name !== name.toUpperCase()) return name;
-  return name
-    .toLowerCase()
-    .replace(
-      /(^|[\s'-])(\p{L})/gu,
-      (_, sep: string, letter: string) => sep + letter.toUpperCase(),
-    );
-}
+export { displayName };
 
 export function personName(person: {
   firstName: string | null;

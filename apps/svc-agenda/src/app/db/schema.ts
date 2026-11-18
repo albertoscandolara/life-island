@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  integer,
   jsonb,
   pgSchema,
   text,
@@ -8,6 +9,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type {
+  DigestSendStatus,
   AgendaBriefOutput,
   AgendaCategory,
   AgendaRepeat,
@@ -66,3 +68,21 @@ export const settingsReplica = agenda.table('settings_replica', {
   value: jsonb('value').notNull(),
   changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
 });
+
+/**
+ * One row per digest period (`daily:2026-11-18`, `weekly:…`, `monthly:…`,
+ * `test:<time>`): claiming the period is inserting its row, so it goes once
+ * even with two instances running, and a failed one is retried a few times.
+ */
+export const digestSends = agenda.table('digest_sends', {
+  period: text('period').primaryKey(),
+  recipient: text('recipient'),
+  status: text('status').$type<DigestSendStatus>().notNull(),
+  attempts: integer('attempts').notNull().default(1),
+  error: text('error'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export type DigestSendRow = typeof digestSends.$inferSelect;

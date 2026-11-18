@@ -90,6 +90,38 @@
           </label>
           }
         </fieldset>
+        } @case ('person') {
+        <span class="person">
+          <select
+            class="ui-input choice-select"
+            [disabled]="locked(setting)"
+            [attr.aria-labelledby]="'label-' + setting.key"
+            (change)="choose(setting, $any($event.target).value)"
+          >
+            <option value="none" [selected]="value(setting) === 'none'">
+              Nobody
+            </option>
+            @for (person of people(); track person.id) {
+            <option
+              [value]="person.id"
+              [selected]="value(setting) === person.id"
+            >
+              {{ person.name }}
+            </option>
+            } @if (missingPerson(setting)) {
+            <option [value]="value(setting)" selected>
+              Someone no longer in People
+            </option>
+            }
+          </select>
+          @if (value(setting) !== 'none' && !missingPerson(setting)) {
+          <span class="muted small"
+            >Their email is on
+            <li-entity-link kind="person" [entityId]="$any(value(setting))" />’s
+            page in People.</span
+          >
+          }
+        </span>
         } @default { @if ((setting.options?.length ?? 0) > 4) {
         <select
           class="ui-input choice-select"

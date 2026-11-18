@@ -38,10 +38,11 @@ import {
 import { AiTool } from '@life-island/settings-ui';
 import { AgendaApi } from '../api/agenda-api';
 import { areaOf } from './areas';
+import { DigestCard } from './digest-card';
 import { EntryList } from './entry-list';
 import { WaitingList } from './waiting-list';
 
-type AgendaTab = 'now' | 'ahead' | 'items' | 'brief';
+type AgendaTab = 'now' | 'ahead' | 'items' | 'brief' | 'email';
 const SERVICE = 'svc-agenda';
 
 const ITEM_FIELDS: readonly LiField[] = [
@@ -82,6 +83,7 @@ const ITEM_FIELDS: readonly LiField[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AiTool,
+    DigestCard,
     EntryList,
     WaitingList,
     LiRecordDialog,
@@ -210,6 +212,7 @@ export class AgendaPage {
     { id: 'ahead', label: 'Year ahead', icon: 'calendar' },
     { id: 'items', label: 'My items', icon: 'edit' },
     { id: 'brief', label: 'Week brief', icon: 'sparkles' },
+    { id: 'email', label: 'Email', icon: 'mail' },
   ]);
 
   protected readonly brief = computed<AgendaBriefDto | null>(() => {
@@ -223,7 +226,12 @@ export class AgendaPage {
 
   private initialTab(): AgendaTab {
     const tab = this.route.snapshot.queryParamMap.get('tab');
-    return tab === 'ahead' || tab === 'items' || tab === 'brief' ? tab : 'now';
+    return tab === 'ahead' ||
+      tab === 'items' ||
+      tab === 'brief' ||
+      tab === 'email'
+      ? tab
+      : 'now';
   }
 
   protected setTab(tab: string): void {
