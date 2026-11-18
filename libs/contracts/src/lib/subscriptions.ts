@@ -156,7 +156,28 @@ export type SubscriptionDto = LifeRecord<{
   cancelBy: string | null;
   daysToCancelBy: number | null;
   priceChanges: PriceChangeDto[];
+  /** The latest charge matched to a bank movement in Money; null when none is. */
+  lastCharge: SubscriptionChargeDto | null;
 };
+
+/**
+ * A charge of a contract paid by bank movements you matched in Money
+ * (docs/guides/money-matching.md): what it was expected to cost on that day,
+ * and what was really charged.
+ */
+export interface SubscriptionChargeDto {
+  /** The day the charge was due (one billing cycle after another). */
+  date: string;
+  /** In euros, the matched movements together. */
+  paid: number;
+  /** The contract's cost on that day. */
+  expected: number;
+  /** The day of the latest matched movement. */
+  paidOn: string;
+  accounts: string[];
+  /** How much more than expected it cost, when it did; null otherwise. */
+  priceRise: number | null;
+}
 
 export const renewalAdvisorOutputSchema = z.object({
   summary: z

@@ -13,6 +13,7 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
   USAGE_LABELS,
   type RenewalAdviceDto,
+  type SubscriptionChargeDto,
   type SubscriptionDto,
   type SubscriptionsOverviewDto,
 } from '@life-island/contracts';
@@ -307,6 +308,21 @@ export class SubscriptionsPage {
       autoRenew: true,
       autoPay: true,
       noticeDays: 0,
+    });
+  }
+
+  /** The last charge, when the bank charged more than the cost still says. */
+  protected risen(i: SubscriptionDto): SubscriptionChargeDto | null {
+    const c = i.lastCharge;
+    return c?.priceRise && c.paid > i.cost + 0.005 ? c : null;
+  }
+
+  /** Takes the price the bank charged as the new cost (kept as a price change). */
+  protected updateCost(i: SubscriptionDto, cost: number): void {
+    this.api.update('items', i.id, { cost }).subscribe({
+      next: () => this.load(),
+      error: (error: unknown) =>
+        this.error.set(errorText(error, 'Could not save it.', SERVICE)),
     });
   }
 

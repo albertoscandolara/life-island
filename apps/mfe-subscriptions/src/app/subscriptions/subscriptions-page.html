@@ -122,10 +122,38 @@
         <dt>Locked until</dt>
         <dd>{{ dateText(i.lockedUntil) }}</dd>
       </div>
+      } @if (i.lastCharge; as c) {
+      <div
+        [title]="'Matched in Money with a movement of ' + (c.accounts.join(', ') || 'your bank')"
+      >
+        <dt>Last charge</dt>
+        <dd>
+          <span [class.li-bad]="c.priceRise"
+            >{{ euro(c.paid) }}{{ c.priceRise ? ' ▲' : '' }}</span
+          >
+          on {{ dateText(c.paidOn) }}
+        </dd>
+      </div>
       }
     </dl>
+    @if (risen(i); as c) {
+    <p class="li-small li-warn rise">
+      The bank charged {{ euro(c.paid) }}, {{ euro(c.priceRise!) }} more than
+      the {{ euro(c.expected) }} of the contract.
+    </p>
+    }
     <div class="li-actions">
-      @if (i.cancelUrl) {
+      @if (risen(i); as c) {
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="updateCost(i, c.paid)"
+      >
+        Update the cost to {{ euro(c.paid) }}
+      </button>
+      } @if (i.cancelUrl) {
       <a
         uiButton
         variant="ghost"

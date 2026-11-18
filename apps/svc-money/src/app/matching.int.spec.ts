@@ -157,6 +157,7 @@ describe.skipIf(!configured)(
       expect(matches.body.sources).toEqual([
         expect.objectContaining({ module: 'home', ok: true, count: 1 }),
         // Not given to this test: said so, and the rest still matched.
+        expect.objectContaining({ module: 'subscriptions', ok: false }),
         expect.objectContaining({ module: 'taxes', ok: false }),
       ]);
       expect(matches.body.payables.map((p) => p.key)).toEqual([payable().key]);

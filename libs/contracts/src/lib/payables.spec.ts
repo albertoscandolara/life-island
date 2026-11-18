@@ -198,7 +198,23 @@ describe('suggestMatches', () => {
     );
     expect(s.confidence).toBe('check');
     expect(s.reasons[0]).toMatch(/\+1,00 € against the expected amount/);
-    expect(s.amounts).toEqual([12.99]);
+    // Linked whole, so Subscriptions sees what was really charged.
+    expect(s.amounts).toEqual([13.99]);
+    expect(
+      linkProblem(
+        [
+          {
+            movementId: s.movementId,
+            payableKey: s.payableKeys[0],
+            amount: 13.99,
+          },
+        ],
+        new Map([
+          [s.movementId, { id: s.movementId, amount: -13.99 } as never],
+        ]),
+        new Map([[s.payableKeys[0], { amount: 12.99, tolerance: 0.1 }]]),
+      ),
+    ).toBeNull();
   });
 
   it('proposes one transfer that paid two invoices of one payee', () => {

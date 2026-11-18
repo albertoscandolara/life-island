@@ -53,15 +53,22 @@ export function candidates(
     );
 }
 
-/** What a hand-picked link is for: as much as both sides have left. */
+/**
+ * What a hand-picked link is for: as much as both sides have left. A charge a
+ * little over the item's price, within its tolerance (a subscription's price
+ * rise), is linked whole, as the matcher does.
+ */
 export function pickAmount(
   payable: MatchPayableDto,
   movement: MatchMovementDto,
 ): number {
-  return Math.min(
-    leftOf(payable.amount, payable.linked),
-    leftOf(movement.amount, movement.linked),
+  const due = leftOf(payable.amount, payable.linked);
+  const left = leftOf(movement.amount, movement.linked);
+  const allowed = leftOf(
+    payable.amount * (1 + (payable.tolerance ?? 0)),
+    payable.linked,
   );
+  return left > due && left <= allowed ? left : Math.min(due, left);
 }
 
 export const CONFIDENCE: Record<

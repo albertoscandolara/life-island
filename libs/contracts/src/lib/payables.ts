@@ -442,7 +442,9 @@ export function suggestMatches(
       suggestions.push({
         movementId: movement.id,
         payableKeys: [best.payable.key],
-        amounts: [Math.min(left, best.open)],
+        // A charge a little over its price (within the tolerance) is linked
+        // whole, so the area sees what was really charged.
+        amounts: [best.exact ? Math.min(left, best.open) : left],
         confidence,
         score: best.score,
         reasons,
@@ -570,7 +572,7 @@ export function linkProblem(
  * area joins by publishing the route and adding itself here; Money reads it
  * from PAYABLE_SOURCES (its env), like the Agenda reads AGENDA_SOURCES.
  */
-export const PAYABLE_MODULES = ['home', 'taxes'] as const;
+export const PAYABLE_MODULES = ['home', 'subscriptions', 'taxes'] as const;
 export type PayableModule = (typeof PAYABLE_MODULES)[number];
 
 /** The areas Money reads payables from, with their name and emblem. */
