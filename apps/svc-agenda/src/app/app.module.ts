@@ -13,6 +13,8 @@ import { RecordsController } from './records.controller.js';
 import { AgendaController } from './agenda/agenda.controller.js';
 import { AgendaService } from './agenda/agenda.service.js';
 import { collections, RECORDS } from './agenda/collections.js';
+import { CalendarController } from './calendar/calendar.controller.js';
+import { CalendarService } from './calendar/calendar.service.js';
 import { DigestController } from './digest/digest.controller.js';
 import { DigestService } from './digest/digest.service.js';
 import { smtpMailer, type Mailer } from './digest/mailer.js';
@@ -45,6 +47,7 @@ export class AppModule {
         HealthController,
         AgendaController,
         DigestController,
+        CalendarController,
         RecordsController,
       ],
       providers: [
@@ -67,6 +70,7 @@ export class AppModule {
           useValue: options.digestScheduler !== false,
         },
         DigestService,
+        CalendarService,
         ...(options.events === false
           ? []
           : [

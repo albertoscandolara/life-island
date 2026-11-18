@@ -152,6 +152,16 @@ export class AgendaService implements OnApplicationBootstrap {
     return { today: day, entries: openEntries(entries, days).slice(0, 12) };
   }
 
+  /** Every date between two days, with the state of each one (the calendar feed). */
+  async window(
+    day: string,
+    from: string,
+    to: string,
+  ): Promise<{ entries: AgendaEntryDto[] }> {
+    const { entries } = await this.timeline(day, from, to);
+    return { entries };
+  }
+
   /** The dates of the next month and what waits with no date, for the email digest. */
   async openDates(
     day = today(),

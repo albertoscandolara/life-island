@@ -62,6 +62,21 @@ describe('requireSignIn', () => {
     expect(result.user).toBeNull();
   });
 
+  it('lets through only the GET paths a route guards with its own secret', async () => {
+    const middleware = requireSignIn(settings, {
+      fetchImpl: auth({ status: 401 }),
+      openPaths: [/^\/calendar\/feed\/[A-Za-z0-9_-]{43}\.ics$/],
+    });
+    const feed = `/calendar/feed/${'a'.repeat(43)}.ics`;
+    const get = (url: string, method = 'GET') =>
+      ({ headers: {}, url, method }) as unknown as IncomingMessage;
+    expect((await run(middleware, get(`${feed}?x=1`))).user).toBeNull();
+    // Not a write, not a longer path, not another route.
+    expect((await run(middleware, get(feed, 'DELETE'))).status).toBe(401);
+    expect((await run(middleware, get(`${feed}/x`))).status).toBe(401);
+    expect((await run(middleware, get('/calendar'))).status).toBe(401);
+  });
+
   it('accepts another service with the internal token, and only that token', async () => {
     const middleware = requireSignIn(settings);
     expect(

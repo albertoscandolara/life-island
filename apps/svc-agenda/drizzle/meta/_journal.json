@@ -15,6 +15,13 @@
       "when": 1795009124445,
       "tag": "0001_digest_sends",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795010515729,
+      "tag": "0002_calendar_feeds",
+      "breakpoints": true
     }
   ]
 }

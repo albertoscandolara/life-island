@@ -31,6 +31,11 @@ export interface HttpSecurityOptions {
    * since it checks its own sessions.
    */
   signIn?: boolean;
+  /**
+   * GET paths let through without sign-in because the route checks its own
+   * secret (requireSignIn's `openPaths`). Anchor each regex at both ends.
+   */
+  openPaths?: readonly RegExp[];
   env?: NodeJS.ProcessEnv;
 }
 
@@ -74,7 +79,12 @@ export function applyHttpSecurity(
     ),
   );
   if (options.signIn !== false)
-    app.use(requireSignIn(auth, { logger: new Logger(options.service) }));
+    app.use(
+      requireSignIn(auth, {
+        logger: new Logger(options.service),
+        openPaths: options.openPaths,
+      }),
+    );
 }
 
 /** Headers that keep answers out of caches, frames on other sites and type sniffing. */

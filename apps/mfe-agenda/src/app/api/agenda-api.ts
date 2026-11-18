@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import type {
   AgendaBriefDto,
   AgendaOverviewDto,
+  CalendarFeedDto,
+  CalendarFeedLinkDto,
   DigestDto,
   DigestStatusDto,
   DigestTestDto,
@@ -44,5 +46,19 @@ export class AgendaApi extends RecordsApi {
 
   testDigest(): Observable<DigestTestDto> {
     return this.http.post<DigestTestDto>(`${this.base}/digest/test`, {});
+  }
+
+  /** The private calendar link: on or off (the link itself is shown once). */
+  calendar(): Observable<CalendarFeedDto> {
+    return this.http.get<CalendarFeedDto>(`${this.base}/calendar`);
+  }
+
+  /** A new link; the one before stops working. */
+  newCalendarLink(): Observable<CalendarFeedLinkDto> {
+    return this.http.post<CalendarFeedLinkDto>(`${this.base}/calendar`, {});
+  }
+
+  removeCalendarLink(): Observable<void> {
+    return this.http.delete<void>(`${this.base}/calendar`);
   }
 }

@@ -86,3 +86,15 @@ export const digestSends = agenda.table('digest_sends', {
     .defaultNow(),
 });
 export type DigestSendRow = typeof digestSends.$inferSelect;
+
+/**
+ * The private calendar link: only the SHA-256 of its secret is kept, so the
+ * link is shown once when made. One at a time; a new one replaces it.
+ */
+export const calendarFeeds = agenda.table('calendar_feeds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: createdAt(),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+});
+export type CalendarFeedRow = typeof calendarFeeds.$inferSelect;
