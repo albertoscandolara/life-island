@@ -40,6 +40,10 @@ import {
   documentToReview,
   CAR_DOCUMENT_TYPE_LABELS,
   type DeadlinesQuery,
+  type PayableDto,
+  type PayablesQuery,
+  type PaymentRecord,
+  bankPaymentOf,
   RENEWABLE_LABELS,
 } from '@life-island/contracts';
 import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
@@ -48,6 +52,7 @@ import {
   categoryTree,
   documents,
   fines,
+  payments,
   quoteComparisons,
   reviews,
   tyreSets,
@@ -58,7 +63,18 @@ import {
   type TyreSetRow,
   type VehicleRow,
 } from '../db/schema.js';
-import { carFines, fineRenewals, type FineDetails } from './car-fines.js';
+import {
+  carFines,
+  fineRenewals,
+  type FineBankPayments,
+  type FineDetails,
+} from './car-fines.js';
+import {
+  costPayableKey,
+  costPayables,
+  finePayableKey,
+  finePayables,
+} from './payables.js';
 import { insuranceHistory } from './car-insurance.js';
 import { tyreRenewals, tyreSetOf } from './car-tyres.js';
 import { carUsage } from './car-usage.js';
@@ -197,23 +213,55 @@ export class CarsService {
     };
   }
 
+  /** Every priced cost and fine of the cars, for Money matching (`GET /payables`). */
+  async payables(
+    query: PayablesQuery,
+    today = todayIso(),
+  ): Promise<PayableDto[]> {
+    const { vehicles: cars } = await this.overview(today);
+    return cars.flatMap((car) => [
+      ...costPayables(vehicleName(car), car.costs, query),
+      ...finePayables(vehicleName(car), car.fines.fines, query),
+    ]);
+  }
+
   async overview(
     today = todayIso(),
     aiQuotes = false,
   ): Promise<CarsOverviewDto> {
-    const [docs, rows, decided, fineRows, tyreRows, comparisonRows, windows] =
-      await Promise.all([
-        this.carDocuments(),
-        this.svc.db.select().from(vehicles),
-        this.svc.db.select().from(reviews),
-        this.svc.db.select().from(fines),
-        this.svc.db.select().from(tyreSets).orderBy(tyreSets.createdAt),
-        this.svc.db
-          .select()
-          .from(quoteComparisons)
-          .orderBy(desc(quoteComparisons.createdAt)),
-        this.warningWindows(),
-      ]);
+    const [
+      docs,
+      rows,
+      decided,
+      fineRows,
+      tyreRows,
+      comparisonRows,
+      windows,
+      paymentRows,
+    ] = await Promise.all([
+      this.carDocuments(),
+      this.svc.db.select().from(vehicles),
+      this.svc.db.select().from(reviews),
+      this.svc.db.select().from(fines),
+      this.svc.db.select().from(tyreSets).orderBy(tyreSets.createdAt),
+      this.svc.db
+        .select()
+        .from(quoteComparisons)
+        .orderBy(desc(quoteComparisons.createdAt)),
+      this.warningWindows(),
+      // The costs and fines matched to bank movements in Money, still linked.
+      this.svc.db.select().from(payments).where(isNull(payments.unlinkedAt)),
+    ]);
+    const paymentsOf = groupBy(paymentRows, (p) => p.payableKey);
+    const bankPayment = (key: string, due: number) =>
+      bankPaymentOf(due, (paymentsOf.get(key) ?? []) as PaymentRecord[]);
+    // A fine counts as paid from its reduced amount: fineOf decides `full`.
+    const fineBank: FineBankPayments = new Map(
+      docs.flatMap((doc) => {
+        const paid = bankPayment(finePayableKey(doc.row.uploadId), 0);
+        return paid ? [[doc.row.uploadId, paid] as const] : [];
+      }),
+    );
     const fineDetails = new Map<string, FineDetails>(
       fineRows.map((f) => [f.uploadId, f]),
     );
@@ -242,7 +290,14 @@ export class CarsService {
       .map((row) => {
         const approved = approvedOf.get(row.id) ?? [];
         const series = buildSeries(approved, today);
-        const costs = costsOf(approved);
+        const costs = costsOf(approved).map((cost) => ({
+          ...cost,
+          // A fine's comes from the fine, below.
+          bankPayment:
+            cost.kind === 'fine'
+              ? null
+              : bankPayment(costPayableKey(cost.uploadId), cost.amount),
+        }));
         const { usage, trend } = carUsage(approved, costs, row.values, today);
         const maxSpeed =
           typeof row.values.maxSpeedKmh === 'number'
@@ -251,7 +306,12 @@ export class CarsService {
         const tyres = (tyresOf.get(row.id) ?? [])
           .map((t) => tyreSetOf(t, maxSpeed, today))
           .sort((a, b) => Number(b.mounted) - Number(a.mounted));
-        const carFineList = carFines(approved, fineDetails, today);
+        const carFineList = carFines(approved, fineDetails, today, fineBank);
+        for (const cost of costs)
+          if (cost.kind === 'fine')
+            cost.bankPayment =
+              carFineList.fines.find((f) => f.uploadId === cost.uploadId)
+                ?.bankPayment ?? null;
         const renewals = [
           ...renewalsOf(
             row.values,

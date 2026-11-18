@@ -99,9 +99,23 @@ interface FineDraft {
               </p>
               @if (fine.stage === 'paid') {
                 <p class="muted">
-                  Paid on {{ fine.paidOn | date: 'd MMM y' }}.
+                  Paid on {{ fine.paidOn | date: 'd MMM y'
+                  }}{{
+                    fine.bankPayment?.full
+                      ? ', from ' +
+                        (fine.bankPayment!.accounts.join(', ') || 'the bank') +
+                        ' (matched in Money)'
+                      : ''
+                  }}.
                 </p>
               } @else if (fine.notifiedOn) {
+                @if (fine.bankPayment; as part) {
+                  <p class="muted">
+                    € {{ num(part.paid, 2, 2) }} paid on
+                    {{ part.lastDate | date: 'd MMM y' }} (matched in Money):
+                    less than the reduced amount.
+                  </p>
+                }
                 <dl class="deadlines">
                   <div [class.deadline--past]="past(fine.discountUntil)">
                     <dt>30% off by</dt>

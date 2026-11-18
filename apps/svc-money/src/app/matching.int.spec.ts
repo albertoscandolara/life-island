@@ -157,6 +157,7 @@ describe.skipIf(!configured)(
       expect(matches.body.sources).toEqual([
         expect.objectContaining({ module: 'home', ok: true, count: 1 }),
         // Not given to this test: said so, and the rest still matched.
+        expect.objectContaining({ module: 'cars', ok: false }),
         expect.objectContaining({ module: 'subscriptions', ok: false }),
         expect.objectContaining({ module: 'taxes', ok: false }),
       ]);
@@ -214,7 +215,7 @@ describe.skipIf(!configured)(
         (
           await json('POST', '/matches/links', {
             movementId: winnerMovement,
-            items: [{ payableKey: `cars:cost:x-${run}`, amount: 1 }],
+            items: [{ payableKey: `groceries:receipt:x-${run}`, amount: 1 }],
           })
         ).status,
       ).toBe(400);

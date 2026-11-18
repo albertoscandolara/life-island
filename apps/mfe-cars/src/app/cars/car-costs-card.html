@@ -39,6 +39,14 @@
         <span class="li-muted">{{ num(cost.litres, 0, 2) }} l</span>
         }
         <strong class="li-num">{{ euro(cost.amount) }}</strong>
+        @if (cost.bankPayment; as paid) {
+        <ui-badge
+          [tone]="paid.full ? 'success' : 'warning'"
+          [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
+          >{{ paid.full ? 'Paid' : euro(paid.paid) + ' paid' }} {{
+          dateText(paid.lastDate) }}</ui-badge
+        >
+        }
       </li>
       }
     </ul>

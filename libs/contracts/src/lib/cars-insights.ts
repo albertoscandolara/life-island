@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { BankPaymentDto } from './payables.js';
 
 /*
  * What Cars works out from a car's documents beyond renewals and costs: how
@@ -145,6 +146,11 @@ export interface CarFineDto {
   prefectAppealBy: string | null;
   /** When points go and no driver is set: name the driver by this date (art. 126-bis). */
   driverBy: string | null;
+  /**
+   * What bank movements matched in Money paid of it; null when none is. Paid
+   * at least the reduced amount, the fine counts as paid on that day.
+   */
+  bankPayment: BankPaymentDto | null;
 }
 
 /** Licence points a driver lost to the car's fines of the last 2 years. */

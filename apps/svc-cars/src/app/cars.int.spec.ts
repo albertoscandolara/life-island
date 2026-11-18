@@ -2,12 +2,14 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   createServiceDb,
+  paymentEventHandler,
   processOnce,
   type ServiceDb,
 } from '@life-island/be-common';
 import type {
   CarsOverviewDto,
   EventEnvelope,
+  PayableDto,
   PendingCarReviewDto,
   VehicleDto,
 } from '@life-island/contracts';
@@ -62,6 +64,10 @@ describe.skipIf(!configured)(
 
     afterAll(async () => {
       if (uploads.length) {
+        await svc?.pool.query(
+          `delete from cars.payments where payable_key = any($1)`,
+          [uploads.flatMap((id) => [`cars:cost:${id}`, `cars:fine:${id}`])],
+        );
         await svc?.pool.query(
           'delete from cars.reviews where upload_id = any($1)',
           [uploads],
@@ -564,6 +570,120 @@ describe.skipIf(!configured)(
       expect(tyres).toHaveLength(1);
       usage = (await car(vehicleId)).usage;
       expect(usage.readings.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('lists costs and fines for Money, and learns which the bank paid', async () => {
+      const service = await upload(['VEHICLE_EXPENSE'], {
+        registration_number: plate,
+        expense_kind: 'scheduled_service',
+        expense_date: day(-20),
+        supplier: `Officina ${run}`,
+        total_amount: 389.5,
+      });
+      const fineId = await upload(['VEHICLE_EXPENSE'], {
+        registration_number: plate,
+        expense_kind: 'fine',
+        expense_date: day(-40),
+        violation_date: day(-40),
+        notification_date: day(-8),
+        supplier: `Comune ${run}`,
+        total_amount: 100,
+        reduced_amount: 70,
+      });
+      for (const id of [service, fineId])
+        expect(
+          (
+            await send('POST', `/reviews/${id}/approve`, {
+              vehicleId,
+              accept: [],
+            })
+          ).status,
+        ).toBe(204);
+
+      const payables = await json<PayableDto[]>(
+        await send('GET', `/payables?from=${day(-20)}&to=${day(-1)}`),
+      );
+      const mine = (key: string) => payables.find((p) => p.key === key)!;
+      expect(mine(`cars:cost:${service}`)).toMatchObject({
+        module: 'cars',
+        kind: 'cost',
+        amount: 389.5,
+        direction: 'out',
+        date: day(-20),
+        payees: [`Officina ${run}`],
+        path: '/cars',
+      });
+      expect(mine(`cars:fine:${fineId}`)).toMatchObject({
+        kind: 'fine',
+        amount: 70,
+        date: day(-3),
+        payees: [`Comune ${run}`],
+      });
+      // The fine's own cost is not listed twice.
+      expect(payables.some((p) => p.key === `cars:cost:${fineId}`)).toBe(false);
+      expect((await send('GET', '/payables?from=x&to=y')).status).toBe(400);
+
+      const pay = async (type: string, payload: unknown) =>
+        processOnce(svc.pool, 'cars', randomUUID(), (client) =>
+          paymentEventHandler('cars', 'cars')(
+            {
+              id: randomUUID(),
+              type,
+              source: 'test',
+              occurredAt: new Date().toISOString(),
+              payload,
+            },
+            client,
+          ),
+        );
+      const link = (payableKey: string, amount: number, date: string) => {
+        const linkId = randomUUID();
+        return pay('money.payment_linked@1', {
+          linkId,
+          payableKey,
+          module: 'cars',
+          movementId: randomUUID(),
+          date,
+          amount,
+          accountName: 'Conto corrente',
+          description: 'PAGAMENTO',
+          linkedAt: new Date().toISOString(),
+        }).then(() => linkId);
+      };
+      const costLink = await link(`cars:cost:${service}`, 389.5, day(-19));
+      await link(`cars:fine:${fineId}`, 70, day(-6));
+
+      const paid = await car(vehicleId);
+      expect(
+        paid.costs.find((c) => c.uploadId === service)?.bankPayment,
+      ).toEqual({
+        paid: 389.5,
+        full: true,
+        lastDate: day(-19),
+        accounts: ['Conto corrente'],
+      });
+      const fine = paid.fines.fines.find((f) => f.uploadId === fineId)!;
+      // The reduced amount, within 5 days: the fine is paid, its deadlines done.
+      expect(fine).toMatchObject({
+        stage: 'paid',
+        paidOn: day(-6),
+        bankPayment: { paid: 70, full: true },
+      });
+      expect(
+        paid.costs.find((c) => c.uploadId === fineId)?.bankPayment,
+      ).toMatchObject({ paid: 70, full: true });
+
+      await pay('money.payment_unlinked@1', {
+        linkId: costLink,
+        payableKey: `cars:cost:${service}`,
+        module: 'cars',
+        reason: 'undone',
+        unlinkedAt: new Date().toISOString(),
+      });
+      expect(
+        (await car(vehicleId)).costs.find((c) => c.uploadId === service)
+          ?.bankPayment,
+      ).toBeNull();
     });
 
     it.skipIf(!!process.env['ANTHROPIC_API_KEY'])(

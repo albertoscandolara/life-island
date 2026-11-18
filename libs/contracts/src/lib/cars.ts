@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PropertyModelDto } from './home.js';
+import type { BankPaymentDto } from './payables.js';
 import type { PersonLicenceDto } from './people.js';
 import type {
   CarFinesDto,
@@ -1096,6 +1097,8 @@ export interface CarCostDto {
   supplier: string | null;
   odometerKm: number | null;
   litres: number | null;
+  /** What bank movements matched in Money paid of it; null when none is. */
+  bankPayment: BankPaymentDto | null;
 }
 
 export interface CarCostTotalDto {

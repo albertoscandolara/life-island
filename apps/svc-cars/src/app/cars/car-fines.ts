@@ -4,6 +4,7 @@ import {
   FINE_JUDGE_APPEAL_DAYS,
   FINE_PAY_DAYS,
   FINE_POINTS_YEARS,
+  type BankPaymentDto,
   type CarFineDto,
   type CarFinesDto,
   type DriverPointsDto,
@@ -24,6 +25,9 @@ export interface FineDetails {
   driverPersonId: string | null;
   driverName: string | null;
 }
+
+/** What bank movements matched in Money paid of each fine, by its upload id. */
+export type FineBankPayments = ReadonlyMap<string, BankPaymentDto>;
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -48,15 +52,23 @@ export function fineOf(
   document: ApprovedCarDocument & { title: string },
   details: FineDetails | undefined,
   today: string,
+  bankPayment: BankPaymentDto | null = null,
 ): CarFineDto {
   const read = document.reading.fine;
   const notifiedOn = details?.notifiedOn ?? read?.notificationDate ?? null;
-  const paidOn = details?.paidOn ?? document.reading.paymentDate ?? null;
   const amount = document.reading.amount;
   const points = details?.points ?? read?.points ?? null;
   const reducedAmount =
     read?.reducedAmount ??
     (amount !== null ? round(amount * (1 - FINE_DISCOUNT_RATE)) : null);
+  // Paid from the bank (matched in Money): at least the reduced amount.
+  const bankPaidOn =
+    bankPayment &&
+    bankPayment.paid + 0.005 >= (reducedAmount ?? amount ?? Infinity)
+      ? bankPayment.lastDate
+      : null;
+  const paidOn =
+    details?.paidOn ?? document.reading.paymentDate ?? bankPaidOn ?? null;
   const discountUntil = notifiedOn
     ? addDays(notifiedOn, FINE_DISCOUNT_DAYS)
     : null;
@@ -90,6 +102,7 @@ export function fineOf(
       : null,
     prefectAppealBy: payBy,
     driverBy: points && !driverName ? payBy : null,
+    bankPayment: bankPayment && { ...bankPayment, full: bankPaidOn !== null },
   };
 }
 
@@ -101,6 +114,7 @@ export function carFines(
   documents: readonly (ApprovedCarDocument & { title: string })[],
   details: ReadonlyMap<string, FineDetails>,
   today: string,
+  bank: FineBankPayments = new Map(),
 ): CarFinesDto {
   const fines = documents
     .filter(
@@ -109,7 +123,9 @@ export function carFines(
         d.reading.expenseKind === 'fine' &&
         d.markedStatus !== 'cancelled',
     )
-    .map((d) => fineOf(d, details.get(d.uploadId), today))
+    .map((d) =>
+      fineOf(d, details.get(d.uploadId), today, bank.get(d.uploadId) ?? null),
+    )
     .sort((a, b) =>
       (b.violationDate ?? '').localeCompare(a.violationDate ?? ''),
     );

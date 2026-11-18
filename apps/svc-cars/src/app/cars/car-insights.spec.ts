@@ -354,6 +354,37 @@ describe('fines', () => {
     expect(paid.fines[0].stage).toBe('paid');
     expect(fineRenewals(paid.fines, today)).toEqual([]);
   });
+
+  it('counts as paid once the bank paid at least the reduced amount', () => {
+    const bank = (paid: number) =>
+      carFines(
+        [fine({ notification_date: '2026-11-07' })],
+        new Map(),
+        today,
+        new Map([
+          [
+            'f1',
+            {
+              paid,
+              full: true,
+              lastDate: '2026-11-09',
+              accounts: ['Conto'],
+            },
+          ],
+        ]),
+      ).fines[0];
+    expect(bank(121.1)).toMatchObject({
+      stage: 'paid',
+      paidOn: '2026-11-09',
+      bankPayment: { paid: 121.1, full: true },
+    });
+    // Less than the reduced amount: not paid yet, and said so.
+    expect(bank(50)).toMatchObject({
+      stage: 'discount',
+      paidOn: null,
+      bankPayment: { paid: 50, full: false },
+    });
+  });
 });
 
 describe('tyres', () => {
