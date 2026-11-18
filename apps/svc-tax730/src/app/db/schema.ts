@@ -141,3 +141,32 @@ export const attachments = tax730.table(
 );
 
 export type AttachmentRow = typeof attachments.$inferSelect;
+
+/**
+ * The bank payments Money says an expense was paid with
+ * (`taxes:expense:<id>`), one row per link you confirmed there. Kept by
+ * paymentEventHandler (libs/be-common), the same in every area. A matched
+ * payment makes the expense traceable; its receipt is still asked for.
+ */
+export const payments = tax730.table(
+  'payments',
+  {
+    linkId: uuid('link_id').primaryKey(),
+    payableKey: text('payable_key').notNull(),
+    amount: numeric('amount', {
+      precision: 14,
+      scale: 2,
+      mode: 'number',
+    }).notNull(),
+    /** The day the money moved; null on a link undone before it arrived. */
+    paidOn: date('paid_on', { mode: 'string' }),
+    accountName: text('account_name'),
+    description: text('description'),
+    unlinkedAt: timestamp('unlinked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('payments_payable_idx').on(table.payableKey)],
+);
+export type PaymentRow = typeof payments.$inferSelect;

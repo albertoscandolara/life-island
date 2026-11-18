@@ -465,6 +465,16 @@
           </span>
         </div>
         <strong class="bill__amount">{{ formatEuro(bill.amount) }}</strong>
+        @if (bill.bankPayment; as paid) {
+        <ui-badge
+          class="bill__paid"
+          [tone]="paid.full ? 'success' : 'warning'"
+          [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
+        >
+          {{ paid.full ? 'Paid' : formatEuro(paid.paid) + ' paid' }} {{
+          formatDate(paid.lastDate) }}
+        </ui-badge>
+        }
         <div class="bill__controls">
           <select
             class="ui-input compact"

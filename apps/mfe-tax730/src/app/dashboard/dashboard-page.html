@@ -271,6 +271,15 @@
             <ui-icon [name]="e.hasInvoice ? 'check' : 'alert'" [size]="12" />
             Invoice
           </ui-badge>
+          @if (!e.hasPaymentProof && e.bankPayment) {
+          <ui-badge
+            tone="info"
+            title="Paid traceably: the bank movement is matched in Money. Add the receipt or the bank statement for the CAF."
+          >
+            <ui-icon name="check" [size]="12" />
+            Paid by bank
+          </ui-badge>
+          } @else {
           <ui-badge [tone]="e.hasPaymentProof ? 'success' : 'warning'">
             <ui-icon
               [name]="e.hasPaymentProof ? 'check' : 'alert'"
@@ -278,6 +287,7 @@
             />
             Payment
           </ui-badge>
+          }
         </span>
         <span class="expense__amount">{{ formatEuro(e.amount) }}</span>
         <ui-icon class="expense__chevron" name="chevron-down" [size]="18" />
@@ -299,8 +309,12 @@
           <div>
             <dt>Paid traceably</dt>
             <dd>
-              {{ e.traceablePayment === null ? 'Unknown' : e.traceablePayment ?
-              'Yes' : 'No (cash)' }}
+              @if (e.bankPayment; as bank) { Yes, from {{ bank.accounts.join(',
+              ') || 'your bank' }} on {{ formatDate(bank.lastDate) }} (matched
+              in Money) @if (!e.hasPaymentProof) {
+              <span class="li-muted">· add the receipt for the CAF</span>
+              } } @else { {{ e.traceablePayment === null ? 'Unknown' :
+              e.traceablePayment ? 'Yes' : 'No (cash)' }} }
             </dd>
           </div>
           <div>

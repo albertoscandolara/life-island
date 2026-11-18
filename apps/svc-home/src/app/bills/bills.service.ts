@@ -8,6 +8,7 @@ import type { ServiceDb } from '@life-island/be-common';
 import {
   listBillsQuerySchema,
   updateBillRequestSchema,
+  bankPaymentOf,
   type BillDto,
   type BillPaymentDto,
 } from '@life-island/contracts';
@@ -88,21 +89,7 @@ export function billPayment(
   due: number,
   payments: readonly PaymentRow[],
 ): BillPaymentDto | null {
-  const live = payments.filter((p) => p.unlinkedAt === null && p.paidOn);
-  if (!live.length) return null;
-  const paid =
-    Math.round(live.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
-  return {
-    paid,
-    full: paid + 0.005 >= due,
-    lastDate: live
-      .map((p) => p.paidOn as string)
-      .sort()
-      .at(-1) as string,
-    accounts: [
-      ...new Set(live.flatMap((p) => (p.accountName ? [p.accountName] : []))),
-    ],
-  };
+  return bankPaymentOf(due, payments);
 }
 
 /**

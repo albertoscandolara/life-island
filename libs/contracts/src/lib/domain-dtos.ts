@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { BankPaymentDto } from './payables.js';
 import { TAX730_EXPENSE_TYPES } from './targets/tax730-expense.js';
 import type { Tax730DeductionsDto } from './tax730-deductions.js';
 import type { Tax730TaxReturnDto } from './tax730-returns.js';
@@ -204,6 +205,12 @@ export interface DossierExpenseDto extends ExpenseDto {
   paired: PairedExpenseDto[];
   /** The other expenses paid with one of its payments: one transfer, several invoices. */
   paidTogetherWith: SharedPaymentExpenseDto[];
+  /**
+   * The bank movements you matched to it in Money (docs/guides/money-matching.md):
+   * it is then paid traceably. The payment proof document is still asked for,
+   * as the CAF wants it; null when none is matched.
+   */
+  bankPayment: BankPaymentDto | null;
 }
 
 /**

@@ -31,6 +31,9 @@ import {
   type TaxYearDossierDto,
   type TaxYearDto,
   type UpdateExpenseChanges,
+  bankPaymentOf,
+  type PayableDto,
+  type PayablesQuery,
 } from '@life-island/contracts';
 import {
   and,
@@ -48,6 +51,8 @@ import {
   attachments,
   documents,
   expenses,
+  payments,
+  type PaymentRow,
   taxYears,
   type AttachmentRow,
   type DocumentRow,
@@ -74,6 +79,7 @@ import { documentAmount, toDocumentDto } from '../documents/document-view.js';
 import { sharePayments } from '../expenses/shared-payments.js';
 import { scorePaymentCandidate } from '../documents/payment-candidates.js';
 import { toExpenseDto } from '../expenses/expense-dto.js';
+import { expenseIdOfPayable, expensePayables } from '../expenses/payables.js';
 import {
   expenseKind,
   isBankIssuer,
@@ -183,42 +189,68 @@ export class DossierService {
   }
 
   /** The dossiers of the given years (all years when empty), newest first. */
+  /** The expenses to pay, for Money matching (`GET /payables`). */
+  async payables(query: PayablesQuery): Promise<PayableDto[]> {
+    return expensePayables(
+      (await this.dossiers()).flatMap((year) => year.expenses),
+      query,
+    );
+  }
+
   async dossiers(years: number[] = []): Promise<TaxYearDossierDto[]> {
     const db = this.svc.db;
-    const [expenseRows, attachmentRows, certificateRows] = await Promise.all([
-      // Every year: pairing needs them all, and home bonuses of earlier
-      // years still bring instalments.
-      db
-        .select()
-        .from(expenses)
-        .orderBy(asc(expenses.date), asc(expenses.createdAt)),
-      db
-        .select()
-        .from(attachments)
-        .where(years.length ? inArray(attachments.taxYear, years) : undefined)
-        .orderBy(asc(attachments.createdAt)),
-      // Your Certificazioni Uniche, returns and payslips: the income and
-      // tax of each year, filed or forecast.
-      db
-        .select({
-          uploadId: documents.uploadId,
-          title: documents.title,
-          categories: documents.categories,
-          fields: documents.fields,
-          uploadedAt: documents.uploadedAt,
-        })
-        .from(documents)
-        .where(
-          and(
-            isNull(documents.deletedAt),
-            arrayOverlaps(documents.categories, [
-              CERTIFICATE_CATEGORY,
-              TAX_RETURN_CATEGORY,
-              PAYSLIP_CATEGORY,
-            ]),
+    const [expenseRows, attachmentRows, certificateRows, paymentRows] =
+      await Promise.all([
+        // Every year: pairing needs them all, and home bonuses of earlier
+        // years still bring instalments.
+        db
+          .select()
+          .from(expenses)
+          .orderBy(asc(expenses.date), asc(expenses.createdAt)),
+        db
+          .select()
+          .from(attachments)
+          .where(years.length ? inArray(attachments.taxYear, years) : undefined)
+          .orderBy(asc(attachments.createdAt)),
+        // Your Certificazioni Uniche, returns and payslips: the income and
+        // tax of each year, filed or forecast.
+        db
+          .select({
+            uploadId: documents.uploadId,
+            title: documents.title,
+            categories: documents.categories,
+            fields: documents.fields,
+            uploadedAt: documents.uploadedAt,
+          })
+          .from(documents)
+          .where(
+            and(
+              isNull(documents.deletedAt),
+              arrayOverlaps(documents.categories, [
+                CERTIFICATE_CATEGORY,
+                TAX_RETURN_CATEGORY,
+                PAYSLIP_CATEGORY,
+              ]),
+            ),
           ),
-        ),
-    ]);
+        // The bank payments matched in Money, still linked.
+        db.select().from(payments).where(isNull(payments.unlinkedAt)),
+      ]);
+    const paymentsByExpense = new Map<string, PaymentRow[]>();
+    for (const payment of paymentRows) {
+      const id = expenseIdOfPayable(payment.payableKey);
+      if (id)
+        paymentsByExpense.set(id, [
+          ...(paymentsByExpense.get(id) ?? []),
+          payment,
+        ]);
+    }
+    /** An expense's matched payments, with those of the expenses paired with it. */
+    const bankPaymentOfGroup = (row: ExpenseRow, group: ExpenseRow[]) =>
+      bankPaymentOf(
+        row.amount,
+        [row, ...group].flatMap((e) => paymentsByExpense.get(e.id) ?? []),
+      );
     const documentsById = await this.documentsById([
       ...expenseRows.map((row) => row.uploadId),
       ...attachmentRows.map((row) => row.uploadId),
@@ -310,8 +342,11 @@ export class DossierService {
         .filter((id) => id !== seenFrom)
         .flatMap(sharedDto);
     };
+    // A payment receipt, or a bank movement matched in Money, proves it was
+    // paid traceably; otherwise what was read (or you said) stands.
     const traceable = (row: ExpenseRow, group: ExpenseRow[]) =>
-      [row, ...group].some((e) => kindOf(e) === 'PAYMENT')
+      [row, ...group].some((e) => kindOf(e) === 'PAYMENT') ||
+      bankPaymentOfGroup(row, group) !== null
         ? true
         : row.traceablePayment;
 
@@ -370,6 +405,7 @@ export class DossierService {
           paysToo: paysTooOf(member.id, row.id),
         })),
         paidTogetherWith: [],
+        bankPayment: bankPaymentOfGroup(row, group),
       };
       const list = expensesByYear.get(row.taxYear) ?? [];
       list.push(dto);

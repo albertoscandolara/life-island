@@ -30,6 +30,7 @@ const expense = (
   pairing: null,
   paired: [],
   paidTogetherWith: [],
+  bankPayment: null,
   ...overrides,
 });
 
