@@ -10,6 +10,7 @@ import {
   GROCERY_CATEGORY_LABELS,
   type GroceriesOverviewDto,
   type GroceryItemCategory,
+  type GroceryItemStatsDto,
   type ShoppingItemDto,
   type ShoppingSuggestionDto,
 } from '@life-island/contracts';
@@ -22,7 +23,9 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiLineChart,
   UiPageHeader,
+  type UiChartSeries,
 } from '@life-island/design-system';
 import {
   LiBars,
@@ -87,6 +90,7 @@ const ITEM_FIELDS: readonly LiField[] = [
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiLineChart,
     UiPageHeader,
   ],
   host: { 'data-character': 'trice', class: 'groceries' },
@@ -115,6 +119,10 @@ export class GroceriesPage {
 
   protected readonly newItem = signal('');
   protected readonly search = signal('');
+  /** The item in the price chart, kept in the URL (`?item=`). */
+  private readonly chartItem = signal<string | null>(
+    this.route.snapshot.queryParamMap.get('item'),
+  );
 
   protected readonly question = signal('');
   protected readonly asking = signal(false);
@@ -146,6 +154,54 @@ export class GroceriesPage {
   protected readonly doneCount = computed(
     () => (this.data()?.list ?? []).filter((i) => i.done).length,
   );
+
+  /** The item picked, else the one that rose most of those bought 3+ times. */
+  protected readonly priced = computed<GroceryItemStatsDto | null>(() => {
+    const all = (this.data()?.items ?? []).filter((i) => i.prices.length > 1);
+    return (
+      all.find((i) => i.name === this.chartItem()) ??
+      [...all]
+        .filter((i) => i.purchases >= 3)
+        .sort((a, b) => (b.priceChange ?? 0) - (a.priceChange ?? 0))[0] ??
+      all[0] ??
+      null
+    );
+  });
+
+  protected readonly priceChart = computed(() => {
+    const item = this.priced();
+    if (!item) return null;
+    const series: UiChartSeries[] = [
+      {
+        id: item.name,
+        label: item.name,
+        color: 'var(--viz-1)',
+        values: item.prices.map((p) => p.price),
+      },
+    ];
+    return {
+      item,
+      series,
+      categories: item.prices.map((p) => monthText(p.date, true)),
+      title: (i: number) =>
+        `${dateText(item.prices[i]?.date)} · ${item.prices[i]?.merchant ?? ''}`,
+    };
+  });
+
+  protected showPrice(item: GroceryItemStatsDto): void {
+    this.chartItem.set(item.name);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { item: item.name },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** "+4,2%", "−1,0%". */
+  protected signed(share: number): string {
+    return `${share > 0 ? '+' : share < 0 ? '−' : ''}${percent(Math.abs(share), 1)}`;
+  }
 
   protected readonly items = computed(() => {
     const text = this.search().trim().toLowerCase();

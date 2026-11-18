@@ -76,6 +76,9 @@ Every chart is drawn by the design system, so they all share axes, tooltips, leg
 | Question                                             | Chart                                     |
 | ---------------------------------------------------- | ----------------------------------------- |
 | How much, period by period (and its parts)?          | `<ui-column-chart>` (stacked or grouped)  |
+| In and out per period, and what was left             | `<ui-column-chart>` grouped, with `line`  |
+| A value that holds until it changes (a price, a fee) | `<ui-line-chart>` with `step`             |
+| Is it heading to a target (a weight)?                | `<ui-line-chart>` with `goal`             |
 | How does a value move over time, or year over year?  | `<ui-line-chart>`                         |
 | Is a value inside its range (a lab value, a target)? | `<ui-line-chart>` with `band`, `zero` off |
 | Which days are busy, or kept?                        | `<ui-calendar-heatmap>`                   |
@@ -89,7 +92,7 @@ Every chart is drawn by the design system, so they all share axes, tooltips, leg
 - **Label directly.** The last value at the end of a line, the goal as a dashed line with its name, the legend above the plot only when there is more than one series.
 - **One question per chart**, written as its card title ("Your pay against inflation"), with a one-line note on how to read it when it is not obvious.
 - **Every chart has its numbers.** A table under it, or a visually hidden one, so the figures are readable without the picture.
-- **A chart leads somewhere.** A bar that is too high (a bill, a month of spending) opens the records behind it.
+- **A chart leads somewhere.** A bar that is too high (a bill, a month of spending) opens the records behind it: `pickable` on `<ui-column-chart>` and `<ui-calendar-heatmap>` emits the column or day picked.
 
 When a chart type is missing, add it to `libs/design-system/src/lib/charts/` with a unit test of its arithmetic; never draw a one-off SVG or CSS chart in an area.
 

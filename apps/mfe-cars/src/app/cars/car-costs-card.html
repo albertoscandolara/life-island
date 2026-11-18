@@ -1,5 +1,21 @@
-<ui-card heading="Costs">
-  @if (costs().length) { @if (table(); as table) {
+<ui-card heading="What does this car really cost?">
+  @if (costs().length) { @if (chart(); as chart) {
+  <p class="li-muted li-small chart-note">
+    Every approved cost, year by year. @if (usage()?.costPerKm; as perKm) { The
+    last 12 months came to
+    <strong>{{ euro(usage()!.costLast12Months) }}</strong>, about
+    <strong>{{ num(perKm, 2, 2) }} € a km</strong> at {{ num(usage()!.kmPerYear
+    ?? 0, 0, 0) }} km a year. } @else { Add documents that print the odometer (a
+    revisione, a service) to see the cost per km. }
+  </p>
+  <ui-column-chart
+    [buckets]="chart.buckets"
+    [series]="chart.series"
+    [format]="euroWhole"
+    [height]="220"
+    ariaLabel="What the car cost each year, by kind"
+  />
+  } @if (table(); as table) {
   <div class="li-table-wrap">
     <table class="li-table">
       <thead>

@@ -97,6 +97,10 @@
   /* Pay (Work): gross and what reaches you. */
   --viz-gross: var(--viz-violet-600);
   --viz-net: var(--viz-aqua-500);
+  /* Money: what came in, what went out, what was kept. */
+  --viz-in: var(--viz-aqua-500);
+  --viz-out: var(--viz-orange-500);
+  --viz-kept: var(--viz-violet-600);
   /* Evaluations (Work): the parts of a score, in the order the form lists them. */
   --viz-part-1: var(--viz-blue-450);
   --viz-part-2: var(--viz-orange-500);
@@ -176,6 +180,9 @@
   --viz-water: var(--viz-blue-400);
   --viz-gross: var(--viz-violet-400);
   --viz-net: var(--viz-aqua-600);
+  --viz-in: var(--viz-aqua-600);
+  --viz-out: var(--viz-orange-600);
+  --viz-kept: var(--viz-violet-400);
   --viz-part-1: var(--viz-blue-400);
   --viz-part-2: var(--viz-orange-600);
   --viz-part-3: var(--viz-aqua-600);

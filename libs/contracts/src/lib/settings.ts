@@ -30,6 +30,7 @@ import {
 import {
   FITNESS_WEEKLY_MINUTES_DEFAULT,
   FITNESS_WEEKLY_MINUTES_SETTING,
+  FITNESS_WEIGHT_GOAL_SETTING,
 } from './fitness.js';
 import {
   SUBSCRIPTIONS_WARN_DAYS_DEFAULT,
@@ -1395,6 +1396,20 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     max: 1500,
     unit: 'minutes',
     default: FITNESS_WEEKLY_MINUTES_DEFAULT,
+    scope: 'server',
+    usedBy: ['svc-fitness'],
+  },
+  {
+    key: FITNESS_WEIGHT_GOAL_SETTING,
+    group: 'Fitness',
+    label: 'Weight goal',
+    description:
+      'The weight you aim for, in kg. Fitness draws it on your weight chart and says how far you are. 0 means no goal.',
+    type: 'number',
+    min: 0,
+    max: 400,
+    unit: 'kg',
+    default: 0,
     scope: 'server',
     usedBy: ['svc-fitness'],
   },

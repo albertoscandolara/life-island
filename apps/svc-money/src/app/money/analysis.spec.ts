@@ -1,5 +1,5 @@
 import type { AccountDto, TransactionDto } from '@life-island/contracts';
-import { balanceMonthAgo, lastMonthToDate } from './analysis.js';
+import { balanceMonthAgo, lastMonthToDate, monthFlows } from './analysis.js';
 
 const tx = (
   date: string,
@@ -37,5 +37,29 @@ describe('tile comparisons', () => {
       tx('2026-11-10', -999, 'groceries', 'b'), // closed account
     ];
     expect(balanceMonthAgo(accounts, txs, '2026-11-18')).toBe(900);
+  });
+});
+
+describe('months', () => {
+  it('splits what went out by category, leaving transfers out', () => {
+    const txs = [
+      tx('2026-11-03', -40),
+      tx('2026-11-08', -10.005),
+      tx('2026-11-04', -900, 'housing'),
+      tx('2026-11-05', -300, 'savings'), // a transfer: neither
+      tx('2026-11-01', 2000, 'salary'),
+      tx('2026-10-04', -900, 'housing'),
+    ];
+    const months = monthFlows(txs, '2026-11-18');
+    expect(months).toHaveLength(12);
+    expect(months.at(-1)).toEqual({
+      month: '2026-11',
+      income: 2000,
+      spending: 950.01,
+      net: 1049.99,
+      spendingBy: { groceries: 50.01, housing: 900 },
+    });
+    expect(months.at(-2)?.spendingBy).toEqual({ housing: 900 });
+    expect(months[0].spendingBy).toEqual({});
   });
 });

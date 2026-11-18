@@ -9,6 +9,7 @@ import {
   deadlineWindow,
   FITNESS_WEEKLY_MINUTES_DEFAULT,
   FITNESS_WEEKLY_MINUTES_SETTING,
+  FITNESS_WEIGHT_GOAL_SETTING,
   inDeadlineWindow,
   isoAddDays,
   isoDaysBetween,
@@ -91,24 +92,30 @@ export class FitnessService implements OnApplicationBootstrap {
 
   private async state(day: string) {
     const since = isoAddDays(isoWeekStart(day), -7 * 26);
-    const [workoutRows, measurementRows, eventRows, goal] = await Promise.all([
-      this.db
-        .select()
-        .from(workouts)
-        .where(gte(workouts.date, since))
-        .orderBy(desc(workouts.date), desc(workouts.createdAt)),
-      this.db
-        .select()
-        .from(measurements)
-        .where(gte(measurements.date, isoAddDays(day, -400)))
-        .orderBy(desc(measurements.date)),
-      this.db.select().from(fitnessEvents).orderBy(fitnessEvents.date),
-      readNumberSetting(
-        this.svc.pool,
-        this.svc.schema,
-        FITNESS_WEEKLY_MINUTES_SETTING,
-      ).catch(() => FITNESS_WEEKLY_MINUTES_DEFAULT),
-    ]);
+    const [workoutRows, measurementRows, eventRows, goal, weightGoal] =
+      await Promise.all([
+        this.db
+          .select()
+          .from(workouts)
+          .where(gte(workouts.date, since))
+          .orderBy(desc(workouts.date), desc(workouts.createdAt)),
+        this.db
+          .select()
+          .from(measurements)
+          .where(gte(measurements.date, isoAddDays(day, -400)))
+          .orderBy(desc(measurements.date)),
+        this.db.select().from(fitnessEvents).orderBy(fitnessEvents.date),
+        readNumberSetting(
+          this.svc.pool,
+          this.svc.schema,
+          FITNESS_WEEKLY_MINUTES_SETTING,
+        ).catch(() => FITNESS_WEEKLY_MINUTES_DEFAULT),
+        readNumberSetting(
+          this.svc.pool,
+          this.svc.schema,
+          FITNESS_WEIGHT_GOAL_SETTING,
+        ).catch(() => 0),
+      ]);
     const all = workoutRows.map((w) => withActive(iso(w)));
     const list = weeks(all, day);
     const ms = measurementRows.map(iso);
@@ -118,6 +125,7 @@ export class FitnessService implements OnApplicationBootstrap {
     }));
     return {
       goalMinutes: goal || FITNESS_WEEKLY_MINUTES_DEFAULT,
+      goalWeightKg: weightGoal > 0 ? weightGoal : null,
       workouts: all,
       measurements: ms,
       events,

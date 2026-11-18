@@ -1,7 +1,11 @@
 import {
+  FOI_ANNUAL_CHANGE_PCT,
+  FOI_PARTIAL_YEAR,
   GROCERY_ITEM_CATEGORIES,
+  isoAddDays,
   isoAddMonths,
   isoDaysBetween,
+  type GroceryBasketDto,
   type GroceryItemCategory,
   type GroceryItemStatsDto,
   type GroceryMonthDto,
@@ -64,6 +68,59 @@ export function itemStats(
       };
     })
     .sort((a, b) => b.purchases - a.purchases || a.name.localeCompare(b.name));
+}
+
+/**
+ * Your grocery inflation: for each item with a unit price in both the last
+ * 365 days and the 365 before, the average price now over the average then,
+ * weighted by the purchases of the last year; next to ISTAT FOI.
+ */
+export function basketChange(
+  lines: readonly PurchaseLine[],
+  today: string,
+): GroceryBasketDto {
+  const yearAgo = isoAddDays(today, -365);
+  const twoYearsAgo = isoAddDays(today, -730);
+  const groups = new Map<string, { now: number[]; then: number[] }>();
+  for (const l of lines) {
+    if (l.unitPrice === null || l.unitPrice <= 0 || l.date > today) continue;
+    const g = groups.get(l.name) ?? { now: [], then: [] };
+    if (l.date > yearAgo) g.now.push(l.unitPrice);
+    else if (l.date > twoYearsAgo) g.then.push(l.unitPrice);
+    groups.set(l.name, g);
+  }
+  const mean = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
+  const compared = [...groups.entries()]
+    .filter(([, g]) => g.now.length && g.then.length)
+    .map(([name, g]) => ({
+      name,
+      weight: g.now.length,
+      change: mean(g.now) / mean(g.then) - 1,
+    }));
+  const weights = compared.reduce((s, c) => s + c.weight, 0);
+  const year = Number(today.slice(0, 4));
+  const officialYear = FOI_ANNUAL_CHANGE_PCT[year] !== undefined ? year : null;
+  return {
+    change: weights
+      ? Math.round(
+          (compared.reduce((s, c) => s + c.change * c.weight, 0) / weights) *
+            1000,
+        ) / 1000
+      : null,
+    items: compared.length,
+    risers: compared
+      .filter((c) => c.change > 0)
+      .sort((a, b) => b.change - a.change)
+      .slice(0, 3)
+      .map((c) => ({
+        name: c.name,
+        change: Math.round(c.change * 1000) / 1000,
+      })),
+    officialPct: officialYear ? FOI_ANNUAL_CHANGE_PCT[officialYear] : null,
+    officialLabel: officialYear
+      ? `ISTAT FOI ${officialYear}${officialYear === FOI_PARTIAL_YEAR.year ? `, ${FOI_PARTIAL_YEAR.months}` : ''}`
+      : null,
+  };
 }
 
 export function months(

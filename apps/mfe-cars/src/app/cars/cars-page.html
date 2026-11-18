@@ -296,7 +296,11 @@ idle) {
 
     <cars-renewals-card [renewals]="vehicle.renewals" />
 
-    <cars-costs-card [costs]="vehicle.costs" [totals]="vehicle.costTotals" />
+    <cars-costs-card
+      [costs]="vehicle.costs"
+      [totals]="vehicle.costTotals"
+      [usage]="vehicle.usage"
+    />
 
     <cars-usage-card [usage]="vehicle.usage" />
 

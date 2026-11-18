@@ -92,6 +92,7 @@ describe.skipIf(!configured)(
       const overview = await json<FitnessOverviewDto>('GET', '/overview');
       expect(overview.status).toBe(200);
       expect(overview.body.goalMinutes).toBe(150);
+      expect(overview.body.goalWeightKg).toBeNull();
       const weeks = overview.body.weeks;
       expect(weeks).toHaveLength(12);
       expect(weeks[10].activeMinutes).toBeGreaterThanOrEqual(160);

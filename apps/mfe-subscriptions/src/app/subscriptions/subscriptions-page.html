@@ -191,7 +191,38 @@
   }
 </div>
 
-@if (d.byKind.length > 1) {
+@if (history(); as h) {
+<ui-card heading="Has your fixed cost crept up?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    What the contracts you have now cost a month, over two years: a step is a
+    new contract or a price change. Now
+    <strong>{{ euro(h.now) }}</strong> a month, @if (h.change > 0.005) {
+    <span class="li-warn">{{ euro(h.change) }} more than a year ago</span>. }
+    @else if (h.change < -0.005) {
+    <span class="li-good">{{ euro(-h.change) }} less than a year ago</span>. }
+    @else { the same as a year ago. } Cancelled contracts are left out.
+  </p>
+  <ui-line-chart
+    [categories]="h.categories"
+    [series]="h.series"
+    [step]="true"
+    [title]="h.title"
+    [format]="wholeEuro"
+    [height]="200"
+    ariaLabel="Fixed cost a month, over two years"
+  />
+  @if (h.changes.length) {
+  <ul class="li-list li-small changes">
+    @for (m of h.changes; track m.month) {
+    <li>
+      <strong>{{ monthText(m.month) }}</strong>
+      <span class="li-muted">{{ m.changes.join(', ') }}</span>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+} @if (d.byKind.length > 1) {
 <ui-card heading="Where it goes, a year" class="li-block">
   <ui-segmented-bar [parts]="kindParts()" [format]="wholeEuro" />
 </ui-card>

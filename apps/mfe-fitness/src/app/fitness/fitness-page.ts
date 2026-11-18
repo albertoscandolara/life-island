@@ -22,8 +22,10 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiLineChart,
   UiPageHeader,
   UiProgressBar,
+  type UiChartSeries,
 } from '@life-island/design-system';
 import {
   LiBars,
@@ -37,6 +39,7 @@ import {
   errorText,
   liOptions,
   localToday,
+  monthText,
   type LiBar,
   type LiField,
   type LiTab,
@@ -154,6 +157,7 @@ const EMOJI: Record<WorkoutKind, string> = {
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiLineChart,
     UiPageHeader,
   ],
   host: { 'data-character': 'galli', class: 'fitness' },
@@ -231,17 +235,33 @@ export class FitnessPage {
       : 0;
   });
 
-  protected readonly weightBars = computed<LiBar[]>(() =>
-    [...(this.data()?.measurements ?? [])]
-      .filter((m) => m.weightKg !== null)
-      .slice(0, 12)
-      .reverse()
-      .map((m) => ({
-        label: m.date.slice(8) + '/' + m.date.slice(5, 7),
-        value: m.weightKg!,
-        title: `${dateText(m.date)}: ${m.weightKg} kg`,
-      })),
-  );
+  /** Every weight written, oldest first, with the goal from Settings. */
+  protected readonly weight = computed(() => {
+    const d = this.data();
+    const points = [...(d?.measurements ?? [])]
+      .filter((m): m is typeof m & { weightKg: number } => m.weightKg !== null)
+      .reverse();
+    if (points.length < 2) return null;
+    const goal = d?.goalWeightKg ?? null;
+    const last = points[points.length - 1].weightKg;
+    const series: UiChartSeries[] = [
+      {
+        id: 'weight',
+        label: 'Weight',
+        color: 'var(--viz-1)',
+        values: points.map((p) => p.weightKg),
+      },
+    ];
+    return {
+      series,
+      categories: points.map((p) => monthText(p.date, true)),
+      title: (i: number) => dateText(points[i]?.date),
+      goal: goal ? { value: goal, label: `Goal ${goal} kg` } : null,
+      toGo: goal ? Math.round((last - goal) * 10) / 10 : null,
+      points,
+    };
+  });
+  protected readonly kg = (v: number) => `${Math.round(v * 10) / 10} kg`;
 
   protected readonly plan = computed<TrainingPlanDto | null>(() => {
     const all = this.data()?.plans ?? [];

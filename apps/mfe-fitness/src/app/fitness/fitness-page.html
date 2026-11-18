@@ -172,13 +172,40 @@
   >Weight, waist, resting heart rate, sleep and steps: add them to see how they
   move.</ui-empty-state
 >
-} @else {
+} @else { @if (weight(); as w) {
+<ui-card heading="Is your weight heading to the goal?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    Every weight you wrote; the axis does not start at zero. @if (w.toGo ===
+    null) { Set a weight goal in Settings → App → Fitness to see it as a line. }
+    @else if (w.toGo > 0) { <strong>{{ kg(w.toGo) }}</strong> to go. } @else if
+    (w.toGo < 0) { <strong>{{ kg(-w.toGo) }}</strong> under the goal. } @else {
+    You are at your goal. }
+  </p>
+  <ui-line-chart
+    [categories]="w.categories"
+    [series]="w.series"
+    [goal]="w.goal"
+    [zero]="false"
+    [area]="false"
+    [title]="w.title"
+    [format]="kg"
+    [height]="220"
+    ariaLabel="Weight over time"
+  />
+  <div uiCardActions>
+    <button
+      uiButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      (click)="measurements.add({ date: d.today })"
+    >
+      <ui-icon name="plus" [size]="16" /> Add a weight
+    </button>
+  </div>
+</ui-card>
+}
 <div class="li-grid li-block">
-  @if (weightBars().length > 1) {
-  <ui-card heading="Weight">
-    <li-bars [bars]="weightBars()" caption="Weight over time" />
-  </ui-card>
-  }
   <ui-card heading="Sleep">
     <p class="big">
       {{ d.stats.averageSleep7 === null ? '—' : d.stats.averageSleep7 + ' h' }}

@@ -229,7 +229,37 @@
   Upload your supermarket receipts in Documents and confirm them in Review:
   every item you buy shows here with its price over time.
 </ui-empty-state>
-} @else {
+} @else { @let b = d.basket;
+<ui-card heading="Is your basket getting more expensive?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    @if (b.change !== null) { What you buy again cost
+    <strong
+      [class.li-bad]="b.officialPct !== null && b.change * 100 > b.officialPct + 0.5"
+      [class.li-good]="b.change < 0"
+      >{{ signed(b.change) }}</strong
+    >
+    this year against the last ({{ b.items }} items, weighted by how often you
+    buy them). @if (b.officialPct !== null) { Official inflation:
+    <strong>{{ signed(b.officialPct / 100) }}</strong> ({{ b.officialLabel }}).
+    } @if (b.risers.length) { Up the most: @for (r of b.risers; track r.name;
+    let last = $last) { {{ r.name }} {{ signed(r.change) }}{{ last ? '.' : ', '
+    }} } } } @else { Your own inflation shows once you have receipts from two
+    years with the same items. } Pick an item in the table to see its price.
+  </p>
+  @if (priceChart(); as c) {
+  <h3 class="li-sub chart-title">{{ c.item.name }}: the price you paid</h3>
+  <ui-line-chart
+    [categories]="c.categories"
+    [series]="c.series"
+    [zero]="false"
+    [area]="false"
+    [title]="c.title"
+    [format]="euro"
+    [height]="200"
+    [ariaLabel]="'Price of ' + c.item.name + ' over time'"
+  />
+  }
+</ui-card>
 <div class="li-toolbar li-block">
   <input
     class="ui-input"
@@ -255,9 +285,19 @@
     </thead>
     <tbody>
       @for (i of items(); track i.name) {
-      <tr>
+      <tr [class.row--on]="i.name === priced()?.name">
         <th scope="row">
-          {{ i.name }}
+          @if (i.prices.length > 1) {
+          <button
+            type="button"
+            class="li-link"
+            [attr.aria-pressed]="i.name === priced()?.name"
+            [attr.aria-label]="'Show the price of ' + i.name + ' in the chart'"
+            (click)="showPrice(i)"
+          >
+            {{ i.name }}
+          </button>
+          } @else { {{ i.name }} }
           <span class="li-muted li-small">· {{ category(i.category) }}</span>
         </th>
         <td class="li-num">{{ i.purchases }}×</td>

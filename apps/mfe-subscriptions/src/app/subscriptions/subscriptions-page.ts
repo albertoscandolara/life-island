@@ -26,8 +26,10 @@ import {
   UiEmptyState,
   UiIcon,
   UiPageHeader,
+  UiLineChart,
   UiSegmentedBar,
   type UiBarPart,
+  type UiChartSeries,
 } from '@life-island/design-system';
 import {
   LiDue,
@@ -38,12 +40,14 @@ import {
   errorText,
   euro,
   liOptions,
+  monthText,
   type LiField,
   type LiTab,
   LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { SubscriptionsApi } from '../api/subscriptions-api';
+import { costHistory } from './cost-history';
 
 const SERVICE = 'svc-subscriptions';
 
@@ -139,6 +143,7 @@ const FIELDS: readonly LiField[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LiNeedsYou,
+    UiLineChart,
     UiSegmentedBar,
     AiTool,
     LiDue,
@@ -171,6 +176,7 @@ export class SubscriptionsPage {
   );
   protected readonly showEnded = signal(false);
   protected readonly euro = euro;
+  protected readonly monthText = monthText;
   protected readonly dateText = dateText;
   protected readonly fields = FIELDS;
   protected readonly items = new RecordEditor(
@@ -215,6 +221,41 @@ export class SubscriptionsPage {
    * in the kinds' own order (so a kind keeps its colour as amounts change);
    * the rest add up to "Other".
    */
+  /** The fixed cost a month over two years, with what changed when. */
+  protected readonly history = computed(() => {
+    const d = this.data();
+    if (!d) return null;
+    const months = costHistory(d.items, d.today);
+    const first = months.find((m) => m.total > 0);
+    if (!first || months.filter((m) => m.total > 0).length < 2) return null;
+    const last = months[months.length - 1];
+    const yearAgo = months[months.length - 13] ?? first;
+    const changes = months
+      .filter((m) => m.changes.length)
+      .reverse()
+      .slice(0, 4);
+    return {
+      categories: months.map((m) => monthText(m.month, true)),
+      series: [
+        {
+          id: 'fixed',
+          label: 'A month',
+          color: 'var(--viz-1)',
+          values: months.map((m) => m.total || null),
+        },
+      ] satisfies UiChartSeries[],
+      title: (i: number) => {
+        const m = months[i];
+        return m.changes.length
+          ? `${monthText(m.month)}: ${m.changes.join(', ')}`
+          : monthText(m.month);
+      },
+      now: last.total,
+      change: last.total - yearAgo.total,
+      changes,
+    };
+  });
+
   protected readonly kindParts = computed<UiBarPart[]>(() => {
     const byKind = this.data()?.byKind ?? [];
     const named = new Set(
