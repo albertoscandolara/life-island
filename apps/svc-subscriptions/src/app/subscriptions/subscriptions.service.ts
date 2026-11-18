@@ -17,19 +17,23 @@ import {
   type DeadlinesQuery,
   type LifeAttentionDto,
   type LifeQuestionRequest,
+  type PayableDto,
+  type PayablesQuery,
   type RenewalAdviceDto,
   type SubscriptionKind,
   type SubscriptionsOverviewDto,
 } from '@life-island/contracts';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray, isNull } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from '../config.js';
 import {
   contracts,
+  payments,
   priceChanges,
   renewalAdvice,
   type RenewalAdviceRow,
 } from '../db/schema.js';
 import { RECORDS } from './collections.js';
+import { chargePayables, lastCharge } from './payables.js';
 import {
   ADVISOR_INSTRUCTIONS,
   advisorDossier,
@@ -85,26 +89,41 @@ export class SubscriptionsService implements OnApplicationBootstrap {
   }
 
   private async items(day: string) {
-    const [rows, changes] = await Promise.all([
+    const [rows, changes, paid] = await Promise.all([
       this.db.select().from(contracts).orderBy(contracts.name),
       this.db.select().from(priceChanges).orderBy(priceChanges.date),
+      // The charges matched to bank movements in Money, still linked.
+      this.db.select().from(payments).where(isNull(payments.unlinkedAt)),
     ]);
-    return rows.map(({ updatedAt: _, ...row }) =>
-      withRenewal(
-        {
-          ...row,
-          createdAt: row.createdAt.toISOString(),
-          priceChanges: changes
-            .filter((c) => c.contractId === row.id)
-            .map((c) => ({ date: c.date, from: c.fromCost, to: c.toCost })),
-        },
-        day,
-      ),
-    );
+    return rows.map(({ updatedAt, ...row }) => {
+      const history = changes
+        .filter((c) => c.contractId === row.id)
+        .map((c) => ({ date: c.date, from: c.fromCost, to: c.toCost }));
+      return {
+        ...withRenewal(
+          {
+            ...row,
+            createdAt: row.createdAt.toISOString(),
+            priceChanges: history,
+            lastCharge: lastCharge(
+              { id: row.id, cost: row.cost, priceChanges: history },
+              paid,
+            ),
+          },
+          day,
+        ),
+        changedOn: updatedAt.toISOString().slice(0, 10),
+      };
+    });
+  }
+
+  /** Every charge of the contracts, for Money matching (`GET /payables`). */
+  async payables(query: PayablesQuery, day = today()): Promise<PayableDto[]> {
+    return chargePayables(await this.items(day), query);
   }
 
   async overview(day = today()): Promise<SubscriptionsOverviewDto> {
-    const [items, adviceRows, aiAdvisor] = await Promise.all([
+    const [all, adviceRows, aiAdvisor] = await Promise.all([
       this.items(day),
       this.db
         .select()
@@ -113,6 +132,7 @@ export class SubscriptionsService implements OnApplicationBootstrap {
         .limit(5),
       this.ai.active(),
     ]);
+    const items = all.map(({ changedOn: _, ...item }) => item);
     const live = items.filter(isLive);
     const byKind = new Map<SubscriptionKind, number>();
     for (const i of live)
@@ -235,21 +255,40 @@ export class SubscriptionsService implements OnApplicationBootstrap {
     ]);
     const watched = items.filter((i) => i.daysToCancelBy !== null);
     const unused = items.filter((i) => isLive(i) && i.usage === 'never');
+    // A charge matched in Money cost more than the contract says, and the
+    // cost was not updated since.
+    const risen = items.filter(
+      (i) =>
+        isLive(i) &&
+        i.lastCharge?.priceRise &&
+        i.lastCharge.paid > i.cost + 0.005,
+    );
     return {
       expired: 0,
       expiring: watched.filter(
         (i) => i.daysToCancelBy! >= 0 && i.daysToCancelBy! <= warnDays,
       ).length,
-      toReview: unused.length,
-      items: unused.map((i) => ({
-        id: `unused:${i.id}`,
-        kind: 'unused',
-        title: `Keep or cancel ${i.name}?`,
-        detail: `You marked it as never used, and it costs ${euroText(i.yearly)} a year.`,
-        since: null,
-        path: '/subscriptions',
-        action: 'Decide',
-      })),
+      toReview: unused.length + risen.length,
+      items: [
+        ...risen.map((i) => ({
+          id: `price-rise:${i.id}:${i.lastCharge!.date}`,
+          kind: 'price-rise',
+          title: `${i.name} charged more than its price`,
+          detail: `The bank charged ${euroText(i.lastCharge!.paid)} on ${i.lastCharge!.paidOn}; the contract says ${euroText(i.lastCharge!.expected)}. Update the cost, or ask the provider why.`,
+          since: i.lastCharge!.paidOn,
+          path: '/subscriptions',
+          action: 'Update the cost',
+        })),
+        ...unused.map((i) => ({
+          id: `unused:${i.id}`,
+          kind: 'unused',
+          title: `Keep or cancel ${i.name}?`,
+          detail: `You marked it as never used, and it costs ${euroText(i.yearly)} a year.`,
+          since: null,
+          path: '/subscriptions',
+          action: 'Decide',
+        })),
+      ],
     };
   }
 

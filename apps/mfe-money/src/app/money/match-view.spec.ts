@@ -95,4 +95,13 @@ describe('the "To match" tab', () => {
     expect(pickAmount(payable(), move({ amount: -30 }))).toBe(30);
     expect(leftOf(-84.37, 84.37)).toBe(0);
   });
+
+  it('links a price rise whole, within the tolerance only', () => {
+    const sub = payable({ amount: 12.99, tolerance: 0.1 });
+    expect(pickAmount(sub, move({ amount: -13.99 }))).toBe(13.99);
+    expect(pickAmount(sub, move({ amount: -20 }))).toBe(12.99);
+    expect(
+      pickAmount(payable({ amount: 12.99 }), move({ amount: -13.99 })),
+    ).toBe(12.99);
+  });
 });

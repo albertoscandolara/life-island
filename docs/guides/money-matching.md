@@ -2,7 +2,8 @@
 
 A bank movement already says who was paid, how much and when. Money matching
 pairs each movement of your accounts with the item of another area it paid (a
-bill in Houses today; the 730's expenses, subscriptions and car costs next), so
+bill in Houses, an expense of the 730, a subscription's charge; car costs
+next), so
 you confirm a payment once and every area knows it. Nothing is typed twice and
 no payment proof is uploaded by hand for a bill.
 
@@ -75,6 +76,11 @@ the cent (or within the item's tolerance). Then:
 - **Never**: the bank names someone else (A2A for an Enel bill), or you said
   "not this one" (`match_rejections`), or the item is already fully linked.
 
+A charge a little over its price (within the tolerance: a subscription whose
+price went up) is proposed with the movement's whole amount, and the same when
+you pick it by hand (`pickAmount`), so the area learns what was really charged.
+It stays "check it", so it is never linked on its own.
+
 Names are compared after dropping the bank's words (ADDEBITO, SDD, BONIFICO,
 POS…), any word with a digit, legal forms and generic words (a pharmacy is not
 _the_ pharmacy). Each suggestion carries its reasons in plain words.
@@ -118,10 +124,11 @@ counting it as due.
 
 ## Per area
 
-| Area   | Items                                                                                                                    | What a link does                                                                                                                                                                  |
-| ------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Houses | Each counted bill with a due (or issue) date and something to pay; window from 3 days before issue to 45 after due       | `bankPayment` on the bill; its Agenda date is done; no "due soon" badge                                                                                                           |
-| 730    | Each counted expense (one paired into another is paid through that one); window from 30 days before its date to 90 after | `bankPayment` on the expense; it is **paid traceably** (also in the deduction estimate), shown as "Paid by bank". The payment proof document is still asked for: the CAF wants it |
+| Area          | Items                                                                                                                                                                                                                                                                                                                                                                          | What a link does                                                                                                                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Houses        | Each counted bill with a due (or issue) date and something to pay; window from 3 days before issue to 45 after due                                                                                                                                                                                                                                                             | `bankPayment` on the bill; its Agenda date is done; no "due soon" badge                                                                                                                                                                                           |
+| Subscriptions | Each charge of a contract, every billing cycle counted from its renewal day (or start): never before the start, during a free trial, after the end of one that does not renew, or after a cancellation. Priced at the cost of that day (price history); tolerance 0.1; `autoPay` as the contract; window from 5 days before to 10 after; key `subscriptions:charge:<id>.<day>` | `lastCharge` on the contract. A charge over the price raises "charged more than its price" on Attention, with **Update the cost** in Contracts & subscriptions, until the cost is updated. Moving the renewal day renames the charges: their links show as `gone` |
+| 730           | Each counted expense (one paired into another is paid through that one); window from 30 days before its date to 90 after                                                                                                                                                                                                                                                       | `bankPayment` on the expense; it is **paid traceably** (also in the deduction estimate), shown as "Paid by bank". The payment proof document is still asked for: the CAF wants it                                                                                 |
 
 ## Tests
 
@@ -132,6 +139,9 @@ counting it as due.
   removing movements and accounts, "not this one".
 - `apps/svc-home/src/app/home.int.spec.ts`: the bill payables, and the events
   applied once and in any order.
+- `apps/svc-subscriptions/src/app/subscriptions/payables.spec.ts` and
+  `subscriptions.int.spec.ts`: charge days and prices, a price rise matched as
+  "check it" and linked whole, the last charge, its warning and its undo.
 - `apps/svc-tax730/src/app/dossier/dossier.int.spec.ts`: the expense payables,
   a matched payment making an expense traceable while the receipt is still
   asked, and its undo.

@@ -29,6 +29,10 @@
   margin: 0;
 }
 
+.rise {
+  margin: 0 0 var(--space-2);
+}
+
 .verdict {
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border-subtle);

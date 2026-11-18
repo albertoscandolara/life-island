@@ -15,8 +15,10 @@ import { parseOrThrow } from '@life-island/be-nest';
 import {
   deadlinesQuerySchema,
   lifeQuestionRequestSchema,
+  payablesQuerySchema,
   type DeadlineDto,
   type LifeAttentionDto,
+  type PayableDto,
   type RenewalAdviceDto,
   type SubscriptionsOverviewDto,
 } from '@life-island/contracts';
@@ -40,6 +42,14 @@ export class SubscriptionsController {
   deadlines(@Query() query: unknown): Promise<DeadlineDto[]> {
     return this.subscriptions.deadlines(
       parseOrThrow(deadlinesQuerySchema, query),
+    );
+  }
+
+  /** Every charge of the contracts, for Money matching (docs/guides/money-matching.md). */
+  @Get('payables')
+  payables(@Query() query: unknown): Promise<PayableDto[]> {
+    return this.subscriptions.payables(
+      parseOrThrow(payablesQuerySchema, query),
     );
   }
 
