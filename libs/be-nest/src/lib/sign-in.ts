@@ -45,6 +45,12 @@ interface SessionAnswer {
 }
 
 export interface SignInOptions {
+  /**
+   * Paths that answer without sign-in because the route checks a secret of
+   * its own (the Agenda's private calendar link). Each must match the whole
+   * path; keep them as narrow as the route.
+   */
+  openPaths?: readonly RegExp[];
   fetchImpl?: typeof fetch;
   now?: () => number;
   logger?: Logger;
@@ -62,8 +68,12 @@ export function requireSignIn(
     ? Buffer.from(settings.internalToken)
     : null;
 
+  const openPaths = options.openPaths ?? [];
   return async (req, res, next) => {
-    if (OPEN_PATHS.has((req.url ?? '/').split('?')[0] ?? '/')) return next();
+    const path = (req.url ?? '/').split('?')[0] ?? '/';
+    if (OPEN_PATHS.has(path)) return next();
+    if (req.method === 'GET' && openPaths.some((open) => open.test(path)))
+      return next();
 
     const offered = headerValue(req, INTERNAL_TOKEN_HEADER);
     if (offered !== undefined) {

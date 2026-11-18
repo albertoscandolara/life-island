@@ -52,6 +52,8 @@ Built into the island (`apps/svc-auth`, schema `auth`), with no outside provider
 
 **Every service checks every request** (`requireSignIn` in `libs/be-nest`, applied by `applyHttpSecurity`): a browser request needs a session cookie svc-auth vouches for (asked over `GET /session`, remembered 30 seconds); a call from another service needs `INTERNAL_TOKEN` in `X-Internal-Token` (`internalHeaders()` from `libs/be-common`, and the gateway drops that header from clients). Anything else answers 401, and 503 if svc-auth cannot be reached. A leaked service port is not a way in. The handler reads the person with `currentUser()`.
 
+**One route answers without sign-in: the Agenda's private calendar link** (`GET /api/agenda/calendar/feed/<secret>.ics`), because calendar apps cannot sign in. It carries a 256-bit secret, of which only the SHA-256 is stored; only `GET` of exactly that shape passes (`openPaths` in `applyHttpSecurity`, and its own block in the Caddyfile that skips `GATEWAY_AUTH`); any other secret answers 404; a new link or turning it off stops the old one at once. It shows dates only (titles, areas, amounts), never documents or personal data. See [Calendar link](guides/calendar-feed.md). A new open path needs the same: a secret checked by the route, the narrowest regex, and a line here.
+
 The front end (`libs/auth-ui`): the sign-in page (sign-in, two-factor code, first owner, invite, two-factor setup), a guard on every route of both apps, an interceptor that sends a 401 back to sign-in, and the Account page (sign out, sign out everywhere, password, two-factor, people and invites).
 
 ### Skipping sign-in on your own machine

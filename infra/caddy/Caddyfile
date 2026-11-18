@@ -122,6 +122,23 @@
 		import protected
 		reverse_proxy svc-money:3000
 	}
+	# The Agenda's private calendar link (docs/guides/calendar-feed.md): calendar
+	# apps cannot sign in, so this one read-only path skips the gateway's door.
+	# A longer path than /api/agenda/*, so Caddy tries it first. Only GET of a
+	# 43-character secret reaches svc-agenda, which checks it; anything else is 404.
+	handle_path /api/agenda/calendar/feed/* {
+		@feed {
+			method GET
+			path_regexp ^/[A-Za-z0-9_-]{43}\.ics$
+		}
+		handle @feed {
+			rewrite * /calendar/feed{path}
+			reverse_proxy svc-agenda:3000
+		}
+		handle {
+			respond 404
+		}
+	}
 	handle_path /api/agenda/* {
 		import protected
 		reverse_proxy svc-agenda:3000

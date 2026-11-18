@@ -398,3 +398,24 @@ export function agendaUrgency(daysLeft: number): AgendaUrgency {
 
 /** Settings → Agenda. */
 export const AGENDA_CALENDAR_SETTING = 'agenda.italian-calendar';
+
+// ---------------------------------------------------------------------------
+// The private calendar link (docs/guides/calendar-feed.md)
+// ---------------------------------------------------------------------------
+
+/** The feed's path on svc-agenda: a 43-character secret, then `.ics`. */
+export const CALENDAR_FEED_PATH = /^\/calendar\/feed\/[A-Za-z0-9_-]{43}\.ics$/;
+
+/** `GET /calendar`: whether a link is on. The link itself is shown only when made. */
+export interface CalendarFeedDto {
+  active: boolean;
+  createdAt: string | null;
+  /** The last time a calendar app read it. */
+  lastReadAt: string | null;
+}
+
+/** `POST /calendar`: a new link; the one before stops working. */
+export interface CalendarFeedLinkDto extends CalendarFeedDto {
+  /** `https://…/api/agenda/calendar/feed/<secret>.ics`: shown this once. */
+  url: string;
+}

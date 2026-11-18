@@ -6,7 +6,7 @@ The Agenda can email you what is overdue, what is coming and what waits for you 
 
 1. Add an email to the person who should get it: People, their page, **Edit**, then **Email**.
 2. In Settings, open **App settings** and find **Email digest**. Choose **How often**, pick the person under **Send it to**, and set the time. Then set the weekday for a weekly digest, or the day of the month for a monthly one.
-3. Open the Agenda's **Email** tab. It says when the next digest goes and to whom, or what is in the way and where to fix it. You can preview the digest there and send a test now.
+3. Open the Agenda's **Email & calendar** tab. It says when the next digest goes and to whom, or what is in the way and where to fix it. You can preview the digest there and send a test now.
 
 | How often   | Looks ahead | Sent                                      |
 | ----------- | ----------- | ----------------------------------------- |

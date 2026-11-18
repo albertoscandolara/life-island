@@ -29,7 +29,10 @@ const AREAS: Record<string, { name: string; emblem: string }> = {
   agenda: { name: 'Agenda', emblem: '🗓️' },
 };
 
-const area = (module: string) => AREAS[module] ?? { name: module, emblem: '•' };
+/** An area's name and emblem, as the island shows them. */
+export const agendaArea = (module: string) =>
+  AREAS[module] ?? { name: module, emblem: '•' };
+const area = agendaArea;
 
 export interface DigestInput {
   today: string;

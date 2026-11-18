@@ -38,6 +38,7 @@ import {
 import { AiTool } from '@life-island/settings-ui';
 import { AgendaApi } from '../api/agenda-api';
 import { areaOf } from './areas';
+import { CalendarCard } from './calendar-card';
 import { DigestCard } from './digest-card';
 import { EntryList } from './entry-list';
 import { WaitingList } from './waiting-list';
@@ -83,6 +84,7 @@ const ITEM_FIELDS: readonly LiField[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AiTool,
+    CalendarCard,
     DigestCard,
     EntryList,
     WaitingList,
@@ -212,7 +214,7 @@ export class AgendaPage {
     { id: 'ahead', label: 'Year ahead', icon: 'calendar' },
     { id: 'items', label: 'My items', icon: 'edit' },
     { id: 'brief', label: 'Week brief', icon: 'sparkles' },
-    { id: 'email', label: 'Email', icon: 'mail' },
+    { id: 'email', label: 'Email & calendar', icon: 'mail' },
   ]);
 
   protected readonly brief = computed<AgendaBriefDto | null>(() => {

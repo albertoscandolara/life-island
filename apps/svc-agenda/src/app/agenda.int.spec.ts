@@ -11,6 +11,8 @@ import {
   type DigestStatusDto,
   type AgendaOverviewDto,
   type AgendaUpcomingDto,
+  type CalendarFeedDto,
+  type CalendarFeedLinkDto,
   type LifeAttentionDto,
 } from '@life-island/contracts';
 import { createApp } from './bootstrap.js';
@@ -168,6 +170,7 @@ describe.skipIf(!configured)(
         "delete from agenda.handled_entries where key like 'module:cars:insurance:car-1:%'",
       );
       await svc?.pool.query('delete from agenda.digest_sends');
+      await svc?.pool.query('delete from agenda.calendar_feeds');
       await svc?.pool.query(
         "delete from agenda.settings_replica where key like 'agenda.digest-%'",
       );
@@ -379,6 +382,70 @@ describe.skipIf(!configured)(
           period: `daily:${today()}`,
           status: 'sent',
         });
+      });
+    });
+
+    describe('the private calendar link', () => {
+      const feed = async (url: string) => {
+        const response = await fetch(
+          `${base}${new URL(url).pathname.replace('/api/agenda', '')}`,
+        );
+        return {
+          status: response.status,
+          type: response.headers.get('content-type'),
+          body: await response.text(),
+        };
+      };
+
+      it('is off until you make one', async () => {
+        await svc.pool.query('delete from agenda.calendar_feeds');
+        const status = await json<CalendarFeedDto>('GET', '/calendar');
+        expect(status.body).toEqual({
+          active: false,
+          createdAt: null,
+          lastReadAt: null,
+        });
+      });
+
+      it('serves the dates to whoever has the link, and nothing to anyone else', async () => {
+        const made = await json<CalendarFeedLinkDto>('POST', '/calendar');
+        expect(made.status).toBe(201);
+        expect(made.body.url).toMatch(
+          /^https:\/\/island\.example\/api\/agenda\/calendar\/feed\/[A-Za-z0-9_-]{43}\.ics$/,
+        );
+        // Only the secret's hash is kept.
+        const { rows } = await svc.pool.query<{ token_hash: string }>(
+          'select token_hash from agenda.calendar_feeds',
+        );
+        expect(rows).toHaveLength(1);
+        expect(made.body.url).not.toContain(rows[0].token_hash);
+
+        const read = await feed(made.body.url);
+        expect(read.status).toBe(200);
+        expect(read.type).toContain('text/calendar');
+        expect(read.body).toContain('BEGIN:VCALENDAR');
+        expect(read.body).toContain('Pay the rent');
+        expect(
+          (await json<CalendarFeedDto>('GET', '/calendar')).body.lastReadAt,
+        ).not.toBeNull();
+
+        const wrong = made.body.url.replace(/feed\/./, (m) =>
+          m.endsWith('A') ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`,
+        );
+        expect((await feed(wrong)).status).toBe(404);
+        expect((await json('GET', '/calendar/feed/short.ics')).status).toBe(
+          404,
+        );
+
+        // A new link stops the old one; turning it off stops them all.
+        const renewed = await json<CalendarFeedLinkDto>('POST', '/calendar');
+        expect((await feed(made.body.url)).status).toBe(404);
+        expect((await feed(renewed.body.url)).status).toBe(200);
+        expect((await json('DELETE', '/calendar')).status).toBe(204);
+        expect((await feed(renewed.body.url)).status).toBe(404);
+        expect(
+          (await json<CalendarFeedDto>('GET', '/calendar')).body.active,
+        ).toBe(false);
       });
     });
   },

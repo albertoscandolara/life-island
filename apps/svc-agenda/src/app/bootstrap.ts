@@ -7,6 +7,7 @@ import pg from 'pg';
 import { AppModule, type AppOptions } from './app.module.js';
 import { LOCAL_AGENDA_DATABASE_URL, type ServiceConfig } from './config.js';
 import { applyHttpSecurity } from '@life-island/be-nest';
+import { CALENDAR_FEED_PATH } from '@life-island/contracts';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../../drizzle', import.meta.url),
@@ -89,7 +90,12 @@ export async function createApp(
     await runMigrations(config.databaseUrl);
   }
   const app = await NestFactory.create(AppModule.forRoot(config, options));
-  applyHttpSecurity(app, { service: 'svc-agenda', config });
+  applyHttpSecurity(app, {
+    service: 'svc-agenda',
+    config,
+    // The private calendar link: calendar apps cannot sign in; the route checks its secret.
+    openPaths: [CALENDAR_FEED_PATH],
+  });
   app.enableShutdownHooks();
   return app;
 }
