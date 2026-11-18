@@ -19,10 +19,18 @@ import {
   type AgendaOverviewDto,
   type AgendaUpcomingDto,
   type LifeAttentionDto,
+  type NeedsYouDto,
+  ATTENTION_SOURCES,
 } from '@life-island/contracts';
 import { z } from 'zod';
 import { AgendaService } from './agenda.service.js';
 import { RECORDS } from './collections.js';
+
+const needsQuerySchema = z.object({
+  module: z.enum(
+    ATTENTION_SOURCES.map((s) => s.module) as [string, ...string[]],
+  ),
+});
 
 const upcomingQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(366).default(14),
@@ -45,6 +53,12 @@ export class AgendaController {
   @Get('upcoming')
   upcoming(@Query() query: unknown): Promise<AgendaUpcomingDto> {
     return this.agenda.upcoming(parseOrThrow(upcomingQuerySchema, query).days);
+  }
+
+  /** What one area needs from you now, for the "Needs you" block of its page. */
+  @Get('needs')
+  needs(@Query() query: unknown): Promise<NeedsYouDto> {
+    return this.agenda.needs(parseOrThrow(needsQuerySchema, query).module);
   }
 
   /** What needs you, for the island's badge: overdue and this week. */

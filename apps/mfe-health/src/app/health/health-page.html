@@ -4,6 +4,8 @@
   subtitle="Visits, medicines, test results over time, vaccinations and the checkups to repeat, for you and your family. Life Island keeps the dates; your doctor decides."
 />
 
+<li-needs-you module="health" />
+
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
   {{ message }}

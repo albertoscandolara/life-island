@@ -40,6 +40,7 @@ import {
   type LiBar,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { FitnessApi } from '../api/fitness-api';
@@ -139,6 +140,7 @@ const EMOJI: Record<WorkoutKind, string> = {
   selector: 'fitness-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiProgressBar,
     AiTool,
     LiBars,

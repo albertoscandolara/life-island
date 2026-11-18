@@ -12,6 +12,8 @@ import {
   ATTENTION_SOURCES,
   isoAddDays,
   isoToday,
+  NEEDS_YOU_DAYS,
+  type NeedsYouDto,
   type AgendaBriefDto,
   type AgendaEntryDto,
   type AgendaItemDto,
@@ -93,10 +95,15 @@ export class AgendaService implements OnApplicationBootstrap {
   }
 
   /** Everything from 60 days ago to a year ahead, with the state of each area. */
-  private async timeline(day: string, from: string, to: string) {
+  private async timeline(
+    day: string,
+    from: string,
+    to: string,
+    sources: Readonly<Record<string, string>> = this.config.sources,
+  ) {
     const window = { from, to };
     const [read, itemRows, handledRows, calendar] = await Promise.all([
-      readDeadlines(this.config.sources, window),
+      readDeadlines(sources, window),
       this.db.select().from(agendaItems).orderBy(agendaItems.date),
       this.db.select({ key: handledEntries.key }).from(handledEntries),
       readBooleanSetting(
@@ -171,6 +178,37 @@ export class AgendaService implements OnApplicationBootstrap {
       readWaiting(this.config.sources),
     ]);
     return { entries, waiting };
+  }
+
+  /**
+   * What one area needs from you now (its page's "Needs you" block): only
+   * that area is read, with the Agenda's handled marks and calendar dates.
+   */
+  async needs(module: string, day = today()): Promise<NeedsYouDto> {
+    const base = this.config.sources[module];
+    if (!base)
+      return { module, today: day, entries: [], waiting: [], answered: false };
+    const only = { [module]: base };
+    const [{ entries, sources }, waiting] = await Promise.all([
+      this.timeline(
+        day,
+        isoAddDays(day, -60),
+        isoAddDays(day, NEEDS_YOU_DAYS),
+        only,
+      ),
+      readWaiting(only),
+    ]);
+    return {
+      module,
+      today: day,
+      entries: openEntries(entries, NEEDS_YOU_DAYS)
+        .filter((e) => e.module === module)
+        .sort(
+          (a, b) => a.daysLeft - b.daysLeft || a.title.localeCompare(b.title),
+        ),
+      waiting: waiting.filter((w) => w.module === module),
+      answered: sources.some((s) => s.module === module && s.ok),
+    };
   }
 
   async attention(day = today()): Promise<LifeAttentionDto> {

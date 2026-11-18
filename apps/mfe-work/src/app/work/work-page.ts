@@ -79,6 +79,7 @@ import {
   valueText,
   workplaceName,
 } from './labels';
+import { LiNeedsYou } from '@life-island/records-ui';
 
 export type WorkTab =
   | 'career'
@@ -177,6 +178,7 @@ const today = () => new Date().toISOString().slice(0, 10);
   selector: 'work-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     AiTool,
     AuditTab,
     EvaluationsTab,

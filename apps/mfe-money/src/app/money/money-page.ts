@@ -46,6 +46,7 @@ import {
   type LiBar,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { MoneyApi } from '../api/money-api';
@@ -131,6 +132,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
   selector: 'money-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiProgressBar,
     AiTool,
     LiBars,

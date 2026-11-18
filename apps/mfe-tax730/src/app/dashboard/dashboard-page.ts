@@ -47,6 +47,7 @@ import { SettlementCard } from '../explain/settlement-card';
 import { StepsCard } from '../explain/steps-card';
 import { TrendCard } from '../explain/trend-card';
 import { WhatIfCard } from '../explain/what-if-card';
+import { LiNeedsYou } from '@life-island/records-ui';
 
 /**
  * The two views of a year: its tax explained, its expenses. What the 730 is,
@@ -77,6 +78,7 @@ type PickerTarget =
   selector: 'tax-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiPageHeader,
     UiCard,
     UiButton,

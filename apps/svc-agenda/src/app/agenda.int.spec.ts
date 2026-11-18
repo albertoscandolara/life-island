@@ -14,6 +14,7 @@ import {
   type CalendarFeedDto,
   type CalendarFeedLinkDto,
   type LifeAttentionDto,
+  type NeedsYouDto,
 } from '@life-island/contracts';
 import { createApp } from './bootstrap.js';
 import { loadConfig } from './config.js';
@@ -255,6 +256,28 @@ describe.skipIf(!configured)(
       expect(
         upcoming.body.entries.some((e) => e.itemId === added.body.id),
       ).toBe(false);
+    });
+
+    it('lists what one area needs from you, for the top of its page', async () => {
+      const cars = await json<NeedsYouDto>('GET', '/needs?module=cars');
+      expect(cars.status).toBe(200);
+      expect(cars.body.answered).toBe(true);
+      expect(cars.body.waiting).toEqual([
+        expect.objectContaining({ key: 'cars:document:upload-1' }),
+      ]);
+      // Only Cars' dates, none handled (the insurance was marked above), within a week.
+      for (const e of cars.body.entries) {
+        expect(e.module).toBe('cars');
+        expect(e.handled).toBe(false);
+        expect(e.daysLeft).toBeLessThanOrEqual(7);
+      }
+      expect(
+        cars.body.entries.some((e) => e.title === 'Insurance of the Panda'),
+      ).toBe(false);
+      // An area that does not answer stays quiet; an unknown one is refused.
+      const people = await json<NeedsYouDto>('GET', '/needs?module=people');
+      expect(people.body).toMatchObject({ answered: false, waiting: [] });
+      expect((await json('GET', '/needs?module=nowhere')).status).toBe(400);
     });
 
     it('writes the week brief with its own rules when there is no key', async () => {

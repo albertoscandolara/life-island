@@ -39,6 +39,8 @@
   }
 </ui-page-header>
 
+<li-needs-you module="taxes" />
+
 @if (error(); as message) {
 <ui-alert tone="danger" class="error">{{ message }}</ui-alert>
 } @if (years() === null) {

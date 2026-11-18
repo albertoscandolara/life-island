@@ -38,6 +38,7 @@ import {
   localToday,
   type LiField,
   type LiTab,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { HealthApi } from '../api/health-api';
@@ -177,6 +178,7 @@ const CHECKUP_FIELDS: readonly LiField[] = [
   selector: 'health-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     AiTool,
     LiDue,
     LiRecordDialog,

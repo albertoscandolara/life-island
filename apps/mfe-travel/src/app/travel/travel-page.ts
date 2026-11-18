@@ -37,6 +37,7 @@ import {
   liOptions,
   localToday,
   type LiField,
+  LiNeedsYou,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { TravelApi } from '../api/travel-api';
@@ -152,6 +153,7 @@ const ICONS: Record<BookingKind, string> = {
   selector: 'travel-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiNeedsYou,
     UiProgressBar,
     AiTool,
     LiDue,

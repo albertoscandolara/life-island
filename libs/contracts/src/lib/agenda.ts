@@ -388,6 +388,24 @@ export interface AgendaUpcomingDto {
   entries: AgendaEntryDto[];
 }
 
+/** How many days ahead a page's "Needs you" block looks. */
+export const NEEDS_YOU_DAYS = 7;
+
+/**
+ * `GET /needs?module=`: what one area needs from you now, for the "Needs you"
+ * block at the top of its page: its open dates overdue or within
+ * NEEDS_YOU_DAYS (handled ones left out, as in the Agenda), most urgent
+ * first, then what waits with no date, oldest first.
+ */
+export interface NeedsYouDto {
+  module: string;
+  today: string;
+  entries: AgendaEntryDto[];
+  waiting: AgendaWaitingDto[];
+  /** False when the area did not answer: the block stays quiet rather than say "all clear". */
+  answered: boolean;
+}
+
 export function agendaUrgency(daysLeft: number): AgendaUrgency {
   if (daysLeft < 0) return 'overdue';
   if (daysLeft === 0) return 'today';
