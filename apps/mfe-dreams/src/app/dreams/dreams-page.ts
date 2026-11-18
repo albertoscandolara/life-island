@@ -51,6 +51,7 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { DreamsApi } from '../api/dreams-api';
@@ -216,7 +217,7 @@ export class DreamsPage {
   protected readonly selectedId = signal<string | null>(
     this.route.snapshot.queryParamMap.get('dream'),
   );
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'dream');
   protected readonly showClosed = signal(false);
   protected readonly showHistory = signal(false);
 
@@ -364,18 +365,10 @@ export class DreamsPage {
     this.load();
   }
 
-  private initialTab(): DreamTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab') as DreamTab | null;
-    return tab && TABS.includes(tab) ? tab : 'dream';
-  }
-
   private syncUrl(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {
-        tab: this.tab() === 'dream' ? null : this.tab(),
-        dream: this.selectedId(),
-      },
+      queryParams: { dream: this.selectedId() },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -383,7 +376,6 @@ export class DreamsPage {
 
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    this.syncUrl();
     if (tab === 'safety') this.loadContext();
   }
 
@@ -439,8 +431,7 @@ export class DreamsPage {
         this.creating.set(false);
         this.adding.set(false);
         this.selectedId.set(id);
-        this.tab.set('questions');
-        this.syncUrl();
+        this.tab.set('questions', { dream: id });
         this.load();
         this.ask(id);
       },

@@ -4,6 +4,8 @@ import {
   areaItems,
   dateItems,
   entityItems,
+  readRecent,
+  rememberRecent,
   searchIsland,
   searchScore,
   searchText,
@@ -191,5 +193,40 @@ describe('shortcutLabel', () => {
   it('says ⌘K on a Mac and Ctrl K elsewhere', () => {
     expect(shortcutLabel('MacIntel')).toBe('⌘K');
     expect(shortcutLabel('Win32')).toBe('Ctrl K');
+  });
+});
+
+describe('recent searches', () => {
+  it('puts the last pick first, once, and keeps five', () => {
+    let recent: SearchItem[] = [];
+    for (const t of ['a', 'b', 'c', 'd', 'e', 'f', 'c'])
+      recent = rememberRecent(recent, item(t, { keywords: ['long text'] }));
+    expect(recent.map((r) => r.id)).toEqual(['c', 'f', 'e', 'd', 'b']);
+    expect(recent[0].keywords).toEqual([]);
+  });
+
+  it('reads back only well-formed items with a path in this app', () => {
+    const raw = JSON.stringify([
+      item('Cars', { path: '/cars' }),
+      {
+        id: 'x',
+        title: 'Bad',
+        path: 'https://evil.example',
+        emblem: '•',
+        group: 'area',
+      },
+      {
+        id: 'y',
+        title: 'Bad',
+        path: '//evil.example',
+        emblem: '•',
+        group: 'area',
+      },
+      { id: 'z' },
+      'text',
+    ]);
+    expect(readRecent(raw).map((r) => r.id)).toEqual(['Cars']);
+    expect(readRecent('not json')).toEqual([]);
+    expect(readRecent(null)).toEqual([]);
   });
 });

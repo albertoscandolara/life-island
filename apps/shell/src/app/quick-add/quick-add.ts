@@ -14,6 +14,7 @@ import {
   QUICK_ADD_KINDS,
   RecordEditor,
   RecordsApi,
+  announceRecordsChanged,
   type QuickAddId,
   type QuickAddKind,
 } from '@life-island/records-ui';
@@ -236,6 +237,7 @@ export class QuickAdd {
   }
 
   private saved(kind: QuickAddKind): void {
+    announceRecordsChanged(kind.base, kind.collection);
     const text = kind.textKey ? this.sent[kind.textKey] : null;
     this.added.set({
       kind,

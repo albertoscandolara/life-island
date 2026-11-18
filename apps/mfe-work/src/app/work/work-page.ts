@@ -79,7 +79,7 @@ import {
   valueText,
   workplaceName,
 } from './labels';
-import { LiNeedsYou } from '@life-island/records-ui';
+import { LiNeedsYou, urlTab } from '@life-island/records-ui';
 
 export type WorkTab =
   | 'career'
@@ -213,7 +213,10 @@ export class WorkPage {
   protected readonly overview = signal<WorkOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
-  protected readonly tab = signal<WorkTab>(this.initialTab());
+  protected readonly tab = urlTab(
+    TABS.map((t) => t.id),
+    'career',
+  );
   /** The Work guide: reading matter kept out of the tabs, opened on demand. */
   protected readonly guideOpen = signal(false);
   protected readonly guideTopic = signal('pension');
@@ -356,9 +359,12 @@ export class WorkPage {
 
   constructor() {
     // A link from anywhere on the island opens one workplace: /work?workplace=<id>.
+    // Only a new id opens the tab, so a click on another tab is not undone.
+    let opened: string | null = null;
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
       const id = query.get(entityParam('workplace'));
-      if (!id) return;
+      if (!id || id === opened) return;
+      opened = id;
       this.selectedId.set(id);
       this.tab.set('workplaces');
     });
@@ -368,11 +374,6 @@ export class WorkPage {
       if (topic) this.showGuide(topic);
     });
     this.load();
-  }
-
-  private initialTab(): WorkTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab');
-    return TABS.some((t) => t.id === tab) ? (tab as WorkTab) : 'career';
   }
 
   protected showGuide(topic: string): void {
@@ -393,12 +394,6 @@ export class WorkPage {
 
   protected setTab(tab: WorkTab): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'career' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

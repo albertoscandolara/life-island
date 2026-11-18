@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
 import {
   GOAL_AREA_LABELS,
   isoAddDays,
@@ -41,6 +40,7 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { GoalsApi } from '../api/goals-api';
@@ -146,12 +146,10 @@ const MOODS = [
 })
 export class GoalsPage {
   private readonly api = inject(GoalsApi);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
   protected readonly data = signal<GoalsOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(this.initialTab());
+  protected readonly tab = urlTab(TABS, 'goals');
   protected readonly showClosed = signal(false);
   protected readonly dateText = dateText;
   protected readonly dayText = dayText;
@@ -300,19 +298,8 @@ export class GoalsPage {
     this.load();
   }
 
-  private initialTab(): GoalsTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab') as GoalsTab | null;
-    return tab && TABS.includes(tab) ? tab : 'goals';
-  }
-
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'goals' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {

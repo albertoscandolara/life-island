@@ -15,6 +15,7 @@ import {
   UiPageHeader,
   type UiIconName,
 } from '@life-island/design-system';
+import { urlTab } from '@life-island/records-ui';
 import { StudiesApi } from '../api/studies-api';
 import { CoachTab } from './coach-tab';
 import { CoursesTab } from './courses-tab';
@@ -67,7 +68,10 @@ export class StudiesPage {
   protected readonly tabs = TABS;
   protected readonly overview = signal<StudiesOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<StudiesTab>(this.initialTab());
+  protected readonly tab = urlTab(
+    TABS.map((t) => t.id),
+    'overview',
+  );
   /** The path shown in Learning paths. */
   protected readonly pathId = signal<string | null>(
     this.route.snapshot.queryParamMap.get('path'),
@@ -86,22 +90,8 @@ export class StudiesPage {
     });
   }
 
-  private initialTab(): StudiesTab {
-    const tab = this.route.snapshot.queryParamMap.get('tab');
-    return TABS.some((t) => t.id === tab) ? (tab as StudiesTab) : 'overview';
-  }
-
   protected setTab(tab: StudiesTab): void {
-    this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: {
-        tab: tab === 'overview' ? null : tab,
-        path: tab === 'paths' ? this.pathId() : null,
-      },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
+    this.tab.set(tab, { path: tab === 'paths' ? this.pathId() : null });
   }
 
   protected openPath(pathId: string): void {

@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
 import {
   BILLING_CYCLE_LABELS,
   SUBSCRIPTION_KIND_LABELS,
@@ -44,6 +43,7 @@ import {
   type LiField,
   type LiTab,
   LiNeedsYou,
+  urlTab,
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { SubscriptionsApi } from '../api/subscriptions-api';
@@ -164,16 +164,10 @@ const FIELDS: readonly LiField[] = [
 })
 export class SubscriptionsPage {
   private readonly api = inject(SubscriptionsApi);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
   protected readonly data = signal<SubscriptionsOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly tab = signal<string>(
-    this.route.snapshot.queryParamMap.get('tab') === 'advisor'
-      ? 'advisor'
-      : 'contracts',
-  );
+  protected readonly tab = urlTab(['contracts', 'advisor'], 'contracts');
   protected readonly showEnded = signal(false);
   protected readonly euro = euro;
   protected readonly monthText = monthText;
@@ -304,12 +298,6 @@ export class SubscriptionsPage {
 
   protected setTab(tab: string): void {
     this.tab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === 'contracts' ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   protected load(): void {
