@@ -25,7 +25,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { IslandModule } from '../hub/modules';
-import { islandLayout, type IslandLayout } from './island-layout';
+import { islandFov, islandLayout, type IslandLayout } from './island-layout';
 import { coastline, islandProps, peakScale } from './island-props';
 
 /** The models made in Blender (tools/island-models), served by the shell. */
@@ -141,7 +141,7 @@ export class IslandScene {
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.layout = islandLayout(modules.length);
     this.home = CAMERA_HOME.clone().multiplyScalar(this.layout.scale);
-    this.camera.far = 100 * this.layout.scale;
+    this.camera.far = 140 * this.layout.scale;
     this.camera.position.copy(this.home);
     this.camera.lookAt(LOOK_AT);
     this.scene.add(this.island);
@@ -190,18 +190,19 @@ export class IslandScene {
     this.height = Math.max(1, height);
     this.renderer.setSize(this.width, this.height, false);
     this.camera.aspect = this.width / this.height;
-    // Pull back on narrow screens so the whole island fits.
-    this.camera.fov = this.camera.aspect < 1 ? 55 : 40;
+    // Narrow screens widen the view so the whole island fits across.
+    this.camera.fov = islandFov(this.camera.aspect);
     this.camera.updateProjectionMatrix();
   }
 
   setPalette(palette: IslandPalette): void {
     this.sky.intensity = palette.night ? 0.9 : 1.3;
     this.sun.intensity = palette.night ? 1.1 : 1.6;
+    // The fog only softens the far sea; the page's mask does the fading.
     this.scene.fog = new Fog(
       new Color(palette.fog),
-      18 * this.layout.scale,
-      42 * this.layout.scale,
+      24 * this.layout.scale,
+      56 * this.layout.scale,
     );
     const set = (name: string, value: string) =>
       this.painted(name).forEach((material) => material.color.set(value));
@@ -222,6 +223,11 @@ export class IslandScene {
       glass.emissive.set(palette.window);
       glass.emissiveIntensity = palette.night ? 0.9 : 0.12;
     }
+    const cloud = this.cloud();
+    cloud.color.set(palette.wall);
+    cloud.emissive.set(palette.wall);
+    // Moonlit at night, so the clouds still read against the dark lagoon.
+    cloud.emissiveIntensity = palette.night ? 0.2 : 0.08;
     const shallow = this.material('shallow');
     shallow.transparent = true;
     shallow.opacity = 0.7;
@@ -371,6 +377,16 @@ export class IslandScene {
     return material;
   }
 
+  /** The clouds' material: soft, light in both themes, never fogged. */
+  private cloud(): MeshStandardMaterial {
+    let material = this.materials.get('cloud');
+    if (!material) {
+      material = new MeshStandardMaterial({ roughness: 1, fog: false });
+      this.materials.set('cloud', material);
+    }
+    return material;
+  }
+
   /** Both shadings of a palette slot or zone tint. */
   private painted(name: string): MeshStandardMaterial[] {
     return [this.material(name), this.material(`smooth:${name}`, true)];
@@ -404,7 +420,13 @@ export class IslandScene {
     });
     this.scene.add(this.sun);
 
-    const water = this.mesh(new CylinderGeometry(40, 40, 0.2, 48), 'water');
+    // Past the fog's end, so the sea melts into the page with no rim, even
+    // through a phone's wider view.
+    const seaRadius = 100 * this.layout.scale;
+    const water = this.mesh(
+      new CylinderGeometry(seaRadius, seaRadius, 0.2, 64),
+      'water',
+    );
     water.position.y = -0.35;
     water.receiveShadow = true;
     this.scene.add(water);
@@ -482,9 +504,13 @@ export class IslandScene {
         object.position.set(prop.x, prop.y, prop.z);
         object.rotation.y = prop.turn;
         object.scale.setScalar(prop.scale);
-        // A cloud's shadow would only smudge the sea.
+        // A cloud's shadow would only smudge the sea, and the fog would grey
+        // it out against the night: it keeps its own unfogged material.
         if (prop.kind === 'cloud')
-          object.traverse((part) => (part.castShadow = false));
+          object.traverse((part) => {
+            part.castShadow = false;
+            if (part instanceof Mesh) part.material = this.cloud();
+          });
         (prop.on === 'island' ? this.island : this.scene).add(object);
         this.scenery.push(object);
       }

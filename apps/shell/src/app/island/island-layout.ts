@@ -112,3 +112,14 @@ export function visibleLabels(
   }
   return shown;
 }
+
+/**
+ * The camera's vertical field of view (degrees) for a canvas of `aspect`:
+ * 40 on wide screens; on narrow ones as wide as it takes to keep the island's
+ * width in view, up to 70 so the island never looks stretched.
+ */
+export function islandFov(aspect: number): number {
+  const across = Math.tan((30 * Math.PI) / 180) / Math.max(aspect, 0.1);
+  const fov = (2 * Math.atan(across) * 180) / Math.PI;
+  return Math.min(70, Math.max(40, fov));
+}

@@ -148,8 +148,9 @@ export function islandProps(layout: IslandLayout): IslandProp[] {
   // so nothing out there ever covers a zone.
   add('sailboat', 25, shore + 1.9, -0.22, 1.4, 'sky');
   add('sailboat', 150, shore + 2.4, -0.22, 1.5, 'sky');
-  add('cloud', 105, shore + 3, 4.4, 1.5, 'sky');
-  add('cloud', 40, shore + 4, 3.6, 1.1, 'sky');
-  add('cloud', 160, shore + 3.5, 3.9, 1.3, 'sky');
+  // Low and close enough to stay in the clear middle of the frame.
+  add('cloud', 105, shore + 2.2, 3.4, 1.5, 'sky');
+  add('cloud', 40, shore + 2.8, 2.9, 1.1, 'sky');
+  add('cloud', 160, shore + 2.6, 3.1, 1.3, 'sky');
   return props;
 }
