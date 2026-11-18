@@ -7,9 +7,16 @@ import {
   afterNextRender,
   inject,
   input,
+  output,
   signal,
 } from '@angular/core';
-import { barPath, labelEvery, niceScale, observeWidth } from './scale';
+import {
+  barPath,
+  labelEvery,
+  niceRange,
+  niceScale,
+  observeWidth,
+} from './scale';
 
 export interface UiChartSeries {
   id: string;
@@ -41,11 +48,17 @@ const MAX_BAR = 24;
   selector: 'ui-column-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (series().length > 1) {
+    @if (series().length > 1 || line()) {
       <ul class="legend" role="list">
         @for (s of series(); track s.id) {
           <li>
             <span class="key" [style.background]="s.color"></span>{{ s.label }}
+          </li>
+        }
+        @if (line(); as l) {
+          <li>
+            <span class="key key--line" [style.background]="l.color"></span
+            >{{ l.label }}
           </li>
         }
       </ul>
@@ -102,6 +115,25 @@ const MAX_BAR = 24;
             </text>
           }
         }
+        @if (linePath(); as path) {
+          <path
+            class="line draw"
+            pathLength="1"
+            [attr.d]="path.d"
+            [attr.stroke]="path.color"
+          />
+          @for (p of path.points; track $index) {
+            @if (p) {
+              <circle
+                class="dot"
+                [attr.cx]="p.x"
+                [attr.cy]="p.y"
+                [attr.r]="hovered() === $index ? 4.5 : 3"
+                [attr.fill]="path.color"
+              />
+            }
+          }
+        }
         @for (label of directLabels(); track label.index) {
           <text
             class="value"
@@ -120,11 +152,15 @@ const MAX_BAR = 24;
             [attr.width]="column.hitWidth"
             [attr.height]="plotHeight()"
             tabindex="0"
+            [class.hit--pick]="pickable()"
+            [attr.role]="pickable() ? 'button' : null"
             [attr.aria-label]="describe(i)"
             (pointerenter)="hovered.set(i)"
             (pointerleave)="hovered.set(null)"
             (focus)="hovered.set(i)"
             (blur)="hovered.set(null)"
+            (click)="open(i)"
+            (keydown.enter)="open(i)"
           />
         }
       </svg>
@@ -151,6 +187,9 @@ const MAX_BAR = 24;
               <span>{{ row.label }}</span>
             </div>
           }
+          @if (pickable() && pickHint()) {
+            <div class="tooltip__hint">{{ pickHint() }}</div>
+          }
         </div>
       }
     </div>
@@ -168,6 +207,16 @@ export class UiColumnChart {
   readonly ariaLabel = input('Chart');
   /** Shares one scale between small multiples, so their heights compare. */
   readonly maxValue = input<number | null>(null);
+  /**
+   * One line over the columns on the same axis (what was kept of what came
+   * in); it may go below zero, and the axis follows it there.
+   */
+  readonly line = input<UiChartSeries | null>(null);
+  /** A column opens what is behind it (a click or Enter emits its bucket). */
+  readonly pickable = input(false);
+  /** Said in the tooltip of a pickable column, e.g. "Click to see the movements". */
+  readonly pickHint = input('');
+  readonly pick = output<string>();
 
   protected readonly left = LEFT;
   protected readonly right = RIGHT;
@@ -197,7 +246,39 @@ export class UiColumnChart {
             0,
             ...this.series().flatMap((s) => s.values.map((v) => v ?? 0)),
           );
-    return niceScale(Math.max(max, this.maxValue() ?? 0));
+    const top = Math.max(max, this.maxValue() ?? 0);
+    const line = (this.line()?.values ?? []).filter(
+      (v): v is number => v !== null,
+    );
+    const low = Math.min(0, ...line);
+    if (low < 0) return niceRange(low, Math.max(top, ...line));
+    return { min: 0, ...niceScale(Math.max(top, ...line)) };
+  });
+
+  private readonly allSeries = computed(() => {
+    const line = this.line();
+    return line ? [...this.series(), line] : this.series();
+  });
+
+  /** The line's path and points, a gap where a value is missing. */
+  protected readonly linePath = computed(() => {
+    const line = this.line();
+    if (!line) return null;
+    const columns = this.columns();
+    const points = line.values.map((v, i) =>
+      v === null || !columns[i] ? null : { x: columns[i].center, y: this.y(v) },
+    );
+    let d = '';
+    let pen = false;
+    for (const p of points) {
+      if (!p) {
+        pen = false;
+        continue;
+      }
+      d += `${pen ? 'L' : 'M'}${p.x},${p.y} `;
+      pen = true;
+    }
+    return d ? { d: d.trim(), points, color: line.color } : null;
   });
 
   protected readonly every = computed(() =>
@@ -285,7 +366,7 @@ export class UiColumnChart {
       x: column.center,
       flip: column.center > this.width() * 0.6,
       total: this.totals()[i],
-      rows: this.series().map((s) => ({
+      rows: this.allSeries().map((s) => ({
         label: s.label,
         color: s.color,
         value: s.values[i],
@@ -305,11 +386,17 @@ export class UiColumnChart {
   }
 
   protected y(value: number): number {
-    return TOP + this.plotHeight() * (1 - value / this.scale().max);
+    const { min, max } = this.scale();
+    return TOP + this.plotHeight() * (1 - (value - min) / (max - min || 1));
+  }
+
+  protected open(i: number): void {
+    if (this.pickable() && this.buckets()[i] !== undefined)
+      this.pick.emit(this.buckets()[i]);
   }
 
   protected describe(i: number): string {
-    const parts = this.series()
+    const parts = this.allSeries()
       .map((s) => `${s.label} ${this.format()(s.values[i] ?? 0)}`)
       .join(', ');
     return `${this.label()(this.buckets()[i])}: ${parts}`;

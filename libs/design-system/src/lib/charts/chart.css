@@ -100,6 +100,19 @@
   opacity: 0.1;
 }
 
+/* A target: dashed, labelled at its start. */
+.goal {
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.goal-label {
+  fill: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
 /* A range behind the lines: soft, so the lines stay loud. */
 .band {
   opacity: 0.12;
@@ -130,6 +143,10 @@
   fill: transparent;
   cursor: crosshair;
   outline: none;
+}
+
+.hit--pick {
+  cursor: pointer;
 }
 
 .hit:focus-visible {
@@ -183,6 +200,11 @@
 
 .tooltip__row--total strong {
   grid-column: 2;
+}
+
+.tooltip__hint {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
 }
 
 .tooltip .line {

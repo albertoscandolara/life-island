@@ -99,6 +99,7 @@ A setting has a `type`:
 | Italian calendar dates `agenda.italian-calendar`          | svc-agenda                                                                         |
 | Renewal warning window `subscriptions.warn-days`          | svc-subscriptions                                                                  |
 | Weekly active minutes goal `fitness.weekly-minutes`       | svc-fitness                                                                        |
+| Weight goal `fitness.weight-goal`                         | svc-fitness                                                                        |
 | Daily reading switch, time and startup run `documents.*`  | the parse worker, which checks them every 15 seconds, so a change needs no restart |
 
 A setting that steers one AI tool names it in `aiTool`, and Settings → AI tools shows it next to that tool too (the path the resource scout keeps current, and how often).

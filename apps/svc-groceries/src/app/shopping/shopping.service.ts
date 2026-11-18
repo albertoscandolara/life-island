@@ -31,6 +31,7 @@ import { toReceiptDto } from '../receipts/receipts.service.js';
 import { groceriesAttention } from './running-out.js';
 import {
   categorySpend,
+  basketChange,
   itemStats,
   LIST_INSTRUCTIONS,
   listDossier,
@@ -81,8 +82,8 @@ export class ShoppingService implements OnApplicationBootstrap {
     return this.svc.db;
   }
 
-  /** Every receipt line of the last 13 months, with its day and shop. */
-  private async lines(day: string): Promise<PurchaseLine[]> {
+  /** Every receipt line of the last 13 months (or `months` + 1), with its day and shop. */
+  private async lines(day: string, months = 12): Promise<PurchaseLine[]> {
     const { rows } = await this.svc.pool.query<{
       name: string;
       category: string;
@@ -98,7 +99,7 @@ export class ShoppingService implements OnApplicationBootstrap {
          join ${this.svc.schema}.receipts r on r.id = i.receipt_id
          join ${this.svc.schema}.merchants m on m.id = r.merchant_id
         where r.purchased_at >= $1::date`,
-      [isoAddMonths(`${day.slice(0, 7)}-01`, -12), TZ()],
+      [isoAddMonths(`${day.slice(0, 7)}-01`, -months), TZ()],
     );
     return rows.map((r) => ({
       name: r.name,
@@ -118,9 +119,10 @@ export class ShoppingService implements OnApplicationBootstrap {
 
   async overview(day = today()): Promise<GroceriesOverviewDto> {
     const since = isoAddMonths(`${day.slice(0, 7)}-01`, -12);
-    const [lines, receiptRows, list, suggestionRows, aiList] =
+    const [twoYears, receiptRows, list, suggestionRows, aiList] =
       await Promise.all([
-        this.lines(day),
+        // Two years for the basket's change; the rest reads the last 13 months.
+        this.lines(day, 24),
         this.svc.pool.query<{
           id: string;
           date: string;
@@ -166,6 +168,7 @@ export class ShoppingService implements OnApplicationBootstrap {
     const nItems = new Map(
       itemCounts.rows.map((r) => [r.receipt_id, Number(r.n)]),
     );
+    const lines = twoYears.filter((l) => l.date >= since);
     const receiptList = receiptRows.rows.map((r) => ({
       ...r,
       total: Number(r.total),
@@ -200,6 +203,7 @@ export class ShoppingService implements OnApplicationBootstrap {
       months: monthList,
       categories: categorySpend(lines, day),
       items: itemStats(lines),
+      basket: basketChange(twoYears, day),
       merchants: [...merchantStats.values()].sort((a, b) => b.total - a.total),
       recent: recentRows.map((r) =>
         toReceiptDto(r.receipt, r.merchant, nItems.get(r.receipt.id) ?? 0),

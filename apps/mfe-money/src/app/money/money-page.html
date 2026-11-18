@@ -142,13 +142,72 @@
   </div>
 </ui-card>
 
+@let f = flow(); @let mix = spendingMix();
+<ui-card heading="Are you keeping more than you spend?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    The last twelve months: what came in, what went out, and the line of what
+    you kept. @if (f.share !== null) { You kept
+    <strong>{{ euro(f.kept, false) }}</strong>, {{ percent(f.share) }} of what
+    came in. } @if (f.short) {
+    <span class="li-warn"
+      >{{ f.short }} {{ f.short === 1 ? 'month' : 'months' }} went out more than
+      came in.</span
+    >
+    } A month opens its movements.
+  </p>
+  <ui-column-chart
+    mode="grouped"
+    [buckets]="f.buckets"
+    [series]="f.series"
+    [line]="f.line"
+    [format]="euroWhole"
+    [label]="monthLong"
+    [shortLabel]="monthShort"
+    [pickable]="true"
+    pickHint="Click to see its movements"
+    ariaLabel="Money in, out and kept, month by month"
+    (pick)="seeMonth($event)"
+  />
+  <table class="ui-visually-hidden">
+    <caption>
+      Money in, out and kept, month by month
+    </caption>
+    <tr>
+      <th scope="col">Month</th>
+      <th scope="col">In</th>
+      <th scope="col">Out</th>
+      <th scope="col">Kept</th>
+    </tr>
+    @for (m of d.months; track m.month) {
+    <tr>
+      <th scope="row">{{ monthText(m.month) }}</th>
+      <td>{{ euro(m.income) }}</td>
+      <td>{{ euro(m.spending) }}</td>
+      <td>{{ euro(m.net) }}</td>
+    </tr>
+    }
+  </table>
+</ui-card>
+@if (mix.series.length) {
+<ui-card heading="Where did the money go?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    What went out each month, by category: a column taller than the others shows
+    where the jump came from. A month opens its movements.
+  </p>
+  <ui-column-chart
+    [buckets]="mix.buckets"
+    [series]="mix.series"
+    [format]="euroWhole"
+    [label]="monthLong"
+    [shortLabel]="monthShort"
+    [pickable]="true"
+    pickHint="Click to see its movements"
+    ariaLabel="Spending by category, month by month"
+    (pick)="seeMonth($event)"
+  />
+</ui-card>
+}
 <div class="li-grid li-block">
-  <ui-card heading="The last 12 months">
-    <p class="li-muted li-small">
-      Bars are what went out; the dashed box behind is what came in.
-    </p>
-    <li-bars [bars]="monthBars()" caption="Spending and income per month" />
-  </ui-card>
   <ui-card heading="Where it goes this month">
     @if (!topCategories().length) {
     <p class="li-muted">No spending yet this month.</p>
@@ -225,6 +284,16 @@
     </option>
     }
   </select>
+  @if (monthFilter(); as m) {
+  <button
+    type="button"
+    class="li-chip li-chip--on"
+    [attr.aria-label]="'Showing ' + monthText(m) + ': show every month'"
+    (click)="monthFilter.set(null)"
+  >
+    {{ monthText(m) }} <ui-icon name="x" [size]="14" />
+  </button>
+  }
   <input
     class="ui-input"
     type="search"

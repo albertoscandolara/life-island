@@ -23,15 +23,16 @@ import {
   UiAlert,
   UiButton,
   UiCard,
+  UiColumnChart,
   UiDialog,
   UiEmptyState,
   UiIcon,
   UiPageHeader,
   UiProgressBar,
+  type UiChartSeries,
   type UiProgressTone,
 } from '@life-island/design-system';
 import {
-  LiBars,
   LiDelta,
   LiRecordDialog,
   LiTabs,
@@ -43,7 +44,6 @@ import {
   localToday,
   monthText,
   percent,
-  type LiBar,
   type LiField,
   type LiTab,
   LiNeedsYou,
@@ -135,7 +135,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     LiNeedsYou,
     UiProgressBar,
     AiTool,
-    LiBars,
+    UiColumnChart,
     LiDelta,
     LiRecordDialog,
     LiTabs,
@@ -193,6 +193,8 @@ export class MoneyPage {
   // Movements: filters and paging
   protected readonly accountFilter = signal<string | null>(null);
   protected readonly categoryFilter = signal<string | null>(null);
+  /** `YYYY-MM` from a month of the charts, or null for all. */
+  protected readonly monthFilter = signal<string | null>(null);
   protected readonly search = signal('');
   protected readonly shown = signal(PAGE);
 
@@ -290,10 +292,12 @@ export class MoneyPage {
     const all = this.data()?.transactions ?? [];
     const account = this.accountFilter();
     const category = this.categoryFilter();
+    const month = this.monthFilter();
     const text = this.search().trim().toLowerCase();
     return all.filter(
       (t) =>
         (!account || t.accountId === account) &&
+        (!month || t.date.startsWith(month)) &&
         (!category || t.category === category) &&
         (!text || t.description.toLowerCase().includes(text)),
     );
@@ -303,15 +307,92 @@ export class MoneyPage {
     this.filtered().reduce((s, t) => s + t.amount, 0),
   );
 
-  protected readonly monthBars = computed<LiBar[]>(() =>
-    (this.data()?.months ?? []).map((m) => ({
-      label: monthText(m.month, true),
-      value: m.spending,
-      target: m.income,
-      tone: m.spending > m.income && m.income > 0 ? 'danger' : 'accent',
-      title: `${monthText(m.month)}: out ${euro(m.spending, false)}, in ${euro(m.income, false)}`,
-    })),
-  );
+  /** In and out per month, with what was kept as a line. */
+  protected readonly flow = computed(() => {
+    const months = this.data()?.months ?? [];
+    const kept = months.reduce((s, m) => s + m.net, 0);
+    const came = months.reduce((s, m) => s + m.income, 0);
+    return {
+      buckets: months.map((m) => m.month),
+      series: [
+        {
+          id: 'in',
+          label: 'Came in',
+          color: 'var(--viz-in)',
+          values: months.map((m) => m.income),
+        },
+        {
+          id: 'out',
+          label: 'Went out',
+          color: 'var(--viz-out)',
+          values: months.map((m) => m.spending),
+        },
+      ] satisfies UiChartSeries[],
+      line: {
+        id: 'kept',
+        label: 'Kept',
+        color: 'var(--viz-kept)',
+        values: months.map((m) => m.net),
+      } satisfies UiChartSeries,
+      kept,
+      share: came > 0 ? kept / came : null,
+      short: months.filter((m) => m.net < 0).length,
+    };
+  });
+
+  /**
+   * What went out each month by category: the five biggest over the year in
+   * the palette's order, the rest as "Other", so a jump shows where it came
+   * from. A column opens that month's movements.
+   */
+  protected readonly spendingMix = computed(() => {
+    const months = this.data()?.months ?? [];
+    const totals = new Map<MoneyCategory, number>();
+    for (const m of months)
+      for (const [c, v] of Object.entries(m.spendingBy) as [
+        MoneyCategory,
+        number,
+      ][])
+        totals.set(c, (totals.get(c) ?? 0) + v);
+    const top = [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([c]) => c);
+    const series: UiChartSeries[] = top.map((c, i) => ({
+      id: c,
+      label: MONEY_CATEGORY_LABELS[c],
+      color: `var(--viz-${i + 1})`,
+      values: months.map((m) => m.spendingBy[c] ?? null),
+    }));
+    if (totals.size > top.length)
+      series.push({
+        id: 'other',
+        label: 'Other',
+        color: 'var(--viz-other)',
+        values: months.map(
+          (m) =>
+            Math.round(
+              (m.spending -
+                top.reduce((s, c) => s + (m.spendingBy[c] ?? 0), 0)) *
+                100,
+            ) / 100 || null,
+        ),
+      });
+    return { buckets: months.map((m) => m.month), series };
+  });
+
+  protected readonly euroWhole = (v: number) => euro(v, false);
+  protected readonly monthLong = (m: string) => monthText(m);
+  protected readonly monthShort = (m: string) => monthText(m, true);
+
+  /** A month of the chart: its movements. */
+  protected seeMonth(month: string): void {
+    this.monthFilter.set(month);
+    this.categoryFilter.set(null);
+    this.accountFilter.set(null);
+    this.shown.set(PAGE);
+    this.setTab('movements');
+  }
 
   /** Categories with a budget are left out of the "Add budget" choices. */
   protected readonly topCategories = computed(() =>
@@ -386,6 +467,7 @@ export class MoneyPage {
   protected seeCategory(category: string): void {
     this.categoryFilter.set(category);
     this.accountFilter.set(null);
+    this.monthFilter.set(null);
     this.setTab('movements');
   }
 

@@ -141,6 +141,8 @@ export interface FitnessOverviewDto {
   today: string;
   weekStart: string;
   goalMinutes: number;
+  /** The weight you aim for (Settings), or null when none is set. */
+  goalWeightKg: number | null;
   workouts: WorkoutDto[];
   measurements: MeasurementDto[];
   events: FitnessEventDto[];
@@ -168,3 +170,5 @@ export function activeMinutes(minutes: number, intensity: Intensity): number {
 /** Settings → Fitness: the weekly target of active minutes (150 for the WHO). */
 export const FITNESS_WEEKLY_MINUTES_SETTING = 'fitness.weekly-minutes';
 export const FITNESS_WEEKLY_MINUTES_DEFAULT = 150;
+/** Settings → Fitness: the weight you aim for, in whole kg; 0 for none. */
+export const FITNESS_WEIGHT_GOAL_SETTING = 'fitness.weight-goal';

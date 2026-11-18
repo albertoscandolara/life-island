@@ -97,12 +97,31 @@ export const shoppingListOutputSchema = z.object({
 export type ShoppingListOutput = z.infer<typeof shoppingListOutputSchema>;
 export type ShoppingSuggestionDto = LifeAiAnswerDto<ShoppingListOutput>;
 
+/**
+ * Your own grocery inflation: what the items you buy again cost in the last
+ * 12 months against the 12 before, weighted by how often you buy them, next
+ * to the official figure (ISTAT FOI).
+ */
+export interface GroceryBasketDto {
+  /** e.g. 0.042 for +4.2%; null without items bought in both years. */
+  change: number | null;
+  /** The items compared. */
+  items: number;
+  /** The three that rose the most, with their change. */
+  risers: { name: string; change: number }[];
+  /** The official yearly change for the year, in percent. */
+  officialPct: number | null;
+  /** e.g. "ISTAT FOI 2026, January to September". */
+  officialLabel: string | null;
+}
+
 export interface GroceriesOverviewDto {
   today: string;
   /** The last 12 months, oldest first. */
   months: GroceryMonthDto[];
   categories: { category: string; thisMonth: number; average: number }[];
   items: GroceryItemStatsDto[];
+  basket: GroceryBasketDto;
   merchants: GroceryMerchantStatsDto[];
   recent: ReceiptDto[];
   totals: {

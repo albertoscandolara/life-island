@@ -58,11 +58,18 @@ export function monthFlows(
     const own = transactions.filter((t) => t.date.startsWith(month));
     const income = own.filter(isIncome).reduce((s, t) => s + t.amount, 0);
     const spending = -own.filter(isSpending).reduce((s, t) => s + t.amount, 0);
+    const by = new Map<MoneyCategory, number>();
+    for (const t of own.filter(isSpending))
+      by.set(t.category, (by.get(t.category) ?? 0) - t.amount);
+    const spendingBy: MonthFlowDto['spendingBy'] = Object.fromEntries(
+      [...by].map(([category, value]) => [category, round(value)]),
+    );
     return {
       month,
       income: round(income),
       spending: round(spending),
       net: round(income - spending),
+      spendingBy,
     };
   });
 }

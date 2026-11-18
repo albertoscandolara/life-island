@@ -24,6 +24,13 @@ export interface UiChartBand {
   color?: string;
 }
 
+/** A target drawn as a dashed line across the plot, with its name. */
+export interface UiChartGoal {
+  value: number;
+  /** e.g. "Goal 72 kg". */
+  label: string;
+}
+
 const LEFT = 64;
 const TOP = 16;
 const BOTTOM = 28;
@@ -90,6 +97,22 @@ const BOTTOM = 28;
             text-anchor="end"
           >
             {{ format()(tick) }}
+          </text>
+        }
+        @if (goal(); as g) {
+          <line
+            class="goal"
+            [attr.x1]="left"
+            [attr.x2]="width() - right()"
+            [attr.y1]="y(g.value)"
+            [attr.y2]="y(g.value)"
+          />
+          <text
+            class="goal-label"
+            [attr.x]="left + 6"
+            [attr.y]="y(g.value) - 6"
+          >
+            {{ g.label }}
           </text>
         }
         @for (label of categories(); track $index; let i = $index) {
@@ -209,6 +232,13 @@ export class UiLineChart {
    * (a weight, a lab value): say so in the card's note.
    */
   readonly zero = input(true);
+  /** A target as a dashed line (a weight goal); the axis reaches it. */
+  readonly goal = input<UiChartGoal | null>(null);
+  /**
+   * Steps instead of slopes, for a value that holds until it changes (a
+   * price, a monthly fixed cost).
+   */
+  readonly step = input(false);
 
   protected readonly left = LEFT;
   protected readonly top = TOP;
@@ -224,7 +254,7 @@ export class UiLineChart {
     Math.max(1, this.width() - LEFT - this.right()),
   );
   protected readonly every = computed(() =>
-    labelEvery(this.categories().length, this.plotWidth(), 44),
+    labelEvery(this.categories().length, this.plotWidth(), 56),
   );
 
   protected readonly scale = computed(() => {
@@ -232,7 +262,7 @@ export class UiLineChart {
       s.values.filter((v): v is number => v !== null),
     );
     const band = this.band();
-    const bounds = [band?.low, band?.high].filter(
+    const bounds = [band?.low, band?.high, this.goal()?.value].filter(
       (v): v is number => typeof v === 'number',
     );
     if (this.zero()) {
@@ -267,7 +297,14 @@ export class UiLineChart {
       const paths: string[] = [];
       let current: string[] = [];
       for (const p of points) {
-        if (p) current.push(`${current.length ? 'L' : 'M'}${p.x},${p.y}`);
+        if (p)
+          current.push(
+            !current.length
+              ? `M${p.x},${p.y}`
+              : this.step()
+                ? `H${p.x} V${p.y}`
+                : `L${p.x},${p.y}`,
+          );
         else if (current.length) {
           paths.push(current.join(' '));
           current = [];
@@ -281,7 +318,10 @@ export class UiLineChart {
       const base = this.y(this.scale().min);
       const area =
         this.area() && this.series().length === 1 && defined.length > 1
-          ? `M${defined[0].x},${base} ${defined.map((p) => `L${p.x},${p.y}`).join(' ')} L${end!.x},${base} Z`
+          ? `M${defined[0].x},${base} L${defined[0].x},${defined[0].y} ${defined
+              .slice(1)
+              .map((p) => (this.step() ? `H${p.x} V${p.y}` : `L${p.x},${p.y}`))
+              .join(' ')} L${end!.x},${base} Z`
           : null;
       return {
         id: s.id,

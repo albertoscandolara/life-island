@@ -182,6 +182,8 @@ export interface MonthFlowDto {
   income: number;
   spending: number;
   net: number;
+  /** What went out, by category (positive; categories with none left out). */
+  spendingBy: Partial<Record<MoneyCategory, number>>;
 }
 
 export interface CategorySpendDto {
