@@ -1,0 +1,221 @@
+@if (error(); as message) {
+<ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
+} @for (s of down(); track s.module) {
+<ui-alert tone="warning" class="li-block">
+  {{ s.emblem }} {{ s.name }} did not answer, so its items are not matched now.
+  Nothing is lost: they show again when it is back.
+</ui-alert>
+} @if (data(); as m) {
+<p class="li-intro">
+  Money pairs the movements of your accounts with what your areas expect to pay.
+  Each one you confirm is marked paid in its area. A direct debit Money is sure
+  of is linked on its own; any link can be undone here.
+</p>
+
+<ui-card heading="Payments found" class="li-block">
+  @if (sure().length > 1) {
+  <span uiCardActions>
+    <button
+      uiButton
+      size="sm"
+      type="button"
+      [disabled]="busy()"
+      (click)="confirmAllSure()"
+    >
+      <ui-icon name="check" [size]="16" /> Confirm the {{ sure().length }} sure
+      ones
+    </button>
+  </span>
+  } @if (!m.suggestions.length) {
+  <ui-empty-state icon="inbox" heading="Nothing new to confirm">
+    Import your latest bank movements and Money looks for the bills they paid.
+    <button
+      uiButton
+      variant="secondary"
+      type="button"
+      (click)="importCsv.emit()"
+    >
+      <ui-icon name="upload" [size]="16" /> Import CSV
+    </button>
+  </ui-empty-state>
+  } @else {
+  <ul class="li-list" role="list">
+    @for (s of m.suggestions; track s.movementId + s.payableKeys.join()) { @if
+    (movement(s.movementId); as mv) {
+    <li class="li-item" [class.li-item--warning]="s.confidence === 'check'">
+      <div class="li-item__head">
+        <span class="li-item__title">{{ mv.description }}</span>
+        <ui-badge [tone]="confidence[s.confidence].tone">
+          {{ confidence[s.confidence].label }}
+        </ui-badge>
+      </div>
+      <div class="li-meta">
+        <span>{{ dateText(mv.date) }}</span>
+        <span>{{ mv.accountName }}</span>
+        <strong class="match__amount">{{ euro(mv.amount) }}</strong>
+      </div>
+      <ul class="match__items" role="list">
+        @for (key of s.payableKeys; track key; let i = $index) { @if
+        (payable(key); as p) {
+        <li>
+          <span class="match__emblem" aria-hidden="true">{{ p.emblem }}</span>
+          @if (p.path) {
+          <a class="li-link" [routerLink]="p.path">{{ p.title }}</a>
+          } @else {
+          <span>{{ p.title }}</span>
+          }
+          <span class="li-muted">
+            · {{ euro(s.amounts[i]) }} · due {{ dateText(p.date) }}
+          </span>
+        </li>
+        } }
+      </ul>
+      <ul class="match__reasons li-muted li-small">
+        @for (reason of s.reasons; track reason) {
+        <li>{{ reason }}</li>
+        }
+      </ul>
+      <div class="li-actions">
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [disabled]="busy()"
+          (click)="confirm(s)"
+        >
+          Confirm
+        </button>
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [disabled]="busy()"
+          (click)="reject(s)"
+        >
+          Not this one
+        </button>
+      </div>
+    </li>
+    } }
+  </ul>
+  }
+</ui-card>
+
+<ui-card heading="Still to pay" class="li-block">
+  @if (!open().length) {
+  <p class="li-muted">
+    Everything your areas expect in these months is matched or proposed above.
+  </p>
+  } @else {
+  <ul class="li-list" role="list">
+    @for (p of open(); track p.key) {
+    <li class="li-item">
+      <div class="li-item__head">
+        <span class="li-item__title">
+          <span class="match__emblem" aria-hidden="true">{{ p.emblem }}</span>
+          @if (p.path) {
+          <a class="li-link" [routerLink]="p.path">{{ p.title }}</a>
+          } @else { {{ p.title }} }
+        </span>
+        <strong class="match__amount">
+          {{ euro(leftOf(p.amount, p.linked)) }}
+        </strong>
+      </div>
+      <div class="li-meta">
+        <span>{{ p.areaName }}</span>
+        <span>due {{ dateText(p.date) }}</span>
+        @if (p.linked > 0) {
+        <span>{{ euro(p.linked) }} already paid</span>
+        } @if (p.autoPay) {
+        <span>direct debit</span>
+        }
+      </div>
+      @if (candidatesOf(p); as list) { @if (list.length) {
+      <div class="li-actions">
+        <select
+          class="ui-input compact match__pick"
+          [attr.aria-label]="'The movement that paid ' + p.title"
+          (change)="pick(p, $any($event.target).value)"
+        >
+          @for (mv of list; track mv.id) {
+          <option [value]="mv.id" [selected]="pickedFor(p) === mv.id">
+            {{ dateText(mv.date) }} · {{ euro(mv.amount) }} · {{ mv.description
+            }}
+          </option>
+          }
+        </select>
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="busy()"
+          (click)="linkPicked(p)"
+        >
+          Paid by this, {{ euro(pickedAmount(p)) }}
+        </button>
+      </div>
+      } @else {
+      <p class="li-muted li-small">No movement of your accounts fits it yet.</p>
+      } }
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+
+@if (m.links.length) {
+<ui-card heading="Matched" class="li-block">
+  <div class="li-table-wrap">
+    <table class="li-table">
+      <thead>
+        <tr>
+          <th scope="col">Movement</th>
+          <th scope="col">Paid</th>
+          <th scope="col" class="li-num">Amount</th>
+          <th scope="col"><span class="ui-visually-hidden">Undo</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of m.links; track l.id) {
+        <tr>
+          <td>
+            @if (movement(l.movementId); as mv) {
+            <span class="nowrap">{{ dateText(mv.date) }}</span> · {{
+            mv.description }} }
+          </td>
+          <td>
+            @if (l.path) {
+            <a class="li-link" [routerLink]="l.path">{{ l.title }}</a>
+            } @else { {{ l.title }} } @if (l.auto) {
+            <ui-badge title="A direct debit Money was sure of"
+              >Automatic</ui-badge
+            >
+            } @if (linkStatus[l.status]; as warning) {
+            <ui-badge tone="warning">{{ warning }}</ui-badge>
+            }
+          </td>
+          <td class="li-num">{{ euro(l.amount) }}</td>
+          <td>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [disabled]="busy()"
+              [attr.aria-label]="'Undo: ' + l.title"
+              (click)="unlink(l)"
+            >
+              Undo
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ui-card>
+} } @else if (!error()) {
+<p class="li-muted">Looking for payments in your movements…</p>
+}

@@ -9,17 +9,20 @@ import {
   listBillsQuerySchema,
   updateBillRequestSchema,
   type BillDto,
+  type BillPaymentDto,
 } from '@life-island/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { SERVICE_DB } from '../config.js';
 import {
   billOverrides,
+  payments as paymentRows,
   bills,
   documents,
   properties,
   supplyContracts,
   supplyPoints,
+  type PaymentRow,
   type BillRow,
 } from '../db/schema.js';
 import { contractDirectDebit, isAutoPaid } from './auto-pay.js';
@@ -34,6 +37,7 @@ export function toBillDto(
   row: BillRow,
   pointHouse: string | null | undefined,
   autoPaid = false,
+  payments: readonly PaymentRow[] = [],
 ): BillDto {
   const viaPoint = !row.manualProperty && row.supplyPointId !== null;
   const propertyId = viaPoint ? (pointHouse ?? null) : row.propertyId;
@@ -70,6 +74,34 @@ export function toBillDto(
     contractId: row.contractId,
     directDebit: row.directDebit,
     autoPaid,
+    bankPayment: billPayment(row.totalDue ?? row.amount, payments),
+  };
+}
+
+/** A bill's key in Money matching (PayableDto.key). */
+export function billPayableKey(uploadId: string): string {
+  return `home:bill:${uploadId}`;
+}
+
+/** What the matched bank movements paid of a bill (only the links still in place). */
+export function billPayment(
+  due: number,
+  payments: readonly PaymentRow[],
+): BillPaymentDto | null {
+  const live = payments.filter((p) => p.unlinkedAt === null && p.paidOn);
+  if (!live.length) return null;
+  const paid =
+    Math.round(live.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
+  return {
+    paid,
+    full: paid + 0.005 >= due,
+    lastDate: live
+      .map((p) => p.paidOn as string)
+      .sort()
+      .at(-1) as string,
+    accounts: [
+      ...new Set(live.flatMap((p) => (p.accountName ? [p.accountName] : []))),
+    ],
   };
 }
 
@@ -96,6 +128,15 @@ export class BillsService {
       .from(bills)
       .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
       .leftJoin(supplyContracts, eq(bills.contractId, supplyContracts.id));
+    const payments = new Map<string, PaymentRow[]>();
+    for (const payment of await this.svc.db
+      .select()
+      .from(paymentRows)
+      .where(isNull(paymentRows.unlinkedAt)))
+      payments.set(payment.payableKey, [
+        ...(payments.get(payment.payableKey) ?? []),
+        payment,
+      ]);
     const detected = contractDirectDebit(rows.map((r) => r.bill));
     return rows.map((r) => ({
       bill: toBillDto(
@@ -106,6 +147,7 @@ export class BillsService {
           r.autoPay,
           r.bill.contractId ? detected.get(r.bill.contractId) : undefined,
         ),
+        payments.get(billPayableKey(r.bill.uploadId)),
       ),
       counted: r.bill.duplicateOf === null,
     }));

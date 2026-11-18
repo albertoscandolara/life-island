@@ -1,4 +1,4 @@
-import { numberEnv } from '@life-island/be-common';
+import { numberEnv, sourcesEnv } from '@life-island/be-common';
 
 export interface ServiceConfig {
   port: number;
@@ -34,7 +34,7 @@ export function loadConfig(
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['DREAMS_AI_MODEL']?.trim() || DEFAULT_DREAMS_AI_MODEL,
-    sources: parseSources(env['DREAMS_SOURCES']),
+    sources: sourcesEnv('DREAMS_SOURCES', LOCAL_DREAMS_SOURCES, env),
   };
 }
 
@@ -50,16 +50,3 @@ export const LOCAL_DREAMS_SOURCES: Readonly<Record<string, string>> = {
   travel: 'http://localhost:3017',
   goals: 'http://localhost:3013',
 };
-
-/** `money=http://svc-money:3000,work=…`; the local ports when unset. */
-export function parseSources(
-  value: string | undefined,
-): Record<string, string> {
-  if (!value?.trim()) return { ...LOCAL_DREAMS_SOURCES };
-  const sources: Record<string, string> = {};
-  for (const part of value.split(',')) {
-    const [area, url] = part.split('=').map((s) => s.trim());
-    if (area && url) sources[area] = url.replace(/\/+$/, '');
-  }
-  return sources;
-}

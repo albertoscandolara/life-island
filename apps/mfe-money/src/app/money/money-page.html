@@ -312,7 +312,13 @@
 >
   Show more
 </button>
-} } } @case ('budgets') {
+} } } @case ('match') {
+<money-match
+  [movements]="d.transactions"
+  (changed)="load()"
+  (importCsv)="openImport()"
+/>
+} @case ('budgets') {
 <ui-card heading="Monthly budgets" class="li-block">
   <div uiCardActions class="li-actions">
     <button uiButton size="sm" type="button" (click)="addBudget()">

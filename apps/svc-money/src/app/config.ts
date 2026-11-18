@@ -1,4 +1,4 @@
-import { numberEnv } from '@life-island/be-common';
+import { numberEnv, sourcesEnv } from '@life-island/be-common';
 
 export interface ServiceConfig {
   port: number;
@@ -7,6 +7,8 @@ export interface ServiceConfig {
   /** The Claude API key for the spending review; null keeps it on Life Island's own rules. */
   anthropicApiKey: string | null;
   aiModel: string;
+  /** Where each area answers GET /payables: `home=http://svc-home:3000,…`. */
+  payableSources: Record<string, string>;
 }
 
 /**
@@ -32,8 +34,14 @@ export function loadConfig(
     natsUrl: env['NATS_URL'] || 'nats://localhost:4222',
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['MONEY_AI_MODEL']?.trim() || DEFAULT_MONEY_AI_MODEL,
+    payableSources: sourcesEnv('PAYABLE_SOURCES', LOCAL_PAYABLE_SOURCES, env),
   };
 }
 
 export const CONFIG = Symbol('ServiceConfig');
 export const SERVICE_DB = Symbol('ServiceDb');
+
+/** The areas Money reads payables from, on your machine (npm run dev). */
+export const LOCAL_PAYABLE_SOURCES: Readonly<Record<string, string>> = {
+  home: 'http://localhost:3005',
+};

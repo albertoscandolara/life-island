@@ -38,9 +38,11 @@ export class HomeDeadlinesController {
               title: `${UTILITY_NAMES[bill.utility]} bill due${bill.provider ? ` · ${bill.provider}` : ''}`,
               detail: [
                 bill.invoiceNumber ? `Invoice ${bill.invoiceNumber}.` : null,
-                bill.autoPaid
-                  ? 'Paid by direct debit on your bank account: nothing to do.'
-                  : 'Nothing to do if it is paid by direct debit: say so on its supply contract in Houses → Bills.',
+                bill.bankPayment?.full
+                  ? `Paid on ${bill.bankPayment.lastDate}, matched in Money.`
+                  : bill.autoPaid
+                    ? 'Paid by direct debit on your bank account: nothing to do.'
+                    : 'Nothing to do if it is paid by direct debit: say so on its supply contract in Houses → Bills.',
               ]
                 .filter(Boolean)
                 .join(' '),
@@ -48,6 +50,8 @@ export class HomeDeadlinesController {
               amount: bill.totalDue ?? bill.amount,
               path: '/home',
               autoPaid: bill.autoPaid,
+              // A bank movement you matched in Money paid it.
+              done: bill.bankPayment?.full === true,
             },
           ]
         : [],

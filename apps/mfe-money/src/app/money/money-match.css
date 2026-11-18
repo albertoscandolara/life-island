@@ -1,0 +1,52 @@
+:host {
+  display: block;
+}
+
+.match__items,
+.match__reasons {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.match__reasons li::before {
+  content: '· ';
+}
+
+.match__amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.match__pick {
+  flex: 1 1 16rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+/* A long bank description never widens the page on a phone. */
+.li-item {
+  min-width: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.match__items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.match__emblem {
+  margin-right: var(--space-1);
+}
+
+.li-table ui-badge {
+  margin-left: var(--space-2);
+}

@@ -20,11 +20,15 @@ import {
   type MoneyOverviewDto,
   type SpendingReviewDto,
 } from '@life-island/contracts';
+import { MatchingService } from '../matching/matching.service.js';
 import { MoneyService } from './money.service.js';
 
 @Controller()
 export class MoneyController {
-  constructor(@Inject(MoneyService) private readonly money: MoneyService) {}
+  constructor(
+    @Inject(MoneyService) private readonly money: MoneyService,
+    @Inject(MatchingService) private readonly matching: MatchingService,
+  ) {}
 
   /** Accounts, movements, budgets, months, recurring charges and reviews. */
   @Get('overview')
@@ -39,8 +43,18 @@ export class MoneyController {
   }
 
   @Get('attention')
-  attention(): Promise<LifeAttentionDto> {
-    return this.money.attention();
+  async attention(): Promise<LifeAttentionDto> {
+    // The payments to confirm come from the other areas: one that is down
+    // never hides Money's own counts.
+    const [counts, matches] = await Promise.all([
+      this.money.attention(),
+      this.matching.attention().catch(() => ({ ready: 0, items: [] })),
+    ]);
+    return {
+      ...counts,
+      toReview: counts.toReview + matches.ready,
+      items: [...(counts.items ?? []), ...matches.items],
+    };
   }
 
   /** Many movements at once, e.g. from a bank's CSV export. */

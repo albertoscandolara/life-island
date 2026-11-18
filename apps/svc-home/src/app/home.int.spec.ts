@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   createServiceDb,
+  paymentEventHandler,
   processOnce,
   type ServiceDb,
 } from '@life-island/be-common';
 import type {
   BillDto,
+  DeadlineDto,
   EntityRefDto,
   EventEnvelope,
   HouseServicesDto,
@@ -14,6 +16,7 @@ import type {
   HouseTaxExpensesDto,
   KnownCompanyDto,
   OrganizationDetailDto,
+  PayableDto,
   OrganizationDto,
   PropertyDto,
   SupplyPointDto,
@@ -104,6 +107,20 @@ describe.skipIf(!configured)(
       };
       await processOnce(svc.pool, 'home', event.id, (client) =>
         applyDocumentEvent(event, client),
+      );
+    }
+
+    /** A Money matching event, as svc-money's outbox would send it. */
+    async function deliverPayment(type: string, payload: unknown) {
+      const event: EventEnvelope = {
+        id: randomUUID(),
+        type,
+        source: 'svc-money',
+        occurredAt: new Date().toISOString(),
+        payload,
+      };
+      await processOnce(svc.pool, 'home', event.id, (client) =>
+        paymentEventHandler('home', 'home')(event, client),
       );
     }
 
@@ -1246,6 +1263,108 @@ describe.skipIf(!configured)(
       ).toBe(404);
       await svc.pool.query('delete from home.organizations where id = $1', [
         merged.id,
+      ]);
+    });
+
+    it('lists its bills for Money, and learns when a bank movement paid one', async () => {
+      const bill = await upload(['ELECTRICITY_BILL'], {
+        provider: `Luce ${run} Energia`,
+        invoice_number: `F${run}`,
+        issue_date: '2026-05-04',
+        due_date: '2026-05-25',
+        total_amount: '84,37',
+      });
+      const payables = await json<PayableDto[]>(
+        await send('GET', '/payables?from=2026-05-01&to=2026-05-31'),
+      );
+      const key = `home:bill:${bill}`;
+      expect(payables.find((p) => p.key === key)).toMatchObject({
+        module: 'home',
+        kind: 'bill',
+        amount: 84.37,
+        direction: 'out',
+        date: '2026-05-25',
+        window: { from: '2026-05-01', to: '2026-07-09' },
+        path: '/home/bills',
+      });
+      expect(payables.find((p) => p.key === key)?.payees).toContain(
+        `Luce ${run} Energia`,
+      );
+      expect(
+        (await send('GET', '/payables?from=2026-07-10&to=2026-08-01')).ok,
+      ).toBe(true);
+      expect(
+        (
+          await json<PayableDto[]>(
+            await send('GET', '/payables?from=2026-07-10&to=2026-08-01'),
+          )
+        ).some((p) => p.key === key),
+      ).toBe(false);
+      expect(
+        (await send('GET', '/payables?from=2026-05-31&to=2026-05-01')).status,
+      ).toBe(400);
+
+      const linkId = randomUUID();
+      const linked = {
+        linkId,
+        payableKey: key,
+        module: 'home',
+        movementId: randomUUID(),
+        date: '2026-05-25',
+        amount: 84.37,
+        accountName: 'Conto corrente',
+        description: `ADDEBITO SDD LUCE ${run.toUpperCase()} ENERGIA`,
+        linkedAt: new Date().toISOString(),
+      };
+      await deliverPayment('money.payment_linked@1', linked);
+      // Redelivered: still one payment.
+      await deliverPayment('money.payment_linked@1', linked);
+      const paid = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(paid.find((b) => b.uploadId === bill)?.bankPayment).toEqual({
+        paid: 84.37,
+        full: true,
+        lastDate: '2026-05-25',
+        accounts: ['Conto corrente'],
+      });
+      const deadlines = await json<DeadlineDto[]>(
+        await send('GET', '/deadlines?from=2026-05-01&to=2026-05-31'),
+      );
+      expect(
+        deadlines.find(
+          (d) =>
+            d.id.startsWith('bill:') &&
+            d.date === '2026-05-25' &&
+            d.title.includes(run),
+        ),
+      ).toMatchObject({ done: true });
+
+      await deliverPayment('money.payment_unlinked@1', {
+        linkId,
+        payableKey: key,
+        module: 'home',
+        reason: 'undone',
+        unlinkedAt: new Date().toISOString(),
+      });
+      const undone = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(undone.find((b) => b.uploadId === bill)?.bankPayment).toBeNull();
+
+      // The undo of a link that had not arrived yet: the link stays undone.
+      const early = randomUUID();
+      await deliverPayment('money.payment_unlinked@1', {
+        linkId: early,
+        payableKey: key,
+        module: 'home',
+        reason: 'movement-removed',
+        unlinkedAt: new Date().toISOString(),
+      });
+      await deliverPayment('money.payment_linked@1', {
+        ...linked,
+        linkId: early,
+      });
+      const still = await json<BillDto[]>(await send('GET', '/bills'));
+      expect(still.find((b) => b.uploadId === bill)?.bankPayment).toBeNull();
+      await svc.pool.query('delete from home.payments where payable_key = $1', [
+        key,
       ]);
     });
   },

@@ -10,8 +10,9 @@ import { HouseSuggestionsService } from './houses/house-suggestions.service.js';
 /**
  * What needs you in Home, for the hub badge (`GET /attention`): bills due in
  * the next 7 days that are not paid by direct debit, and the houses and house
- * data your documents suggest, waiting for review (listed for the Agenda). A bill does not say when
- * it was paid, so a past due date is not counted as late.
+ * data your documents suggest, waiting for review (listed for the Agenda). A bill paid by a
+ * bank movement you matched in Money is not counted. A bill does not say when it was paid,
+ * so a past due date is not counted as late.
  */
 @Controller()
 export class HomeAttentionController {
@@ -34,6 +35,7 @@ export class HomeAttentionController {
       expiring: bills.filter(
         (b) =>
           !b.autoPaid &&
+          !b.bankPayment?.full &&
           b.dueDate !== null &&
           b.dueDate >= today &&
           b.dueDate <= soon,

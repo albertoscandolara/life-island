@@ -39,6 +39,7 @@ export type ReadBill = Omit<
   | 'contractId'
   | 'directDebit'
   | 'autoPaid'
+  | 'bankPayment'
 >;
 
 export interface OverrideLike {

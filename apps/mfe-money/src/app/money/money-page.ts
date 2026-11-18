@@ -49,11 +49,14 @@ import {
 import { AiTool } from '@life-island/settings-ui';
 import { MoneyApi } from '../api/money-api';
 import { parseBankCsv, type BankCsv } from './bank-csv';
+import { MoneyMatch } from './money-match';
 
-type MoneyTab = 'overview' | 'movements' | 'budgets' | 'recurring' | 'review';
+type MoneyTab =
+  'overview' | 'movements' | 'match' | 'budgets' | 'recurring' | 'review';
 const TABS: readonly MoneyTab[] = [
   'overview',
   'movements',
+  'match',
   'budgets',
   'recurring',
   'review',
@@ -133,6 +136,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     LiDelta,
     LiRecordDialog,
     LiTabs,
+    MoneyMatch,
     UiAiPanel,
     UiAiStatus,
     UiAlert,
@@ -206,6 +210,7 @@ export class MoneyPage {
     return [
       { id: 'overview', label: 'Overview', icon: 'chart' },
       { id: 'movements', label: 'Movements', icon: 'layers' },
+      { id: 'match', label: 'To match', icon: 'check' },
       {
         id: 'budgets',
         label: 'Budgets',
