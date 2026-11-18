@@ -30,6 +30,7 @@ import {
 } from '../db/schema.js';
 import { listOrganizations } from '../organizations/organizations.js';
 import { contractDirectDebit } from './auto-pay.js';
+import { contractPrices, priceUnit } from './prices.js';
 import { normalizeTaxCode, organizationKey } from './bill-reader.js';
 import { BillsService } from './bills.service.js';
 
@@ -67,16 +68,26 @@ export class SupplyPointsController {
         .groupBy(bills.contractId, bills.supplyPointId),
       this.svc.db
         .select({
+          uploadId: bills.uploadId,
           contractId: bills.contractId,
           directDebit: bills.directDebit,
           issueDate: bills.issueDate,
+          periodStart: bills.periodStart,
           periodEnd: bills.periodEnd,
           dueDate: bills.dueDate,
+          fee: bills.fee,
+          utility: bills.utility,
+          amount: bills.amount,
+          consumption: bills.consumption,
+          duplicateOf: bills.duplicateOf,
         })
         .from(bills),
     ]);
     const nameOf = new Map(orgs.map((o) => [o.id, o.name]));
     const detected = contractDirectDebit(payments);
+    const prices = contractPrices(
+      payments.filter((b) => b.duplicateOf === null),
+    );
     return points
       .map((p) => {
         const own = counts.filter((c) => c.pointId === p.id);
@@ -113,6 +124,10 @@ export class SupplyPointsController {
                 autoPay: c.autoPay,
                 directDebit: detected.get(c.id) ?? null,
                 autoPaid: c.autoPay ?? detected.get(c.id) ?? false,
+                offerStart: c.offerStart,
+                price: prices.get(c.id)?.price ?? null,
+                priceUnit: priceUnit(p.utility),
+                priceChange: prices.get(c.id)?.change ?? null,
               };
             })
             .sort((a, b) => (b.lastDay ?? '').localeCompare(a.lastDay ?? ''))

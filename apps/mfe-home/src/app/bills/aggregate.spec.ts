@@ -4,8 +4,11 @@ import {
   aggregate,
   bucketsOf,
   extent,
+  feeAndExtras,
   groupRows,
+  missingMonths,
   previousRange,
+  priceSeries,
   shares,
   totalIn,
   utilityStats,
@@ -30,6 +33,7 @@ const bill = (overrides: Partial<BillDto>): BillDto => ({
   currency: 'EUR',
   consumption: null,
   unit: 'Smc',
+  fee: null,
   invoiceNumber: null,
   totalDue: null,
   supplierId: null,
@@ -208,6 +212,101 @@ describe('groupRows', () => {
     expect(rows).toEqual([
       { key: 'Via Ponzilovo', amount: 90, consumption: {}, bills: 1 },
       { key: 'Unassigned', amount: 10, consumption: {}, bills: 1 },
+    ]);
+  });
+});
+
+describe('prices, the same for every bill', () => {
+  const internet = (month: string, fee: number, amount = fee) =>
+    bill({
+      utility: 'INTERNET',
+      unit: '',
+      supplyPointId: 'line',
+      provider: 'WINDTRE',
+      periodStart: `${month}-01`,
+      periodEnd: `${month}-${month.endsWith('02') ? '28' : '30'}`,
+      amount,
+      fee,
+    });
+
+  it('reads a metered price as cost over use, so using more is not a rise', () => {
+    const range = { from: '2026-01', to: '2026-02' };
+    const values = priceSeries(
+      [
+        bill({
+          periodStart: '2026-01-01',
+          periodEnd: '2026-01-31',
+          amount: 100,
+          consumption: 100,
+        }),
+        bill({
+          periodStart: '2026-02-01',
+          periodEnd: '2026-02-28',
+          amount: 240,
+          consumption: 200,
+        }),
+      ],
+      { range, grain: 'month', basis: 'period', utility: 'GAS' },
+    );
+    expect(values).toEqual([1, 1.2]);
+  });
+
+  it('reads internet as its monthly fee, a two-month bill as two months', () => {
+    const range = { from: '2026-01', to: '2026-04' };
+    const values = priceSeries(
+      [
+        internet('2026-01', 30.98),
+        bill({
+          utility: 'INTERNET',
+          periodStart: '2026-03-01',
+          periodEnd: '2026-04-30',
+          amount: 61.96,
+          fee: null,
+        }),
+      ],
+      { range, grain: 'month', basis: 'period', utility: 'INTERNET' },
+    );
+    expect(values).toEqual([30.98, null, 30.98, 30.98]);
+  });
+
+  it('averages the internet fee in the utility stats', () => {
+    const [stats] = utilityStats(
+      [internet('2026-01', 30), internet('2026-02', 32)],
+      { from: '2026-01', to: '2026-02' },
+      'period',
+      ['INTERNET'],
+    );
+    expect(stats.unitCost).toBe(31);
+    expect(stats.consumption).toBe(0);
+  });
+
+  it('splits internet into its fee and the extras on top', () => {
+    const split = feeAndExtras([internet('2026-01', 30.98, 35.48)], {
+      range: { from: '2026-01', to: '2026-01' },
+      grain: 'month',
+      basis: 'period',
+    });
+    expect(split.fee).toEqual([30.98]);
+    expect(split.extras).toEqual([4.5]);
+  });
+
+  it('finds the months a monthly line has no bill for', () => {
+    const missing = missingMonths(
+      [
+        internet('2026-01', 30.98),
+        internet('2026-04', 30.98),
+        internet('2026-05', 30.98),
+      ],
+      { from: '2025-01', to: '2026-12' },
+      'period',
+    );
+    expect(missing).toEqual([
+      {
+        key: 'line',
+        provider: 'WINDTRE',
+        propertyId: 'p1',
+        months: ['2026-02', '2026-03'],
+      },
     ]);
   });
 });

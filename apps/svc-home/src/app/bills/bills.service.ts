@@ -69,6 +69,7 @@ export function toBillDto(
     currency: row.currency,
     consumption: row.consumption,
     unit: row.unit,
+    fee: row.fee,
     invoiceNumber: row.invoiceNumber,
     totalDue: row.totalDue,
     supplierId: row.supplierId,

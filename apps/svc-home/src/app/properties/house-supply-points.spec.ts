@@ -32,6 +32,7 @@ describe('houseSupply', () => {
       ELECTRICITY: 'IT001E22222222',
       GAS: '01680102015791',
       WATER: null,
+      INTERNET: null,
     });
     expect(supply.codes).toHaveLength(3);
   });
@@ -61,12 +62,15 @@ describe('houseSupply', () => {
 
   it('files typed codes under their utility by shape', () => {
     expect(
-      houseSupply(['IT001E36435004', '0168 0102 0157 91', 'ACQ-778'], [])
-        .points,
+      houseSupply(
+        ['IT001E36435004', '0168 0102 0157 91', 'ACQ-778', '045 1234567'],
+        [],
+      ).points,
     ).toEqual({
       ELECTRICITY: 'IT001E36435004',
       GAS: '01680102015791',
       WATER: 'ACQ778',
+      INTERNET: '0451234567',
     });
   });
 });

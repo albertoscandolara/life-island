@@ -52,7 +52,12 @@ function house(overrides: Partial<PropertyDto> = {}): PropertyDto {
     colorSlot: 1,
     matchTerms: ['dei bandi'],
     supplyCodes: ['IT001E36435004'],
-    supplyPoints: { ELECTRICITY: 'IT001E36435004', GAS: null, WATER: null },
+    supplyPoints: {
+      ELECTRICITY: 'IT001E36435004',
+      GAS: null,
+      WATER: null,
+      INTERNET: null,
+    },
     categoryIds: [],
     notes: null,
     model: null,
@@ -130,7 +135,12 @@ describe('readHouse', () => {
   it("never takes a customer code as house data: it is the contract's", () => {
     const gas = house({
       supplyCodes: ['01680102015791'],
-      supplyPoints: { ELECTRICITY: null, GAS: '01680102015791', WATER: null },
+      supplyPoints: {
+        ELECTRICITY: null,
+        GAS: '01680102015791',
+        WATER: null,
+        INTERNET: null,
+      },
     });
     const printed: Record<string, string>[] = [
       { customer_id: '1000007483' },
@@ -249,6 +259,7 @@ describe('proposeHouseChanges', () => {
       ELECTRICITY: 'IT001E36435004',
       GAS: '01680102015791',
       WATER: null,
+      INTERNET: null,
     },
   });
 

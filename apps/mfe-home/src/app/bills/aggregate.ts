@@ -1,4 +1,9 @@
-import type { BillDto, UtilityKind } from '@life-island/contracts';
+import {
+  billUnitPrice,
+  UTILITIES,
+  type BillDto,
+  type UtilityKind,
+} from '@life-island/contracts';
 
 /** How bills are bucketed along time. */
 export type Grain = 'month' | 'quarter' | 'year';
@@ -202,12 +207,16 @@ export interface UtilityStats {
   utility: UtilityKind;
   amount: number;
   consumption: number;
-  /** Bills with a consumption: the cost per unit is only computed on these. */
+  /**
+   * What you pay for what you get: the average price per unit (€/kWh,
+   * €/Smc, €/m³, only on bills with a consumption), or the average monthly
+   * fee of a flat utility (internet).
+   */
   unitCost: number | null;
   bills: number;
 }
 
-/** Totals per utility inside a range, with the average cost per unit (€/kWh, €/Smc, €/m³). */
+/** Totals per utility inside a range, with the average price (€/kWh, €/Smc, €/m³, €/month). */
 export function utilityStats(
   bills: readonly BillDto[],
   range: MonthRange,
@@ -221,11 +230,25 @@ export function utilityStats(
     );
     const meteredAmount = totalIn(metered, range, basis, 'amount');
     const consumption = totalIn(metered, range, basis, 'consumption');
+    const flat = UTILITIES[utility].metered
+      ? null
+      : averageOf(
+          priceSeries(own, {
+            range,
+            grain: 'month',
+            basis,
+            utility,
+          }).filter((v): v is number => v !== null),
+        );
     return {
       utility,
       amount: totalIn(own, range, basis, 'amount'),
       consumption,
-      unitCost: consumption > 0 ? round4(meteredAmount / consumption) : null,
+      unitCost: UTILITIES[utility].metered
+        ? consumption > 0
+          ? round4(meteredAmount / consumption)
+          : null
+        : flat,
       bills: own.filter((b) =>
         shares(b, basis).some(
           (s) => s.month >= range.from && s.month <= range.to,
@@ -297,6 +320,152 @@ export function groupRows(
     ? result.sort((a, b) => b.key.localeCompare(a.key))
     : result.sort((a, b) => b.amount - a.amount);
 }
+
+/**
+ * The price of one utility bucket by bucket, the same idea for every bill:
+ * for a metered utility what its bills cost over what they billed (€/kWh:
+ * it moves with the price, not with how much you used); for a flat one
+ * (internet) the monthly fee, else the bill over the months it covers. Null
+ * for a bucket with no bill that has a price.
+ */
+export function priceSeries(
+  bills: readonly BillDto[],
+  options: {
+    range: MonthRange;
+    grain: Grain;
+    basis: Basis;
+    utility: UtilityKind;
+  },
+): (number | null)[] {
+  const buckets = bucketsOf(options.range, options.grain);
+  const index = new Map(buckets.map((bucket, i) => [bucket, i]));
+  const num = buckets.map(() => 0);
+  const den = buckets.map(() => 0);
+  const metered = UTILITIES[options.utility].metered;
+  for (const bill of bills) {
+    if (bill.utility !== options.utility) continue;
+    const price = billUnitPrice(bill);
+    if (price === null) continue;
+    const parts = shares(bill, options.basis);
+    for (const share of parts) {
+      if (share.month < options.range.from || share.month > options.range.to)
+        continue;
+      const i = index.get(bucketOf(share.month, options.grain));
+      if (i === undefined) continue;
+      if (metered) {
+        num[i] += bill.amount * share.weight;
+        den[i] += (bill.consumption ?? 0) * share.weight;
+      } else {
+        // Per month: a fee of a two-month bill is two months' worth.
+        num[i] += price * share.weight;
+        den[i] += share.weight * monthsCovered(bill);
+      }
+    }
+  }
+  return buckets.map((_, i) =>
+    den[i] > 0
+      ? metered
+        ? round4(num[i] / den[i])
+        : round2(num[i] / den[i])
+      : null,
+  );
+}
+
+/**
+ * Internet, month by month: the fee of the offer and what came on top
+ * (calls, options, router installments, late fees). A bill that prints no
+ * fee apart counts whole as fee.
+ */
+export function feeAndExtras(
+  bills: readonly BillDto[],
+  options: { range: MonthRange; grain: Grain; basis: Basis },
+): { buckets: string[]; fee: number[]; extras: number[] } {
+  const buckets = bucketsOf(options.range, options.grain);
+  const index = new Map(buckets.map((bucket, i) => [bucket, i]));
+  const fee = buckets.map(() => 0);
+  const extras = buckets.map(() => 0);
+  for (const bill of bills) {
+    if (UTILITIES[bill.utility].metered) continue;
+    const own = bill.fee ?? bill.amount;
+    const more = Math.max(0, bill.amount - own);
+    for (const share of shares(bill, options.basis)) {
+      if (share.month < options.range.from || share.month > options.range.to)
+        continue;
+      const i = index.get(bucketOf(share.month, options.grain));
+      if (i === undefined) continue;
+      fee[i] += own * share.weight;
+      extras[i] += more * share.weight;
+    }
+  }
+  return { buckets, fee: fee.map(round2), extras: extras.map(round2) };
+}
+
+export interface MissingMonths {
+  /** The line (supply point), else the contract, else the provider. */
+  key: string;
+  provider: string | null;
+  propertyId: string | null;
+  months: string[];
+}
+
+/**
+ * Months with no bill on a line billed every month (internet): between its
+ * first and last bill, inside the range, the months none of its bills
+ * covers. Lines whose bills come every two months or more are left out.
+ */
+export function missingMonths(
+  bills: readonly BillDto[],
+  range: MonthRange,
+  basis: Basis,
+): MissingMonths[] {
+  const lines = new Map<string, BillDto[]>();
+  for (const bill of bills) {
+    if (UTILITIES[bill.utility].metered) continue;
+    const key =
+      bill.supplyPointId ?? bill.contractId ?? bill.provider ?? 'unknown';
+    lines.set(key, [...(lines.get(key) ?? []), bill]);
+  }
+  const result: MissingMonths[] = [];
+  for (const [key, own] of lines) {
+    const covered = new Set(
+      own.flatMap((bill) => shares(bill, basis).map((s) => s.month)),
+    );
+    const sorted = [...covered].sort();
+    if (sorted.length < 2) continue;
+    // Billed every month: most bills cover a single month.
+    const monthly =
+      own.filter((bill) => shares(bill, basis).length <= 1).length * 2 >=
+      own.length;
+    if (!monthly) continue;
+    const months = monthsBetween({
+      from: sorted[0] > range.from ? sorted[0] : range.from,
+      to:
+        sorted[sorted.length - 1] < range.to
+          ? sorted[sorted.length - 1]
+          : range.to,
+    }).filter((m) => !covered.has(m));
+    if (months.length)
+      result.push({
+        key,
+        provider: own[0].provider,
+        propertyId: own[0].propertyId,
+        months,
+      });
+  }
+  return result;
+}
+
+/** How many months a bill's period covers (1 when it prints none). */
+function monthsCovered(bill: BillDto): number {
+  if (!bill.periodStart || !bill.periodEnd) return 1;
+  const days = (toTime(bill.periodEnd) - toTime(bill.periodStart)) / DAY + 1;
+  return Math.max(1, Math.round((days / 30.4375) * 4) / 4);
+}
+
+const averageOf = (values: number[]): number | null =>
+  values.length
+    ? round2(values.reduce((sum, v) => sum + v, 0) / values.length)
+    : null;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const round4 = (value: number) => Math.round(value * 10_000) / 10_000;

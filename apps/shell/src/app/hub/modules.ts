@@ -122,7 +122,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     emblem: '🏡',
     name: 'Houses',
     mission:
-      'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas and water bills.',
+      'Every house you have, as you know it and as your documents tell it: its data, owners and companies, its renovations and its electricity, gas, water and internet bills.',
     path: '/home',
     attentionUrl: '/api/home/attention',
     landmark: 'house',

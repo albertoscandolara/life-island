@@ -301,7 +301,7 @@ export const organizations = home.table(
 
 export type OrganizationRow = typeof organizations.$inferSelect;
 
-/** Where a utility is delivered (POD, PDR, water code): belongs to a house, outlives contracts. */
+/** Where a utility is delivered (POD, PDR, water code, internet line): belongs to a house, outlives contracts. */
 export const supplyPoints = home.table(
   'supply_points',
   {
@@ -337,6 +337,8 @@ export const supplyContracts = home.table(
     }),
     customerCode: text('customer_code'),
     offerName: text('offer_name'),
+    /** The day the offer started, as its bills print it (internet: "dal 18/06/2020"). */
+    offerStart: date('offer_start', { mode: 'string' }),
     /**
      * Your choice: its bills are paid on their own (domiciliazione, SDD on
      * your bank account) or not. Null follows what its bills print. Bills
@@ -406,6 +408,11 @@ export const bills = home.table(
       mode: 'number',
     }),
     unit: text('unit').notNull(),
+    /**
+     * The recurring fee of the offer in it (an internet subscription), apart
+     * from the extras; null when the bill does not print it apart.
+     */
+    fee: decimal('fee'),
     provider: text('provider'),
     customerId: text('customer_id'),
     updatedAt: timestamp('updated_at', { withTimezone: true })

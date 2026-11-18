@@ -1,5 +1,10 @@
 import { dateText, euro } from '@life-island/records-ui';
-import { UTILITIES, type UtilityKind } from '@life-island/contracts';
+import {
+  priceUnitOf,
+  unitPriceText,
+  UTILITIES,
+  type UtilityKind,
+} from '@life-island/contracts';
 
 const compact = new Intl.NumberFormat('en-GB', {
   notation: 'compact',
@@ -36,12 +41,21 @@ export function bucketLabel(key: string, short = false): string {
 export const utilityLabel = (kind: UtilityKind): string =>
   UTILITIES[kind].label;
 
-export const UTILITY_ICONS: Record<UtilityKind, 'bolt' | 'flame' | 'droplet'> =
-  {
-    ELECTRICITY: 'bolt',
-    GAS: 'flame',
-    WATER: 'droplet',
-  };
+export const UTILITY_ICONS: Record<
+  UtilityKind,
+  'bolt' | 'flame' | 'droplet' | 'wifi'
+> = {
+  ELECTRICITY: 'bolt',
+  GAS: 'flame',
+  WATER: 'droplet',
+  INTERNET: 'wifi',
+};
+
+/** A utility's price: "0,1234 €/kWh", "30,98 €/month"; "–" without one. */
+export const formatPrice = (
+  value: number | null | undefined,
+  kind: UtilityKind,
+): string => unitPriceText(value, priceUnitOf(kind));
 
 /** The chart colour token of a utility. */
 export const utilityColor = (kind: UtilityKind): string =>

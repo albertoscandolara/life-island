@@ -28,6 +28,7 @@ const none = (): Record<UtilityKind, string | null> => ({
   ELECTRICITY: null,
   GAS: null,
   WATER: null,
+  INTERNET: null,
 });
 
 /**

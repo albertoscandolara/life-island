@@ -14,6 +14,7 @@ const UTILITY_NAMES: Record<UtilityKind, string> = {
   ELECTRICITY: 'Electricity',
   GAS: 'Gas',
   WATER: 'Water',
+  INTERNET: 'Internet',
 };
 
 /** The bills' due dates, for the Agenda (`GET /deadlines`). */

@@ -8,9 +8,11 @@ import {
   signal,
 } from '@angular/core';
 import {
+  priceUnitOf,
   UTILITIES,
   UTILITY_KINDS,
   type BillDto,
+  type SupplyPointDto,
   type UtilityKind,
 } from '@life-island/contracts';
 import {
@@ -27,6 +29,7 @@ import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
 import { UiLineChart } from '@life-island/design-system';
 import { UiSegmentedBar, type UiBarPart } from '@life-island/design-system';
 import { UiSparkline } from '@life-island/design-system';
+import { DOCUMENTS_APP_URL } from '@life-island/settings-ui';
 import { HousesView } from '../houses/houses-view';
 import { AreaNav } from '../shared/area-nav';
 import {
@@ -35,6 +38,7 @@ import {
   formatEuro,
   formatEuroRound,
   formatNumber,
+  formatPrice,
   formatTick,
   propertyColor,
   UTILITY_ICONS,
@@ -47,9 +51,13 @@ import { PropertyStore } from '../shared/property-store';
 import {
   addMonths,
   aggregate,
+  bucketsOf as bucketsIn,
   extent,
+  feeAndExtras,
   groupRows,
+  missingMonths,
   monthsBetween,
+  priceSeries,
   previousRange,
   totalIn,
   utilityStats,
@@ -105,7 +113,9 @@ const MONTH_NAMES = [
 const YEAR_SHADES = [100, 72, 48, 30];
 
 /**
- * Stego's Bills: electricity, gas and water of every home, on one dashboard.
+ * Stego's Bills: electricity, gas, water and internet of every home, on one
+ * dashboard, read the same way: what you pay, how its price moves, and the
+ * offer each one is on.
  * Filters scope everything below them: which home, which utilities, the
  * period, how it is bucketed, and whether a bill counts over the months it
  * covers or in the month it was issued.
@@ -137,6 +147,7 @@ const YEAR_SHADES = [100, 72, 48, 30];
 export class BillsPage {
   private readonly api = inject(HomeApi);
   protected readonly store = inject(PropertyStore);
+  protected readonly documentsUrl = inject(DOCUMENTS_APP_URL);
 
   /** `?houses=<id>,<id>` from the URL (the older `?property=<id>` too); absent for every house. */
   readonly houses = input<string>();
@@ -145,6 +156,8 @@ export class BillsPage {
   readonly split = input<string>();
 
   protected readonly bills = signal<BillDto[] | null>(null);
+  /** The supply points with their contracts: the offer each one is on, and since when. */
+  protected readonly points = signal<SupplyPointDto[]>([]);
   protected readonly error = signal<string | null>(null);
   protected readonly managing = signal(false);
 
@@ -170,6 +183,7 @@ export class BillsPage {
   protected readonly formatEuro = formatEuro;
   protected readonly formatEuroRound = formatEuroRound;
   protected readonly formatNumber = formatNumber;
+  protected readonly formatPrice = formatPrice;
   protected readonly formatDate = formatDate;
   protected readonly bucketLabel = bucketLabel;
   protected readonly utilityLabel = utilityLabel;
@@ -276,6 +290,11 @@ export class BillsPage {
   });
   protected readonly perMonth = computed(
     () => this.total() / Math.max(1, this.months()),
+  );
+
+  /** The utilities in view that measure a consumption: internet has none. */
+  protected readonly metered = computed(() =>
+    this.utilities().filter((kind) => UTILITIES[kind].metered),
   );
 
   protected readonly stats = computed(() =>
@@ -410,7 +429,7 @@ export class BillsPage {
 
   /** Consumption per utility in its own unit: one chart each, never two units on one axis. */
   protected readonly consumption = computed(() =>
-    this.utilities().map((utility) => {
+    this.metered().map((utility) => {
       const result = aggregate(this.scoped(), {
         range: this.range(),
         grain: this.grain(),
@@ -437,6 +456,119 @@ export class BillsPage {
       };
     }),
   );
+
+  /**
+   * Is the price going up? The same question for every utility, each in its
+   * own unit (€/kWh, €/Smc, €/m³, €/month): what you pay for what you get,
+   * so a cold winter does not look like a price rise. With the offer each
+   * one is on now and since when, to tell when it is time to look around.
+   */
+  protected readonly prices = computed(() => {
+    const range = this.range();
+    const grain = this.grain();
+    const buckets = bucketsIn(range, grain);
+    const houses = this.ids().length
+      ? new Set(this.scope().map((h) => h.id))
+      : null;
+    return this.utilities().map((utility) => {
+      const values = priceSeries(this.scoped(), {
+        range,
+        grain,
+        basis: this.basis(),
+        utility,
+      });
+      const known = values.filter((v): v is number => v !== null);
+      const last = known.at(-1) ?? null;
+      // Against the same months a year before: fixed charges weigh more in
+      // a month you use little, so summer gas never reads as a price rise.
+      const perYear = grain === 'month' ? 12 : grain === 'quarter' ? 4 : 1;
+      const longer = priceSeries(this.scoped(), {
+        range: { from: addMonths(range.from, -12), to: range.to },
+        grain,
+        basis: this.basis(),
+        utility,
+      });
+      let at = longer.length - 1;
+      while (at >= 0 && longer[at] === null) at--;
+      const yearAgo = at - perYear >= 0 ? longer[at - perYear] : null;
+      const change =
+        at >= 0 && yearAgo !== null && yearAgo > 0
+          ? ((longer[at] as number) - yearAgo) / yearAgo
+          : null;
+      const offers = this.points()
+        .filter(
+          (p) =>
+            p.utility === utility &&
+            (!houses || (p.propertyId !== null && houses.has(p.propertyId))),
+        )
+        .flatMap((p) =>
+          p.contracts
+            .filter((c) => c.status === 'ACTIVE')
+            .map((c) => ({
+              key: c.id,
+              supplier: c.supplierName,
+              offer: c.offerName,
+              since: c.offerStart ?? c.firstDay,
+              house: p.propertyId ? this.store.name(p.propertyId) : null,
+            })),
+        );
+      return {
+        utility,
+        unit: priceUnitOf(utility),
+        buckets,
+        categories: buckets.map((b) =>
+          bucketLabel(b, grain === 'month' && buckets.length <= 12),
+        ),
+        series: [
+          {
+            id: utility,
+            label: utilityLabel(utility),
+            color: utilityColor(utility),
+            values,
+          },
+        ] satisfies UiChartSeries[],
+        last,
+        change,
+        /** Up by a tenth or more on a year ago: worth comparing offers. */
+        rising: change !== null && change >= 0.1,
+        offers,
+        empty: !known.length,
+        step: !UTILITIES[utility].metered,
+      };
+    });
+  });
+
+  /** Internet: the fee of the offer and the extras on top, month by month. */
+  protected readonly internet = computed(() => {
+    if (!this.utilities().includes('INTERNET')) return null;
+    const bills = this.scoped().filter((b) => b.utility === 'INTERNET');
+    if (!bills.length) return null;
+    const split = feeAndExtras(bills, {
+      range: this.range(),
+      grain: this.grain(),
+      basis: this.basis(),
+    });
+    const extras = split.extras.reduce((sum, v) => sum + v, 0);
+    return {
+      buckets: split.buckets,
+      series: [
+        {
+          id: 'fee',
+          label: 'Fee',
+          color: utilityColor('INTERNET'),
+          values: split.fee,
+        },
+        {
+          id: 'extras',
+          label: 'Extras',
+          color: 'var(--viz-other)',
+          values: split.extras,
+        },
+      ] satisfies UiChartSeries[],
+      extras: Math.round(extras * 100) / 100,
+      missing: missingMonths(bills, this.range(), this.basis()),
+    };
+  });
 
   protected readonly utilityParts = computed<UiBarPart[]>(() =>
     this.stats().map((s) => ({
@@ -651,7 +783,49 @@ export class BillsPage {
     });
   }
 
+  /** Axis ticks: the price without its unit (the unit is in the heading). */
+  protected readonly priceFormat = (kind: UtilityKind) => (value: number) =>
+    formatPrice(value, kind).replace(/\s?€\/.*$/, ' €');
+  protected readonly bucketTitle = (buckets: string[]) => (i: number) =>
+    bucketLabel(buckets[i] ?? '');
+
+  /** "Feb 2026, Mar 2026 and May 2026". */
+  protected monthList(months: string[]): string {
+    const names = months.map((m) => bucketLabel(m));
+    return names.length <= 1
+      ? (names[0] ?? '')
+      : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  }
+
+  /** "since Jun 2020, 6 years ago". */
+  protected since(day: string): string {
+    const months =
+      monthsBetween({
+        from: day.slice(0, 7),
+        to: currentMonth(),
+      }).length - 1;
+    const ago =
+      months >= 24
+        ? `${Math.floor(months / 12)} years`
+        : months >= 12
+          ? '1 year'
+          : months === 1
+            ? '1 month'
+            : `${Math.max(0, months)} months`;
+    return `since ${bucketLabel(day.slice(0, 7))}, ${ago} ago`;
+  }
+
+  protected percent(value: number): string {
+    const rounded = Math.round(value * 100);
+    return `${rounded > 0 ? '+' : ''}${rounded}%`;
+  }
+
   private load(): void {
+    // The offers are extra: Bills works without them.
+    this.api.supplyPoints().subscribe({
+      next: (points) => this.points.set(points),
+      error: () => this.points.set([]),
+    });
     this.api.bills().subscribe({
       next: (bills) => {
         this.error.set(null);

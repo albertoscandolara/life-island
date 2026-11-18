@@ -76,13 +76,14 @@ interface Draft {
   electricityPoint: string;
   gasPoint: string;
   waterPoint: string;
+  internetLine: string;
   notes: string;
 }
 
 /** The supply point inputs, one per utility. */
 const POINT_INPUTS: {
   utility: UtilityKind;
-  key: 'electricityPoint' | 'gasPoint' | 'waterPoint';
+  key: 'electricityPoint' | 'gasPoint' | 'waterPoint' | 'internetLine';
   label: string;
   hint: string;
 }[] = [
@@ -103,6 +104,12 @@ const POINT_INPUTS: {
     key: 'waterPoint',
     label: 'Water supply code',
     hint: 'The code of the water supply on its bills',
+  },
+  {
+    utility: 'INTERNET',
+    key: 'internetLine',
+    label: 'Internet line',
+    hint: 'The line’s phone number (else its migration code) on its bills',
   },
 ];
 
@@ -173,6 +180,7 @@ function draftOf(p: PropertyDto | null): Draft {
     electricityPoint: str(p?.supplyPoints?.ELECTRICITY),
     gasPoint: str(p?.supplyPoints?.GAS),
     waterPoint: str(p?.supplyPoints?.WATER),
+    internetLine: str(p?.supplyPoints?.INTERNET),
     notes: str(p?.notes),
   };
 }

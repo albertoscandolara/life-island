@@ -70,7 +70,8 @@ function categoryWords(
 /**
  * Whether a document is about a house's internet line or insurance, by its
  * categories (yours, read by their words) and the fields it prints. A bill
- * of electricity, gas or water is a bill of Bills, never one of these.
+ * of electricity, gas or water is a bill of Bills, never one of these; an
+ * internet bill is both a bill of Bills and what the Internet card reads.
  */
 export function serviceKindOf(
   document: DocumentLike,
@@ -79,7 +80,11 @@ export function serviceKindOf(
   const parentOf = new Map(
     [...categories.entries()].map(([id, c]) => [id, c.parentId]),
   );
-  if (utilityOf(document.categories, document.fields, parentOf)) return null;
+  // A bill of electricity, gas or water is only a bill; an internet bill is
+  // also what the house's Internet card reads its line from.
+  const utility = utilityOf(document.categories, document.fields, parentOf);
+  if (utility === 'INTERNET') return { kind: 'INTERNET', sure: true };
+  if (utility) return null;
   const words = categoryWords(document, categories);
   const fields = document.fields ?? {};
   if (

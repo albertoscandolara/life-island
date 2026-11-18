@@ -17,6 +17,7 @@ const UTILITY_WORDS: Record<UtilityKind, string> = {
   ELECTRICITY: 'electricity',
   GAS: 'gas',
   WATER: 'water',
+  INTERNET: 'internet',
 };
 
 /** A bill can be paid a few days before it is issued (a prepaid amount)… */

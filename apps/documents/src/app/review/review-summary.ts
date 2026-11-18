@@ -48,8 +48,13 @@ export function groupFields(
   };
 }
 
-/** Bills reads electricity, gas and water bills (and their subcategories). */
-const UTILITY_BILLS = ['ELECTRICITY_BILL', 'GAS_BILL', 'WATER_BILL'];
+/** Bills reads electricity, gas, water and internet bills (and their subcategories). */
+const UTILITY_BILLS = [
+  'ELECTRICITY_BILL',
+  'GAS_BILL',
+  'WATER_BILL',
+  'INTERNET_BILL',
+];
 
 function withAncestors(id: string, lookup: CategoryLookup): string[] {
   const chain: string[] = [];
