@@ -67,7 +67,12 @@ To add an area: create `apps/mfe-<area>` (copy `mfe-tax730`, tag it `scope:<area
 
 ## The 3D island
 
-`apps/shell/src/app/island/` draws a low-poly island with three.js: a zone per area with its own landmark, palms and a peak, all built from primitives (nothing to download).
+`apps/shell/src/app/island/` draws the island with three.js: a sandy shore with bays and headlands (`coastline` in `island-props.ts`), shallow water and foam, a mountain with a waterfall, a wood of palms, trees, bushes and flowers, boats at sea and clouds, and a zone per area with its own landmark on a plinth. Shadows fall from the sun at the top-left; at night (dark theme) the windows light up.
+
+- **The models are made in Blender.** `tools/island-models/build_island_kit.py` models every landmark, prop and the peak and exports one glTF binary, `apps/shell/public/island/island-kit.glb` (about 850 KB, loaded after the first frame). Run it with Blender's Python module (`pip install bpy`) or `blender --background --python …` after changing a model, and commit the `.glb`.
+- **The kit follows the theme.** Its materials named after a palette slot (`tint`, `foam`, `sand`, `grass`, `rock`, `trunk`, `leaves`, `water`, `window`) are repainted from the design system's tokens (`--island-*` in `island-view.css`); `tint` takes the zone's character accent. Other materials (gold, flowers, tyres) keep their colour.
+- **It always works.** The island first stands in primitives and swaps in the models once the kit has loaded; if it never loads, the primitives stay.
+- **Where the scenery goes** is pure and seeded (`islandProps`), tested so that nothing stands on a zone and nothing at sea or in the sky is in front of the island.
 
 - Labels never pile up: a label whose zone faces away, or that would cover a nearer one, hides until you hover or focus its zone (`visibleLabels` in `island-layout.ts`); long names have a short `islandName`, and below 480 px only the emblem shows.
 - Hover a zone or its label to highlight it and pause the drift; drag to turn the island; click to fly the camera in, then the router opens the area. Labels are real buttons, so it works by keyboard too.
