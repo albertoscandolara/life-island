@@ -37,6 +37,8 @@ export const persons = people.table('persons', {
    * the home schema). `residence_address` keeps its address as text.
    */
   residencePropertyId: uuid('residence_property_id'),
+  /** Where to write to them: typed by you, never read from a document. */
+  email: text('email'),
   /** The person this one is a fiscal dependent of (familiare a carico). */
   taxDependentOf: uuid('tax_dependent_of').references(
     (): AnyPgColumn => persons.id,

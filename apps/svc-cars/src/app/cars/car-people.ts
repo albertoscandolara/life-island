@@ -1,16 +1,11 @@
 import { internalHeaders } from '@life-island/be-common';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { CarsPeopleDto, PersonSummaryDto } from '@life-island/contracts';
+import {
+  personSummaryName,
+  type CarsPeopleDto,
+  type PersonSummaryDto,
+} from '@life-island/contracts';
 import { CONFIG, type CarsConfig } from '../config.js';
-
-/** "Mario Rossi" as People shows it, or the tax code when no name is known. */
-export function personName(person: PersonSummaryDto): string {
-  return (
-    [person.firstName, person.lastName].filter(Boolean).join(' ') ||
-    person.taxCode ||
-    'Unnamed person'
-  );
-}
 
 /**
  * Reads the people from svc-people's HTTP API, to offer them as the holder
@@ -37,7 +32,7 @@ export class CarPeople {
         people: people
           .map((p) => ({
             id: p.id,
-            name: personName(p),
+            name: personSummaryName(p),
             taxCode: p.taxCode,
             licence: p.drivingLicence ?? null,
           }))

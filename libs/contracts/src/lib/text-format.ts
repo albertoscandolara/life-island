@@ -32,3 +32,14 @@ export function euroText(
   // log, a prompt or a test.
   return (cents ? WITH_CENTS : WHOLE).format(value).replace(/\s/g, ' ');
 }
+
+/** Documents print names in capitals: "ALBERTO" reads as "Alberto". */
+export function displayName(name: string): string {
+  if (name !== name.toUpperCase()) return name;
+  return name
+    .toLowerCase()
+    .replace(
+      /(^|[\s'-])(\p{L})/gu,
+      (_, sep: string, letter: string) => sep + letter.toUpperCase(),
+    );
+}

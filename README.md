@@ -84,6 +84,7 @@ Each remote also runs on its own at its port. The dev servers forward `/api/<ser
 | S3 storage (SeaweedFS) | `http://localhost:8333`                                            |
 | NATS                   | `nats://localhost:4222`, monitoring on `http://localhost:8222`     |
 | Gateway (Caddy)        | `http://localhost:8080`, `/api/<service>/*` routes to each service |
+| Mail catcher (Mailpit) | `http://localhost:8025`, SMTP on `localhost:1025`                  |
 
 ### Settings to check in `.env`
 

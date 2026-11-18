@@ -1,0 +1,1 @@
+ALTER TABLE "people"."persons" ADD COLUMN "email" text;

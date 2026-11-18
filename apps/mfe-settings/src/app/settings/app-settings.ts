@@ -26,6 +26,7 @@ import {
   UiThemeService,
   type UiThemePreference,
 } from '@life-island/design-system';
+import { EntityDirectory, EntityLink } from '@life-island/entities-ui';
 import {
   BrowserSettings,
   hiddenAreas,
@@ -50,7 +51,16 @@ const THEME = 'appearance.theme';
 @Component({
   selector: 'settings-app-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, UiAlert, UiBadge, UiButton, UiCard, UiIcon, UiInput],
+  imports: [
+    DatePipe,
+    EntityLink,
+    UiAlert,
+    UiBadge,
+    UiButton,
+    UiCard,
+    UiIcon,
+    UiInput,
+  ],
   templateUrl: './app-settings.html',
   styleUrl: './settings.css',
 })
@@ -60,6 +70,7 @@ export class AppSettingsPage {
   private readonly browser = inject(BrowserSettings);
   private readonly search = inject(SettingsSearch);
   private readonly document = inject(DOCUMENT);
+  private readonly directory = inject(EntityDirectory);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   /** A backup file read and checked, waiting for you to apply it. */
@@ -68,6 +79,28 @@ export class AppSettingsPage {
     file: SettingsFile;
   } | null>(null);
   protected readonly areas = ISLAND_AREAS;
+
+  /** The people of People, for a setting that picks one (the digest's recipient). */
+  protected readonly people = computed(() =>
+    this.directory
+      .entities()
+      .filter((e) => e.kind === 'person' && e.status === 'confirmed')
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
+
+  constructor() {
+    void this.directory.load();
+  }
+
+  /** A person picked once and since removed from People (or People is not reachable). */
+  protected missingPerson(setting: AppSettingDefinition): boolean {
+    const id = this.value(setting);
+    return (
+      id !== 'none' &&
+      this.directory.loaded() &&
+      !this.people().some((p) => p.id === id)
+    );
+  }
 
   protected readonly groups = computed<Group[]>(() => {
     const words = searchWords(this.search.query());

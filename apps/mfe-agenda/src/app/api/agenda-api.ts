@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 import type {
   AgendaBriefDto,
   AgendaOverviewDto,
+  DigestDto,
+  DigestStatusDto,
+  DigestTestDto,
   LifeQuestionRequest,
 } from '@life-island/contracts';
 import { RecordsApi } from '@life-island/records-ui';
@@ -28,5 +31,18 @@ export class AgendaApi extends RecordsApi {
 
   removeBrief(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/briefs/${id}`);
+  }
+
+  /** The email digest: how it is set and whether it can go. */
+  digest(): Observable<DigestStatusDto> {
+    return this.http.get<DigestStatusDto>(`${this.base}/digest`);
+  }
+
+  previewDigest(): Observable<DigestDto> {
+    return this.http.get<DigestDto>(`${this.base}/digest/preview`);
+  }
+
+  testDigest(): Observable<DigestTestDto> {
+    return this.http.post<DigestTestDto>(`${this.base}/digest/test`, {});
   }
 }

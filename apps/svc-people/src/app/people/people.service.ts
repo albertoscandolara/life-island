@@ -180,6 +180,7 @@ export class PeopleService {
           id: person.id,
           ...valuesOf(person),
           residencePropertyId: person.residencePropertyId,
+          email: person.email,
           createdAt: person.createdAt.toISOString(),
           updatedAt: person.updatedAt.toISOString(),
           series: series.map(({ type, versions }) => ({
@@ -287,6 +288,7 @@ export class PeopleService {
       lastName: p.lastName,
       firstName: p.firstName,
       taxCode: p.taxCode,
+      email: p.email,
       residencePropertyId: p.residencePropertyId,
       taxDependentOf: p.taxDependentOf,
       drivingLicence: licenceSummary(
@@ -644,6 +646,12 @@ export class PeopleService {
       }
       // The duplicate goes first: its tax code may move to the person kept.
       await tx.delete(persons).where(eq(persons.id, from.id));
+      // The duplicate's email stays when this person has none.
+      if (!into.email && from.email)
+        await tx
+          .update(persons)
+          .set({ email: from.email })
+          .where(eq(persons.id, id));
       if (merged.taken.length)
         await tx
           .update(persons)

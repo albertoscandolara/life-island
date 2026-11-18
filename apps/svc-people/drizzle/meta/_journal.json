@@ -36,6 +36,13 @@
       "when": 1794345904730,
       "tag": "0004_settings_replica",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795008890640,
+      "tag": "0005_person_email",
+      "breakpoints": true
     }
   ]
 }

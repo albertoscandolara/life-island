@@ -124,6 +124,48 @@ const personValues = z.object({
 export type PersonValues = z.infer<typeof personValues>;
 
 /**
+ * The details you type that no ID document prints: where to write to a
+ * person (the email digest of the Agenda goes there).
+ */
+export const PERSON_CONTACT_FIELDS = ['email'] as const;
+export type PersonContactField = (typeof PERSON_CONTACT_FIELDS)[number];
+/** Every detail of a person you can edit: the printed ones, then the contacts. */
+export const PERSON_EDIT_FIELDS = [
+  ...PERSON_FIELDS,
+  ...PERSON_CONTACT_FIELDS,
+] as const;
+export type PersonEditField = (typeof PERSON_EDIT_FIELDS)[number];
+export const PERSON_EDIT_LABELS: Record<PersonEditField, string> = {
+  ...PERSON_FIELD_LABELS,
+  email: 'Email',
+};
+
+/** An email address as typed: trimmed, lower case, null when empty. */
+export const personEmail = z
+  .string()
+  .trim()
+  .max(254)
+  .transform((value) => value.toLowerCase())
+  .pipe(
+    z.union([z.literal(''), z.email('Use an address like name@example.com')]),
+  )
+  .transform((value) => value || null)
+  .nullable();
+
+/** "Mario Rossi", or the tax code when no name is known. */
+export function personSummaryName(person: {
+  firstName: string | null;
+  lastName: string | null;
+  taxCode?: string | null;
+}): string {
+  return (
+    [person.firstName, person.lastName].filter(Boolean).join(' ') ||
+    person.taxCode ||
+    'Unnamed person'
+  );
+}
+
+/**
  * Whether the printed values say who the holder is: a name or a tax code.
  * A document read as nothing (a photo the offline parser cannot read) does
  * not, so it can be filed under someone you pick but never makes a person.
@@ -259,6 +301,8 @@ export interface PersonDto extends PersonValues {
    * Residence; `residenceAddress` then holds that house's address.
    */
   residencePropertyId: string | null;
+  /** Where to write to them, typed by you (no document prints it). */
+  email: string | null;
   createdAt: string;
   updatedAt: string;
   series: IdDocumentSeriesDto[];
@@ -347,6 +391,7 @@ export type MarkDocumentRequest = z.input<typeof markDocumentRequestSchema>;
  * the house.
  */
 export const updatePersonRequestSchema = personValues.partial().extend({
+  email: personEmail.optional(),
   residencePropertyId: z.uuid().nullable().optional(),
   /** The person this one is a fiscal dependent of; null: nobody's. */
   taxDependentOf: z.uuid().nullable().optional(),
@@ -383,6 +428,8 @@ export interface PersonSummaryDto {
   lastName: string | null;
   firstName: string | null;
   taxCode: string | null;
+  /** Where to write to them; null when you have not typed it in People. */
+  email: string | null;
   residencePropertyId: string | null;
   /** The person this one is a fiscal dependent of (familiare a carico). */
   taxDependentOf: string | null;

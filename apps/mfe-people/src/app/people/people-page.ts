@@ -10,11 +10,11 @@ import {
 } from '@angular/core';
 import {
   entityParam,
-  PERSON_FIELD_LABELS,
-  PERSON_FIELDS,
+  PERSON_EDIT_FIELDS,
+  PERSON_EDIT_LABELS,
   type PeopleOverviewDto,
   type PersonDto,
-  type PersonField,
+  type PersonEditField,
   type ResidenceHouseDto,
   type TaxCodeCheckStatus,
   type UpdatePersonRequest,
@@ -90,14 +90,16 @@ export class PeoplePage {
   /** The house picked for Residence while editing; '' means a typed address. */
   protected readonly residenceHouse = signal('');
   /** The values being edited on the selected person, or null when not editing. */
-  protected readonly editing = signal<Record<PersonField, string> | null>(null);
+  protected readonly editing = signal<Record<PersonEditField, string> | null>(
+    null,
+  );
   /** Tax codes and document numbers are hidden until you ask. */
   protected readonly revealed = signal(false);
 
   protected readonly taxCodeBadges = TAX_CODE_BADGES;
 
-  protected readonly fields = PERSON_FIELDS;
-  protected readonly fieldLabels = PERSON_FIELD_LABELS;
+  protected readonly fields = PERSON_EDIT_FIELDS;
+  protected readonly fieldLabels = PERSON_EDIT_LABELS;
 
   protected readonly people = computed(() => this.overview()?.people ?? []);
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
@@ -245,11 +247,11 @@ export class PeoplePage {
     this.editing.set(
       Object.fromEntries(
         this.fields.map((field) => [field, person[field] ?? '']),
-      ) as Record<PersonField, string>,
+      ) as Record<PersonEditField, string>,
     );
   }
 
-  protected setValue(field: PersonField, value: string): void {
+  protected setValue(field: PersonEditField, value: string): void {
     this.editing.update((values) =>
       values ? { ...values, [field]: value } : values,
     );
