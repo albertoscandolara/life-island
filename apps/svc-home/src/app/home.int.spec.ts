@@ -1050,6 +1050,7 @@ describe.skipIf(!configured)(
         ELECTRICITY: `IT001E${run}`.toUpperCase(),
         GAS: `0169${runDigits}01`,
         WATER: null,
+        INTERNET: null,
       });
 
       const at = `${street} 3, 37039 Tregnago (VR)`;
