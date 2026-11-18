@@ -46,8 +46,9 @@ const LINK_STATUS: Partial<Record<MovementLinkDto['status'], string>> = {
 /**
  * The "To match" tab (docs/guides/money-matching.md): the payments Money
  * found in your movements, to confirm one by one; the items still to pay,
- * with the movements that could have paid them; and the links you made, to
- * undo. Each confirmation marks the item paid in its own area.
+ * with the movements that could have paid them; and the links, to undo
+ * (a sure direct debit is linked by Money on its own). Each link marks the
+ * item paid in its own area.
  */
 @Component({
   selector: 'money-match',

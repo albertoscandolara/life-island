@@ -687,6 +687,11 @@ export interface MovementLinkDto {
   /** The item's title and page when you linked it, kept if the item goes. */
   title: string;
   path: string | null;
+  /**
+   * Linked by Money on its own: a sure match of an item paid automatically
+   * (`autoPay`). Undoing it is remembered as "not this one".
+   */
+  auto: boolean;
   createdAt: string;
   status: 'ok' | 'gone' | 'changed' | 'unknown';
 }

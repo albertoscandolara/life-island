@@ -8,8 +8,12 @@ no payment proof is uploaded by hand for a bill.
 
 The design rests on four rules, in this order:
 
-1. **Only you confirm.** Money ranks and explains; it never links on its own.
-   No AI is involved: the rules are plain code, tested line by line.
+1. **You confirm, except for sure direct debits.** Money ranks and explains.
+   It links on its own only a **sure** match of an item paid automatically
+   (`autoPay`: a direct debit, a card on file). That link is marked
+   _Automatic_ and can be undone; undoing it says "not this one", so it is
+   never made again. No AI is involved: the rules are plain code, tested line
+   by line.
 2. **Areas own their data.** An area publishes what it expects to pay
    (`GET /payables`) and learns of your confirmations from events. Money never
    writes in another area, and an area never trusts another area's keys.
@@ -85,6 +89,13 @@ _the_ pharmacy). Each suggestion carries its reasons in plain words.
    the movement or of the item would exceed its amount.
 3. Insert the links with a snapshot of the item's title and page, and one
    `money.payment_linked@1` per link into the outbox. Commit.
+
+**Automatic links.** `GET /matches` (and the attention badge, which reads it)
+first links every suggestion that is `sure`, of one item, with `autoPay`, through
+the same `link` (locks and checks included), with `auto = true`. Two requests at
+once cannot link it twice: the second gets a conflict and moves on. A likely or
+"check it" match of a direct debit is still asked, so a debit the bank prints
+only as codes never pays the wrong bill.
 
 Removing a movement or an account, and undoing a link, delete the links and
 enqueue `money.payment_unlinked@1` in the same transaction. A movement's amount

@@ -81,11 +81,12 @@ interface LinkRow {
   amount: number;
   title: string;
   path: string | null;
+  auto: boolean;
   createdAt: string;
 }
 
 const LINK_COLUMNS = `l.id, l.transaction_id as "movementId", l.payable_key as "payableKey",
-  l.module, l.amount::float8 as amount, l.title, l.path,
+  l.module, l.amount::float8 as amount, l.title, l.path, l.auto,
   to_char(l.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt"`;
 
 const MOVEMENT_COLUMNS = `t.id, t.date::text as date, t.amount::float8 as amount,
@@ -110,8 +111,36 @@ export class MatchingService {
     return (query) => readPayables(config.payableSources, query);
   }
 
-  /** What Money proposes for the movements of the last months. */
+  /**
+   * What Money proposes for the movements of the last months. A sure match
+   * of an item paid automatically (a direct debit, a card on file) is linked
+   * first, on its own: you see it under the links, and can undo it.
+   */
   async matches(day = today()): Promise<MatchesDto> {
+    const first = await this.read(day);
+    const automatic = first.suggestions.filter((s) => {
+      const payable = first.payables.find((p) => p.key === s.payableKeys[0]);
+      return (
+        s.confidence === 'sure' &&
+        s.payableKeys.length === 1 &&
+        payable?.autoPay === true
+      );
+    });
+    if (!automatic.length) return first;
+    for (const s of automatic)
+      // Another request may have linked it meanwhile, or the area changed:
+      // the pair is simply proposed again next time.
+      await this.link(
+        {
+          movementId: s.movementId,
+          items: [{ payableKey: s.payableKeys[0], amount: s.amounts[0] }],
+        },
+        true,
+      ).catch(() => undefined);
+    return this.read(day);
+  }
+
+  private async read(day: string): Promise<MatchesDto> {
     const from = isoAddDays(day, -MATCH_LOOKBACK_DAYS);
     const to = day;
     const [movementRows, links, rejected, read] = await Promise.all([
@@ -212,7 +241,10 @@ export class MatchingService {
    * You confirm that a movement paid one or more items. All the links are
    * saved and announced together, or none is.
    */
-  async link(request: MatchLinkRequest): Promise<MovementLinkDto[]> {
+  async link(
+    request: MatchLinkRequest,
+    auto = false,
+  ): Promise<MovementLinkDto[]> {
     // Read the areas first, outside the transaction: no lock is held while
     // waiting on the network. The movement is read again under its lock.
     const before = await this.movement(this.svc.pool, request.movementId);
@@ -310,10 +342,11 @@ export class MatchingService {
             round(item.amount),
             payable.title,
             payable.path,
+            auto,
           ],
           `insert into money.movement_links as l
-             (transaction_id, payable_key, module, amount, title, path)
-           values ($1, $2, $3, $4, $5, $6)
+             (transaction_id, payable_key, module, amount, title, path, auto)
+           values ($1, $2, $3, $4, $5, $6, $7)
            returning ${LINK_COLUMNS}`,
         );
         saved.push(row);
@@ -345,11 +378,26 @@ export class MatchingService {
     return created.map((l) => ({ ...l, status: 'ok' }));
   }
 
-  /** You undo a link: the area forgets that payment. */
+  /**
+   * You undo a link: the area forgets that payment. Undoing one Money made
+   * on its own also says "not this one", so it is never made again.
+   */
   async unlink(linkId: string): Promise<void> {
-    const removed = await withTransaction(this.svc.pool, (client) =>
-      this.removeLinks(client, 'l.id = $1', [linkId], 'undone'),
-    );
+    const removed = await withTransaction(this.svc.pool, async (client) => {
+      const rows = await this.removeLinks(
+        client,
+        'l.id = $1',
+        [linkId],
+        'undone',
+      );
+      for (const row of rows.filter((r) => r.auto))
+        await client.query(
+          `insert into money.match_rejections (transaction_id, payable_key)
+           values ($1, $2) on conflict do nothing`,
+          [row.movementId, row.payableKey],
+        );
+      return rows.length;
+    });
     if (!removed) throw new NotFoundException('Link not found');
     this.attentionCache = null;
   }
@@ -512,15 +560,20 @@ export class MatchingService {
     where: string,
     params: unknown[],
     reason: PaymentUnlinkedV1['reason'],
-  ): Promise<number> {
+  ): Promise<
+    { id: string; movementId: string; payableKey: string; auto: boolean }[]
+  > {
     const { rows } = await client.query<{
       id: string;
+      movementId: string;
       payableKey: string;
       module: string;
+      auto: boolean;
       unlinkedAt: string;
     }>(
       `delete from money.movement_links as l where ${where}
-       returning l.id, l.payable_key as "payableKey", l.module,
+       returning l.id, l.transaction_id as "movementId", l.payable_key as "payableKey",
+         l.module, l.auto,
          to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "unlinkedAt"`,
       params,
     );
@@ -537,7 +590,7 @@ export class MatchingService {
         payload: event,
       });
     }
-    return rows.length;
+    return rows;
   }
 }
 

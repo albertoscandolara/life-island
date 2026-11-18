@@ -41,7 +41,7 @@ describe.skipIf(!configured)(
       direction: 'out',
       date: due,
       window: { from: isoAddDays(due, -20), to: isoAddDays(due, 45) },
-      autoPay: true,
+      autoPay: false,
       path: '/home/bills',
       ...over,
     });
@@ -418,6 +418,56 @@ describe.skipIf(!configured)(
         linkId: link.id,
         reason: 'movement-removed',
       });
+    });
+
+    it('links a sure direct debit on its own, and never again once you undo it', async () => {
+      const bill = payable({
+        key: `home:bill:sdd-${run}`,
+        amount: 71.15,
+        autoPay: true,
+      });
+      // Paid automatically, but the bank names no one: still asked.
+      const unnamed = payable({
+        key: `home:bill:codes-${run}`,
+        amount: 19.9,
+        autoPay: true,
+      });
+      listed = [bill, unnamed];
+      const debit = await movement(-71.15, 'ADDEBITO SDD ENEL ENERGIA SPA');
+      const codes = await movement(-19.9, 'ADDEBITO DIRETTO SDD CID IT45ZZZ01');
+
+      const matches = (await json<MatchesDto>('GET', '/matches')).body;
+      expect(
+        ours(matches).find((l) => l.payableKey === bill.key),
+      ).toMatchObject({
+        movementId: debit,
+        amount: 71.15,
+        auto: true,
+        status: 'ok',
+      });
+      expect(matches.suggestions.some((s) => s.movementId === debit)).toBe(
+        false,
+      );
+      expect(
+        matches.suggestions.find((s) => s.movementId === codes),
+      ).toMatchObject({ confidence: 'likely', payableKeys: [unnamed.key] });
+      expect(
+        (await events('money.payment_linked@1')).filter(
+          (e) => e['payableKey'] === bill.key,
+        ),
+      ).toHaveLength(1);
+
+      // Asking again links nothing twice.
+      await json('GET', '/matches');
+      const [link] = ours(
+        (await json<MatchesDto>('GET', '/matches')).body,
+      ).filter((l) => l.payableKey === bill.key);
+      expect((await json('DELETE', `/matches/links/${link.id}`)).status).toBe(
+        204,
+      );
+      const after = (await json<MatchesDto>('GET', '/matches')).body;
+      expect(ours(after).some((l) => l.payableKey === bill.key)).toBe(false);
+      expect(after.suggestions.some((s) => s.movementId === debit)).toBe(false);
     });
   },
 );

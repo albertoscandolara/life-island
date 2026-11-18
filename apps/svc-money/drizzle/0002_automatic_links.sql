@@ -1,0 +1,1 @@
+ALTER TABLE "money"."movement_links" ADD COLUMN "auto" boolean DEFAULT false NOT NULL;

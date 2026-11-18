@@ -106,6 +106,11 @@ export const movementLinks = money.table(
     /** The item's title and page when linked, kept if the item goes. */
     title: text('title').notNull(),
     path: text('path'),
+    /**
+     * Made by Money on its own: a sure match of an item paid automatically
+     * (a direct debit). Undoing it says "not this one" for the pair.
+     */
+    auto: boolean('auto').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [

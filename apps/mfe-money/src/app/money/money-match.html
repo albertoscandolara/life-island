@@ -8,7 +8,8 @@
 } @if (data(); as m) {
 <p class="li-intro">
   Money pairs the movements of your accounts with what your areas expect to pay.
-  Each one you confirm is marked paid in its area; you can undo it here.
+  Each one you confirm is marked paid in its area. A direct debit Money is sure
+  of is linked on its own; any link can be undone here.
 </p>
 
 <ui-card heading="Payments found" class="li-block">
@@ -187,7 +188,11 @@
           <td>
             @if (l.path) {
             <a class="li-link" [routerLink]="l.path">{{ l.title }}</a>
-            } @else { {{ l.title }} } @if (linkStatus[l.status]; as warning) {
+            } @else { {{ l.title }} } @if (l.auto) {
+            <ui-badge title="A direct debit Money was sure of"
+              >Automatic</ui-badge
+            >
+            } @if (linkStatus[l.status]; as warning) {
             <ui-badge tone="warning">{{ warning }}</ui-badge>
             }
           </td>
