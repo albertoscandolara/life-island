@@ -23,9 +23,20 @@ describe('Cars cards', () => {
         supplier: null,
         odometerKm: null,
         litres: null,
+        bankPayment: {
+          paid: 480,
+          full: true,
+          lastDate: '2026-03-02',
+          accounts: ['Conto'],
+        },
       },
     ]);
     await fixture.whenStable();
+    // What the bank paid, matched in Money.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('ui-badge')
+        ?.textContent,
+    ).toContain('Paid');
     const rows = [
       ...(fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'),
     ].map((row) => row.textContent?.replace(/\s+/g, ' ').trim());

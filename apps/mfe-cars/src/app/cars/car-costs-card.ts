@@ -10,7 +10,7 @@ import {
   type CarCostTotalDto,
   type CostKind,
 } from '@life-island/contracts';
-import { UiCard } from '@life-island/design-system';
+import { UiBadge, UiCard } from '@life-island/design-system';
 import { dateText, euro } from '@life-island/records-ui';
 import { italianNumber } from './labels';
 
@@ -18,7 +18,7 @@ import { italianNumber } from './labels';
 @Component({
   selector: 'cars-costs-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiCard],
+  imports: [UiBadge, UiCard],
   templateUrl: './car-costs-card.html',
   styleUrl: './car-costs-card.css',
 })

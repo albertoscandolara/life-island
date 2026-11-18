@@ -1035,6 +1035,7 @@ export function costsOf<T extends ApprovedCarDocument & { title: string }>(
     supplier: d.reading.issuer,
     odometerKm: d.reading.odometerKm,
     litres: d.reading.litres,
+    bankPayment: null,
   });
   return groupDocuments(documents)
     .flatMap((group) => {

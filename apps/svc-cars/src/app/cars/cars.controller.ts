@@ -36,6 +36,8 @@ import {
   type CarsOverviewDto,
   type CarsPeopleDto,
   deadlinesQuerySchema,
+  payablesQuerySchema,
+  type PayableDto,
   type DeadlineDto,
   type LifeAttentionDto,
   type EntityRefDto,
@@ -76,6 +78,12 @@ export class CarsController {
   @Get('entities')
   async entities(): Promise<EntityRefDto[]> {
     return carEntities(await this.cars.overview(undefined, false));
+  }
+
+  /** Every priced cost and fine of the cars, for Money matching (docs/guides/money-matching.md). */
+  @Get('payables')
+  payables(@Query() query: unknown): Promise<PayableDto[]> {
+    return this.cars.payables(parseOrThrow(payablesQuerySchema, query));
   }
 
   /** What needs you, for the hub badge: late and soon renewals, documents to review. */
