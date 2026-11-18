@@ -18,6 +18,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import { placeKitModel, type SceneKit } from '@life-island/scene-kit';
 
 /** The colours the scene is painted with, resolved from design-system tokens. */
 export interface GaragePalette {
@@ -43,7 +44,9 @@ export interface CarLabel {
 interface Car {
   id: string;
   group: Group;
-  /** The drawn car, hidden once a model of yours replaces it. */
+  /** The parking spot: drawn, or the kit's once it loads. */
+  ground: Group;
+  /** The drawn car (or the kit's), hidden once a model of yours replaces it. */
   drawn: Group;
   model: Object3D | null;
   ring: Mesh;
@@ -53,11 +56,19 @@ interface Car {
 
 const SPACING = 2.7;
 
+/** Where the garage's Blender models are (tools/scene-models), next to this code. */
+export const GARAGE_KIT_URL = new URL('garage/garage-kit.glb', import.meta.url)
+  .href;
+
+/** The kit's materials the scene repaints from the tokens (the rest keep their colour). */
+const KIT_SLOTS = ['asphalt', 'line', 'glass', 'tyre', 'hub', 'light'];
+
 /**
- * Your cars as small low-poly cars on round parking tiles, one per vehicle,
- * built from primitives (nothing to download), as Houses draws its homes. The
- * body wears the car's colour. A 3D model you upload takes the drawn car's
- * place. Framework-free: the Angular view owns the canvas, the labels and
+ * Your cars as small low-poly cars on round parking tiles, one per vehicle.
+ * It starts with cars built from primitives, then swaps in the Blender model
+ * of each car's shape once the garage kit loads (`useKit`); without the kit
+ * it keeps the primitives. The body wears the car's colour. A 3D model you
+ * upload takes the car's place. Framework-free: the Angular view owns the canvas, the labels and
  * what a click does.
  */
 export class GarageScene {
@@ -114,23 +125,22 @@ export class GarageScene {
 
   setPalette(palette: GaragePalette): void {
     const set = (name: string, color: string) =>
-      this.material(name).color.set(color);
+      this.painted(name).forEach((material) => material.color.set(color));
     set('asphalt', palette.asphalt);
     set('line', palette.line);
     set('glass', palette.glass);
     set('tyre', palette.tyre);
     set('hub', palette.hub);
     set('ring', palette.ring);
-    const light = this.material('light');
-    light.color.set(palette.light);
-    light.emissive.set(palette.light);
-    light.emissiveIntensity = palette.glow;
+    for (const light of this.painted('light')) {
+      light.color.set(palette.light);
+      light.emissive.set(palette.light);
+      light.emissiveIntensity = palette.glow;
+    }
     this.material('ring').emissive.set(palette.ring);
     this.material('ring').emissiveIntensity = 0.6;
     for (const car of this.cars)
-      this.material(`body:${car.id}`).color.set(
-        palette.bodies[car.id] ?? palette.ring,
-      );
+      set(`body:${car.id}`, palette.bodies[car.id] ?? palette.ring);
     if (!this.motion) this.tick(0);
   }
 
@@ -142,6 +152,31 @@ export class GarageScene {
   /** The car you look at; none for all of them. */
   select(ids: readonly string[]): void {
     this.selected = new Set(ids);
+    if (!this.motion) this.tick(0);
+  }
+
+  /**
+   * Swaps the drawn spots and cars for the kit's Blender models: each car
+   * gets the model of its shape (`carShape`), wearing its colour.
+   */
+  useKit(kit: SceneKit, shapes: Readonly<Record<string, string>>): void {
+    const spot = kit.models.get('spot');
+    for (const car of this.cars) {
+      const model =
+        kit.models.get(`car-${shapes[car.id] ?? 'hatchback'}`) ??
+        kit.models.get('car-hatchback');
+      if (!model || !spot) continue;
+      const paint = (name: string) =>
+        name === 'body'
+          ? this.material(`smooth:body:${car.id}`, true)
+          : KIT_SLOTS.includes(name)
+            ? this.material(`smooth:${name}`, true)
+            : null;
+      car.ground.clear();
+      car.ground.add(placeKitModel(spot, paint));
+      car.drawn.clear();
+      car.drawn.add(placeKitModel(model, paint));
+    }
     if (!this.motion) this.tick(0);
   }
 
@@ -258,16 +293,34 @@ export class GarageScene {
     });
   }
 
-  private material(name: string): MeshStandardMaterial {
+  /**
+   * The scene's material called `name`. The primitives are flat-shaded; the
+   * kit's models (`smooth:<name>`) keep the normals they were modelled with.
+   * Both are painted from the same palette entry (`painted`).
+   */
+  private material(name: string, smooth = false): MeshStandardMaterial {
     let material = this.materials.get(name);
     if (!material) {
       material = new MeshStandardMaterial({
-        flatShading: true,
+        flatShading: !smooth,
         roughness: 0.8,
       });
+      const twin = this.materials.get(
+        smooth ? name.replace(/^smooth:/, '') : `smooth:${name}`,
+      );
+      if (twin) {
+        material.color.copy(twin.color);
+        material.emissive.copy(twin.emissive);
+        material.emissiveIntensity = twin.emissiveIntensity;
+      }
       this.materials.set(name, material);
     }
     return material;
+  }
+
+  /** Both shadings of a palette entry. */
+  private painted(name: string): MeshStandardMaterial[] {
+    return [this.material(name), this.material(`smooth:${name}`, true)];
   }
 
   private mesh(geometry: BufferGeometry, material: string): Mesh {
@@ -278,8 +331,9 @@ export class GarageScene {
   private car(id: string, index: number, count: number): void {
     const group = new Group();
     group.userData['car'] = id;
+    const ground = new Group();
     const drawn = new Group();
-    group.add(drawn);
+    group.add(ground, drawn);
     const add = (
       mesh: Mesh,
       x: number,
@@ -298,14 +352,14 @@ export class GarageScene {
       0,
       -0.09,
       0,
-      group,
+      ground,
     );
     add(
       this.mesh(new BoxGeometry(0.06, 0.02, 1.9), 'line'),
       -1.0,
       0.01,
       0,
-      group,
+      ground,
     );
 
     // The car, its nose to +x: body, cabin, windows, lights, four wheels.
@@ -354,6 +408,7 @@ export class GarageScene {
     this.cars.push({
       id,
       group,
+      ground,
       drawn,
       model: null,
       ring,

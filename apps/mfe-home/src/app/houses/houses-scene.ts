@@ -19,6 +19,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import { placeKitModel, type SceneKit } from '@life-island/scene-kit';
 
 /** The colours the scene is painted with, resolved from design-system tokens. */
 export interface HousesPalette {
@@ -45,7 +46,9 @@ export interface HouseLabel {
 interface House {
   id: string;
   group: Group;
-  /** The drawn house and its tree, hidden once a model of yours replaces them. */
+  /** The ground: drawn, or the kit's lot once it loads. */
+  ground: Group;
+  /** The house and its tree (drawn or the kit's), hidden once a model of yours replaces them. */
   building: Group;
   model: Object3D | null;
   ring: Mesh;
@@ -55,9 +58,26 @@ interface House {
 
 const SPACING = 2.7;
 
+/** Where the houses' Blender models are (tools/scene-models), next to this code. */
+export const HOUSES_KIT_URL = new URL('houses/houses-kit.glb', import.meta.url)
+  .href;
+
+/** The kit's materials the scene repaints from the tokens (the rest keep their colour). */
+const KIT_SLOTS = [
+  'grass',
+  'sand',
+  'walls',
+  'door',
+  'window',
+  'trunk',
+  'leaves',
+];
+
 /**
- * Your homes as small low-poly houses on grass tiles, one per property, built
- * from primitives (nothing to download). The roof wears the property's chart
+ * Your homes as small low-poly houses on grass tiles, one per property. It
+ * starts with houses built from primitives, then swaps in the Blender model
+ * of each property's type (a house, a flat, a garage, a field, a shed) once
+ * the houses kit loads (`useKit`); without the kit it keeps the primitives. The roof wears the property's chart
  * colour, so a house and its bars always match. Framework-free: the Angular
  * view owns the canvas, the labels and what a click does.
  */
@@ -115,7 +135,7 @@ export class HousesScene {
 
   setPalette(palette: HousesPalette): void {
     const set = (name: string, color: string) =>
-      this.material(name).color.set(color);
+      this.painted(name).forEach((material) => material.color.set(color));
     set('grass', palette.grass);
     set('sand', palette.sand);
     set('walls', palette.walls);
@@ -123,16 +143,15 @@ export class HousesScene {
     set('trunk', palette.trunk);
     set('leaves', palette.leaves);
     set('ring', palette.ring);
-    const glass = this.material('window');
-    glass.color.set(palette.window);
-    glass.emissive.set(palette.window);
-    glass.emissiveIntensity = palette.glow;
+    for (const glass of this.painted('window')) {
+      glass.color.set(palette.window);
+      glass.emissive.set(palette.window);
+      glass.emissiveIntensity = palette.glow;
+    }
     this.material('ring').emissive.set(palette.ring);
     this.material('ring').emissiveIntensity = 0.6;
-    for (const house of this.houses) {
-      const roof = this.material(`roof:${house.id}`);
-      roof.color.set(palette.roofs[house.id] ?? palette.sand);
-    }
+    for (const house of this.houses)
+      set(`roof:${house.id}`, palette.roofs[house.id] ?? palette.sand);
     if (!this.motion) this.tick(0);
   }
 
@@ -144,6 +163,31 @@ export class HousesScene {
   /** The houses you look at; none for all of them. */
   select(ids: readonly string[]): void {
     this.selected = new Set(ids);
+    if (!this.motion) this.tick(0);
+  }
+
+  /**
+   * Swaps the drawn lots and houses for the kit's Blender models: each
+   * property gets the model of its type, its roof in the property's colour.
+   */
+  useKit(kit: SceneKit, types: Readonly<Record<string, string>>): void {
+    const lot = kit.models.get('lot');
+    for (const house of this.houses) {
+      const type = (types[house.id] ?? 'HOUSE').toLowerCase();
+      const model =
+        kit.models.get(`property-${type}`) ?? kit.models.get('property-house');
+      if (!model || !lot) continue;
+      const paint = (name: string) =>
+        name === 'roof'
+          ? this.material(`smooth:roof:${house.id}`, true)
+          : KIT_SLOTS.includes(name)
+            ? this.material(`smooth:${name}`, true)
+            : null;
+      house.ground.clear();
+      house.ground.add(placeKitModel(lot, paint));
+      house.building.clear();
+      house.building.add(placeKitModel(model, paint));
+    }
     if (!this.motion) this.tick(0);
   }
 
@@ -261,16 +305,34 @@ export class HousesScene {
     });
   }
 
-  private material(name: string): MeshStandardMaterial {
+  /**
+   * The scene's material called `name`. The primitives are flat-shaded; the
+   * kit's models (`smooth:<name>`) keep the normals they were modelled with.
+   * Both are painted from the same palette entry (`painted`).
+   */
+  private material(name: string, smooth = false): MeshStandardMaterial {
     let material = this.materials.get(name);
     if (!material) {
       material = new MeshStandardMaterial({
-        flatShading: true,
+        flatShading: !smooth,
         roughness: 0.8,
       });
+      const twin = this.materials.get(
+        smooth ? name.replace(/^smooth:/, '') : `smooth:${name}`,
+      );
+      if (twin) {
+        material.color.copy(twin.color);
+        material.emissive.copy(twin.emissive);
+        material.emissiveIntensity = twin.emissiveIntensity;
+      }
       this.materials.set(name, material);
     }
     return material;
+  }
+
+  /** Both shadings of a palette entry. */
+  private painted(name: string): MeshStandardMaterial[] {
+    return [this.material(name), this.material(`smooth:${name}`, true)];
   }
 
   private mesh(geometry: BufferGeometry, material: string): Mesh {
@@ -281,8 +343,9 @@ export class HousesScene {
   private house(id: string, index: number, count: number): void {
     const group = new Group();
     group.userData['house'] = id;
+    const ground = new Group();
     const building = new Group();
-    group.add(building);
+    group.add(ground, building);
     const add = (
       mesh: Mesh,
       x: number,
@@ -301,14 +364,14 @@ export class HousesScene {
       0,
       -0.11,
       0,
-      group,
+      ground,
     );
     add(
       this.mesh(new CylinderGeometry(1.12, 1.12, 0.08, 6), 'grass'),
       0,
       0.04,
       0,
-      group,
+      ground,
     );
 
     // The house: walls, a pitched roof (a triangular prism), a chimney.
@@ -369,6 +432,7 @@ export class HousesScene {
     this.houses.push({
       id,
       group,
+      ground,
       building,
       model: null,
       ring,

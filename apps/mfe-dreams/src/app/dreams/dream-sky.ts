@@ -30,11 +30,20 @@ import {
   WebGLRenderer,
   type Material,
 } from 'three';
+import {
+  loadSceneKit,
+  placeKitModel,
+  type SceneKit,
+} from '@life-island/scene-kit';
 
 /** One stone of the path: a step you took, the next one, or one still ahead. */
 type StoneKind = 'done' | 'next' | 'ahead';
 
 const MAX_STONES = 9;
+
+/** Where the dreams' Blender stone is (tools/scene-models), next to this code. */
+export const DREAMS_KIT_URL = new URL('dreams/dreams-kit.glb', import.meta.url)
+  .href;
 
 /**
  * The one 3D element of Dreams (3D rule: it adds meaning): the path to the
@@ -101,6 +110,8 @@ export class DreamSky {
   private stars: Points | null = null;
   private frame = 0;
   private started = 0;
+  /** The Blender stone, once loaded; until then (or without it) a drawn one. */
+  private kit: SceneKit | null = null;
   private readonly owned: (BufferGeometry | Material)[] = [];
   private readonly motion =
     typeof matchMedia === 'function' &&
@@ -150,6 +161,12 @@ export class DreamSky {
     this.started = performance.now();
     this.ready.set(true);
     this.loop();
+    void loadSceneKit(DREAMS_KIT_URL).then((kit) => {
+      if (!kit) return;
+      if (!this.renderer) return kit.dispose();
+      this.kit = kit;
+      this.build(this.done(), this.next());
+    });
   }
 
   private observer: ResizeObserver | null = null;
@@ -238,11 +255,20 @@ export class DreamSky {
       const t = count === 1 ? 0 : i / (count - 1);
       const stone = new Group();
       const material = kind === 'done' ? lit : kind === 'next' ? glow : faint;
-      const top = new Mesh(stoneGeometry, material);
-      const root = new Mesh(rootGeometry, material);
-      root.position.y = -0.18;
-      root.scale.set(1.2, 0.8, 1.2);
-      stone.add(top, root);
+      const model = this.kit?.models.get('stone');
+      if (model) {
+        // Turned a little each, so the path is not one stone repeated.
+        const turn = new Group();
+        turn.rotation.y = i * 1.3;
+        turn.add(placeKitModel(model, () => material));
+        stone.add(turn);
+      } else {
+        const top = new Mesh(stoneGeometry, material);
+        const root = new Mesh(rootGeometry, material);
+        root.position.y = -0.18;
+        root.scale.set(1.2, 0.8, 1.2);
+        stone.add(top, root);
+      }
       // A gentle rising curve from the lower left to the light on the right.
       stone.position.set(
         -4.6 + t * 8.2,
@@ -354,6 +380,8 @@ export class DreamSky {
     this.observer?.disconnect();
     this.themeObserver?.disconnect();
     this.clear();
+    this.kit?.dispose();
+    this.kit = null;
     this.renderer?.dispose();
     this.renderer = null;
   }
