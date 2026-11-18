@@ -13,8 +13,64 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Keep Nx's cache inside the workspace so actions/cache can carry it over.
+  NX_CACHE_DIRECTORY: .nx/cache
+  NX_WORKSPACE_DATA_DIRECTORY: .nx/workspace-data
+  NX_MAX_CACHE_SIZE: 2GB
+
 jobs:
-  main:
+  # Everything that needs no database: format, lint, build, typecheck and the
+  # unit tests of the apps and libs that have no integration tests.
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Sets NX_BASE and NX_HEAD so `nx affected` compares against the last green main.
+      - uses: nrwl/nx-set-shas@v5
+
+      - name: Restore Nx cache
+        id: nx-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data/*.db
+          key: nx-checks-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: nx-checks-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+      # Nx names its cache index after the machine id, and every runner has a
+      # new one: rename the restored index so this runner finds its entries.
+      - name: Adopt the restored Nx cache
+        run: tools/ci/adopt-nx-cache.sh
+
+      - run: npx nx format:check
+      - run: npx nx sync:check
+      - run: npm run lint:styles
+      - run: npx nx affected -t lint build typecheck
+      - run: npx nx affected -t test --exclude='svc-*,be-common'
+
+      - name: Save Nx cache
+        if: always() && steps.nx-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data/*.db
+          key: nx-checks-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+
+  # The services and be-common have integration tests against the compose stack.
+  integration:
     runs-on: ubuntu-latest
     env:
       # Integration tests run against the compose stack; values match .env.example.
@@ -60,7 +116,22 @@ jobs:
       - run: npm ci
 
       # Sets NX_BASE and NX_HEAD so `nx affected` compares against the last green main.
-      - uses: nrwl/nx-set-shas@v4
+      - uses: nrwl/nx-set-shas@v5
+
+      - name: Restore Nx cache
+        id: nx-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data/*.db
+          key: nx-integration-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: nx-integration-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+      # Nx names its cache index after the machine id, and every runner has a
+      # new one: rename the restored index so this runner finds its entries.
+      - name: Adopt the restored Nx cache
+        run: tools/ci/adopt-nx-cache.sh
 
       - name: Start infrastructure
         run: npm run infra:up
@@ -71,14 +142,19 @@ jobs:
       - name: Check gateway
         run: curl --fail --silent http://localhost:8080/healthz
 
-      - run: npx nx format:check
-      - run: npx nx sync:check
-      - run: npm run lint:styles
-      - run: npx nx affected -t lint build typecheck
       # One project at a time: the integration tests share one database, and
       # the reclassification tests briefly hold its global write lock.
-      - run: npx nx affected -t test --parallel=1
+      - run: npx nx affected -t test --exclude='*,!svc-*,!be-common' --parallel=1
 
       - name: Stop infrastructure
         if: always()
         run: npm run infra:down
+
+      - name: Save Nx cache
+        if: always() && steps.nx-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data/*.db
+          key: nx-integration-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
