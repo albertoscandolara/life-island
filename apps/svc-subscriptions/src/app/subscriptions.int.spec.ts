@@ -198,7 +198,7 @@ describe.skipIf(!configured)(
         priceRise: 1,
       });
       const risen = async () =>
-        (await json<LifeAttentionDto>('GET', '/attention')).body.items.filter(
+        (await json<LifeAttentionDto>('GET', '/attention')).body.items!.filter(
           (i) => i.id.startsWith(`price-rise:${id}:`),
         );
       expect(await risen()).toMatchObject([
