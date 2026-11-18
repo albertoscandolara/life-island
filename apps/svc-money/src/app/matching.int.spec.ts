@@ -5,6 +5,7 @@ import {
   isoAddDays,
   type LifeAttentionDto,
   type MatchesDto,
+  type MoneyOverviewDto,
   type MovementLinkDto,
   type PayableDto,
 } from '@life-island/contracts';
@@ -203,6 +204,22 @@ describe.skipIf(!configured)(
         amount: 84.37,
         status: 'ok',
       });
+      // The Movements tab shows what the movement paid.
+      const overview = await json<MoneyOverviewDto>('GET', '/overview');
+      expect(
+        overview.body.paidItems.filter((p) => p.movementId === winnerMovement),
+      ).toEqual([
+        {
+          movementId: winnerMovement,
+          module: 'home',
+          areaName: 'Houses',
+          emblem: expect.any(String),
+          title: payable().title,
+          path: payable().path,
+          amount: 84.37,
+          auto: false,
+        },
+      ]);
 
       // The same pair again, and an item of an area Money does not read.
       expect(

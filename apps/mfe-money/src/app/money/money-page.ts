@@ -5,7 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   ACCOUNT_KIND_LABELS,
   MONEY_CATEGORIES,
@@ -13,6 +13,7 @@ import {
   type AccountDto,
   type MoneyCategory,
   type MoneyOverviewDto,
+  type MovementPaidItemDto,
   type SpendingReviewDto,
   type TransactionDto,
 } from '@life-island/contracts';
@@ -137,6 +138,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     LiRecordDialog,
     LiTabs,
     MoneyMatch,
+    RouterLink,
     UiAiPanel,
     UiAiStatus,
     UiAlert,
@@ -220,6 +222,23 @@ export class MoneyPage {
       { id: 'recurring', label: 'Recurring', icon: 'refresh' },
       { id: 'review', label: 'Review', icon: 'sparkles' },
     ];
+  });
+
+  /** What each movement paid in other areas, by movement id (Money matching). */
+  protected readonly paidOf = computed(() => {
+    const map = new Map<string, MovementPaidItemDto[]>();
+    for (const item of this.data()?.paidItems ?? [])
+      map.set(item.movementId, [...(map.get(item.movementId) ?? []), item]);
+    return map;
+  });
+
+  /** The movement dialog warns when the movement paid something elsewhere. */
+  protected readonly movementIntro = computed(() => {
+    const id = this.movements.value()?.['id'];
+    const items = typeof id === 'string' ? this.paidOf().get(id) : undefined;
+    if (!items?.length) return '';
+    const what = items.map((i) => `${i.title} (${i.areaName})`).join(', ');
+    return `This movement paid ${what}. Deleting it, or changing its amount or direction so it no longer covers that, undoes the match and the area forgets the payment.`;
   });
 
   protected readonly accountName = computed(() => {

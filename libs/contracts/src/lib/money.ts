@@ -240,6 +240,23 @@ export interface MoneyOverviewDto {
   };
   reviews: SpendingReviewDto[];
   aiReview: boolean;
+  /** What the movements above paid or received in other areas (Money matching). */
+  paidItems: MovementPaidItemDto[];
+}
+
+/** One item of another area a movement paid, linked on the "To match" tab. */
+export interface MovementPaidItemDto {
+  movementId: string;
+  module: string;
+  /** The area's name and emblem (PAYABLE_SOURCES). */
+  areaName: string;
+  emblem: string;
+  /** The item's title and page when it was linked. */
+  title: string;
+  path: string | null;
+  amount: number;
+  /** Linked by Money on its own (a sure direct debit). */
+  auto: boolean;
 }
 
 /** The category a description most likely belongs to, from a few keywords. */
