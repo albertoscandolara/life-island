@@ -5,12 +5,12 @@ import {
   CATEGORY_DIMENSION_LABELS,
   DESCRIPTION_MAX_LENGTH,
   GENERAL_TARGET_KEY,
-  NOT_AN_EXPENSE_CATEGORIES,
   TARGET_CATALOG,
   PAYMENT_KINDS,
   TEMPLATE_FIELD_TYPES,
   TRANSACTION_ROLES,
   findTarget,
+  isNeverAnExpense,
   telematicFilingOf,
   type AiRequestStep,
   type TransactionFacts,
@@ -44,7 +44,7 @@ import {
 } from './document-parser.js';
 import { classifyProviderError } from './provider-errors.js';
 
-export const PROMPT_VERSION = 'categories-6';
+export const PROMPT_VERSION = 'categories-7';
 const LOW_CONFIDENCE = 0.8;
 
 const GROUNDING = `Base every answer only on what the document itself shows. Never invent, guess or fill in information from general knowledge: when something is not in the document, say so.`;
@@ -608,9 +608,14 @@ export class ClaudeParser implements DocumentAnalyzer {
       );
       // A tax return, CU or payslip is never one 730 expense, even when it
       // lists renovation instalments: its data lives in its category fields.
+      // Nor is a utility bill (a Wind Tre internet bill is a "fattura" too):
+      // Home reads it as a bill of the house.
       const notAnExpense =
         output.targetKey === 'tax730.expense@1' &&
-        output.categories.some((c) => NOT_AN_EXPENSE_CATEGORIES.includes(c.id));
+        isNeverAnExpense(
+          output.categories.map((c) => c.id),
+          categories,
+        );
       const target =
         (notAnExpense ? undefined : findTarget(output.targetKey)) ??
         findTarget(GENERAL_TARGET_KEY)!;

@@ -2,6 +2,7 @@ import {
   catalogForApi,
   CATEGORIES,
   findTarget,
+  isNeverAnExpense,
   TARGET_CATALOG,
 } from './catalog.js';
 import { GroceryReceiptV1 } from './grocery-receipt.js';
@@ -90,5 +91,26 @@ describe('tax730.expense@1', () => {
     expect(
       Tax730ExpenseV1.safeParse({ ...expense, taxYear: 2025 }).success,
     ).toBe(false);
+  });
+});
+
+describe('isNeverAnExpense', () => {
+  it('keeps utility bills, tax returns, CUs and payslips out of the 730', () => {
+    expect(isNeverAnExpense(['INTERNET_BILL', 'HOME', 'EXPENSE'])).toBe(true);
+    expect(isNeverAnExpense(['ELECTRICITY_BILL'])).toBe(true);
+    expect(isNeverAnExpense(['TAX_RETURN'])).toBe(true);
+    expect(isNeverAnExpense(['INVOICE', 'RENOVATION', 'EXPENSE'])).toBe(false);
+  });
+
+  it('follows the hierarchy: a category under a utility bill is one too', () => {
+    const hierarchy = [
+      { id: 'BILL', parentId: null },
+      { id: 'INTERNET_BILL', parentId: 'BILL' },
+      { id: 'WINDTRE_BILL', parentId: 'INTERNET_BILL' },
+    ];
+    expect(isNeverAnExpense(['WINDTRE_BILL'], hierarchy)).toBe(true);
+    expect(isNeverAnExpense(['WINDTRE_BILL'])).toBe(false);
+    // A plain BILL can still be a deductible expense (a condominium's works).
+    expect(isNeverAnExpense(['BILL'], hierarchy)).toBe(false);
   });
 });

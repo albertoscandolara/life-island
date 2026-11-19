@@ -43,6 +43,13 @@
       "when": 1794993704583,
       "tag": "0005_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795089600000,
+      "tag": "0006_no_utility_bills",
+      "breakpoints": true
     }
   ]
 }
