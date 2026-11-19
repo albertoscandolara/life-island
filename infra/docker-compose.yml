@@ -6,9 +6,6 @@ name: life-island
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    # Every service keeps a pool of up to 10 connections, and the Agenda asks
-    # all of them at once: the default 100 runs out and pages answer 500.
-    command: ['postgres', '-c', 'max_connections=400']
     environment:
       POSTGRES_DB: life_island
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

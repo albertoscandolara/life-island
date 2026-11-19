@@ -7,7 +7,24 @@ export interface ServiceDbOptions {
   connectionString: string;
   /** The schema this service owns; becomes the connection's search_path. */
   schema: string;
+  /** Most connections this pool opens; defaults to DB_POOL_MAX or 3. */
   max?: number;
+}
+
+/**
+ * Every service has its own pool and they all share one Postgres, whose default
+ * limit is 100 connections. A pool only grows when a request runs queries in
+ * parallel (a Promise.all over several tables), and the Agenda reads every area
+ * at once, so each pool reaches its `max` together. At 10 per pool, about twenty
+ * services asked for 200 and the last ones in were refused ("too many clients").
+ * Three per service keeps the whole island under the limit; extra parallel
+ * queries wait in the pool for a free connection instead of failing.
+ */
+export const DEFAULT_POOL_MAX = 3;
+
+function poolMax(): number {
+  const fromEnv = Number(process.env['DB_POOL_MAX']);
+  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_POOL_MAX;
 }
 
 export interface ServiceDb {
@@ -22,7 +39,7 @@ export function createServiceDb(options: ServiceDbOptions): ServiceDb {
   const schema = assertSchemaName(options.schema);
   const pool = new pg.Pool({
     connectionString: options.connectionString,
-    max: options.max ?? 10,
+    max: options.max ?? poolMax(),
     options: `-c search_path=${schema}`,
     // TCP keepalive: a connection that sits idle (a LISTEN, a quiet pool) is
     // not dropped unnoticed by Docker's or the OS's NAT, and a dead one errors.
