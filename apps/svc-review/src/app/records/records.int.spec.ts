@@ -209,7 +209,7 @@ describe.skipIf(!configured)(
       ).toBe(409);
     });
 
-    it('puts a record waiting for review back to parse when you ask for it, and leaves a confirmed one alone', async () => {
+    it('puts a record waiting for review back to parse when you ask for it, and an approved one no module loaded', async () => {
       const u = upload('reparse');
       await apply('upload.completed@1', u);
       await apply('document.parsed@1', parsed(u));
@@ -277,8 +277,23 @@ describe.skipIf(!configured)(
       });
       expect((await findByTitle(failed.title)).status).toBe('UPLOADED');
 
-      // Once confirmed, the record has gone to its module and stays.
+      // Approved, with no module that loads it: back to the parser too.
       await send('POST', `/records/${record.id}/confirm`, {});
+      expect((await findByTitle(u.title)).status).toBe('CONFIRMED');
+      await apply('upload.reparse_requested@1', {
+        uploadId: u.uploadId,
+        requestedAt: new Date().toISOString(),
+      });
+      record = await findByTitle(u.title);
+      expect(record).toMatchObject({ status: 'UPLOADED', confirmedAt: null });
+
+      // A module that loads records took it: it stays, never loaded twice.
+      await apply('document.parsed@1', parsed(u));
+      await send('POST', `/records/${record.id}/confirm`, {});
+      await svc.pool.query(
+        `update review.staging_records set category = 'tax730' where id = $1`,
+        [record.id],
+      );
       await apply('upload.reparse_requested@1', {
         uploadId: u.uploadId,
         requestedAt: new Date().toISOString(),

@@ -122,6 +122,25 @@ export const MODULE_LABELS: Record<string, string> = {
 export const LOADING_MODULES: readonly string[] = ['groceries', 'tax730'];
 
 /**
+ * Whether a record can go back to the parser, to be read again from scratch:
+ * one waiting for review, whose reading failed, or that its module refused;
+ * and an approved one whose module does not load records into its own tables
+ * (the others, such as Bills, follow the document and update with it). A
+ * record a loading module took, or is taking, stays, so it is never loaded twice.
+ */
+export function canReparseRecord(record: {
+  status: RecordStatus;
+  category?: string | null;
+}): boolean {
+  if (['PARSED', 'PARSE_FAILED', 'LOAD_FAILED'].includes(record.status))
+    return true;
+  return (
+    record.status === 'CONFIRMED' &&
+    !LOADING_MODULES.includes(record.category ?? '')
+  );
+}
+
+/**
  * The steps the parse worker runs on each document, in order. Each step's
  * result is saved as soon as it finishes, so an interrupted document resumes
  * at the first step that is not in its `completed_steps`.

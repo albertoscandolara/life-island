@@ -511,7 +511,7 @@
           type="button"
           [loading]="busy() === 'reparse'"
           [disabled]="!!busy() || locked()"
-          title="The AI reads it again from scratch: its categories and fields are replaced"
+          [attr.title]="rec.status === 'CONFIRMED' || rec.status === 'LOAD_FAILED' ? 'The AI reads it again from scratch: it comes back to review, and what you approved is replaced once you approve the new reading' : 'The AI reads it again from scratch: its categories and fields are replaced'"
           (click)="reparse()"
         >
           <ui-icon name="refresh" [size]="16" /> Parse again

@@ -64,16 +64,16 @@ describe('reflects', () => {
 });
 
 describe('parse again', () => {
-  it('offers only records waiting for review', () => {
+  it('offers records waiting for review, and approved ones no module loaded', () => {
     expect(canReparse({ status: 'PARSED' })).toBe(true);
     expect(canReparse({ status: 'PARSE_FAILED' })).toBe(true);
-    for (const status of [
-      'UPLOADED',
-      'PARSING',
-      'CONFIRMED',
-      'LOADED',
-      'REJECTED',
-    ] as const)
+    expect(canReparse({ status: 'LOAD_FAILED', category: 'tax730' })).toBe(
+      true,
+    );
+    expect(canReparse({ status: 'CONFIRMED', category: 'other' })).toBe(true);
+    expect(canReparse({ status: 'CONFIRMED', category: null })).toBe(true);
+    expect(canReparse({ status: 'CONFIRMED', category: 'tax730' })).toBe(false);
+    for (const status of ['UPLOADED', 'PARSING', 'LOADED', 'REJECTED'] as const)
       expect(canReparse({ status })).toBe(false);
   });
 

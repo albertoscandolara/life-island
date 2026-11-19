@@ -74,22 +74,23 @@ export function reclassifyCron(value: string | undefined): string | null {
 
 /**
  * `PARSER` in any case and with stray spaces (`Claude`, ` fake `); unset means
- * `claude` when an API key is set, else `fake`. `claude` without a key, or any
- * other value, stops the worker at startup with a message that says what to fix.
+ * `claude`. Documents are read by the AI: `fake` (keyword rules, no AI) is only
+ * for tests and offline development, and must be asked for by name. `claude`
+ * without a key, or any other value, stops the worker at startup with a
+ * message that says what to fix.
  */
 export function parserFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): ParserKind {
   const hasKey = Boolean(env['ANTHROPIC_API_KEY']?.trim());
-  const parser =
-    env['PARSER']?.trim().toLowerCase() || (hasKey ? 'claude' : 'fake');
+  const parser = env['PARSER']?.trim().toLowerCase() || 'claude';
   if (parser !== 'claude' && parser !== 'fake')
     throw new Error(
       `PARSER in .env must be "claude" or "fake", got "${env['PARSER']}". Fix it and start the worker again.`,
     );
   if (parser === 'claude' && !hasKey)
     throw new Error(
-      'PARSER=claude needs ANTHROPIC_API_KEY in .env. Set the key, or use PARSER=fake, and start the worker again.',
+      'Documents are read by the AI, which needs ANTHROPIC_API_KEY in .env (from console.anthropic.com). Set it and start the worker again. PARSER=fake reads without AI, for tests only.',
     );
   return parser;
 }

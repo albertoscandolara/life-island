@@ -12,6 +12,7 @@ describe('worker config', () => {
     S3_ENDPOINT: 'http://x',
     S3_ACCESS_KEY: 'a',
     S3_SECRET_KEY: 'b',
+    PARSER: 'fake',
   };
 
   it('runs every day at 06:00 unless configured otherwise', () => {
@@ -47,13 +48,14 @@ describe('worker config', () => {
     const key = { ANTHROPIC_API_KEY: 'sk-test' };
     expect(parserFromEnv({ PARSER: 'CLAUDE', ...key })).toBe('claude');
     expect(parserFromEnv({ PARSER: ' Fake ' })).toBe('fake');
-    expect(parserFromEnv({})).toBe('fake');
     expect(parserFromEnv(key)).toBe('claude');
     expect(() => parserFromEnv({ PARSER: 'gpt' })).toThrow(
       'PARSER in .env must be "claude" or "fake", got "gpt"',
     );
     expect(() => parserFromEnv({ PARSER: 'claude' })).toThrow(
-      'PARSER=claude needs ANTHROPIC_API_KEY',
+      'needs ANTHROPIC_API_KEY',
     );
+    // Unset means the AI: never the keyword rules by accident.
+    expect(() => parserFromEnv({})).toThrow('needs ANTHROPIC_API_KEY');
   });
 });

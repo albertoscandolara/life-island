@@ -185,6 +185,15 @@ export class QuotaExhaustedError extends ParseStepError {
   }
 }
 
+/**
+ * The worker runs Claude but may not call it now: AI is off in Settings, a
+ * document tool is switched off, the monthly budget is used up, or the
+ * spending guard refused. Documents are only ever read by the AI, so the
+ * queue pauses like an exhausted quota and tries again at `resetAt`; the
+ * message says what to change.
+ */
+export class AiUnavailableError extends QuotaExhaustedError {}
+
 /** A short-term request or token rate limit; the queue waits for the provider's retry time. */
 export class RateLimitedError extends ParseStepError {
   constructor(

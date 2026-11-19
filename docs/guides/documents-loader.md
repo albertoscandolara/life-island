@@ -27,7 +27,7 @@ documents app: Loader ──► svc-ingestion ──► object storage
 ## Run it
 
 ```sh
-cp .env.example .env              # once; PARSER=fake works without an API key
+cp .env.example .env              # once; then set ANTHROPIC_API_KEY (documents are read by the AI)
 npm run infra:up                  # Postgres, SeaweedFS, NATS, Caddy
 npx nx serve svc-ingestion        # creates the bucket and applies migrations
 npx nx serve svc-review
@@ -131,7 +131,9 @@ Every document goes through three steps. Each step's result is committed, with t
 
 The models are told to answer only from what the document shows. A field the document does not contain is stored as `missing`, never filled in.
 
-The fake parser (`PARSER=fake`, the default in `.env.example`) does not understand documents: it classifies by keywords in the file name, title and text (PDF text included), reads only totals, dates, currency and a pay period with regular expressions, takes the issuer from the first company name with a legal form (`ARCODA S.R.L.`), suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests; for real documents set `PARSER=claude` and `ANTHROPIC_API_KEY`.
+**Documents are read only by the AI.** With `PARSER=claude` (the default), a step whose AI may not be called (AI or a Documents tool switched off in Settings, the monthly budget used up, the spending guard refusing) throws `AiUnavailableError`: the queue pauses with that reason in the inbox banner and checks again within minutes (an hour for the budget), and the document waits. It is never read by the offline parser instead.
+
+The fake parser (`PARSER=fake`, for tests and offline development only, asked for by name) does not understand documents: it classifies by keywords in the file name, title and text (PDF text included), reads only totals, dates, currency and a pay period with regular expressions, takes the issuer from the first company name with a legal form (`ARCODA S.R.L.`), suggests a few issuer categories (ENEL, LIDL...) and fills sample target details flagged `fake_parser`. Use it for development and tests; for real documents set `PARSER=claude` and `ANTHROPIC_API_KEY`.
 
 ### Document categories
 

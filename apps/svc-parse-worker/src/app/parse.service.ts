@@ -50,6 +50,7 @@ import {
   ContextTooLargeError,
   CredentialsError,
   PermanentParseError,
+  AiUnavailableError,
   QuotaExhaustedError,
   RateLimitedError,
   type CategoryDefinition,
@@ -728,9 +729,12 @@ export class ParseService {
       const quota = error instanceof QuotaExhaustedError;
       const plan = await this.queue.pause({
         kind: quota ? 'PAUSED_QUOTA' : 'PAUSED_RATE_LIMIT',
-        reason: quota
-          ? 'The AI provider reports that the usage quota is exhausted'
-          : 'The AI provider is rate-limiting requests',
+        reason:
+          error instanceof AiUnavailableError
+            ? error.message
+            : quota
+              ? 'The AI provider reports that the usage quota is exhausted'
+              : 'The AI provider is rate-limiting requests',
         details: error.details,
         providerResumeAt: quota ? error.resetAt : error.retryAt,
       });

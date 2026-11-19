@@ -121,7 +121,10 @@ interface OfflineReason {
   action: string;
 }
 
-/** The parse worker's `offline_*` flags (svc-parse-worker, gated-analyzer.ts). */
+/**
+ * Why it was read without AI. The `offline_*` flags come from documents read
+ * before the parse worker stopped falling back to the offline parser.
+ */
 const OFFLINE_REASONS: Record<string, OfflineReason> = {
   offline_ai_off: {
     why: 'AI is switched off in Settings.',
@@ -140,9 +143,9 @@ const OFFLINE_REASONS: Record<string, OfflineReason> = {
     action: 'check that Settings is running in Settings, AI tools',
   },
   env: {
-    why: 'The parse worker could not use the AI: it ran with PARSER=fake or no ANTHROPIC_API_KEY in .env, or AI was off in Settings when it read it.',
+    why: 'It was read before AI-only reading, or by a parse worker started with PARSER=fake.',
     action:
-      'check PARSER=claude and your API key in .env (restart npm run dev after a change) and the switches in Settings, AI tools',
+      'check ANTHROPIC_API_KEY in .env (and remove PARSER=fake), restart npm run dev, and check Settings, AI tools',
   },
 };
 
@@ -616,8 +619,8 @@ export class ReviewPanel {
   }
 
   protected readonly canReparse = computed(() => {
-    const status = this.record.value()?.status;
-    return status ? canReparse({ status }) : false;
+    const record = this.record.value();
+    return record ? canReparse(record) : false;
   });
 
   /** Reads this one document again from scratch, now. */
@@ -630,7 +633,7 @@ export class ReviewPanel {
       );
       if (!result.requeued.length)
         throw new Error(
-          'It could not be sent back: it is no longer waiting for review.',
+          'It could not be sent back: a module already took it, or the AI is reading it.',
         );
       this.reparsed.emit();
       this.finish(false);
