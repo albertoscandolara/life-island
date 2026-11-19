@@ -1,8 +1,12 @@
 import { LoadRejectedError, type RecordLoader } from '@life-island/be-common';
-import { FISCAL_CODE, type Tax730ExpenseV1 } from '@life-island/contracts';
+import {
+  FISCAL_CODE,
+  isNeverAnExpense,
+  type Tax730ExpenseV1,
+} from '@life-island/contracts';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { attachments, expenses, taxYears } from '../db/schema.js';
+import { attachments, documents, expenses, taxYears } from '../db/schema.js';
 
 /**
  * Loads a confirmed `tax730.expense@1` into its tax year. A replay of the
@@ -28,6 +32,16 @@ export const expenseLoader: RecordLoader<Tax730ExpenseV1> = {
       fiscalCode && FISCAL_CODE.test(fiscalCode) ? fiscalCode : null;
     if (expense.amount <= 0)
       throw new LoadRejectedError('amount: a deductible expense is positive');
+    // A utility bill (electricity, gas, water, internet), a tax return, a CU
+    // or a payslip is never one deductible expense, even when approved as one.
+    const [document] = await db
+      .select({ categories: documents.categories })
+      .from(documents)
+      .where(eq(documents.uploadId, record.uploadId));
+    if (document && isNeverAnExpense(document.categories))
+      throw new LoadRejectedError(
+        `document: a ${document.categories.join(', ')} document is not a deductible expense`,
+      );
 
     await db
       .insert(taxYears)

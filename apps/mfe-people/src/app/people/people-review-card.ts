@@ -19,11 +19,15 @@ import {
   UiAlert,
   UiBadge,
   UiButton,
-  UiCard,
   UiIcon,
   type UiTone,
 } from '@life-island/design-system';
-import { dateText, errorText } from '@life-island/records-ui';
+import {
+  dateText,
+  errorText,
+  LiReviewItem,
+  LiToReview,
+} from '@life-island/records-ui';
 import type { Observable } from 'rxjs';
 import { PeopleApi } from '../api/people-api';
 import { masked, personName, typeLabel } from './labels';
@@ -55,7 +59,7 @@ const SUGGESTION_TONES: Record<ChangeSuggestion, UiTone> = {
 @Component({
   selector: 'people-review-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiAlert, UiBadge, UiButton, UiCard, UiIcon],
+  imports: [LiReviewItem, LiToReview, UiAlert, UiBadge, UiButton, UiIcon],
   templateUrl: './people-review-card.html',
 })
 export class PeopleReviewCard {

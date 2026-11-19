@@ -124,6 +124,7 @@ export function buildEntries(input: {
         // knows (a filed return): nothing for you to do.
         handled: d.autoPaid === true || d.done === true || handled.has(key),
         autoPaid: d.autoPaid === true,
+        proof: d.proof ?? null,
         itemId: null,
         category: null,
       }),

@@ -1,45 +1,26 @@
-@if (error(); as message) {
-<ui-alert tone="danger">{{ message }}</ui-alert>
-}
-<ui-card heading="To review">
-  <ui-badge uiCardActions tone="warning"
-    >{{ reviews().length }} waiting</ui-badge
-  >
-  <p class="li-intro">
+<li-to-review [count]="reviews().length" what="car documents" [error]="error()">
+  <p intro>
     New car documents never change a car on their own. Pick which car each one
     is about and which printed values to take. A plate you do not have yet is
     suggested as a new car.
   </p>
   @for (review of reviews(); track review.uploadId) {
-  <article
-    class="li-review"
-    [class.li-review--busy]="busy() === review.uploadId"
+  <li-review-item
+    [heading]="typeLabel(review.type)"
+    [previewUrl]="previewUrl(review.uploadId)"
+    [busy]="busy() === review.uploadId"
   >
-    <header class="li-review__head">
-      <div>
-        <h3 class="li-review__title">
-          {{ typeLabel(review.type) }} @if (review.role) {
-          <span>· {{ roleLabels[review.role] }}</span>
-          } @if (review.registrationNumber) {
-          <span class="li-mono">· {{ review.registrationNumber }}</span>
-          }
-        </h3>
-        <p class="li-muted">
-          {{ review.title }} @if (review.make || review.commercialName) { · {{
-          review.make }} {{ review.commercialName }} }
-        </p>
-      </div>
-      <a
-        uiButton
-        variant="ghost"
-        size="sm"
-        [href]="previewUrl(review.uploadId)"
-        target="_blank"
-        rel="noopener"
-      >
-        <ui-icon name="eye" [size]="16" /> Open
-      </a>
-    </header>
+    <ng-container title>
+      @if (review.role) {
+      <span>· {{ roleLabels[review.role] }}</span>
+      } @if (review.registrationNumber) {
+      <span class="li-mono">· {{ review.registrationNumber }}</span>
+      }
+    </ng-container>
+    <ng-container meta>
+      {{ review.title }} @if (review.make || review.commercialName) { · {{
+      review.make }} {{ review.commercialName }} }
+    </ng-container>
 
     @if (review.facts.length) {
     <dl class="li-facts">
@@ -191,7 +172,7 @@
     </p>
     }
 
-    <footer class="li-review__actions">
+    <ng-container actions>
       <button
         uiButton
         variant="ghost"
@@ -211,7 +192,7 @@
         <ui-icon name="check" [size]="18" />
         {{ isNewVehicle(review) ? 'Add the car' : 'Approve' }}
       </button>
-    </footer>
-  </article>
+    </ng-container>
+  </li-review-item>
   }
-</ui-card>
+</li-to-review>

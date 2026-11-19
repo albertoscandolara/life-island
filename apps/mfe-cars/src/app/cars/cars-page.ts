@@ -29,6 +29,7 @@ import {
   type VehicleField,
   type VehicleStatus,
   type VehicleValue,
+  TO_REVIEW_TAB,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -58,7 +59,12 @@ import {
   valueText,
   vehicleName,
 } from './labels';
-import { LiNeedsYou } from '@life-island/records-ui';
+import {
+  LiNeedsYou,
+  LiTabs,
+  urlTab,
+  type LiTab,
+} from '@life-island/records-ui';
 
 type Definition = (typeof VEHICLE_FIELD_DEFINITIONS)[number];
 
@@ -87,6 +93,7 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LiNeedsYou,
+    LiTabs,
     EntityLink,
     CarCostsCard,
     CarFinesCard,
@@ -143,6 +150,21 @@ export class CarsPage {
 
   protected readonly vehicles = computed(() => this.overview()?.vehicles ?? []);
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
+  /**
+   * The page's tabs: the cars themselves, and "To review", where the
+   * documents read for this area wait for you (`?tab=review`, the same in
+   * every area that takes documents).
+   */
+  protected readonly tab = urlTab(['cars', TO_REVIEW_TAB], 'cars');
+  protected readonly tabs = computed<LiTab[]>(() => [
+    { id: 'cars', label: 'Your cars', icon: 'wrench' },
+    {
+      id: TO_REVIEW_TAB,
+      label: 'To review',
+      icon: 'inbox',
+      count: this.reviews().length,
+    },
+  ]);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
   protected readonly selected = computed<VehicleDto | null>(

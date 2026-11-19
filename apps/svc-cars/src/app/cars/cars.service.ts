@@ -130,6 +130,20 @@ export function vehicleName(row: Pick<VehicleRow, 'label' | 'values'>): string {
  * VIN, else plate) and compared with it field by field; one whose plate no car
  * has is the suggestion of a new car. Nothing changes a car until you approve.
  */
+/**
+ * The document that renews each kind, once approved in "To review": the
+ * date then moves to the next one on its own, so it is not marked done by
+ * hand. A fine (paid from a receipt the cars area does not read yet) and
+ * the tyres (a season, a tread check) are still marked done.
+ */
+const RENEWAL_PROOF: Partial<Record<RenewableKind, string>> = {
+  insurance: 'the new insurance certificate',
+  road_tax: 'the bollo receipt',
+  inspection: 'the revisione certificate',
+  service: 'the service invoice',
+  registration: 'the registration certificate',
+};
+
 @Injectable()
 export class CarsService {
   constructor(@Inject(SERVICE_DB) private readonly svc: ServiceDb) {}
@@ -182,6 +196,9 @@ export class CarsService {
               date: renewal.dueDate,
               amount: null,
               path: '/cars',
+              ...(RENEWAL_PROOF[renewal.kind]
+                ? { proof: RENEWAL_PROOF[renewal.kind] }
+                : {}),
             },
           ];
         }),

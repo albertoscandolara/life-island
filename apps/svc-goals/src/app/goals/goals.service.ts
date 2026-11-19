@@ -198,7 +198,7 @@ export class GoalsService implements OnApplicationBootstrap {
             ? `No step done for ${g.idleDays} days. Next: ${g.nextStep.title}`
             : 'It has no next step: add one small step.',
           since: null,
-          path: '/goals',
+          path: `/goals#goal-${g.id}`,
           action: 'Plan a step',
         })),
     };

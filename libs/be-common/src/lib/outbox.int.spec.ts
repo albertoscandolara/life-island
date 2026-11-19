@@ -99,9 +99,18 @@ describe.skipIf(!databaseUrl || !natsUrl)(
       expect(await relay.publishBatch()).toBe(3);
       expect(await relay.publishBatch()).toBe(0);
 
-      await vi.waitFor(() => expect(received).toHaveLength(3), {
-        timeout: 5000,
-      });
+      // The handler records the id before its insert commits: wait for the
+      // rows themselves, not only for the deliveries.
+      await vi.waitFor(
+        async () => {
+          expect(received).toHaveLength(3);
+          const { rows } = await svc.pool.query(
+            'select count(*)::int as n from int_test_items',
+          );
+          expect(rows[0].n).toBe(3);
+        },
+        { timeout: 5000 },
+      );
 
       // A redelivered event (same id) must not apply twice.
       const applied = await processOnce(

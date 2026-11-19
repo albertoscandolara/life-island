@@ -1,13 +1,19 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  inject,
   input,
   output,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { agendaArea, type AgendaEntryDto } from '@life-island/contracts';
+import {
+  agendaArea,
+  proofUploadUrl,
+  type AgendaEntryDto,
+} from '@life-island/contracts';
 import { UiButton, UiIcon } from '@life-island/design-system';
-import { LiDue, euro } from '@life-island/records-ui';
+import { LiDue, appLink, euro } from '@life-island/records-ui';
+import { DOCUMENTS_APP_URL } from '@life-island/settings-ui';
 
 /** A list of agenda lines: date, what, which area, days left, and Done. */
 @Component({
@@ -60,11 +66,14 @@ import { LiDue, euro } from '@life-island/records-ui';
             }
             <span class="buttons">
               @if (e.path) {
+                @let link = appLink(e.path);
                 <a
                   uiButton
                   variant="ghost"
                   size="sm"
-                  [routerLink]="e.path"
+                  [routerLink]="link.path"
+                  [queryParams]="link.query"
+                  [fragment]="link.fragment"
                   [attr.aria-label]="'Open ' + area(e.module).name"
                   title="Open the area"
                   ><ui-icon name="external" [size]="16"
@@ -83,7 +92,26 @@ import { LiDue, euro } from '@life-island/records-ui';
                   <ui-icon name="edit" [size]="16" />
                 </button>
               }
-              @if (!e.autoPaid) {
+              @if (e.proof) {
+                <!-- A document closes it: you load it, approve it in the
+                     area's To review, and it is done. -->
+                @if (!e.handled) {
+                  <a
+                    uiButton
+                    variant="secondary"
+                    size="sm"
+                    [href]="proofUrl(e)"
+                    [title]="
+                      'Load ' +
+                      e.proof +
+                      ': once you approve it, this date is done'
+                    "
+                    [attr.aria-label]="'Upload proof: ' + e.title"
+                  >
+                    <ui-icon name="upload" [size]="16" /> Upload proof
+                  </a>
+                }
+              } @else if (!e.autoPaid) {
                 <button
                   uiButton
                   [variant]="e.handled ? 'ghost' : 'secondary'"
@@ -115,6 +143,12 @@ export class EntryList {
 
   protected readonly euro = euro;
   protected readonly area = agendaArea;
+  protected readonly appLink = appLink;
+  private readonly documentsUrl = inject(DOCUMENTS_APP_URL);
+
+  protected proofUrl(e: AgendaEntryDto): string {
+    return proofUploadUrl(this.documentsUrl, e);
+  }
 
   protected day(date: string): string {
     return String(Number(date.slice(8, 10)));

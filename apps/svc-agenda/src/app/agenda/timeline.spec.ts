@@ -39,3 +39,30 @@ describe('auto-paid deadlines', () => {
     ]);
   });
 });
+
+describe('dates a document closes', () => {
+  it('carry the document that proves them, for the Upload proof button', () => {
+    const [insurance, bill] = buildEntries({
+      today: '2026-11-16',
+      window: { from: '2026-09-01', to: '2026-12-31' },
+      deadlines: [
+        deadline({
+          id: 'ins',
+          module: 'cars',
+          date: '2026-11-20',
+          proof: 'the new insurance certificate',
+        }),
+        deadline({ id: 'bill', date: '2026-11-21' }),
+      ],
+      items: [],
+      calendar: false,
+      handled: new Set(),
+    });
+    expect(insurance).toMatchObject({
+      key: 'module:cars:ins',
+      proof: 'the new insurance certificate',
+      handled: false,
+    });
+    expect(bill.proof).toBeNull();
+  });
+});

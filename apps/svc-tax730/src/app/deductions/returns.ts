@@ -9,6 +9,8 @@ import {
   pensionDeductionLimit,
   secondAdvanceDeadline,
   taxReturnDeadline,
+  taxYearOfFiling,
+  telematicFilingOf,
   type DeadlineDto,
   type Tax730CertificateDto,
   type Tax730ComparisonLineDto,
@@ -97,13 +99,37 @@ const sumOf = (values: (number | null)[]): number | null =>
     ? round(values.reduce<number>((t, v) => t + (v ?? 0), 0))
     : null;
 
-/** The return as read from one TAX_RETURN document; null without a tax year. */
+/**
+ * Whether a document is a filed return: of type TAX_RETURN, or named by the
+ * Agenzia delle Entrate as one ("UNI T2311131450352240926 …"), whatever
+ * else it was filed under (a return is never a work document).
+ */
+export function isFiledReturn(doc: CertificateSource): boolean {
+  return (
+    doc.categories.includes(TAX_RETURN_CATEGORY) ||
+    telematicFilingOf(doc.originalFilename) !== null
+  );
+}
+
+/**
+ * The return as read from one filed return; null without a tax year. What
+ * the document's fields leave out (its tax year, filing day and number)
+ * comes from the protocol its file is named by, when it is.
+ */
 export function readReturn(
   doc: CertificateSource,
 ): Tax730FiledReturnDto | null {
   const K = TAX_RETURN_KEYS;
   const f: Fields = doc.fields ?? {};
-  const taxYear = Math.round(amount(f[K.taxYear]) ?? 0);
+  const filing = telematicFilingOf(doc.originalFilename);
+  const read = doc.categories.includes(TAX_RETURN_CATEGORY);
+  const printedYear = Math.round(amount(f[K.taxYear]) ?? 0);
+  const taxYear =
+    printedYear >= 1900 && printedYear <= 2100
+      ? printedYear
+      : filing
+        ? taxYearOfFiling(filing.receivedOn)
+        : 0;
   if (taxYear < 1900 || taxYear > 2100) return null;
   const form = formOf(f[K.form]) ?? 'redditi_pf';
 
@@ -155,8 +181,8 @@ export function readReturn(
     form,
     formLabel: TAX_RETURN_FORM_LABELS[form],
     taxYear,
-    filedOn: dateOf(f[K.filedOn]),
-    filingId: text(f[K.filingId]),
+    filedOn: dateOf(f[K.filedOn]) ?? filing?.receivedOn ?? null,
+    filingId: text(f[K.filingId]) ?? filing?.protocol ?? null,
     kind: kindOf(f[K.kind]),
     figures,
     buckets,
@@ -169,7 +195,11 @@ export function readReturn(
     nextAdvanceSecond: money(f[K.nextAdvanceSecond]) ?? 0,
     notes: [],
   };
-  filed.notes = returnNotes(filed);
+  filed.notes = read
+    ? returnNotes(filed)
+    : [
+        `Known from its file name only (protocol ${filing?.protocol}): the year counts as filed, but its figures are not read. In the documents app, give it the Tax return type and parse it again to see them here.`,
+      ];
   return filed;
 }
 
@@ -222,7 +252,7 @@ export function returnsOf(
     { filed: Tax730FiledReturnDto; uploadedAt: number }
   >();
   for (const doc of docs) {
-    if (!doc.categories.includes(TAX_RETURN_CATEGORY)) continue;
+    if (!isFiledReturn(doc)) continue;
     const filed = readReturn(doc);
     if (!filed) continue;
     const current = byYear.get(filed.taxYear);
@@ -731,6 +761,7 @@ export function deadlinesOf(
         amount: null,
         path: '/taxes/730',
         done: filed !== null,
+        proof: `the filed ${label}`,
       });
     const previous = returns.get(filingYear - 1);
     if (previous?.form === 'redditi_pf' && previous.nextAdvanceSecond > 0) {

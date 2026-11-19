@@ -64,10 +64,10 @@ describe.skipIf(!configured)(
       ...overrides,
     });
 
-    async function deliver(payload: unknown) {
+    async function deliver(payload: unknown, uploadId = randomUUID()) {
       const record: RecordApprovedV1 = {
         recordId: randomUUID(),
-        uploadId: randomUUID(),
+        uploadId,
         category: 'tax730',
         targetKey: 'tax730.expense@1',
         payload,
@@ -145,6 +145,30 @@ describe.skipIf(!configured)(
       expect(mismatched.event_type).toBe('record.load_failed@1');
       const free = await deliver(expense({ amount: 0 }));
       expect(free.event_type).toBe('record.load_failed@1');
+    });
+
+    it('never loads a utility bill as an expense, even when approved as one', async () => {
+      const uploadId = randomUUID();
+      await svc.pool.query(
+        `insert into tax730.documents
+           (upload_id, title, original_filename, uploaded_at, categories)
+         values ($1, '2025 11 Internet', 'windtre.pdf', now(), $2)`,
+        [uploadId, ['INTERNET_BILL', 'HOME', 'EXPENSE']],
+      );
+      const bill = await deliver(
+        expense({ expenseType: 'other', amount: 28.98, issuer: 'Wind Tre' }),
+        uploadId,
+      );
+      expect(bill.event_type).toBe('record.load_failed@1');
+      const { rows } = await svc.pool.query(
+        `select 1 from tax730.expenses where upload_id = $1`,
+        [uploadId],
+      );
+      expect(rows).toHaveLength(0);
+      await svc.pool.query(
+        `delete from tax730.documents where upload_id = $1`,
+        [uploadId],
+      );
     });
   },
 );

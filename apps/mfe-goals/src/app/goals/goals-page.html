@@ -51,6 +51,7 @@
   @for (g of openGoals(); track g.id) {
   <article
     class="li-item goal"
+    [id]="'goal-' + g.id"
     [class.li-item--warning]="g.stuck"
     [class.li-item--off]="g.status === 'paused'"
   >

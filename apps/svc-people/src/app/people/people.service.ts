@@ -348,6 +348,8 @@ export class PeopleService {
             date: latest.expiryDate,
             amount: null,
             path: '/people',
+            // The new version, approved in "To review", replaces it.
+            proof: `the renewed ${label.toLowerCase()}`,
           },
         ];
       }),

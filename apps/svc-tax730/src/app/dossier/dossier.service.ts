@@ -41,8 +41,10 @@ import {
   asc,
   desc,
   eq,
+  ilike,
   inArray,
   isNull,
+  or,
   sql,
 } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -96,6 +98,8 @@ export function today(): string {
 }
 
 const round = (value: number) => Math.round(value * 100) / 100;
+/** File names that may be a filed return's telematic copy (telematicFilingOf decides). */
+const TELEMATIC_FILING_LIKE = 'UNI%T%';
 
 /** The words of a search, without the separators of file names: "a - b.pdf" → [a, b, pdf]. */
 export function searchWords(search: string | undefined): string[] {
@@ -221,16 +225,21 @@ export class DossierService {
             categories: documents.categories,
             fields: documents.fields,
             uploadedAt: documents.uploadedAt,
+            originalFilename: documents.originalFilename,
           })
           .from(documents)
           .where(
             and(
               isNull(documents.deletedAt),
-              arrayOverlaps(documents.categories, [
-                CERTIFICATE_CATEGORY,
-                TAX_RETURN_CATEGORY,
-                PAYSLIP_CATEGORY,
-              ]),
+              or(
+                arrayOverlaps(documents.categories, [
+                  CERTIFICATE_CATEGORY,
+                  TAX_RETURN_CATEGORY,
+                  PAYSLIP_CATEGORY,
+                ]),
+                // A filed return named by its protocol, whatever its type.
+                ilike(documents.originalFilename, TELEMATIC_FILING_LIKE),
+              ),
             ),
           ),
         // The bank payments matched in Money, still linked.
@@ -568,7 +577,7 @@ export class DossierService {
           } paired with ${y.pairsToReviewCount === 1 ? 'its payment' : 'their payments'}`,
           detail: `Tax year ${y.taxYear}, for the 730/${y.filingYear}`,
           since: null,
-          path: '/taxes/730',
+          path: `/taxes/730?year=${y.taxYear}&view=expenses#payment-pairs`,
           action: 'Confirm',
         })),
     };
@@ -582,12 +591,16 @@ export class DossierService {
         categories: documents.categories,
         fields: documents.fields,
         uploadedAt: documents.uploadedAt,
+        originalFilename: documents.originalFilename,
       })
       .from(documents)
       .where(
         and(
           isNull(documents.deletedAt),
-          arrayOverlaps(documents.categories, [TAX_RETURN_CATEGORY]),
+          or(
+            arrayOverlaps(documents.categories, [TAX_RETURN_CATEGORY]),
+            ilike(documents.originalFilename, TELEMATIC_FILING_LIKE),
+          ),
         ),
       );
     return deadlinesOf(deadlineWindow(query, today()), returnsOf(rows));

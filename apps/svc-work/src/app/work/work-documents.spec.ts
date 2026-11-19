@@ -55,6 +55,25 @@ describe('workDocumentType', () => {
     });
     expect(workDocumentType(['BILL'], parentOf).isWork).toBe(false);
   });
+
+  it('never counts a tax return, even filed under WORK', () => {
+    expect(workDocumentType(['TAX_RETURN', 'WORK'], parentOf)).toEqual({
+      isWork: false,
+      type: null,
+    });
+    // Named by the Agenzia delle Entrate as a filed return, before or
+    // without its Tax return type.
+    expect(
+      workDocumentType(
+        ['WORK'],
+        parentOf,
+        'UNI T2311131450352240926 RSSMRA80A01H501U.pdf',
+      ).isWork,
+    ).toBe(false);
+    expect(
+      workDocumentType(['WORK'], parentOf, 'UNI cedolino giugno.pdf').isWork,
+    ).toBe(true);
+  });
 });
 
 describe('readWorkDocument', () => {

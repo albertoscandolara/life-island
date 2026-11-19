@@ -196,7 +196,7 @@ export class FitnessService implements OnApplicationBootstrap {
         title: `How did ${e.name} go?`,
         detail: 'Mark it done with your result, or move it.',
         since: e.date,
-        path: '/fitness',
+        path: `/fitness?tab=events#event-${e.id}`,
         action: 'Log it',
       })),
     };

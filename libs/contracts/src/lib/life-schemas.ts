@@ -72,19 +72,38 @@ export interface LifeAttentionItemDto {
   detail: string | null;
   /** The day it started waiting, when known (the upload date, the day it was done). */
   since: string | null;
-  /** Where it is handled in the Life Island app, e.g. `/cars`. */
+  /**
+   * Where it is handled in the Life Island app, down to the tab (`?tab=`) or
+   * the block (`#id`) that handles it: `/work?tab=review`, `/cars#cars-review`.
+   * The area's own "Needs you" shows this button on that very page, so a bare
+   * `/cars` would be a button that goes nowhere.
+   */
   path: string;
   /** The button that opens it, verb first: "Review", "Check in". */
   action: string;
 }
 
+/** The tab of an area's page where its documents wait for you: "To review". */
+export const TO_REVIEW_TAB = 'review';
+
+/**
+ * Where an area's documents wait for review: its "To review" tab, the same
+ * in every area that takes documents (`<li-to-review>` in records-ui).
+ * `toReviewPath('/cars')` is `/cars?tab=review`.
+ */
+export function toReviewPath(areaPath: string): string {
+  return `${areaPath}?tab=${TO_REVIEW_TAB}`;
+}
+
 /**
  * A read document that waits for your approval in an area (Cars, People,
- * Work…), as an attention item: its title, what it is and since when.
+ * Work…), as an attention item: its title, what it is and since when. Its
+ * button opens the area's "To review" tab.
  */
 export function documentToReview(
   doc: { uploadId: string; title: string; uploadedAt: string },
-  path: string,
+  /** The area's page: `/cars`. */
+  areaPath: string,
   ...about: (string | null | undefined)[]
 ): LifeAttentionItemDto {
   const detail = about.filter((part): part is string => !!part).join(' · ');
@@ -94,7 +113,7 @@ export function documentToReview(
     title: doc.title,
     detail: detail || null,
     since: doc.uploadedAt.slice(0, 10),
-    path,
+    path: toReviewPath(areaPath),
     action: 'Review',
   };
 }

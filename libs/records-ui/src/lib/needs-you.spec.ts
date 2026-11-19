@@ -64,13 +64,58 @@ describe('needsYouLines', () => {
     expect(wait).toMatchObject({
       daysLeft: null,
       doneKey: null,
-      open: { label: 'Review', path: '/cars', query: { review: 'documents' } },
+      open: {
+        label: 'Review',
+        path: '/cars',
+        query: { review: 'documents' },
+        fragment: undefined,
+      },
     });
     expect(coming.meta).toEqual([euro(420)]);
     expect(other.open).toEqual({
       label: 'Open',
       path: '/home',
       query: { property: '1' },
+      fragment: undefined,
+    });
+  });
+
+  it('opens a block further down this very page', () => {
+    const [line] = needsYouLines(
+      {
+        entries: [],
+        waiting: [{ ...waiting, path: '/work?tab=review' }],
+      },
+      '/work',
+    );
+    expect(line.open).toEqual({
+      label: 'Review',
+      path: '/work',
+      query: { tab: 'review' },
+      fragment: undefined,
+    });
+    const [here] = needsYouLines(
+      { entries: [entry({ path: '/cars#cars-review' })], waiting: [] },
+      '/cars',
+    );
+    expect(here.open).toMatchObject({ path: '/cars', fragment: 'cars-review' });
+  });
+
+  it('offers to load the proof, not Done, for a date a document closes', () => {
+    const [line] = needsYouLines(
+      {
+        entries: [
+          entry({ key: 'ins', proof: 'the new insurance certificate' }),
+        ],
+        waiting: [],
+      },
+      '/cars',
+    );
+    expect(line.doneKey).toBeNull();
+    expect(line.proof).toEqual({
+      module: 'cars',
+      title: 'Insurance of the Panda',
+      proof: 'the new insurance certificate',
     });
   });
 });

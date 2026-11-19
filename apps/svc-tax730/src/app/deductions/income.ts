@@ -28,6 +28,8 @@ export interface CertificateSource {
   categories: string[];
   fields: Record<string, string | number | boolean | null> | null;
   uploadedAt: Date;
+  /** As uploaded: a filed return's telematic copy is named by its protocol. */
+  originalFilename?: string;
 }
 
 const round = (value: number) => Math.round(value * 100) / 100;

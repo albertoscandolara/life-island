@@ -134,3 +134,9 @@
   color: var(--danger);
   font-size: var(--text-xs);
 }
+
+/* Opened from a date's "Upload proof": what to load, and where it goes. */
+.proof-for {
+  display: block;
+  margin-bottom: var(--space-6);
+}

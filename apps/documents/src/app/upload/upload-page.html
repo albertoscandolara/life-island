@@ -4,6 +4,14 @@
   emblem="📥"
 />
 
+@if (proofFor; as p) {
+<ui-alert tone="info" class="proof-for">
+  <strong>Load {{ p.proof }} for “{{ p.title }}”.</strong>
+  Once it is read, it waits in {{ p.area }} → To review: approving it there is
+  what closes the date.
+</ui-alert>
+}
+
 <section class="layout">
   <ui-card heading="Add files">
     <ui-dropzone
