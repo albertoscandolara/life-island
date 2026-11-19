@@ -31,22 +31,22 @@ npm run test:integration   # also runs the tests that need Postgres and NATS
 
 ## Everyday commands
 
-| Command                         | What it does                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `npm start`                     | Starts the infrastructure, applies `db:upgrade`, then serves every app and service (`npm run dev`)      |
-| `npm run dev`                   | Serves every app and service in watch mode (`nx run-many -t serve`); needs the infrastructure up        |
-| `npm run infra:up`              | Starts the Docker stack in the background and waits for health checks                                   |
-| `npm run infra:down`            | Stops the stack and keeps the data volumes                                                              |
-| `npm run infra:reset`           | Stops the stack and **deletes** the volumes. The database init scripts run again on the next `infra:up` |
-| `npm run db:check-isolation`    | Verifies each service role can only see its own schema                                                  |
-| `npm run test:integration`      | Loads `.env` and runs every project's tests, including the integration tests, bypassing the Nx cache    |
-| `npx nx graph`                  | Opens the interactive project graph in the browser                                                      |
-| `npx nx run-many -t <target>`   | Runs a target (`lint`, `test`, `build`, `typecheck`) for every project                                  |
-| `npx nx affected -t <target>`   | Runs a target only for projects changed since `main`                                                    |
-| `npx nx <target> <project>`     | Runs one target for one project, e.g. `npx nx test be-common`                                           |
-| `npx nx show project <project>` | Lists a project's targets and how they were inferred                                                    |
-| `npx nx format:write`           | Formats changed files with Prettier                                                                     |
-| `npx nx sync`                   | Updates TypeScript project references after you add a dependency between projects                       |
+| Command                         | What it does                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `npm start`                     | Starts the infrastructure, applies `db:upgrade`, then serves every app and service (`npm run dev`)                                |
+| `npm run dev`                   | Serves every app and service in watch mode (`nx run-many -t serve`); installs missing packages first; needs the infrastructure up |
+| `npm run infra:up`              | Starts the Docker stack in the background and waits for health checks                                                             |
+| `npm run infra:down`            | Stops the stack and keeps the data volumes                                                                                        |
+| `npm run infra:reset`           | Stops the stack and **deletes** the volumes. The database init scripts run again on the next `infra:up`                           |
+| `npm run db:check-isolation`    | Verifies each service role can only see its own schema                                                                            |
+| `npm run test:integration`      | Loads `.env` and runs every project's tests, including the integration tests, bypassing the Nx cache                              |
+| `npx nx graph`                  | Opens the interactive project graph in the browser                                                                                |
+| `npx nx run-many -t <target>`   | Runs a target (`lint`, `test`, `build`, `typecheck`) for every project                                                            |
+| `npx nx affected -t <target>`   | Runs a target only for projects changed since `main`                                                                              |
+| `npx nx <target> <project>`     | Runs one target for one project, e.g. `npx nx test be-common`                                                                     |
+| `npx nx show project <project>` | Lists a project's targets and how they were inferred                                                                              |
+| `npx nx format:write`           | Formats changed files with Prettier                                                                                               |
+| `npx nx sync`                   | Updates TypeScript project references after you add a dependency between projects                                                 |
 
 ## Settings (`.env`)
 
@@ -94,6 +94,8 @@ Every value here is for local development only. Production gets its secrets from
 **Documents are read but get no category and no details, especially photos.** The worker is using the fake parser (`PARSER=fake`), which cannot read images and only spots keywords in file names and PDF text. Remove `PARSER=fake` (or set `PARSER=claude`), set `ANTHROPIC_API_KEY` in `.env`, restart, and press **Parse again** on each document.
 
 **Documents wait and the inbox says they wait for the AI.** AI is switched off in Settings, AI tools (the main switch or a Documents tool), this month's budget is used up, or the spending guard (svc-settings) could not be reached. Documents are never read without the AI: fix what the banner names and they are read on the next check, within minutes.
+
+**A page says "svc-<area> is not reachable" while everything else works.** That service did not start, most often because its build failed. A common cause is a pull that added a package you have not installed yet (for example `nodemailer` for the Agenda's email digest). `npm run dev` installs missing packages before it starts, and `npm install` fixes it by hand. Otherwise build the service alone, for example `npx nx build svc-agenda --output-style=static`, and read the error.
 
 **Uploads fail or a document shows "Failed: File storage is not reachable".** The browser sends each file straight to the storage container (`S3_PUBLIC_ENDPOINT`, `http://localhost:8333` by default). When it cannot (storage not running, or the page's address is missing from `STORAGE_CORS_ORIGINS`, for example `127.0.0.1` instead of `localhost`), the file goes through `svc-ingestion` instead. If that fails too, storage is down: run `npm run infra:up`, then press **Retry** on the document in **Your documents** and pick the same file again, or delete it and upload it anew. A document whose file never arrives is marked failed after 20 minutes (`STALE_UPLOAD_MINUTES`) and when `svc-ingestion` starts.
 
