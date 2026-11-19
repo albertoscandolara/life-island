@@ -1,5 +1,5 @@
-import { proofUploadUrl } from './agenda';
-import { documentToReview, toReviewPath } from './life-schemas';
+import { proofUploadUrl } from './agenda.js';
+import { documentToReview, toReviewPath } from './life-schemas.js';
 
 describe('the "To review" tab and the proof of a date', () => {
   it('sends every document review to the area\'s "To review" tab', () => {
