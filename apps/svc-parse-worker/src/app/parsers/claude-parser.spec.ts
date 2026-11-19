@@ -196,6 +196,42 @@ describe('ClaudeParser', () => {
     });
   });
 
+  it('never files a utility bill as a 730 expense, even an internet "fattura"', async () => {
+    const { client } = fakeClient([
+      {
+        text: JSON.stringify({
+          ...classification,
+          documentType: 'Internet bill',
+          issuer: 'Wind Tre S.p.A.',
+          categories: [
+            { id: 'WINDTRE_BILL', evidence: 'Fattura n. F2535118492' },
+          ],
+          targetKey: 'tax730.expense@1',
+        }),
+      },
+    ]);
+    const { result } = await new ClaudeParser(client, models).classify(input, [
+      ...categories,
+      {
+        id: 'INTERNET_BILL',
+        title: 'Internet bill',
+        description: 'A home internet line bill',
+        template: { fields: [] },
+      },
+      {
+        id: 'WINDTRE_BILL',
+        title: 'Wind Tre bill',
+        description: 'A Wind Tre bill',
+        template: { fields: [] },
+        parentId: 'INTERNET_BILL',
+      },
+    ]);
+    expect(result).toMatchObject({
+      targetKey: 'general.document@1',
+      category: 'other',
+    });
+  });
+
   it('extracts the merged template fields once each and keeps what is missing as missing', async () => {
     const plan = buildExtractionPlan(
       categories.slice(0, 2),

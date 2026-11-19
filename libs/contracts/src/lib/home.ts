@@ -74,6 +74,15 @@ export const UTILITIES: Record<UtilityKind, UtilityInfo> = {
   },
 };
 
+/**
+ * The categories of utility bills: electricity, gas, water and internet
+ * (and every category under them). Home reads them as bills of a house;
+ * they are household costs, never a 730 deductible expense.
+ */
+export const UTILITY_BILL_CATEGORIES: readonly string[] = UTILITY_KINDS.map(
+  (kind) => UTILITIES[kind].categoryId,
+);
+
 /** The unit of a utility's price: "€/kWh", "€/Smc", "€/m³", "€/month". */
 export const priceUnitOf = (utility: UtilityKind): string =>
   UTILITIES[utility].metered ? `€/${UTILITIES[utility].unit}` : '€/month';

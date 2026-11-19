@@ -1,5 +1,6 @@
 import {
   GENERAL_TARGET_KEY,
+  UTILITY_BILL_CATEGORIES,
   type ExtractedFields,
   type ReviewReason,
 } from '@life-island/contracts';
@@ -8,12 +9,7 @@ import type { CategoryDefinition } from './parsers/document-parser.js';
 /** Below this, the AI's own confidence sends the document to review. */
 export const AUTO_CONFIRM_MIN_CONFIDENCE = 0.85;
 
-const UTILITY_BILLS = [
-  'ELECTRICITY_BILL',
-  'GAS_BILL',
-  'WATER_BILL',
-  'INTERNET_BILL',
-];
+const UTILITY_BILLS = UTILITY_BILL_CATEGORIES;
 /** ID documents: their root and the types below it (or top-level, if you moved them). */
 const ID_DOCUMENT_TYPES = [
   'ID_DOCUMENT',
