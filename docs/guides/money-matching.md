@@ -49,6 +49,8 @@ sequenceDiagram
 | `amount`, `direction` | Positive euros; `out` for money leaving your accounts                                                  |
 | `date`, `window`      | When it should be paid, and the first and last day a movement can be its payment (both included)       |
 | `tolerance`           | 0 for an invoice (to the cent); 0.1 for a subscription, so a price rise is still caught, as "check it" |
+| `paidInCash`          | A receipt paid in cash: never paired with a bank movement; Money offers to add it to an account        |
+| `lines`               | What was bought (name, amount, Money category): fills the note and parts of the movement linked to it  |
 
 `?from&to` are the days of the movements Money is matching: list every item
 whose window touches them, **open or already paid**, so Money can check the
@@ -118,6 +120,32 @@ The "To match" tab also shows each link's status: `gone` when the area no
 longer lists the item, `changed` when it now costs less than what is linked,
 `unknown` when the area did not answer.
 
+## What a receipt adds (`lines`, `paidInCash`)
+
+Receipts and orders are never uploaded in Money: they go through the documents
+app like every file, the parse worker reads them as `grocery.receipt@1`
+(a shop receipt, an Amazon order page or its screenshot), and Groceries loads
+the ones you confirm. Its `GET /payables` lists each one with its `lines`,
+each in a Money category (`ITEM_MONEY_CATEGORY`: pharmacy in Health, other
+items in Shopping, the rest in Groceries).
+
+- **By card:** paired with its movement like any item. When a link covers the
+  whole movement and you never wrote its note or parts, `fillFromReceipt` sets
+  them from the lines in the same transaction: the category becomes the one
+  most of the lines are in (the receipt knows better than the bank's text),
+  the note lists what was bought, most expensive first, and the parts group
+  the other lines (`purchaseDetails`).
+- **In cash** (`paidInCash`): no bank movement will show it, so
+  `suggestMatches` leaves it out. The "To match" tab lists it under **Paid in
+  cash**, and `POST /matches/cash` makes a movement of the account you pick
+  (a cash one by default), in the category most of the lines are in, then
+  links it through `link` (so the checks and the event are the same). If the
+  link fails (another click added it first), the movement is removed. The
+  Attention badge counts them too.
+
+Banks print some shops by a short name (Amazon as `AMZN Mktp`):
+`BANK_ALIASES` maps them before names are compared.
+
 ## What the area does: `paymentEventHandler`
 
 Every area declares the table with `paymentsTable(schema)`
@@ -138,7 +166,7 @@ counting it as due.
 | Cars          | Each priced cost with a day (insurance, road tax, inspection, fuel, service, repairs…), window from 10 days before to 45 after, key `cars:cost:<upload id>`. Each fine with an amount, key `cars:fine:<upload id>`: proposed at its reduced amount with a tolerance up to the full one (paid within 5 days or within 60), from the violation to 60 days after the last day to pay (90 days of notice assumed until you add it). A late fine at half the maximum is over the tolerance: link what it can by hand | `bankPayment` on the cost. A fine paid at least its reduced amount is **paid** on that day (its deadlines and warning go); less is shown as a partial payment                                                                                                     |
 | Subscriptions | Each charge of a contract, every billing cycle counted from its renewal day (or start): never before the start, during a free trial, after the end of one that does not renew, or after a cancellation. Priced at the cost of that day (price history); tolerance 0.1; `autoPay` as the contract; window from 5 days before to 10 after; key `subscriptions:charge:<id>.<day>`                                                                                                                                  | `lastCharge` on the contract. A charge over the price raises "charged more than its price" on Attention, with **Update the cost** in Contracts & subscriptions, until the cost is updated. Moving the renewal day renames the charges: their links show as `gone` |
 | Work          | Each payslip with a month and a net pay, money **in** from the employer (its name and your label as payees); window from the 15th of the month paid to the 20th of the next; key `work:payslip:<upload id>`                                                                                                                                                                                                                                                                                                     | `bankPayment` on the payslip: "Received" with its day in the documents table                                                                                                                                                                                      |
-| Groceries     | Each receipt paid by card, or whose way of paying was not read (never cash or meal vouchers), in euros; window from the day before to 5 days after the purchase; key `groceries:receipt:<id>`                                                                                                                                                                                                                                                                                                                   | `bankPayment` on the receipt: "Paid by card" on the latest receipts                                                                                                                                                                                               |
+| Groceries     | Each receipt or online order in euros (never meal vouchers), with its `lines`: by card (or not said), window from the day before to 5 days after the purchase; in cash, `paidInCash` and the day only. Key `groceries:receipt:<id>`                                                                                                                                                                                                                                                                             | `bankPayment` on the receipt: "Paid by card" on the latest receipts                                                                                                                                                                                               |
 | 730           | Each counted expense (one paired into another is paid through that one); window from 30 days before its date to 90 after                                                                                                                                                                                                                                                                                                                                                                                        | `bankPayment` on the expense; it is **paid traceably** (also in the deduction estimate), shown as "Paid by bank". The payment proof document is still asked for: the CAF wants it                                                                                 |
 
 ## Tests
@@ -148,6 +176,9 @@ counting it as due.
 - `apps/svc-money/src/app/matching.int.spec.ts`: two confirmations of one bill
   at the same time (one wins), partial payments, limits, an area down, undo,
   removing movements and accounts, "not this one".
+- `apps/svc-money/src/app/receipts.int.spec.ts`: a card receipt fills its
+  movement's note and parts (never over yours), a cash receipt is added to the
+  cash account once, and only cash is added that way.
 - `apps/svc-home/src/app/home.int.spec.ts`: the bill payables, and the events
   applied once and in any order.
 - `apps/svc-cars/src/app/cars/payables.spec.ts`, `car-insights.spec.ts` and

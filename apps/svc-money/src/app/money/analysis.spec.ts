@@ -1,5 +1,11 @@
 import type { AccountDto, TransactionDto } from '@life-island/contracts';
-import { balanceMonthAgo, lastMonthToDate, monthFlows } from './analysis.js';
+import {
+  balanceMonthAgo,
+  categoryParts,
+  lastMonthToDate,
+  monthFlows,
+  purchaseChannels,
+} from './analysis.js';
 
 const tx = (
   date: string,
@@ -61,5 +67,65 @@ describe('months', () => {
     });
     expect(months.at(-2)?.spendingBy).toEqual({ housing: 900 });
     expect(months[0].spendingBy).toEqual({});
+  });
+});
+
+describe('split movements', () => {
+  const amazon = {
+    ...tx('2026-11-11', -192.75, 'groceries'),
+    description: 'AMAZON PAYMENTS EUROPE',
+    channel: null,
+    splits: [{ category: 'shopping' as const, amount: 27.99 }],
+  } as TransactionDto;
+
+  it('counts each part in its own category and keeps the total', () => {
+    const parts = categoryParts([amazon, tx('2026-11-12', -20)]);
+    expect(parts.map((p) => [p.category, p.amount])).toEqual([
+      ['groceries', -164.76],
+      ['shopping', -27.99],
+      ['groceries', -20],
+    ]);
+    const month = monthFlows(parts, '2026-11-18').at(-1);
+    expect(month?.spending).toBe(212.75);
+    expect(month?.spendingBy).toEqual({ groceries: 184.76, shopping: 27.99 });
+  });
+
+  it('drops the rest when the parts cover the whole movement', () => {
+    const whole = {
+      ...amazon,
+      splits: [
+        { category: 'shopping' as const, amount: 100 },
+        { category: 'health' as const, amount: 92.75 },
+      ],
+    };
+    expect(categoryParts([whole]).map((p) => p.category)).toEqual([
+      'shopping',
+      'health',
+    ]);
+  });
+
+  it('splits purchases by where they were made', () => {
+    const shop = {
+      ...tx('2026-11-03', -45.5),
+      description: 'POS ESSELUNGA',
+      channel: null,
+      splits: [],
+    } as TransactionDto;
+    const told = { ...shop, amount: -10, channel: 'online' } as TransactionDto;
+    const rent = {
+      ...shop,
+      amount: -900,
+      category: 'housing',
+    } as TransactionDto;
+    const months = purchaseChannels(
+      categoryParts([amazon, shop, told, rent]),
+      '2026-11-18',
+    );
+    expect(months).toHaveLength(6);
+    expect(months.at(-1)).toEqual({
+      month: '2026-11',
+      online: 202.75,
+      store: 45.5,
+    });
   });
 });

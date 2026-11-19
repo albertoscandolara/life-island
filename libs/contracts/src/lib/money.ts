@@ -91,6 +91,38 @@ export const accountRequestSchema = z.object({
 });
 export type AccountRequest = z.input<typeof accountRequestSchema>;
 
+/** Where a purchase was made: online (a cart and a checkout) or in a shop. */
+export const MONEY_CHANNELS = ['online', 'store'] as const;
+export type MoneyChannel = (typeof MONEY_CHANNELS)[number];
+export const MONEY_CHANNEL_LABELS: Record<MoneyChannel, string> = {
+  online: 'Online',
+  store: 'In a shop',
+};
+
+/** The most parts one movement can be split into. */
+export const MAX_SPLITS = 10;
+
+/** A part of a movement in another category: a positive amount in euro. */
+export const transactionSplitSchema = z.object({
+  category: z.enum(MONEY_CATEGORIES),
+  amount: lifeAmount.refine((v) => v > 0, 'A part must be more than 0'),
+});
+export type TransactionSplit = z.infer<typeof transactionSplitSchema>;
+
+/**
+ * What is wrong with the parts of a movement, or null: together they must
+ * leave something for the movement's own category, or cover it exactly.
+ */
+export function splitsProblem(
+  amount: number,
+  splits: readonly { amount: number | string }[],
+): string | null {
+  const total = splits.reduce((s, p) => s + Number(p.amount), 0);
+  if (Math.round(total * 100) > Math.round(Math.abs(amount) * 100))
+    return `The parts add up to ${total.toFixed(2)}, more than the movement's ${Math.abs(amount).toFixed(2)}`;
+  return null;
+}
+
 export const transactionRequestSchema = z.object({
   accountId: z.uuid(),
   date: lifeDate,
@@ -102,6 +134,13 @@ export const transactionRequestSchema = z.object({
   description: lifeName(200),
   category: z.enum(MONEY_CATEGORIES).optional(),
   notes: lifeNote(500),
+  /**
+   * Parts of the movement that belong to other categories (an Amazon order
+   * of detergent and a phone case); the rest stays in `category`.
+   */
+  splits: z.array(transactionSplitSchema).max(MAX_SPLITS).optional(),
+  /** Bought online or in a shop; null to guess it from the description. */
+  channel: z.enum(MONEY_CHANNELS).nullable().optional(),
 });
 export type TransactionRequest = z.input<typeof transactionRequestSchema>;
 
@@ -151,7 +190,100 @@ export type TransactionDto = LifeRecord<{
   description: string;
   category: MoneyCategory;
   notes: string | null;
+  /** Parts in other categories, positive; the rest is in `category`. */
+  splits: TransactionSplit[];
+  /** Set by you; null: guessed from the description (`moneyChannel`). */
+  channel: MoneyChannel | null;
 }>;
+
+/** One line of what was bought (`PayableLine`, from a receipt or an order). */
+export interface PurchaseLine {
+  name: string;
+  amount: number;
+  category: MoneyCategory;
+}
+
+/**
+ * The note and the parts in other categories of a movement, from the lines
+ * of its receipt. The note lists what was bought, the most expensive first,
+ * so Movements finds it; the parts group the lines outside `category`, and
+ * are left out when they would not fit in the movement.
+ */
+export function purchaseDetails(
+  lines: readonly PurchaseLine[],
+  category: MoneyCategory,
+  amount: number,
+): { notes: string | null; splits: TransactionSplit[] } {
+  const euro = (v: number) => `€${v.toFixed(2)}`;
+  const sorted = [...lines]
+    .filter((l) => l.name.trim())
+    .sort((a, b) => b.amount - a.amount);
+  let notes = '';
+  for (const line of sorted) {
+    const text = `${line.name.trim()} ${euro(line.amount)}`;
+    const next = notes ? `${notes}, ${text}` : text;
+    if (next.length > 500) break;
+    notes = next;
+  }
+  const byCategory = new Map<MoneyCategory, number>();
+  for (const line of lines)
+    if (line.category !== category && line.amount > 0)
+      byCategory.set(
+        line.category,
+        (byCategory.get(line.category) ?? 0) + line.amount,
+      );
+  const splits = [...byCategory]
+    .map(([c, v]) => ({ category: c, amount: Math.round(v * 100) / 100 }))
+    .filter((s) => s.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, MAX_SPLITS);
+  return {
+    notes: notes || null,
+    splits: splitsProblem(amount, splits) ? [] : splits,
+  };
+}
+
+/** The category most of the lines are in (by amount), or null with none. */
+export function mainPurchaseCategory(
+  lines: readonly PurchaseLine[],
+): MoneyCategory | null {
+  const totals = new Map<MoneyCategory, number>();
+  for (const line of lines)
+    totals.set(line.category, (totals.get(line.category) ?? 0) + line.amount);
+  return [...totals].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+/** The online shops and marketplaces a bank names (keep in sync with `guessMoneyCategory`). */
+const ONLINE_SHOPS =
+  /amazon|amzn|zalando|shein|temu|aliexpress|ebay|vinted|subito|wallapop|asos|yoox|paypal|klarna|scalapay|etsy|veepee|privalia|groupon|booking|airbnb|deliveroo|glovo|just eat/;
+
+/** Bought online or in a shop: what you said, else what the bank's text suggests. */
+export function moneyChannel(
+  t: Pick<TransactionDto, 'channel' | 'description'>,
+): MoneyChannel {
+  return (
+    t.channel ??
+    (ONLINE_SHOPS.test(t.description.toLowerCase()) ? 'online' : 'store')
+  );
+}
+
+/** The categories counted in "Online or in a shop?": what is bought at a checkout. */
+export const PURCHASE_CATEGORIES: readonly MoneyCategory[] = [
+  'groceries',
+  'shopping',
+  'health',
+  'leisure',
+  'family',
+  'gifts',
+];
+
+/** What went out on purchases in a month, online and in a shop. */
+export interface PurchaseChannelsDto {
+  /** `YYYY-MM`. */
+  month: string;
+  online: number;
+  store: number;
+}
 
 export type BudgetDto = LifeRecord<{
   category: MoneyCategory;
@@ -244,6 +376,8 @@ export interface MoneyOverviewDto {
   aiReview: boolean;
   /** What the movements above paid or received in other areas (Money matching). */
   paidItems: MovementPaidItemDto[];
+  /** The last 6 months of purchases, online and in a shop, oldest first. */
+  purchaseChannels: PurchaseChannelsDto[];
 }
 
 /** One item of another area a movement paid, linked on the "To match" tab. */
@@ -291,7 +425,10 @@ export function guessMoneyCategory(
       /ristorant|pizzer|bar |caffe|trattor|osteria|mcdonald|burger|sushi|deliveroo|glovo|just eat/,
       'eating-out',
     ],
-    [/amazon|zalando|ikea|decathlon|mediaworld|unieuro|shein/, 'shopping'],
+    [
+      /amazon|amzn|zalando|ikea|decathlon|mediaworld|unieuro|shein|temu|aliexpress|ebay/,
+      'shopping',
+    ],
     [/ryanair|easyjet|ita airways|booking|airbnb|hotel|expedia/, 'travel'],
     [/f24|agenzia entrate|tribut|imu|tari|bollo|pagopa/, 'taxes'],
     [/cinema|teatro|museo|concert|palestra|gym|ticketone/, 'leisure'],

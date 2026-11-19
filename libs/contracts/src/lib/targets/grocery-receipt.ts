@@ -15,17 +15,23 @@ export const GROCERY_ITEM_CATEGORIES = [
   'other',
 ] as const;
 
-/** grocery.receipt@1: a supermarket, pharmacy or shop receipt. */
+/** grocery.receipt@1: a shop receipt or an online order (Amazon and the like). */
 export const GroceryReceiptV1 = z
   .object({
     merchant: z.object({
-      name: z.string().describe('Shop name as printed on the receipt'),
+      name: z
+        .string()
+        .describe(
+          'Shop name as printed on the receipt; for an online order the shop or marketplace ("Amazon")',
+        ),
       vatNumber: z.string().optional().describe('Partita IVA / VAT number'),
       address: z.string().optional(),
     }),
     purchasedAt: z
       .string()
-      .describe('Purchase date and time, ISO 8601 (e.g. 2026-10-23T18:42:00Z)')
+      .describe(
+        'Purchase date and time, ISO 8601 (e.g. 2026-10-23T18:42:00Z); for an online order the day it was placed',
+      )
       .refine(isIsoDateTime, 'expected an ISO 8601 date-time'),
     currency: z.string().describe('ISO 4217 code, e.g. EUR'),
     total: z.number().describe('Total paid'),

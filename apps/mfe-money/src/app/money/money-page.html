@@ -206,6 +206,44 @@
     (pick)="seeMonth($event)"
   />
 </ui-card>
+} @let ch = channelMix(); @if (ch.total > 0) {
+<ui-card heading="How much do you buy online?" class="li-block">
+  <p class="li-muted li-small chart-note">
+    Groceries, shopping, health, leisure, family and gifts in the last six
+    months: online
+    <strong>{{ ch.share === null ? '—' : percent(ch.share) }}</strong>
+    ({{ euro(ch.online, false) }} of {{ euro(ch.total, false) }}). The shop's
+    name tells which, unless you said otherwise. A month opens its movements.
+  </p>
+  <ui-column-chart
+    [buckets]="ch.buckets"
+    [series]="ch.series"
+    [format]="euroWhole"
+    [label]="monthLong"
+    [shortLabel]="monthShort"
+    [pickable]="true"
+    pickHint="Click to see its movements"
+    ariaLabel="Purchases online and in a shop, month by month"
+    (pick)="seeMonth($event)"
+  />
+  <table class="ui-visually-hidden">
+    <caption>
+      Purchases online and in a shop, month by month
+    </caption>
+    <tr>
+      <th scope="col">Month</th>
+      <th scope="col">Online</th>
+      <th scope="col">In a shop</th>
+    </tr>
+    @for (m of d.purchaseChannels; track m.month) {
+    <tr>
+      <th scope="row">{{ monthText(m.month) }}</th>
+      <td>{{ euro(m.online) }}</td>
+      <td>{{ euro(m.store) }}</td>
+    </tr>
+    }
+  </table>
+</ui-card>
 }
 <div class="li-grid li-block">
   <ui-card heading="Where it goes this month">
@@ -297,12 +335,20 @@
   <input
     class="ui-input"
     type="search"
-    placeholder="Search a description"
+    placeholder="Search a description or a note"
     aria-label="Search"
     [value]="search()"
     (input)="search.set($any($event.target).value)"
   />
   <span class="spacer"></span>
+  <a
+    uiButton
+    variant="secondary"
+    [href]="documentsUrl"
+    title="Receipts and orders go through the documents app: once confirmed there, they show up in To match"
+  >
+    <ui-icon name="upload" [size]="16" /> Upload receipts
+  </a>
   <button
     uiButton
     variant="secondary"
@@ -364,14 +410,31 @@
             >
             }
           </span>
+          } @if (t.notes) {
+          <span class="li-muted li-small note">{{ t.notes }}</span>
           }
         </td>
-        <td class="li-muted">{{ category(t.category) }}</td>
+        <td class="li-muted" [title]="splitTitle(t)">
+          {{ categoryText(t) }} @if (t.amount < 0 && t.channel) {
+          <span class="li-small">· {{ channelText(t) }}</span>
+          }
+        </td>
         <td class="li-muted">{{ accountName()(t.accountId) }}</td>
         <td class="li-num" [class.li-good]="t.amount > 0">
           {{ euro(t.amount) }}
         </td>
-        <td>
+        <td class="nowrap">
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            aria-label="What it bought: note and parts"
+            title="What it bought"
+            (click)="openDetails(t)"
+          >
+            <ui-icon name="book" [size]="16" />
+          </button>
           <button
             uiButton
             variant="ghost"
@@ -400,6 +463,7 @@
 } } } @case ('match') {
 <money-match
   [movements]="d.transactions"
+  [accounts]="d.accounts"
   (changed)="load()"
   (importCsv)="openImport()"
 />
@@ -694,6 +758,12 @@
 </ui-dialog>
 }
 
+<money-details
+  [(open)]="detailsOpen"
+  [movement]="detailsMovement()"
+  [paidItems]="data()?.paidItems ?? []"
+  (saved)="load()"
+/>
 <li-record-dialog
   heading="Account"
   [fields]="accountFields"

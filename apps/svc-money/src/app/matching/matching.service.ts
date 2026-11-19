@@ -14,23 +14,28 @@ import {
 import {
   euroText,
   guessMoneyCategory,
+  splitsProblem,
   isoAddDays,
   isoToday,
   linkProblem,
+  mainPurchaseCategory,
   PAYABLE_SOURCES,
   PAYMENT_LINKED_EVENT,
   PAYMENT_UNLINKED_EVENT,
   payableModule,
+  purchaseDetails,
   rejectionKey,
   remaining,
   suggestMatches,
   transactionRequestSchema,
   type LifeAttentionItemDto,
+  type MatchCashRequest,
   type MatchesDto,
   type MatchLink,
   type MatchLinkRequest,
   type MatchMovementDto,
   type MatchRejectRequest,
+  type MoneyCategory,
   type MovementLinkDto,
   type PayableDto,
   type PaymentLinkedV1,
@@ -216,6 +221,25 @@ export class MatchingService {
     const ready = matches.suggestions.filter(
       (s) => s.confidence !== 'check',
     ).length;
+    const cash = matches.payables.filter(
+      (p) => p.paidInCash && p.linked < 0.005,
+    ).length;
+    const cashItems: LifeAttentionItemDto[] = cash
+      ? [
+          {
+            id: 'match:cash',
+            kind: 'match',
+            title:
+              cash === 1
+                ? 'Add a receipt paid in cash to your movements'
+                : `Add ${cash} receipts paid in cash to your movements`,
+            detail: 'No bank movement shows them: add them to your cash.',
+            since: null,
+            path: '/money?tab=match',
+            action: 'Add',
+          },
+        ]
+      : [];
     const items: LifeAttentionItemDto[] = ready
       ? [
           {
@@ -233,6 +257,7 @@ export class MatchingService {
           },
         ]
       : [];
+    items.push(...cashItems);
     this.attentionCache = { at: Date.now(), day, ready, items };
     return this.attentionCache;
   }
@@ -366,6 +391,7 @@ export class MatchingService {
           payload: event,
         });
       }
+      await this.fillFromReceipt(client, movement, request, payables);
       // A pair you once said "not this one" to, and now confirmed.
       await client.query(
         `delete from money.match_rejections
@@ -376,6 +402,107 @@ export class MatchingService {
     });
     this.attentionCache = null;
     return created.map((l) => ({ ...l, status: 'ok' }));
+  }
+
+  /**
+   * A movement linked whole to a receipt or an order that lists what was
+   * bought gets its category (where most of it went), its note and its parts
+   * in other categories from it, unless you already wrote a note or parts. You can change them afterwards like any note.
+   */
+  private async fillFromReceipt(
+    client: pg.PoolClient,
+    movement: MovementRow,
+    request: MatchLinkRequest,
+    payables: ReadonlyMap<string, PayableDto>,
+  ): Promise<void> {
+    if (request.items.length !== 1) return;
+    const [item] = request.items;
+    const lines = payables.get(item.payableKey)?.lines;
+    if (!lines?.length) return;
+    if (Math.abs(Math.abs(movement.amount) - item.amount) > 0.005) return;
+    const { rows } = await client.query<{
+      category: MoneyCategory;
+      notes: string | null;
+      splits: unknown[];
+    }>('select category, notes, splits from money.transactions where id = $1', [
+      movement.id,
+    ]);
+    const current = rows[0];
+    if (!current || current.notes?.trim() || current.splits?.length) return;
+    // The receipt knows better than the bank's text what most of it was.
+    const category = mainPurchaseCategory(lines) ?? current.category;
+    const details = purchaseDetails(lines, category, movement.amount);
+    await client.query(
+      'update money.transactions set category = $2, notes = $3, splits = $4 where id = $1',
+      [movement.id, category, details.notes, JSON.stringify(details.splits)],
+    );
+  }
+
+  /**
+   * A receipt paid in cash, which no bank movement will show, becomes a
+   * movement of the account you pick, linked to it: its area learns it is
+   * paid, and it is never added twice.
+   */
+  async addCash(request: MatchCashRequest): Promise<MovementLinkDto[]> {
+    const module = payableModule(request.payableKey);
+    if (!PAYABLE_SOURCES.some((s) => s.module === module))
+      throw new BadRequestException(
+        `${request.payableKey} is not an item Money can link`,
+      );
+    const read = await this.reader({ from: request.date, to: request.date });
+    const status = read.sources.find((s) => s.module === module);
+    if (!status?.ok)
+      throw new ServiceUnavailableException(
+        `${status?.name ?? module} did not answer, so the receipt cannot be checked. Try again in a moment.`,
+      );
+    const payable = read.payables.find((p) => p.key === request.payableKey);
+    if (!payable)
+      throw new NotFoundException(
+        'That receipt is not listed for that day any more. Look again.',
+      );
+    if (!payable.paidInCash || payable.direction !== 'out')
+      throw new BadRequestException(
+        'Only a receipt paid in cash is added this way: a card payment comes with the bank movements.',
+      );
+    const account = await this.svc.pool.query<{ archived: boolean }>(
+      'select archived from money.accounts where id = $1',
+      [request.accountId],
+    );
+    if (!account.rowCount) throw new NotFoundException('Account not found');
+    if (account.rows[0].archived)
+      throw new BadRequestException('That account is archived.');
+    const linked = await this.links(this.svc.pool, 'l.payable_key = $1', [
+      payable.key,
+    ]);
+    if (linked.length)
+      throw new ConflictException('This receipt is already in your movements.');
+
+    const description = (payable.payees[0] ?? payable.title).slice(0, 200);
+    const amount = -payable.amount;
+    const category =
+      mainPurchaseCategory(payable.lines ?? []) ??
+      guessMoneyCategory(description, amount);
+    const { rows } = await this.svc.pool.query<{ id: string }>(
+      `insert into money.transactions
+         (account_id, date, amount, description, category, channel)
+       values ($1, $2, $3, $4, $5, 'store') returning id`,
+      [request.accountId, payable.date, amount, description, category],
+    );
+    const movementId = rows[0].id;
+    try {
+      return await this.link({
+        movementId,
+        items: [{ payableKey: payable.key, amount: payable.amount }],
+      });
+    } catch (error) {
+      // Another click added it meanwhile, or the area changed: no movement
+      // stays without its receipt.
+      await this.svc.pool.query(
+        'delete from money.transactions where id = $1',
+        [movementId],
+      );
+      throw error;
+    }
   }
 
   /**
@@ -489,7 +616,21 @@ export class MatchingService {
             `${euroText(linked)} of this movement is linked to other items: undo a link to bring it below that.`,
           );
       }
+      if (request.splits !== undefined || request.amount !== undefined) {
+        const { rows } = await client.query<{
+          splits: { amount: number }[];
+        }>('select splits from money.transactions where id = $1', [id]);
+        const problem = splitsProblem(
+          request.amount !== undefined
+            ? Number(request.amount)
+            : movement.amount,
+          request.splits ?? rows[0]?.splits ?? [],
+        );
+        if (problem) throw new BadRequestException(problem);
+      }
       const values: Record<string, unknown> = { ...request };
+      if (request.splits !== undefined)
+        values['splits'] = JSON.stringify(request.splits);
       if (
         request.description !== undefined &&
         request.amount !== undefined &&
@@ -506,6 +647,8 @@ export class MatchingService {
         description: 'description',
         category: 'category',
         notes: 'notes',
+        splits: 'splits',
+        channel: 'channel',
       };
       const set = Object.entries(values).filter(([k]) => k in columns);
       if (!set.length) return;

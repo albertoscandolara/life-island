@@ -1,0 +1,154 @@
+<ui-dialog [(open)]="open" heading="What it bought" size="lg">
+  @let f = form(); @if (movement(); as m) {
+  <p class="li-muted">
+    {{ dateText(m.date) }} · {{ m.description }} ·
+    <strong>{{ euro(m.amount) }}</strong>
+  </p>
+
+  <section class="receipt" aria-label="Receipt">
+    @if (receipts().length) { @for (r of receipts(); track r.title) {
+    <p class="li-small">
+      <ui-icon name="file" [size]="14" /> From {{ r.title }}: the note and the
+      parts below come from its lines.
+    </p>
+    } } @else {
+    <p class="li-muted li-small">
+      Have the receipt, an order screenshot or a photo? Upload it in the
+      documents app: once you confirm it there, Money pairs it with this
+      movement in To match and fills the note and the parts from its lines.
+    </p>
+    <a uiButton variant="secondary" size="sm" [href]="documentsUrl">
+      <ui-icon name="upload" [size]="16" /> Upload the receipt
+    </a>
+    }
+  </section>
+
+  <div class="grid">
+    <label class="field">
+      <span>Category</span>
+      <select
+        class="ui-input"
+        (change)="set('category', $any($event.target).value)"
+      >
+        @for (c of categories; track c.value) {
+        <option [value]="c.value" [selected]="f.category === c.value">
+          {{ c.label }}
+        </option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span>Bought</span>
+      <select
+        class="ui-input"
+        (change)="set('channel', $any($event.target).value || null)"
+      >
+        <option value="" [selected]="!f.channel">Guess from the shop</option>
+        @for (c of channels; track c[0]) {
+        <option [value]="c[0]" [selected]="f.channel === c[0]">
+          {{ c[1] }}
+        </option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <label class="field">
+    <span>What you bought</span>
+    <textarea
+      class="ui-input"
+      rows="3"
+      maxlength="500"
+      placeholder="Detergent x2, toilet paper, kitchen paper"
+      [value]="f.notes"
+      (change)="set('notes', $any($event.target).value)"
+    ></textarea>
+    <span class="li-muted li-small hint"
+      >Searchable in Movements, so you can find what you paid for
+      something.</span
+    >
+  </label>
+
+  <section class="splits" aria-label="Parts in other categories">
+    <div class="li-row">
+      <strong>Parts in other categories</strong>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="f.splits.length >= maxSplits"
+        (click)="addSplit()"
+      >
+        <ui-icon name="plus" [size]="14" /> Add a part
+      </button>
+    </div>
+    @if (!f.splits.length) {
+    <p class="li-muted li-small">
+      One order of detergent and a phone case? Put the phone case in Shopping
+      here, and the rest stays in {{ categoryLabel(f.category) }}.
+    </p>
+    } @else {
+    <ul class="splits__list">
+      @for (s of f.splits; track $index; let i = $index) {
+      <li class="split">
+        <select
+          class="ui-input"
+          [attr.aria-label]="'Category of part ' + (i + 1)"
+          (change)="setSplit(i, { category: $any($event.target).value })"
+        >
+          @for (c of categories; track c.value) {
+          <option [value]="c.value" [selected]="s.category === c.value">
+            {{ c.label }}
+          </option>
+          }
+        </select>
+        <input
+          class="ui-input split__amount"
+          type="text"
+          inputmode="decimal"
+          placeholder="€"
+          [attr.aria-label]="'Amount of part ' + (i + 1)"
+          [value]="s.amount ?? ''"
+          (change)="setSplit(i, { amount: number($any($event.target).value) })"
+        />
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Remove part ' + (i + 1)"
+          (click)="removeSplit(i)"
+        >
+          <ui-icon name="trash" [size]="14" />
+        </button>
+      </li>
+      }
+    </ul>
+    <p class="li-small" [class.li-bad]="rest() < 0">
+      {{ euro(rest()) }} stays in {{ categoryLabel(f.category) }}.
+    </p>
+    }
+  </section>
+  } @if (error(); as e) {
+  <ui-alert tone="danger">{{ e }}</ui-alert>
+  }
+
+  <div uiDialogFooter class="li-actions">
+    @if (problem(); as p) {
+    <span class="li-muted li-small">{{ p }}</span>
+    }
+    <button uiButton variant="ghost" type="button" (click)="open.set(false)">
+      Cancel
+    </button>
+    <button
+      uiButton
+      type="button"
+      [loading]="saving()"
+      [disabled]="!!problem()"
+      (click)="save()"
+    >
+      Save
+    </button>
+  </div>
+</ui-dialog>

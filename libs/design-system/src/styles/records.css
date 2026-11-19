@@ -417,6 +417,8 @@
 
 /* ---- tables --------------------------------------------------------------- */
 .li-table-wrap {
+  /* Holds the visually hidden headers (absolute) inside the scroll, too. */
+  position: relative;
   overflow-x: auto;
 }
 

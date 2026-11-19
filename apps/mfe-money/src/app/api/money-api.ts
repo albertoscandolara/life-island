@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import type {
   LifeQuestionRequest,
   MatchesDto,
+  MatchCashRequest,
   MatchLinkRequest,
   MatchRejectRequest,
   MovementLinkDto,
@@ -48,6 +49,14 @@ export class MoneyApi extends RecordsApi {
   link(request: MatchLinkRequest): Observable<MovementLinkDto[]> {
     return this.http.post<MovementLinkDto[]>(
       `${this.base}/matches/links`,
+      request,
+    );
+  }
+
+  /** A receipt paid in cash becomes a movement of an account, linked to it. */
+  addCash(request: MatchCashRequest): Observable<MovementLinkDto[]> {
+    return this.http.post<MovementLinkDto[]>(
+      `${this.base}/matches/cash`,
       request,
     );
   }

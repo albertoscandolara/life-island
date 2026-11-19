@@ -1,9 +1,11 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { requireRow, type RecordCollection } from '@life-island/be-nest';
+import { BadRequestException } from '@nestjs/common';
 import {
   accountRequestSchema,
   budgetRequestSchema,
   guessMoneyCategory,
+  splitsProblem,
   transactionRequestSchema,
   type TransactionRequest,
 } from '@life-island/contracts';
@@ -28,6 +30,11 @@ export function collections(db: NodePgDatabase): RecordCollection[] {
       check: async (request: Partial<TransactionRequest>) => {
         if (request.accountId)
           await requireRow(db, accounts, request.accountId, 'Account');
+        const problem =
+          request.splits && request.amount !== undefined
+            ? splitsProblem(Number(request.amount), request.splits)
+            : null;
+        if (problem) throw new BadRequestException(problem);
       },
       toValues: (request: Partial<TransactionRequest>) =>
         request.description !== undefined &&

@@ -102,6 +102,9 @@
   --viz-in: var(--viz-aqua-500);
   --viz-out: var(--viz-orange-500);
   --viz-kept: var(--viz-violet-600);
+  /* Money: where a purchase was made. */
+  --viz-online: var(--viz-magenta-400);
+  --viz-store: var(--viz-blue-450);
   /* Evaluations (Work): the parts of a score, in the order the form lists them. */
   --viz-part-1: var(--viz-blue-450);
   --viz-part-2: var(--viz-orange-500);
@@ -185,6 +188,8 @@
   --viz-in: var(--viz-aqua-600);
   --viz-out: var(--viz-orange-600);
   --viz-kept: var(--viz-violet-400);
+  --viz-online: var(--viz-magenta-500);
+  --viz-store: var(--viz-blue-400);
   --viz-part-1: var(--viz-blue-400);
   --viz-part-2: var(--viz-orange-600);
   --viz-part-3: var(--viz-aqua-600);

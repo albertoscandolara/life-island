@@ -58,6 +58,8 @@ describe('payee names in bank descriptions', () => {
     ['ADDEBITO SDD A2A ENERGIA', 'Enel Energia S.p.A.', 'differ'],
     ['ADDEBITO SDD VODAFONE ITALIA', 'Vodafone Italia S.p.A.', 'agree'],
     ['NETFLIX.COM AMSTERDAM', 'Netflix International B.V.', 'partial'],
+    // Amazon charges an order as AMZN.
+    ['PAGAMENTO POS AMZN Mktp IT*2K4LS0X15', 'Amazon', 'agree'],
     // The bank printed nothing but codes: no opinion.
     [
       'ADDEBITO DIRETTO SDD CID IT45ZZZ0000001 MANDATO 77',

@@ -47,11 +47,49 @@ describe('receipts as money going out', () => {
     ).toHaveLength(1);
   });
 
-  it('never lists cash, meal vouchers, another currency or another week', () => {
+  it('lists cash on its day, never to pair with a bank movement', () => {
+    const [cash] = receiptPayables(
+      [
+        receipt({
+          paymentMethod: 'cash',
+          items: [
+            { name: 'Whole milk 1 L', category: 'dairy', lineTotal: 1.29 },
+            { name: 'Aspirin', category: 'pharmacy', lineTotal: 5.4 },
+            { name: 'Phone case', category: 'other', lineTotal: 9.99 },
+          ],
+        }),
+      ],
+      query,
+    );
+    expect(cash).toMatchObject({
+      paidInCash: true,
+      window: { from: '2026-11-14', to: '2026-11-14' },
+      lines: [
+        { name: 'Whole milk 1 L', amount: 1.29, category: 'groceries' },
+        { name: 'Aspirin', amount: 5.4, category: 'health' },
+        { name: 'Phone case', amount: 9.99, category: 'shopping' },
+      ],
+    });
+    expect(
+      suggestMatches(
+        [
+          {
+            id: 'm1',
+            date: '2026-11-14',
+            amount: -63.27,
+            description: 'ESSELUNGA',
+          },
+        ],
+        [cash],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it('never lists meal vouchers, another currency or another week', () => {
     expect(
       receiptPayables(
         [
-          receipt({ paymentMethod: 'cash' }),
           receipt({ paymentMethod: 'other' }),
           receipt({ currency: 'CHF' }),
           receipt({ total: 0 }),

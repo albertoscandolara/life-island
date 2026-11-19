@@ -188,7 +188,7 @@ describe.skipIf(!configured)(
       expect(await answers(other.recordId)).toEqual([]);
     });
 
-    it('lists the receipts paid by card for Money, and shows the matched payment', async () => {
+    it('lists the receipts for Money, cash apart, and shows the matched payment', async () => {
       const card = approved({
         ...receipt,
         purchasedAt: '2026-09-11T08:15:00Z',
@@ -203,7 +203,7 @@ describe.skipIf(!configured)(
       const cardId = (await answers(card.recordId))[0].payload.domainRecordId!;
       const cashId = (await answers(cash.recordId))[0].payload.domainRecordId!;
 
-      // A movement booked 3 days later still finds it; the cash one never.
+      // A movement booked 3 days later still finds it; the cash one, never.
       const payables = (await (
         await fetch(`${base}/payables?from=2026-09-14&to=2026-09-14`)
       ).json()) as PayableDto[];
@@ -220,6 +220,18 @@ describe.skipIf(!configured)(
         payees: [merchantName],
       });
       expect(payables.some((p) => p.key.endsWith(cashId))).toBe(false);
+      expect(mine?.lines?.length).toBe(receipt.items.length);
+
+      // Cash is listed on its day only, for Money to add to your cash.
+      const onTheDay = (await (
+        await fetch(`${base}/payables?from=2026-09-11&to=2026-09-11`)
+      ).json()) as PayableDto[];
+      expect(
+        onTheDay.find((p) => p.key === `groceries:receipt:${cashId}`),
+      ).toMatchObject({
+        paidInCash: true,
+        window: { from: '2026-09-11', to: '2026-09-11' },
+      });
       expect(
         (await fetch(`${base}/payables?from=2026-09-30&to=2026-09-01`)).status,
       ).toBe(400);

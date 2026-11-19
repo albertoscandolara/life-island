@@ -38,10 +38,12 @@ import {
 } from '../db/schema.js';
 import {
   balanceMonthAgo,
+  categoryParts,
   categorySpend,
   lastMonthToDate,
   monthFlows,
   offlineReview,
+  purchaseChannels,
   recurringCharges,
   REVIEW_INSTRUCTIONS,
   reviewDossier,
@@ -129,6 +131,8 @@ export class MoneyService implements OnApplicationBootstrap {
           .orderBy(movementLinks.createdAt),
       ]);
     const txs = txRows.map(toTransactionDto);
+    // A movement split into categories counts each part in its own.
+    const parts = categoryParts(txs);
     const paidItems = linkRows.map(({ link }): MovementPaidItemDto => {
       const source = PAYABLE_SOURCES.find((s) => s.module === link.module);
       return {
@@ -150,12 +154,14 @@ export class MoneyService implements OnApplicationBootstrap {
       description: 'Older movements',
       category: 'other',
       notes: null,
+      splits: [],
+      channel: null,
       createdAt: '',
     }));
-    const months = monthFlows(txs, day);
+    const months = monthFlows(parts, day);
     const budgetDtos = withSpent(
       budgetRows.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })),
-      txs,
+      parts,
       day,
     );
     return {
@@ -174,7 +180,8 @@ export class MoneyService implements OnApplicationBootstrap {
       budgets: budgetDtos,
       recurring: recurringCharges(txs, day),
       months,
-      categories: categorySpend(txs, day),
+      categories: categorySpend(parts, day),
+      purchaseChannels: purchaseChannels(parts, day),
       rate: savingsRate(months),
     };
   }
@@ -199,6 +206,7 @@ export class MoneyService implements OnApplicationBootstrap {
       recurring: state.recurring,
       months: state.months,
       categories: state.categories,
+      purchaseChannels: state.purchaseChannels,
       totals: {
         balance:
           Math.round(
@@ -350,6 +358,7 @@ export class MoneyService implements OnApplicationBootstrap {
 export function toTransactionDto(row: TransactionRow): TransactionDto {
   return {
     ...row,
+    splits: row.splits ?? [],
     amount: Number(row.amount),
     createdAt: row.createdAt.toISOString(),
   };

@@ -1,9 +1,17 @@
 import type {
+  AccountDto,
   MatchesDto,
   MatchMovementDto,
   MatchPayableDto,
 } from '@life-island/contracts';
-import { candidates, leftOf, openItems, pickAmount } from './match-view';
+import {
+  candidates,
+  cashAccount,
+  cashItems,
+  leftOf,
+  openItems,
+  pickAmount,
+} from './match-view';
 
 const payable = (over: Partial<MatchPayableDto> = {}): MatchPayableDto => ({
   key: 'home:bill:1',
@@ -103,5 +111,32 @@ describe('the "To match" tab', () => {
     expect(
       pickAmount(payable({ amount: 12.99 }), move({ amount: -13.99 })),
     ).toBe(12.99);
+  });
+
+  it('keeps receipts paid in cash apart, until they are added', () => {
+    const cash = payable({
+      key: 'groceries:receipt:1',
+      paidInCash: true,
+      date: '2026-11-12',
+    });
+    const added = payable({
+      key: 'groceries:receipt:2',
+      paidInCash: true,
+      linked: 100,
+    });
+    const data = matches({ payables: [payable(), cash, added] });
+    expect(openItems(data).map((p) => p.key)).toEqual(['home:bill:1']);
+    expect(cashItems(data).map((p) => p.key)).toEqual(['groceries:receipt:1']);
+  });
+
+  it('adds cash to a cash account, else to any open one', () => {
+    const accounts = [
+      { id: 'bank', kind: 'current', archived: false },
+      { id: 'old', kind: 'cash', archived: true },
+      { id: 'wallet', kind: 'cash', archived: false },
+    ] as AccountDto[];
+    expect(cashAccount(accounts)).toBe('wallet');
+    expect(cashAccount(accounts.slice(0, 2))).toBe('bank');
+    expect(cashAccount([])).toBeNull();
   });
 });

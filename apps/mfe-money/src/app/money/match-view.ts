@@ -1,4 +1,5 @@
 import type {
+  AccountDto,
   MatchConfidence,
   MatchesDto,
   MatchMovementDto,
@@ -22,8 +23,28 @@ export function leftOf(total: number, linked: number): number {
 export function openItems(matches: MatchesDto): MatchPayableDto[] {
   const proposed = new Set(matches.suggestions.flatMap((s) => s.payableKeys));
   return matches.payables
-    .filter((p) => !proposed.has(p.key) && leftOf(p.amount, p.linked) > 0)
+    .filter(
+      (p) =>
+        !p.paidInCash && !proposed.has(p.key) && leftOf(p.amount, p.linked) > 0,
+    )
     .sort((a, b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key));
+}
+
+/**
+ * The receipts paid in cash not yet in your movements: no bank movement
+ * shows them, so each one is added to an account (a cash one) instead.
+ * The newest first.
+ */
+export function cashItems(matches: MatchesDto): MatchPayableDto[] {
+  return matches.payables
+    .filter((p) => p.paidInCash && p.linked < 0.005)
+    .sort((a, b) => b.date.localeCompare(a.date) || a.key.localeCompare(b.key));
+}
+
+/** The account cash most likely came out of: a cash one, else any open one. */
+export function cashAccount(accounts: readonly AccountDto[]): string | null {
+  const open = accounts.filter((a) => !a.archived);
+  return (open.find((a) => a.kind === 'cash') ?? open[0])?.id ?? null;
 }
 
 /**

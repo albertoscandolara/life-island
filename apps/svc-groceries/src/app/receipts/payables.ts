@@ -1,14 +1,18 @@
 import {
   isoAddDays,
+  type GroceryItemCategory,
+  type MoneyCategory,
   type PayableDto,
+  type PayableLine,
   type PayablesQuery,
 } from '@life-island/contracts';
 
 /*
  * Groceries as Money matching reads them (`GET /payables`,
- * docs/guides/money-matching.md): every receipt paid by card (or whose way of
- * paying was not read), never one paid in cash, which no bank movement shows.
- * A card payment is booked the same day or a few days later.
+ * docs/guides/money-matching.md): every receipt, with its lines. One paid by
+ * card (or whose way of paying was not read) is paired with its bank
+ * movement, booked the same day or a few days later. One paid in cash
+ * (`paidInCash`) never is: Money offers to add it to a cash account.
  */
 
 /** A pre-authorisation can be booked the day before… */
@@ -28,6 +32,28 @@ export function receiptOfPayable(key: string): string | null {
   return UUID.test(id) ? id.toLowerCase() : null;
 }
 
+/** The Money category of each kind of item on a receipt. */
+export const ITEM_MONEY_CATEGORY: Record<GroceryItemCategory, MoneyCategory> = {
+  produce: 'groceries',
+  dairy: 'groceries',
+  meat: 'groceries',
+  fish: 'groceries',
+  bakery: 'groceries',
+  pantry: 'groceries',
+  beverages: 'groceries',
+  household: 'groceries',
+  personal_care: 'groceries',
+  pharmacy: 'health',
+  other: 'shopping',
+};
+
+/** One item of a receipt, as Money files it. */
+export interface PayableReceiptItem {
+  name: string;
+  category: string;
+  lineTotal: number;
+}
+
 /** What a receipt needs to be matched with a bank movement. */
 export interface PayableReceipt {
   id: string;
@@ -37,6 +63,16 @@ export interface PayableReceipt {
   total: number;
   currency: string;
   paymentMethod: string | null;
+  items?: readonly PayableReceiptItem[];
+}
+
+function lineOf(item: PayableReceiptItem): PayableLine {
+  return {
+    name: item.name,
+    amount: Math.round(item.lineTotal * 100) / 100,
+    category:
+      ITEM_MONEY_CATEGORY[item.category as GroceryItemCategory] ?? 'groceries',
+  };
 }
 
 /** The days of receipts to read for a query: a movement books after the purchase. */
@@ -52,12 +88,16 @@ export function receiptPayables(
   query: PayablesQuery,
 ): PayableDto[] {
   return receipts.flatMap((r): PayableDto[] => {
-    if (r.paymentMethod === 'cash' || r.paymentMethod === 'other') return [];
+    if (r.paymentMethod === 'other') return [];
     if (r.currency !== 'EUR' || !(r.total > 0)) return [];
-    const window = {
-      from: isoAddDays(r.day, -BOOKED_BEFORE_DAYS),
-      to: isoAddDays(r.day, BOOKED_AFTER_DAYS),
-    };
+    const cash = r.paymentMethod === 'cash';
+    // Cash moves on the day; a card is booked a little before or after.
+    const window = cash
+      ? { from: r.day, to: r.day }
+      : {
+          from: isoAddDays(r.day, -BOOKED_BEFORE_DAYS),
+          to: isoAddDays(r.day, BOOKED_AFTER_DAYS),
+        };
     if (window.from > query.to || window.to < query.from) return [];
     return [
       {
@@ -71,6 +111,8 @@ export function receiptPayables(
         date: r.day,
         window,
         path: '/groceries',
+        ...(cash ? { paidInCash: true } : {}),
+        ...(r.items?.length ? { lines: r.items.map(lineOf) } : {}),
       },
     ];
   });

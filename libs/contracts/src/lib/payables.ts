@@ -3,6 +3,7 @@ import { ATTENTION_SOURCES, type AgendaSourceDto } from './agenda.js';
 import { entityKey } from './entities.js';
 import { isoDaysBetween } from './life-dates.js';
 import { lifeDate } from './life-schemas.js';
+import { MONEY_CATEGORIES, type PurchaseLine } from './money.js';
 
 /*
  * Money matching: what every area expects to pay or receive (`GET /payables`),
@@ -57,7 +58,22 @@ export interface PayableDto {
   autoPay?: boolean;
   /** Where it is handled, in the Life Island app ("/home?tab=bills&bill=…"). */
   path: string | null;
+  /**
+   * Paid in cash (a shop receipt that says so): no bank movement will show
+   * it, so Money never pairs it with one. It offers to add it to a cash
+   * account instead, as a movement already linked to it.
+   */
+  paidInCash?: boolean;
+  /**
+   * What was bought, when the area read it from the document (the lines of
+   * a receipt or an order). Money fills a movement's note and its parts in
+   * other categories from them when it is linked.
+   */
+  lines?: PayableLine[];
 }
+
+/** One line of a receipt or an order, as Money files it. */
+export type PayableLine = PurchaseLine;
 
 /** A movement of your accounts, as the matcher reads it. */
 export interface MatchMovement {
@@ -235,6 +251,15 @@ const GENERIC_WORDS = new Set([
   'servizio',
 ]);
 
+/**
+ * Short names banks print for well-known shops: an Amazon order is charged
+ * as "AMZN Mktp IT", and should still agree with the order's "Amazon".
+ */
+const BANK_ALIASES: Readonly<Record<string, string>> = {
+  amzn: 'amazon',
+  amznmktp: 'amazon',
+};
+
 /** The words of a bank description, without the bank's own words. */
 export function bankWords(description: string): string[] {
   return (
@@ -246,6 +271,7 @@ export function bankWords(description: string): string[] {
       .split(' ')
       // Codes (mandate ids, IBANs, card numbers, dates) carry digits: never a name.
       .filter((word) => word && !BANK_WORDS.has(word) && !/\d/.test(word))
+      .map((word) => BANK_ALIASES[word] ?? word)
   );
 }
 
@@ -340,6 +366,8 @@ export function suggestMatches(
   rejected: ReadonlySet<string> = new Set(),
 ): MatchSuggestion[] {
   const openPayables = payables
+    // Paid in cash: no bank movement shows it (Money adds it to a cash account).
+    .filter((payable) => !payable.paidInCash)
     .map((payable) => ({
       payable,
       open: remaining(
@@ -651,7 +679,23 @@ export function isOwnPayable(
       (typeof p.tolerance === 'number' &&
         p.tolerance >= 0 &&
         p.tolerance <= 0.5)) &&
-    (p.path === null || typeof p.path === 'string')
+    (p.path === null || typeof p.path === 'string') &&
+    (p.paidInCash === undefined || typeof p.paidInCash === 'boolean') &&
+    (p.lines === undefined ||
+      (Array.isArray(p.lines) &&
+        p.lines.length <= 200 &&
+        p.lines.every(isLine)))
+  );
+}
+
+function isLine(value: unknown): value is PayableLine {
+  const line = value as Partial<PayableLine> | null;
+  return (
+    !!line &&
+    typeof line.name === 'string' &&
+    typeof line.amount === 'number' &&
+    Number.isFinite(line.amount) &&
+    (MONEY_CATEGORIES as readonly unknown[]).includes(line.category)
   );
 }
 
@@ -680,6 +724,18 @@ export const matchRejectRequestSchema = z.object({
   payableKeys: z.array(payableKeySchema).min(1).max(3),
 });
 export type MatchRejectRequest = z.infer<typeof matchRejectRequestSchema>;
+
+/**
+ * `POST /matches/cash`: a receipt paid in cash (`paidInCash`) becomes a
+ * movement of one of your accounts (a cash account, usually), linked to it.
+ * `date` is the item's day, as `GET /matches` listed it.
+ */
+export const matchCashRequestSchema = z.object({
+  payableKey: payableKeySchema,
+  date: lifeDate,
+  accountId: z.uuid(),
+});
+export type MatchCashRequest = z.infer<typeof matchCashRequestSchema>;
 
 /**
  * A confirmed link as Money shows it. `status` says whether the area still

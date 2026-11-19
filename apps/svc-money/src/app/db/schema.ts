@@ -13,7 +13,9 @@ import {
 import type {
   AccountKind,
   MoneyCategory,
+  MoneyChannel,
   SpendingReviewOutput,
+  TransactionSplit,
 } from '@life-island/contracts';
 
 export const money = pgSchema('money');
@@ -53,6 +55,10 @@ export const transactions = money.table(
       .notNull()
       .default('other'),
     notes: text('notes'),
+    /** Parts in other categories (positive euro); the rest is in `category`. */
+    splits: jsonb('splits').$type<TransactionSplit[]>().notNull().default([]),
+    /** Bought online or in a shop; null: guessed from the description. */
+    channel: text('channel').$type<MoneyChannel>(),
     createdAt: createdAt(),
   },
   (t) => [index('transactions_date_idx').on(t.date)],
