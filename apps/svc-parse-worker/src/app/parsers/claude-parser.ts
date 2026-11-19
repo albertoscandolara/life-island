@@ -11,6 +11,7 @@ import {
   TEMPLATE_FIELD_TYPES,
   TRANSACTION_ROLES,
   findTarget,
+  telematicFilingOf,
   type AiRequestStep,
   type TransactionFacts,
 } from '@life-island/contracts';
@@ -395,8 +396,14 @@ function hintsOf(
   input: ParseInput,
   part?: { index: number; total: number },
 ): string {
+  const filing = telematicFilingOf(input.filename);
   return [
     `File name: ${input.filename}`,
+    ...(filing
+      ? [
+          `The file name is the protocollo telematico of a tax return the Agenzia delle Entrate received on ${filing.receivedOn}: it is a TAX_RETURN, the person's own yearly filing, whoever sent it. Never file it under the WORK subject or an employer, even though it prints employment income.`,
+        ]
+      : []),
     `Title given by the uploader: ${input.title}`,
     ...(input.description
       ? [`Description given by the uploader: ${input.description}`]
@@ -426,7 +433,7 @@ export function describeClaudeParser(
   available: boolean,
 ): AiToolDescription[] {
   const document =
-    '{the document: PDF, image or its text}\nFile name: {file name}\nTitle given by the uploader: {title}\nDescription given by the uploader: {description, when given}';
+    '{the document: PDF, image or its text}\nFile name: {file name}\n{for a file named like a filed tax return (UNI T…): that it is a TAX_RETURN, never a work document}\nTitle given by the uploader: {title}\nDescription given by the uploader: {description, when given}';
   const step = (
     stepId: string,
     label: string,

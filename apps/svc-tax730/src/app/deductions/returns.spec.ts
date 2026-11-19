@@ -151,6 +151,43 @@ describe('reading a filed return', () => {
       ]).size,
     ).toBe(0);
   });
+
+  it('takes the filing day and number from the protocol the file is named by', () => {
+    const filed = readReturn(
+      doc(
+        { form_type: 'redditi_pf', tax_year: 2025 },
+        { originalFilename: 'UNI T2609181536076929 RSSMRA80A01H501U.pdf' },
+      ),
+    );
+    expect(filed).toMatchObject({
+      taxYear: 2025,
+      filedOn: '2026-09-18',
+      filingId: 'T2609181536076929',
+    });
+  });
+
+  it('counts a return known from its file name only as filed, without figures', () => {
+    const returns = returnsOf([
+      doc(null, {
+        categories: ['WORK'],
+        originalFilename: 'UNI T2311131450352240926 RSSMRA80A01H501U.pdf',
+      }),
+      // Received by April: a late return of two years before.
+      doc(null, {
+        uploadId: '00000000-0000-4000-8000-000000000004',
+        categories: [],
+        originalFilename: 'UNI_T2501201010101234567.pdf',
+      }),
+    ]);
+    expect([...returns.keys()].sort()).toEqual([2022, 2023]);
+    const filed = returns.get(2022);
+    expect(filed).toMatchObject({
+      filedOn: '2023-11-13',
+      filingId: 'T2311131450352240926',
+    });
+    expect(filed?.figures.netTax).toBeNull();
+    expect(filed?.notes.join(' ')).toMatch(/give it the Tax return type/);
+  });
 });
 
 describe('the filing deadline', () => {

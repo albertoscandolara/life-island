@@ -1,5 +1,6 @@
 import {
   CONTRACT_KINDS,
+  NOT_WORK_DOCUMENT_TYPES,
   PAYSLIP_KEYS,
   PAYSLIP_KINDS,
   PAYSLIP_KIND_LABELS,
@@ -22,6 +23,7 @@ import {
   type ScoreBandDto,
   type ScoreItemDto,
   euroText,
+  telematicFilingOf,
 } from '@life-island/contracts';
 
 /*
@@ -58,12 +60,23 @@ export function withAncestors(id: string, parentOf: ParentOf): string[] {
 /**
  * Whether a document is a work document and of which type: one of its
  * categories is, or sits under, one of WORK_DOCUMENT_TYPES, or the WORK
- * subject (then the type is unknown).
+ * subject (then the type is unknown). A tax return never is, whatever else
+ * it is filed under: one of NOT_WORK_DOCUMENT_TYPES, or a file the Agenzia
+ * delle Entrate named as a filed return ("UNI T2311131450352240926 …").
  */
 export function workDocumentType(
   categories: readonly string[],
   parentOf: ParentOf,
+  filename?: string | null,
 ): { isWork: boolean; type: WorkDocumentType | null } {
+  if (telematicFilingOf(filename)) return { isWork: false, type: null };
+  const notWork = NOT_WORK_DOCUMENT_TYPES as readonly string[];
+  if (
+    categories.some((id) =>
+      withAncestors(id, parentOf).some((c) => notWork.includes(c)),
+    )
+  )
+    return { isWork: false, type: null };
   let isWork = false;
   for (const id of categories) {
     const chain = withAncestors(id, parentOf);
