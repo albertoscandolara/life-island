@@ -353,12 +353,8 @@
           "tableFrom": "receipt_items",
           "tableTo": "receipts",
           "schemaTo": "grocery",
-          "columnsFrom": [
-            "receipt_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["receipt_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -493,12 +489,8 @@
           "tableFrom": "receipts",
           "tableTo": "merchants",
           "schemaTo": "grocery",
-          "columnsFrom": [
-            "merchant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["merchant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
