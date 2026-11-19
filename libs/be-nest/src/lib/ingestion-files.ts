@@ -1,7 +1,6 @@
 import { internalHeaders } from '@life-island/be-common';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Readable } from 'node:stream';
-import { CONFIG, type Tax730Config } from '../config.js';
 
 export interface FetchedFile {
   body: Readable;
@@ -11,18 +10,22 @@ export interface FetchedFile {
 
 /**
  * Reads original files from svc-ingestion's HTTP API: the files belong to
- * ingestion, and this service never touches its storage or tables.
+ * ingestion, and no other service touches its storage or tables. A service
+ * provides it with its own svc-ingestion URL:
+ *
+ * ```ts
+ * providers: [{ provide: IngestionFiles, useValue: new IngestionFiles(config.ingestionUrl) }]
+ * ```
  */
-@Injectable()
 export class IngestionFiles {
-  constructor(@Inject(CONFIG) private readonly config: Tax730Config) {}
+  constructor(private readonly ingestionUrl: string) {}
 
   async open(
     uploadId: string,
     disposition: 'preview' | 'download' = 'download',
   ): Promise<FetchedFile> {
     const response = await fetch(
-      `${this.config.ingestionUrl}/uploads/${encodeURIComponent(uploadId)}/${disposition}`,
+      `${this.ingestionUrl}/uploads/${encodeURIComponent(uploadId)}/${disposition}`,
       { headers: internalHeaders() },
     );
     if (response.status === 404)

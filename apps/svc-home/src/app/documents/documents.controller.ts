@@ -17,7 +17,7 @@ import { and, desc, ilike, isNull } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import { documents } from '../db/schema.js';
 import { documentAmount, documentDate } from './document-view.js';
-import { IngestionFiles } from './ingestion-files.js';
+import { IngestionFiles } from '@life-island/be-nest';
 
 @Controller('documents')
 export class DocumentsController {

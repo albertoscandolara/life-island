@@ -46,7 +46,7 @@ import { CarModels } from './car-models.js';
 import { CarPeople } from './car-people.js';
 import { CarsService } from './cars.service.js';
 import { carEntities } from './entities.js';
-import { IngestionFiles } from '../documents/ingestion-files.js';
+import { IngestionFiles } from '@life-island/be-nest';
 import { QuoteAdvisor, type QuoteFile } from './quote-advisor.js';
 
 /** A file multer kept in memory. */

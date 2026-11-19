@@ -5,6 +5,8 @@ import {
   isoAddDays,
   isoAddMonths,
   isoDaysBetween,
+  isNotAProduct,
+  productKey,
   type GroceryBasketDto,
   type GroceryItemCategory,
   type GroceryItemStatsDto,
@@ -29,14 +31,34 @@ export interface PurchaseLine {
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
+/** What you keep about an item: its id, link, photo, and whether you removed it. */
+export interface ProductInfo {
+  id: string;
+  link: string | null;
+  imageUpdatedAt: Date | null;
+  hidden: boolean;
+}
+
+/**
+ * Each item you buy (lines of the same name, without case), how often and
+ * at what price. Lines that are not a product (VAT, bags, discounts) and
+ * items you removed are left out.
+ */
 export function itemStats(
   lines: readonly PurchaseLine[],
+  products: ReadonlyMap<string, ProductInfo> = new Map(),
 ): GroceryItemStatsDto[] {
   const groups = new Map<string, PurchaseLine[]>();
-  for (const l of lines) groups.set(l.name, [...(groups.get(l.name) ?? []), l]);
+  for (const l of lines) {
+    const key = productKey(l.name);
+    if (!key || isNotAProduct(l.name) || products.get(key)?.hidden) continue;
+    groups.set(key, [...(groups.get(key) ?? []), l]);
+  }
   return [...groups.entries()]
-    .map(([name, group]) => {
+    .map(([key, group]) => {
       const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
+      const product = products.get(key);
+      const name = sorted[sorted.length - 1].name.trim();
       const days = [...new Set(sorted.map((l) => l.date))];
       const prices = sorted
         .filter((l) => l.unitPrice !== null && l.unitPrice > 0)
@@ -48,7 +70,10 @@ export function itemStats(
       const first = prices[0]?.price;
       const last = prices[prices.length - 1]?.price;
       return {
+        id: product?.id ?? null,
         name,
+        link: product?.link ?? null,
+        imageVersion: product?.imageUpdatedAt?.getTime() ?? null,
         category: sorted[sorted.length - 1].category,
         purchases: days.length,
         lastBought: days[days.length - 1],

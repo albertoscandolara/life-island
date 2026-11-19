@@ -1,8 +1,12 @@
 import type { RecordLoader } from '@life-island/be-common';
-import type { GroceryReceiptV1 } from '@life-island/contracts';
+import {
+  isDigitalOnly,
+  productKey,
+  type GroceryReceiptV1,
+} from '@life-island/contracts';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { merchants, receiptItems, receipts } from '../db/schema.js';
+import { merchants, products, receiptItems, receipts } from '../db/schema.js';
 
 /** How a merchant is recognised again: its VAT number, else its name. */
 export function merchantKey(merchant: GroceryReceiptV1['merchant']): string {
@@ -13,7 +17,7 @@ export function merchantKey(merchant: GroceryReceiptV1['merchant']): string {
 
 /**
  * Loads a confirmed `grocery.receipt@1`: upserts the merchant, inserts the
- * receipt and its items. A replay of the same review record finds the
+ * receipt and its items, and adds a product for each item name not seen yet. A replay of the same review record finds the
  * receipt by `source_staging_id` and returns it unchanged.
  */
 export const receiptLoader: RecordLoader<GroceryReceiptV1> = {
@@ -55,6 +59,8 @@ export const receiptLoader: RecordLoader<GroceryReceiptV1> = {
         currency: receipt.currency.toUpperCase(),
         total: receipt.total,
         paymentMethod: receipt.paymentMethod ?? null,
+        // Software or credits only: off the Groceries page, still in Money.
+        notGroceries: isDigitalOnly(receipt.items),
         documentFields: record.documentFields ?? null,
         approvedAt: new Date(record.approvedAt),
       })
@@ -72,6 +78,18 @@ export const receiptLoader: RecordLoader<GroceryReceiptV1> = {
           lineTotal: item.lineTotal,
         })),
       );
+    // Each item name gets its product (its link, photo, removed or not).
+    const names = new Map(
+      receipt.items
+        .map((item) => item.normalizedName.trim())
+        .filter(Boolean)
+        .map((name) => [productKey(name), name] as const),
+    );
+    if (names.size)
+      await db
+        .insert(products)
+        .values([...names].map(([nameKey, name]) => ({ nameKey, name })))
+        .onConflictDoNothing({ target: products.nameKey });
     return saved.id;
   },
 };

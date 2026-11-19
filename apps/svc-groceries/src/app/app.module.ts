@@ -8,13 +8,15 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime } from '@life-island/be-nest';
+import { EventsRuntime, IngestionFiles } from '@life-island/be-nest';
 import {
   RECORD_APPROVED_EVENT,
   SETTING_CHANGED_EVENT,
 } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type GroceriesConfig } from './config.js';
 import { HealthController } from './health.controller.js';
+import { ProductsController } from './products/products.controller.js';
+import { ProductsService } from './products/products.service.js';
 import { receiptLoader } from './receipts/receipt-loader.js';
 import { ReceiptsController } from './receipts/receipts.controller.js';
 import { ReceiptsService } from './receipts/receipts.service.js';
@@ -39,11 +41,21 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, ReceiptsController, ShoppingController],
+      controllers: [
+        HealthController,
+        ReceiptsController,
+        ProductsController,
+        ShoppingController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
+        {
+          provide: IngestionFiles,
+          useValue: new IngestionFiles(config.ingestionUrl),
+        },
         ReceiptsService,
+        ProductsService,
         ShoppingService,
         {
           provide: LIST_RECORDS,

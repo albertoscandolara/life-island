@@ -12,6 +12,7 @@ import {
   type Page,
   type ReceiptDetailDto,
   type ReceiptDto,
+  type ReceiptUpdateRequest,
   type SpendingDto,
 } from '@life-island/contracts';
 import {
@@ -63,6 +64,8 @@ export function toReceiptDto(
     id: row.id,
     sourceStagingId: row.sourceStagingId,
     uploadId: row.uploadId,
+    title: row.title,
+    notGroceries: row.notGroceries,
     merchant: {
       id: merchant.id,
       name: merchant.name,
@@ -155,6 +158,34 @@ export class ReceiptsService {
     };
   }
 
+  /**
+   * Your own name for a receipt (null goes back to the shop's name), and
+   * whether it is groceries: one that is not leaves the Groceries page but
+   * stays in `GET /payables`, so Money keeps matching and filing it.
+   */
+  async update(id: string, request: ReceiptUpdateRequest): Promise<void> {
+    const set: Partial<ReceiptRow> = {};
+    if (request.title !== undefined) set.title = request.title ?? null;
+    if (request.notGroceries !== undefined)
+      set.notGroceries = request.notGroceries;
+    const rows = await this.svc.db
+      .update(receipts)
+      .set(Object.keys(set).length ? set : { title: sql`${receipts.title}` })
+      .where(eq(receipts.id, id))
+      .returning({ id: receipts.id });
+    if (!rows.length) throw new NotFoundException(`Receipt ${id} not found`);
+  }
+
+  /** The document a receipt was read from. */
+  async uploadOf(id: string): Promise<string> {
+    const [row] = await this.svc.db
+      .select({ uploadId: receipts.uploadId })
+      .from(receipts)
+      .where(eq(receipts.id, id));
+    if (!row) throw new NotFoundException(`Receipt ${id} not found`);
+    return row.uploadId;
+  }
+
   /** The receipts and what they list, for Money matching (`GET /payables`). */
   async payables(query: PayablesQuery): Promise<PayableDto[]> {
     const days = receiptDaysFor(query);
@@ -230,6 +261,7 @@ export class ReceiptsService {
       select to_char(date_trunc('month', r.purchased_at), 'YYYY-MM') as month,
              i.category, sum(i.line_total) as total
         from ${receiptItems} i join ${receipts} r on r.id = i.receipt_id
+       where not r.not_groceries and i.category <> 'digital'
        group by 1, 2
        order by 1 desc, 3 desc`);
     return rows.map((row) => ({

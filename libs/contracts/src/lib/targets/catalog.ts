@@ -32,7 +32,7 @@ export const TARGET_CATALOG: readonly TargetDefinition[] = [
     category: 'groceries',
     label: 'Receipt or order',
     description:
-      'Proof of a purchase listing the items bought and a total: a receipt (scontrino) from a supermarket, grocery store, bakery, butcher, pharmacy or any other shop, or an online order (an Amazon or other shop order page, its screenshot or its confirmation email). Never an invoice to pay later or a bank statement.',
+      'Proof of a purchase listing the items bought and a total: a receipt (scontrino) from a supermarket, grocery store, bakery, butcher, pharmacy or any other shop, or an online order (an Amazon or other shop order page, its screenshot or its confirmation email), including a purchase of software, apps, AI or cloud credits and other digital goods (their lines go in the digital category). Never an invoice to pay later or a bank statement.',
     schema: GroceryReceiptV1,
   },
   {

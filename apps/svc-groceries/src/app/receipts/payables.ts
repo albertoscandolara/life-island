@@ -44,6 +44,7 @@ export const ITEM_MONEY_CATEGORY: Record<GroceryItemCategory, MoneyCategory> = {
   household: 'groceries',
   personal_care: 'groceries',
   pharmacy: 'health',
+  digital: 'subscriptions',
   other: 'shopping',
 };
 

@@ -203,3 +203,26 @@ export function storageOptionsFromEnv(
     bucket: env['S3_BUCKET'] || 'uploads',
   };
 }
+
+/**
+ * A service's own bucket (3D models, company logos, product photos): the
+ * shared S3 settings with the bucket named by `bucketVar` (else
+ * `defaultBucket`), or null when S3 is not configured, so the service runs
+ * without it and only its uploads are unavailable.
+ */
+export function serviceStorageFromEnv(
+  bucketVar: string,
+  defaultBucket: string,
+  env: NodeJS.ProcessEnv = process.env,
+): StorageOptions | null {
+  if (!env['S3_ENDPOINT'] || !env['S3_ACCESS_KEY'] || !env['S3_SECRET_KEY'])
+    return null;
+  return {
+    endpoint: env['S3_ENDPOINT'],
+    publicEndpoint: env['S3_PUBLIC_ENDPOINT'] || undefined,
+    region: env['S3_REGION'] || 'us-east-1',
+    accessKeyId: env['S3_ACCESS_KEY'],
+    secretAccessKey: env['S3_SECRET_KEY'],
+    bucket: env[bucketVar] || defaultBucket,
+  };
+}

@@ -6,7 +6,7 @@ import {
   ParseUUIDPipe,
   StreamableFile,
 } from '@nestjs/common';
-import { IngestionFiles } from './ingestion-files.js';
+import { IngestionFiles } from '@life-island/be-nest';
 
 @Controller('documents')
 export class DocumentsController {

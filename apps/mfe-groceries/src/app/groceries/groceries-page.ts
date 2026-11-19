@@ -2,8 +2,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -24,10 +26,9 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
-  UiLineChart,
   UiPageHeader,
-  type UiChartSeries,
 } from '@life-island/design-system';
+import { EntityLink } from '@life-island/entities-ui';
 import {
   LiBars,
   LiRecordDialog,
@@ -48,6 +49,8 @@ import {
 } from '@life-island/records-ui';
 import { AiTool } from '@life-island/settings-ui';
 import { GroceriesApi } from '../api/groceries-api';
+import { ItemDialog } from './item-dialog';
+import { ReceiptDialog } from './receipt-dialog';
 
 type GroceriesTab = 'list' | 'prices' | 'spending';
 const TABS: readonly GroceriesTab[] = ['list', 'prices', 'spending'];
@@ -62,6 +65,9 @@ const SERVICE = 'svc-groceries';
   selector: 'groceries-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EntityLink,
+    ItemDialog,
+    ReceiptDialog,
     LiNeedsYou,
     AiTool,
     LiBars,
@@ -75,7 +81,6 @@ const SERVICE = 'svc-groceries';
     UiCard,
     UiEmptyState,
     UiIcon,
-    UiLineChart,
     UiPageHeader,
   ],
   host: { 'data-character': 'trice', class: 'groceries' },
@@ -83,7 +88,7 @@ const SERVICE = 'svc-groceries';
   styleUrl: './groceries-page.css',
 })
 export class GroceriesPage {
-  private readonly api = inject(GroceriesApi);
+  protected readonly api = inject(GroceriesApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -104,10 +109,13 @@ export class GroceriesPage {
 
   protected readonly newItem = signal('');
   protected readonly search = signal('');
-  /** The item in the price chart, kept in the URL (`?item=`). */
-  private readonly chartItem = signal<string | null>(
+  /** The item open in its popup, kept in the URL (`?item=<name>`). */
+  private readonly itemName = signal<string | null>(
     this.route.snapshot.queryParamMap.get('item'),
   );
+  protected readonly itemOpen = signal(!!this.itemName());
+  protected readonly receiptOpen = signal(false);
+  protected readonly openedReceipt = signal<string | null>(null);
 
   protected readonly question = signal('');
   protected readonly asking = signal(false);
@@ -140,44 +148,37 @@ export class GroceriesPage {
     () => (this.data()?.list ?? []).filter((i) => i.done).length,
   );
 
-  /** The item picked, else the one that rose most of those bought 3+ times. */
-  protected readonly priced = computed<GroceryItemStatsDto | null>(() => {
-    const all = (this.data()?.items ?? []).filter((i) => i.prices.length > 1);
+  /** The item in its popup, as the page last loaded it. */
+  protected readonly openedItem = computed<GroceryItemStatsDto | null>(() => {
+    const name = this.itemName()?.toLowerCase();
     return (
-      all.find((i) => i.name === this.chartItem()) ??
-      [...all]
-        .filter((i) => i.purchases >= 3)
-        .sort((a, b) => (b.priceChange ?? 0) - (a.priceChange ?? 0))[0] ??
-      all[0] ??
+      (this.data()?.items ?? []).find((i) => i.name.toLowerCase() === name) ??
       null
     );
   });
 
-  protected readonly priceChart = computed(() => {
-    const item = this.priced();
-    if (!item) return null;
-    const series: UiChartSeries[] = [
-      {
-        id: item.name,
-        label: item.name,
-        color: 'var(--viz-1)',
-        values: item.prices.map((p) => p.price),
-      },
-    ];
-    return {
-      item,
-      series,
-      categories: item.prices.map((p) => monthText(p.date, true)),
-      title: (i: number) =>
-        `${dateText(item.prices[i]?.date)} · ${item.prices[i]?.merchant ?? ''}`,
-    };
-  });
+  protected openItem(item: GroceryItemStatsDto): void {
+    this.itemName.set(item.name);
+    this.itemOpen.set(true);
+    this.setItemQuery(item.name);
+  }
 
-  protected showPrice(item: GroceryItemStatsDto): void {
-    this.chartItem.set(item.name);
+  protected openReceipt(id: string): void {
+    this.openedReceipt.set(id);
+    this.receiptOpen.set(true);
+  }
+
+  /** The cheapest price seen of an item, and where. */
+  protected cheapest(item: GroceryItemStatsDto) {
+    return item.prices.length
+      ? item.prices.reduce((a, b) => (b.price < a.price ? b : a))
+      : null;
+  }
+
+  private setItemQuery(item: string | null): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { item: item.name },
+      queryParams: { item },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -220,6 +221,15 @@ export class GroceriesPage {
 
   constructor() {
     this.load();
+    // Closed: the item leaves the URL.
+    effect(() => {
+      if (!this.itemOpen() && untracked(this.itemName)) {
+        untracked(() => {
+          this.itemName.set(null);
+          this.setItemQuery(null);
+        });
+      }
+    });
     // Added from the island's "Add" menu while this page is open.
     onRecordsChanged(this.api.base, () => this.load());
     // `?add=Milk`: "Add to list" on something running out (Needs you, the
@@ -247,6 +257,8 @@ export class GroceriesPage {
       next: (data) => {
         this.data.set(data);
         this.error.set(null);
+        // An item the link names that is no longer there (renamed, removed).
+        if (this.itemOpen() && !this.openedItem()) this.itemOpen.set(false);
       },
       error: (error: unknown) =>
         this.error.set(

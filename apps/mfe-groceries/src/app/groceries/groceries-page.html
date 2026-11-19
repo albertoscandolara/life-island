@@ -244,21 +244,9 @@
     } @if (b.risers.length) { Up the most: @for (r of b.risers; track r.name;
     let last = $last) { {{ r.name }} {{ signed(r.change) }}{{ last ? '.' : ', '
     }} } } } @else { Your own inflation shows once you have receipts from two
-    years with the same items. } Pick an item in the table to see its price.
+    years with the same items. } Open an item to see its price over time, or to
+    rename it, add its link and a photo.
   </p>
-  @if (priceChart(); as c) {
-  <h3 class="li-sub chart-title">{{ c.item.name }}: the price you paid</h3>
-  <ui-line-chart
-    [categories]="c.categories"
-    [series]="c.series"
-    [zero]="false"
-    [area]="false"
-    [title]="c.title"
-    [format]="euro"
-    [height]="200"
-    [ariaLabel]="'Price of ' + c.item.name + ' over time'"
-  />
-  }
 </ui-card>
 <div class="li-toolbar li-block">
   <input
@@ -284,21 +272,38 @@
       </tr>
     </thead>
     <tbody>
-      @for (i of items(); track i.name) {
-      <tr [class.row--on]="i.name === priced()?.name">
+      @for (i of items(); track i.id ?? i.name) {
+      <!-- The row opens the item; its name is the keyboard's way in. -->
+      <tr class="row" (click)="openItem(i)">
         <th scope="row">
-          @if (i.prices.length > 1) {
-          <button
-            type="button"
-            class="li-link"
-            [attr.aria-pressed]="i.name === priced()?.name"
-            [attr.aria-label]="'Show the price of ' + i.name + ' in the chart'"
-            (click)="showPrice(i)"
-          >
-            {{ i.name }}
-          </button>
-          } @else { {{ i.name }} }
-          <span class="li-muted li-small">· {{ category(i.category) }}</span>
+          <span class="item">
+            @if (api.itemImageUrl(i); as src) {
+            <img class="thumb" [src]="src" alt="" loading="lazy" />
+            }
+            <button
+              type="button"
+              class="item__name"
+              (click)="$event.stopPropagation(); openItem(i)"
+            >
+              {{ i.name }}
+            </button>
+            <span class="li-muted li-small">· {{ category(i.category) }}</span>
+            @if (i.link) {
+            <a
+              uiButton
+              variant="ghost"
+              size="sm"
+              [iconOnly]="true"
+              [href]="i.link"
+              target="_blank"
+              rel="noopener"
+              [attr.aria-label]="'Buy ' + i.name + ' again (opens its link)'"
+              (click)="$event.stopPropagation()"
+            >
+              <ui-icon name="external" [size]="14" />
+            </a>
+            }
+          </span>
         </th>
         <td class="li-num">{{ i.purchases }}×</td>
         <td class="li-num">{{ i.everyDays ? i.everyDays + ' days' : '—' }}</td>
@@ -315,9 +320,8 @@
           percent(i.priceChange) }}
         </td>
         <td class="li-small li-muted">
-          @if (i.prices.length) { @let cheapest = i.prices.slice().sort((a, b)
-          => a.price - b.price)[0]; {{ euro(cheapest.price) }} at {{
-          cheapest.merchant }} }
+          @if (cheapest(i); as c) { {{ euro(c.price) }} at
+          <li-entity-link kind="organization" [name]="c.merchant" /> }
         </td>
       </tr>
       }
@@ -349,39 +353,24 @@
     }
   </ui-card>
 </div>
-<div class="li-grid li-block">
-  <ui-card heading="Shops">
-    @if (!d.merchants.length) {
-    <p class="li-muted">No shops yet.</p>
-    } @else {
-    <ul class="li-list">
-      @for (m of d.merchants; track m.id) {
-      <li class="li-row">
-        <span class="stack"
-          ><strong>{{ m.name }}</strong
-          ><span class="li-muted li-small"
-            >{{ m.receipts }} receipts · last {{ dateText(m.lastVisit) }}</span
-          ></span
-        >
-        <span class="li-num">{{ euro(m.total, false) }}</span>
-      </li>
-      }
-    </ul>
-    }
-  </ui-card>
-  <ui-card heading="Latest receipts">
-    @if (!d.recent.length) {
-    <p class="li-muted">No receipts yet.</p>
-    } @else {
-    <ul class="li-list">
-      @for (r of d.recent; track r.id) {
-      <li class="li-row">
-        <span class="stack"
-          ><strong>{{ r.merchant.name }}</strong
-          ><span class="li-muted li-small"
-            >{{ dateText(r.purchasedAt) }} · {{ r.itemCount }} items</span
-          ></span
-        >
+<ui-card heading="Latest receipts" class="li-block">
+  @if (!d.recent.length) {
+  <p class="li-muted">No receipts yet.</p>
+  } @else {
+  <ul class="li-list">
+    @for (r of d.recent; track r.id) {
+    <li class="li-row">
+      <span class="stack"
+        ><strong
+          ><button type="button" class="item__name" (click)="openReceipt(r.id)">
+            {{ r.title || r.merchant.name }}
+          </button></strong
+        ><span class="li-muted li-small"
+          ><li-entity-link kind="organization" [name]="r.merchant.name" /> · {{
+          dateText(r.purchasedAt) }} · {{ r.itemCount }} items</span
+        ></span
+      >
+      <span class="receipt__end">
         @if (r.bankPayment; as paid) {
         <ui-badge
           tone="success"
@@ -390,13 +379,62 @@
         >
         }
         <span class="li-num">{{ euro(r.total) }}</span>
-      </li>
-      }
-    </ul>
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [iconOnly]="true"
+          [href]="api.documentUrl(r.id)"
+          target="_blank"
+          rel="noopener"
+          [attr.aria-label]="'Open the document of ' + (r.title || r.merchant.name)"
+          title="Open the document"
+        >
+          <ui-icon name="file" [size]="16" />
+        </a>
+      </span>
+    </li>
     }
-  </ui-card>
-</div>
-} } }
+  </ul>
+  }
+</ui-card>
+@if (d.notGroceries.length) {
+<ui-card heading="Not groceries" class="li-block">
+  <p class="li-muted li-small">
+    Software, AI credits and other receipts kept off this page. Money still
+    matches each with its card payment and files what it bought.
+  </p>
+  <ul class="li-list">
+    @for (r of d.notGroceries; track r.id) {
+    <li class="li-row">
+      <span class="stack"
+        ><strong
+          ><button type="button" class="item__name" (click)="openReceipt(r.id)">
+            {{ r.title || r.merchant.name }}
+          </button></strong
+        ><span class="li-muted li-small"
+          ><li-entity-link kind="organization" [name]="r.merchant.name" /> · {{
+          dateText(r.purchasedAt) }}</span
+        ></span
+      >
+      <span class="li-num">{{ euro(r.total) }}</span>
+    </li>
+    }
+  </ul>
+</ui-card>
+} } } }
+
+<groceries-item-dialog
+  [(open)]="itemOpen"
+  [item]="openedItem()"
+  (changed)="load()"
+/>
+
+<groceries-receipt-dialog
+  [(open)]="receiptOpen"
+  [receiptId]="openedReceipt()"
+  (changed)="load()"
+/>
 
 <li-record-dialog
   heading="Item"

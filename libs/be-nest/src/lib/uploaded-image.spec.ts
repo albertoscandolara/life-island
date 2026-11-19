@@ -1,4 +1,4 @@
-import { imageTypeOf } from './organization-images.js';
+import { imageTypeOf } from './uploaded-image.js';
 
 describe('imageTypeOf', () => {
   const bytes = (...parts: (string | number[])[]) =>
