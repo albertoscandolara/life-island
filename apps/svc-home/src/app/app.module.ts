@@ -6,7 +6,7 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime, ingestionFilesProvider } from '@life-island/be-nest';
+import { EventsRuntime } from '@life-island/be-nest';
 import { BillLedger } from './bills/bill-ledger.js';
 import { HomeAttentionController } from './attention.controller.js';
 import { HomeDeadlinesController } from './bills/deadlines.controller.js';
@@ -20,6 +20,7 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
+import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { HouseSuggestionsService } from './houses/house-suggestions.service.js';
 import { HousesController } from './houses/houses.controller.js';
@@ -76,7 +77,7 @@ export class AppModule {
         BillLedger,
         BillsService,
         WorksService,
-        ingestionFilesProvider(CONFIG),
+        IngestionFiles,
         HouseModels,
         OrganizationImages,
         HomePeople,

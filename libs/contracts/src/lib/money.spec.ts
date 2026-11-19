@@ -1,5 +1,7 @@
 import {
+  mainPurchaseCategory,
   moneyChannel,
+  purchaseDetails,
   splitsProblem,
   transactionRequestSchema,
 } from './money.js';
@@ -35,5 +37,38 @@ describe('Money: parts and channels', () => {
     expect(
       moneyChannel({ channel: 'store', description: 'PAYPAL *IKEA' }),
     ).toBe('store');
+  });
+});
+
+describe('Money: what a receipt says', () => {
+  const lines = [
+    { name: 'Whole milk 1 L', amount: 1.29, category: 'groceries' as const },
+    { name: 'Detergent x2', amount: 26.64, category: 'groceries' as const },
+    { name: 'Bamboo placemats', amount: 27.99, category: 'shopping' as const },
+    { name: 'Ibuprofen', amount: 4.5, category: 'health' as const },
+  ];
+
+  it('lists what was bought and puts the other categories in parts', () => {
+    const details = purchaseDetails(lines, 'groceries', -60.42);
+    expect(details.notes).toBe(
+      'Bamboo placemats €27.99, Detergent x2 €26.64, Ibuprofen €4.50, Whole milk 1 L €1.29',
+    );
+    expect(details.splits).toEqual([
+      { category: 'shopping', amount: 27.99 },
+      { category: 'health', amount: 4.5 },
+    ]);
+  });
+
+  it('leaves the parts out when they do not fit the movement', () => {
+    expect(purchaseDetails(lines, 'groceries', -10).splits).toEqual([]);
+    expect(purchaseDetails([], 'groceries', -10)).toEqual({
+      notes: null,
+      splits: [],
+    });
+  });
+
+  it('finds the category most of the money went to', () => {
+    expect(mainPurchaseCategory(lines)).toBe('shopping');
+    expect(mainPurchaseCategory([])).toBe(null);
   });
 });

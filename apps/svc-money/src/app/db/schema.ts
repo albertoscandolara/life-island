@@ -65,30 +65,6 @@ export const transactions = money.table(
 );
 export type TransactionRow = typeof transactions.$inferSelect;
 
-/**
- * A receipt, an order screenshot or a photo filed with a movement. The file
- * is a document of svc-ingestion (by id); removing the movement forgets the
- * link, never the document.
- */
-export const transactionAttachments = money.table(
-  'transaction_attachments',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    transactionId: uuid('transaction_id')
-      .notNull()
-      .references(() => transactions.id, { onDelete: 'cascade' }),
-    uploadId: uuid('upload_id').notNull(),
-    name: text('name').notNull(),
-    contentType: text('content_type').notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    unique('transaction_attachments_pair').on(t.transactionId, t.uploadId),
-  ],
-);
-export type TransactionAttachmentRow =
-  typeof transactionAttachments.$inferSelect;
-
 /** A monthly limit for one category. */
 export const budgets = money.table('budgets', {
   id: uuid('id').primaryKey().defaultRandom(),

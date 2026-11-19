@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { parseOrThrow } from '@life-island/be-nest';
 import {
+  matchCashRequestSchema,
   matchLinkRequestSchema,
   matchRejectRequestSchema,
   type MatchesDto,
@@ -39,6 +40,12 @@ export class MatchingController {
   @Post('matches/links')
   link(@Body() body: unknown): Promise<MovementLinkDto[]> {
     return this.matching.link(parseOrThrow(matchLinkRequestSchema, body));
+  }
+
+  /** A receipt paid in cash becomes a movement of an account, linked to it. */
+  @Post('matches/cash')
+  addCash(@Body() body: unknown): Promise<MovementLinkDto[]> {
+    return this.matching.addCash(parseOrThrow(matchCashRequestSchema, body));
   }
 
   @Delete('matches/links/:id')

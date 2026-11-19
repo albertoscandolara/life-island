@@ -5,7 +5,7 @@ import type { Readable } from 'node:stream';
 import { DossierService } from '../dossier/dossier.service.js';
 import { buildDeductionsWorkbook } from './deductions-workbook.js';
 import { dossierFiles, dossierRoot } from './dossier-files.js';
-import { IngestionFiles } from '@life-island/be-nest';
+import { IngestionFiles } from './ingestion-files.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 

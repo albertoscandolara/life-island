@@ -329,10 +329,8 @@ services:
       args: { SERVICE: svc-money }
     environment:
       <<: *service-env
-      # The spending review and the receipt reader use the Claude API when the key is set.
+      # The spending review uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # The receipts filed with movements are documents of svc-ingestion.
-      INGESTION_URL: http://svc-ingestion:3000
       # The areas whose bills and expenses Money matches with your movements (GET /payables).
       PAYABLE_SOURCES: home=http://svc-home:3000,cars=http://svc-cars:3000,subscriptions=http://svc-subscriptions:3000,work=http://svc-work:3000,groceries=http://svc-groceries:3000,taxes=http://svc-tax730:3000
     depends_on: *service-deps

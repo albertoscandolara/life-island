@@ -51,11 +51,11 @@ import {
   LiNeedsYou,
   urlTab,
 } from '@life-island/records-ui';
-import { AiTool } from '@life-island/settings-ui';
+import { AiTool, DOCUMENTS_APP_URL } from '@life-island/settings-ui';
 import { MoneyApi } from '../api/money-api';
 import { parseBankCsv, type BankCsv } from './bank-csv';
 import { MoneyMatch } from './money-match';
-import { MoneyReceipt } from './money-receipt';
+import { MoneyDetails } from './money-details';
 
 type MoneyTab =
   'overview' | 'movements' | 'match' | 'budgets' | 'recurring' | 'review';
@@ -144,7 +144,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     LiRecordDialog,
     LiTabs,
     MoneyMatch,
-    MoneyReceipt,
+    MoneyDetails,
     RouterLink,
     UiAiPanel,
     UiAiStatus,
@@ -201,9 +201,10 @@ export class MoneyPage {
   protected readonly search = signal('');
   protected readonly shown = signal(PAGE);
 
-  // Receipts and notes: a movement's, or a new expense's
-  protected readonly receiptOpen = signal(false);
-  protected readonly receiptMovement = signal<TransactionDto | null>(null);
+  // What a movement bought: note, channel, parts
+  protected readonly detailsOpen = signal(false);
+  protected readonly detailsMovement = signal<TransactionDto | null>(null);
+  protected readonly documentsUrl = inject(DOCUMENTS_APP_URL);
 
   // CSV import
   protected readonly importOpen = signal(false);
@@ -444,10 +445,10 @@ export class MoneyPage {
     ].join(', ');
   }
 
-  /** Receipts and a note for a movement. */
-  protected openReceipt(t: TransactionDto | null): void {
-    this.receiptMovement.set(t);
-    this.receiptOpen.set(true);
+  /** What a movement bought: a note, online or in a shop, parts. */
+  protected openDetails(t: TransactionDto): void {
+    this.detailsMovement.set(t);
+    this.detailsOpen.set(true);
   }
 
   protected readonly euroWhole = (v: number) => euro(v, false);

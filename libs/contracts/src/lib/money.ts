@@ -192,89 +192,65 @@ export type TransactionDto = LifeRecord<{
   notes: string | null;
   /** Parts in other categories, positive; the rest is in `category`. */
   splits: TransactionSplit[];
-  /** Set by you or read from a receipt; null when never said. */
+  /** Set by you; null: guessed from the description (`moneyChannel`). */
   channel: MoneyChannel | null;
-  /** The receipts, orders and photos filed with it (documents in ingestion). */
-  attachments: MovementAttachmentDto[];
 }>;
 
-/** A receipt, an order screenshot or a photo filed with a movement. */
-export interface MovementAttachmentDto {
-  id: string;
-  /** The document in the documents app (svc-ingestion). */
-  uploadId: string;
+/** One line of what was bought (`PayableLine`, from a receipt or an order). */
+export interface PurchaseLine {
   name: string;
-  contentType: string;
-  createdAt: string;
+  amount: number;
+  category: MoneyCategory;
 }
 
-/** Receipts per movement and per reading: up to 6 photos, PDFs or screenshots. */
-export const RECEIPT_MAX_FILES = 6;
-export const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
-export const RECEIPT_CONTENT_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-] as const;
+/**
+ * The note and the parts in other categories of a movement, from the lines
+ * of its receipt. The note lists what was bought, the most expensive first,
+ * so Movements finds it; the parts group the lines outside `category`, and
+ * are left out when they would not fit in the movement.
+ */
+export function purchaseDetails(
+  lines: readonly PurchaseLine[],
+  category: MoneyCategory,
+  amount: number,
+): { notes: string | null; splits: TransactionSplit[] } {
+  const euro = (v: number) => `€${v.toFixed(2)}`;
+  const sorted = [...lines]
+    .filter((l) => l.name.trim())
+    .sort((a, b) => b.amount - a.amount);
+  let notes = '';
+  for (const line of sorted) {
+    const text = `${line.name.trim()} ${euro(line.amount)}`;
+    const next = notes ? `${notes}, ${text}` : text;
+    if (next.length > 500) break;
+    notes = next;
+  }
+  const byCategory = new Map<MoneyCategory, number>();
+  for (const line of lines)
+    if (line.category !== category && line.amount > 0)
+      byCategory.set(
+        line.category,
+        (byCategory.get(line.category) ?? 0) + line.amount,
+      );
+  const splits = [...byCategory]
+    .map(([c, v]) => ({ category: c, amount: Math.round(v * 100) / 100 }))
+    .filter((s) => s.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, MAX_SPLITS);
+  return {
+    notes: notes || null,
+    splits: splitsProblem(amount, splits) ? [] : splits,
+  };
+}
 
-/** What the receipt reader found on the photos (the AI tool money.receipt-reader). */
-export const receiptReadingOutputSchema = z.object({
-  merchant: z
-    .string()
-    .describe(
-      'The shop or platform, short, as people say it: "Amazon", "Esselunga", "MediaWorld"',
-    ),
-  date: z
-    .string()
-    .describe(
-      'The day of the purchase (order date or receipt date) as YYYY-MM-DD, or "" if not shown',
-    ),
-  total: z
-    .number()
-    .describe(
-      'What was paid in total in euro, after discounts and promotions, positive; 0 if not shown',
-    ),
-  channel: z
-    .enum(MONEY_CHANNELS)
-    .describe(
-      'online for an order placed on a website or app, store for a receipt from a shop',
-    ),
-  category: z
-    .enum(MONEY_CATEGORIES)
-    .describe('The category of the biggest part of the purchase'),
-  splits: z
-    .array(
-      z.object({
-        category: z.enum(MONEY_CATEGORIES),
-        amount: z
-          .number()
-          .describe('Positive euro, the lines of this category together'),
-      }),
-    )
-    .describe(
-      'Only when lines belong to other categories than `category`: one part per other category',
-    ),
-  note: z
-    .string()
-    .describe(
-      'What was bought, short, for searching later: "ACE detergent x2 €26.64, Scottex kitchen paper €14.89, bamboo placemats €27.99"',
-    ),
-  items: z
-    .array(
-      z.object({
-        name: z.string().describe('Short readable name'),
-        amount: z.number().describe('What the line cost in euro, positive'),
-      }),
-    )
-    .describe('The lines, at most 30, the most expensive first'),
-});
-export type ReceiptReadingOutput = z.infer<typeof receiptReadingOutputSchema>;
-
-/** The reading of a receipt: what the model found, to check before saving. */
-export interface ReceiptReadingDto {
-  reading: ReceiptReadingOutput;
-  model: string;
+/** The category most of the lines are in (by amount), or null with none. */
+export function mainPurchaseCategory(
+  lines: readonly PurchaseLine[],
+): MoneyCategory | null {
+  const totals = new Map<MoneyCategory, number>();
+  for (const line of lines)
+    totals.set(line.category, (totals.get(line.category) ?? 0) + line.amount);
+  return [...totals].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
 
 /** The online shops and marketplaces a bank names (keep in sync with `guessMoneyCategory`). */
@@ -402,8 +378,6 @@ export interface MoneyOverviewDto {
   paidItems: MovementPaidItemDto[];
   /** The last 6 months of purchases, online and in a shop, oldest first. */
   purchaseChannels: PurchaseChannelsDto[];
-  /** Whether "Read the receipt" calls the model now (money.receipt-reader). */
-  aiReceipts: boolean;
 }
 
 /** One item of another area a movement paid, linked on the "To match" tab. */

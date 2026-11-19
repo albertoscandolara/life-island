@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
+  AccountDto,
   MatchesDto,
   MatchPayableDto,
   MatchSuggestion,
@@ -29,6 +30,8 @@ import type { Observable } from 'rxjs';
 import { MoneyApi } from '../api/money-api';
 import {
   candidates,
+  cashAccount,
+  cashItems,
   CONFIDENCE,
   leftOf,
   openItems,
@@ -70,6 +73,8 @@ export class MoneyMatch {
 
   /** The page's movements: when they change (an import), Money looks again. */
   readonly movements = input<unknown>();
+  /** Your accounts: a receipt paid in cash is added to one of them. */
+  readonly accounts = input<readonly AccountDto[]>([]);
   /** A link was made or undone: the page reloads, and so does this tab. */
   readonly changed = output<void>();
   /** You want to bring in newer movements. */
@@ -80,6 +85,8 @@ export class MoneyMatch {
   protected readonly busy = signal(false);
   /** The movement you picked for each open item, by item key. */
   protected readonly picked = signal<Record<string, string>>({});
+  /** The account you picked for each receipt paid in cash, by item key. */
+  protected readonly cashPicked = signal<Record<string, string>>({});
 
   protected readonly euro = euro;
   protected readonly dateText = dateText;
@@ -97,6 +104,13 @@ export class MoneyMatch {
     const data = this.data();
     return data ? openItems(data) : [];
   });
+  protected readonly cash = computed(() => {
+    const data = this.data();
+    return data ? cashItems(data) : [];
+  });
+  protected readonly openAccounts = computed(() =>
+    this.accounts().filter((a) => !a.archived),
+  );
   private readonly movementsById = computed(
     () => new Map((this.data()?.movements ?? []).map((m) => [m.id, m])),
   );
@@ -220,6 +234,28 @@ export class MoneyMatch {
   protected pickedAmount(payable: MatchPayableDto): number | null {
     const movement = this.movement(this.pickedFor(payable));
     return movement ? pickAmount(payable, movement) : null;
+  }
+
+  protected cashAccountFor(payable: MatchPayableDto): string {
+    return this.cashPicked()[payable.key] ?? cashAccount(this.accounts()) ?? '';
+  }
+
+  protected pickCash(payable: MatchPayableDto, accountId: string): void {
+    this.cashPicked.update((p) => ({ ...p, [payable.key]: accountId }));
+  }
+
+  /** The receipt becomes a movement of the account, linked to it. */
+  protected addCash(payable: MatchPayableDto): void {
+    const accountId = this.cashAccountFor(payable);
+    if (!accountId) return;
+    this.save(
+      this.api.addCash({
+        payableKey: payable.key,
+        date: payable.date,
+        accountId,
+      }),
+      'Could not add it.',
+    );
   }
 
   protected unlink(link: MovementLinkDto): void {

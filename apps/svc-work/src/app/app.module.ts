@@ -7,7 +7,7 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime, ingestionFilesProvider } from '@life-island/be-nest';
+import { EventsRuntime } from '@life-island/be-nest';
 import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type WorkConfig } from './config.js';
 import {
@@ -15,6 +15,7 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
+import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { CareerAdvisor } from './work/career-advisor.js';
 import { WorkController } from './work/work.controller.js';
@@ -40,7 +41,7 @@ export class AppModule {
         { provide: SERVICE_DB, useValue: svc },
         WorkService,
         CareerAdvisor,
-        ingestionFilesProvider(CONFIG),
+        IngestionFiles,
         ...(options.events === false
           ? []
           : [

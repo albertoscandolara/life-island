@@ -1,0 +1,57 @@
+.field {
+  display: grid;
+  gap: var(--space-1);
+  margin-block: var(--space-3);
+  font-weight: 600;
+}
+
+.hint {
+  font-weight: 400;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  column-gap: var(--space-4);
+}
+
+.receipt {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin-block: var(--space-3);
+}
+
+.receipt p {
+  margin: 0;
+}
+
+.splits {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-3);
+}
+
+.splits__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split {
+  display: flex;
+  min-width: 0;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.split select {
+  flex: 1;
+  min-width: 0;
+}
+
+.split__amount {
+  width: 7rem;
+}

@@ -20,7 +20,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import type { Readable } from 'node:stream';
-import { IngestionFiles, parseOrThrow } from '@life-island/be-nest';
+import { parseOrThrow } from '@life-island/be-nest';
 import {
   approveCarReviewRequestSchema,
   createTyreSetRequestSchema,
@@ -46,6 +46,7 @@ import { CarModels } from './car-models.js';
 import { CarPeople } from './car-people.js';
 import { CarsService } from './cars.service.js';
 import { carEntities } from './entities.js';
+import { IngestionFiles } from '../documents/ingestion-files.js';
 import { QuoteAdvisor, type QuoteFile } from './quote-advisor.js';
 
 /** A file multer kept in memory. */

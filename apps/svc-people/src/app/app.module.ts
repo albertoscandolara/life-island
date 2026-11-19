@@ -5,7 +5,7 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime, ingestionFilesProvider } from '@life-island/be-nest';
+import { EventsRuntime } from '@life-island/be-nest';
 import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type PeopleConfig } from './config.js';
 import {
@@ -13,6 +13,7 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
+import { IngestionFiles } from './documents/ingestion-files.js';
 import { HomeHouses } from './people/home-houses.js';
 import { HealthController } from './health.controller.js';
 import { PeopleController } from './people/people.controller.js';
@@ -37,7 +38,7 @@ export class AppModule {
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         PeopleService,
-        ingestionFilesProvider(CONFIG),
+        IngestionFiles,
         HomeHouses,
         ...(options.events === false
           ? []

@@ -155,7 +155,7 @@ export class ReceiptsService {
     };
   }
 
-  /** The receipts paid by card, for Money matching (`GET /payables`). */
+  /** The receipts and what they list, for Money matching (`GET /payables`). */
   async payables(query: PayablesQuery): Promise<PayableDto[]> {
     const days = receiptDaysFor(query);
     // A day of margin each side: purchasedAt is a moment, the day is Italy's.
@@ -172,6 +172,23 @@ export class ReceiptsService {
           lt(receipts.purchasedAt, nextDay(isoAddDays(days.to, 1))),
         ),
       );
+    const items = rows.length
+      ? await this.svc.db
+          .select({
+            receiptId: receiptItems.receiptId,
+            name: receiptItems.normalizedName,
+            category: receiptItems.category,
+            lineTotal: receiptItems.lineTotal,
+          })
+          .from(receiptItems)
+          .where(
+            inArray(
+              receiptItems.receiptId,
+              rows.map((r) => r.receipt.id),
+            ),
+          )
+          .orderBy(receiptItems.position)
+      : [];
     return receiptPayables(
       rows.map(({ receipt, merchant }) => ({
         id: receipt.id,
@@ -180,6 +197,7 @@ export class ReceiptsService {
         total: receipt.total,
         currency: receipt.currency,
         paymentMethod: receipt.paymentMethod,
+        items: items.filter((i) => i.receiptId === receipt.id),
       })),
       query,
     );

@@ -213,8 +213,7 @@
     months: online
     <strong>{{ ch.share === null ? '—' : percent(ch.share) }}</strong>
     ({{ euro(ch.online, false) }} of {{ euro(ch.total, false) }}). The shop's
-    name tells which, unless a receipt or you said otherwise. A month opens its
-    movements.
+    name tells which, unless you said otherwise. A month opens its movements.
   </p>
   <ui-column-chart
     [buckets]="ch.buckets"
@@ -342,15 +341,14 @@
     (input)="search.set($any($event.target).value)"
   />
   <span class="spacer"></span>
-  <button
+  <a
     uiButton
     variant="secondary"
-    type="button"
-    [disabled]="!d.accounts.length"
-    (click)="openReceipt(null)"
+    [href]="documentsUrl"
+    title="Receipts and orders go through the documents app: once confirmed there, they show up in To match"
   >
-    <ui-icon name="camera" [size]="16" /> From a receipt
-  </button>
+    <ui-icon name="upload" [size]="16" /> Upload receipts
+  </a>
   <button
     uiButton
     variant="secondary"
@@ -414,16 +412,6 @@
           </span>
           } @if (t.notes) {
           <span class="li-muted li-small note">{{ t.notes }}</span>
-          } @if (t.attachments.length) {
-          <button
-            type="button"
-            class="li-chip receipts"
-            [attr.aria-label]="'Open the ' + t.attachments.length + ' receipts of this movement'"
-            (click)="openReceipt(t)"
-          >
-            <ui-icon name="file" [size]="12" /> {{ t.attachments.length }} {{
-            t.attachments.length === 1 ? 'receipt' : 'receipts' }}
-          </button>
           }
         </td>
         <td class="li-muted" [title]="splitTitle(t)">
@@ -441,11 +429,11 @@
             variant="ghost"
             size="sm"
             type="button"
-            aria-label="Add a receipt or a note"
-            title="Receipt and note"
-            (click)="openReceipt(t)"
+            aria-label="What it bought: note and parts"
+            title="What it bought"
+            (click)="openDetails(t)"
           >
-            <ui-icon name="camera" [size]="16" />
+            <ui-icon name="book" [size]="16" />
           </button>
           <button
             uiButton
@@ -475,6 +463,7 @@
 } } } @case ('match') {
 <money-match
   [movements]="d.transactions"
+  [accounts]="d.accounts"
   (changed)="load()"
   (importCsv)="openImport()"
 />
@@ -769,11 +758,10 @@
 </ui-dialog>
 }
 
-<money-receipt
-  [(open)]="receiptOpen"
-  [movement]="receiptMovement()"
-  [accounts]="data()?.accounts ?? []"
-  [aiOn]="!!data()?.aiReceipts"
+<money-details
+  [(open)]="detailsOpen"
+  [movement]="detailsMovement()"
+  [paidItems]="data()?.paidItems ?? []"
   (saved)="load()"
 />
 <li-record-dialog

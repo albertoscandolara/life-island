@@ -15,8 +15,7 @@ import {
   tyreSetOf,
 } from './car-tyres.js';
 import { carUsage, odometerReadings } from './car-usage.js';
-import { aiFileBlock as fileBlock } from '@life-island/be-nest';
-import { checkQuoteFiles } from './quote-advisor.js';
+import { checkQuoteFiles, fileBlock } from './quote-advisor.js';
 import { quoteDossier } from './quote-dossier.js';
 import type { TyreSetRow } from '../db/schema.js';
 

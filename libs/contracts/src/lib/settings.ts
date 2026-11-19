@@ -618,36 +618,6 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
     ],
   },
   {
-    id: 'money.receipt-reader',
-    module: 'money',
-    name: 'Receipt reader',
-    description:
-      'Reads the receipts, order screenshots and photos you add to a movement, or to a new cash expense: the shop, the day, the total, online or in a shop, the category, the parts in other categories and a short note of what you bought.',
-    unit: 'receipt',
-    trigger: 'on-demand',
-    where: {
-      app: 'island',
-      path: '/money?tab=movements',
-      label: 'Money · Movements',
-    },
-    whenOff:
-      'Nothing is read: the photos are still filed with the movement, and you type the note, the category and the parts yourself.',
-    defaultEnabled: true,
-    steps: [
-      {
-        id: 'read',
-        label: 'Read the receipt',
-        modelEnv: 'MONEY_AI_MODEL',
-        defaultModel: 'claude-sonnet-5-5',
-        effort: 'low',
-        maxTokens: 4000,
-        tools: [],
-        estimate: { inputTokens: 5000, outputTokens: 800 },
-        always: true,
-      },
-    ],
-  },
-  {
     id: 'goals.coach',
     module: 'goals',
     name: 'Goals coach',

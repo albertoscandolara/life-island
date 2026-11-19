@@ -2,12 +2,11 @@ import { Injectable } from '@angular/core';
 import type {
   LifeQuestionRequest,
   MatchesDto,
+  MatchCashRequest,
   MatchLinkRequest,
   MatchRejectRequest,
-  MovementAttachmentDto,
   MovementLinkDto,
   MoneyOverviewDto,
-  ReceiptReadingDto,
   SpendingReviewDto,
   TransactionImportRequest,
 } from '@life-island/contracts';
@@ -42,53 +41,6 @@ export class MoneyApi extends RecordsApi {
     return this.http.delete<void>(`${this.base}/reviews/${id}`);
   }
 
-  /** Files receipts, order screenshots or photos with a movement. */
-  attach(
-    movementId: string,
-    files: readonly File[],
-  ): Observable<MovementAttachmentDto[]> {
-    const form = new FormData();
-    for (const file of files) form.append('files', file, file.name);
-    return this.http.post<MovementAttachmentDto[]>(
-      `${this.base}/transactions/${movementId}/attachments`,
-      form,
-    );
-  }
-
-  /** Forgets a receipt of a movement (the document stays in Documents). */
-  detach(movementId: string, attachmentId: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.base}/transactions/${movementId}/attachments/${attachmentId}`,
-    );
-  }
-
-  /** Where the browser shows a receipt. */
-  previewUrl(attachmentId: string): string {
-    return `${this.base}/attachments/${attachmentId}/preview`;
-  }
-
-  /** Reads the receipts already filed with a movement (money.receipt-reader). */
-  readMovement(movementId: string): Observable<ReceiptReadingDto> {
-    return this.http.post<ReceiptReadingDto>(
-      `${this.base}/transactions/${movementId}/read`,
-      {},
-    );
-  }
-
-  /** Reads receipts not filed yet, for a new expense; nothing is kept. */
-  readReceipts(
-    files: readonly File[],
-    note: string | null,
-  ): Observable<ReceiptReadingDto> {
-    const form = new FormData();
-    for (const file of files) form.append('files', file, file.name);
-    if (note) form.append('note', note);
-    return this.http.post<ReceiptReadingDto>(
-      `${this.base}/receipts/read`,
-      form,
-    );
-  }
-
   /** Money matching: what is proposed, open and linked. */
   matches(): Observable<MatchesDto> {
     return this.http.get<MatchesDto>(`${this.base}/matches`);
@@ -97,6 +49,14 @@ export class MoneyApi extends RecordsApi {
   link(request: MatchLinkRequest): Observable<MovementLinkDto[]> {
     return this.http.post<MovementLinkDto[]>(
       `${this.base}/matches/links`,
+      request,
+    );
+  }
+
+  /** A receipt paid in cash becomes a movement of an account, linked to it. */
+  addCash(request: MatchCashRequest): Observable<MovementLinkDto[]> {
+    return this.http.post<MovementLinkDto[]>(
+      `${this.base}/matches/cash`,
       request,
     );
   }

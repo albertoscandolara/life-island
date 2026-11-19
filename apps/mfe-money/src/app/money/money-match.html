@@ -102,6 +102,69 @@
   }
 </ui-card>
 
+@if (cash().length) {
+<ui-card heading="Paid in cash" class="li-block">
+  <p class="li-muted li-small">
+    Receipts you confirmed in the documents app that say cash: no bank movement
+    shows them, so add each one to your cash. Its note and parts come from the
+    receipt.
+  </p>
+  <ul class="li-list" role="list">
+    @for (p of cash(); track p.key) {
+    <li class="li-item">
+      <div class="li-item__head">
+        <span class="li-item__title">
+          <span class="match__emblem" aria-hidden="true">{{ p.emblem }}</span>
+          @if (p.path) {
+          <a class="li-link" [routerLink]="p.path">{{ p.title }}</a>
+          } @else { {{ p.title }} }
+        </span>
+        <strong class="match__amount">{{ euro(-p.amount) }}</strong>
+      </div>
+      <div class="li-meta">
+        <span>{{ dateText(p.date) }}</span>
+        @if (p.lines?.length) {
+        <span
+          >{{ p.lines!.length }} {{ p.lines!.length === 1 ? 'line' : 'lines'
+          }}</span
+        >
+        }
+      </div>
+      @if (openAccounts().length) {
+      <div class="li-actions">
+        <select
+          class="ui-input compact match__pick"
+          [attr.aria-label]="'The account ' + p.title + ' was paid from'"
+          (change)="pickCash(p, $any($event.target).value)"
+        >
+          @for (a of openAccounts(); track a.id) {
+          <option [value]="a.id" [selected]="cashAccountFor(p) === a.id">
+            {{ a.name }}
+          </option>
+          }
+        </select>
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="busy()"
+          (click)="addCash(p)"
+        >
+          <ui-icon name="plus" [size]="16" /> Add to movements
+        </button>
+      </div>
+      } @else {
+      <p class="li-muted li-small">
+        Add an account (a cash one) in Accounts to add it.
+      </p>
+      }
+    </li>
+    }
+  </ul>
+</ui-card>
+}
+
 <ui-card heading="Still to pay or receive" class="li-block">
   @if (!open().length) {
   <p class="li-muted">
