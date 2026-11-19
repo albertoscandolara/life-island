@@ -115,9 +115,7 @@
         "budgets_category_unique": {
           "name": "budgets_category_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "category"
-          ]
+          "columns": ["category"]
         }
       },
       "policies": {},
@@ -155,12 +153,8 @@
           "tableFrom": "match_rejections",
           "tableTo": "transactions",
           "schemaTo": "money",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -170,10 +164,7 @@
         "match_rejections_pair": {
           "name": "match_rejections_pair",
           "nullsNotDistinct": false,
-          "columns": [
-            "transaction_id",
-            "payable_key"
-          ]
+          "columns": ["transaction_id", "payable_key"]
         }
       },
       "policies": {},
@@ -265,12 +256,8 @@
           "tableFrom": "movement_links",
           "tableTo": "transactions",
           "schemaTo": "money",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -280,10 +267,7 @@
         "movement_links_pair": {
           "name": "movement_links_pair",
           "nullsNotDistinct": false,
-          "columns": [
-            "transaction_id",
-            "payable_key"
-          ]
+          "columns": ["transaction_id", "payable_key"]
         }
       },
       "policies": {},
@@ -422,12 +406,8 @@
           "tableFrom": "transaction_attachments",
           "tableTo": "transactions",
           "schemaTo": "money",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -437,10 +417,7 @@
         "transaction_attachments_pair": {
           "name": "transaction_attachments_pair",
           "nullsNotDistinct": false,
-          "columns": [
-            "transaction_id",
-            "upload_id"
-          ]
+          "columns": ["transaction_id", "upload_id"]
         }
       },
       "policies": {},
@@ -539,12 +516,8 @@
           "tableFrom": "transactions",
           "tableTo": "accounts",
           "schemaTo": "money",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

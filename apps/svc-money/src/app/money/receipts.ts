@@ -140,12 +140,10 @@ export function cleanReading(
     total,
     splits,
     note: reading.note.trim().slice(0, 500),
-    items: reading.items
-      .slice(0, 30)
-      .map((i) => ({
-        name: i.name.trim().slice(0, 120),
-        amount: round(i.amount),
-      })),
+    items: reading.items.slice(0, 30).map((i) => ({
+      name: i.name.trim().slice(0, 120),
+      amount: round(i.amount),
+    })),
   };
 }
 
