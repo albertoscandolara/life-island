@@ -25,9 +25,19 @@ import {
   type EventEnvelope,
   type RecordApprovedV1,
   type RecordStatus,
+  LOADING_MODULES,
 } from '@life-island/contracts';
 import { enqueueEvent } from '@life-island/be-common';
-import { and, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  inArray,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { categoryTree, stagingRecords } from '../db/schema.js';
@@ -162,9 +172,9 @@ export async function applyDocumentEvent(
     }
     case UPLOAD_REPARSE_REQUESTED_EVENT: {
       // You sent the document back to the parser: what the AI read is gone,
-      // and so are your corrections to it; the record waits to be parsed
-      // again. Only a record still waiting for review, or whose reading
-      // failed: a confirmed one has already gone to its module and stays.
+      // and so are your corrections and your approval; the record waits to
+      // be parsed again. Only the records `canReparseRecord` allows: a
+      // record a loading module took, or is taking, stays.
       const e = uploadReparseRequestedV1.parse(event.payload);
       await db
         .update(stagingRecords)
@@ -180,12 +190,29 @@ export async function applyDocumentEvent(
           flags: [],
           parseError: null,
           parsedAt: null,
+          confirmedAt: null,
+          autoConfirmedAt: null,
+          loadError: null,
+          reviewReasons: [],
           updatedAt: now,
         })
         .where(
           and(
             eq(stagingRecords.uploadId, e.uploadId),
-            inArray(stagingRecords.status, ['PARSED', 'PARSE_FAILED']),
+            or(
+              inArray(stagingRecords.status, [
+                'PARSED',
+                'PARSE_FAILED',
+                'LOAD_FAILED',
+              ]),
+              and(
+                eq(stagingRecords.status, 'CONFIRMED'),
+                or(
+                  isNull(stagingRecords.category),
+                  notInArray(stagingRecords.category, [...LOADING_MODULES]),
+                ),
+              ),
+            ),
           ),
         );
       return;

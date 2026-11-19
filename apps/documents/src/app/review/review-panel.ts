@@ -616,8 +616,8 @@ export class ReviewPanel {
   }
 
   protected readonly canReparse = computed(() => {
-    const status = this.record.value()?.status;
-    return status ? canReparse({ status }) : false;
+    const record = this.record.value();
+    return record ? canReparse(record) : false;
   });
 
   /** Reads this one document again from scratch, now. */
@@ -630,7 +630,7 @@ export class ReviewPanel {
       );
       if (!result.requeued.length)
         throw new Error(
-          'It could not be sent back: it is no longer waiting for review.',
+          'It could not be sent back: a module already took it, or the AI is reading it.',
         );
       this.reparsed.emit();
       this.finish(false);

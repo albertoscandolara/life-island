@@ -317,7 +317,7 @@ create unique index on ingestion.uploads (sha256) where sha256 is not null;
 3. `POST /api/ingestion/uploads/:id/complete`: read the object head, detect the real MIME type (`file-type`), compute SHA-256 (a duplicate returns the existing upload), set UPLOADED, `NOTIFY uploads_ready`.
 4. `GET /api/ingestion/uploads?status=…` and `GET /api/ingestion/uploads/:id/file` (presigned GET for previews).
 5. A cleanup job marks rows stuck in UPLOADING for more than 1 hour as FAILED.
-6. `POST /api/ingestion/uploads/reparse` with `{uploadIds}` sends PARSED documents back to the queue (from the review inbox's "Parse again"): what the AI read is cleared, pending suggestions forget them, and `upload.reparse_requested` puts their review records back to UPLOADED unless already confirmed.
+6. `POST /api/ingestion/uploads/reparse` with `{uploadIds}` sends PARSED documents back to the queue (from the review inbox's "Parse again"): what the AI read is cleared, pending suggestions forget them, and `upload.reparse_requested` puts their review records back to UPLOADED when `canReparseRecord` allows it: waiting for review, failed, refused by their module, or approved for a module that does not load records into its own tables (a record a loading module took stays, so it is never loaded twice).
 
 Accepted formats: JPG, PNG, WEBP, HEIC, PDF (digital or scanned), DOCX, XLSX, CSV, EML, ZIP. EML and ZIP are unpacked into child uploads. On mobile, `<input capture="environment">` opens the camera.
 

@@ -3,15 +3,19 @@ import type {
   ProcessingState,
   RecordStatus,
 } from '@life-island/contracts';
+import { canReparseRecord } from '@life-island/contracts/constants';
 import type { UiTone } from '@life-island/design-system';
 
 /**
- * Records you can send back to the parser: read but not confirmed yet, or
- * whose reading failed (after you fixed what made it fail, such as the parser
- * or its API key).
+ * Records you can send back to the parser (`canReparseRecord`): read but not
+ * confirmed yet, whose reading failed (after you fixed what made it fail, such
+ * as the parser or its API key), or approved without going into a loading module.
  */
-export function canReparse(record: { status: RecordStatus }): boolean {
-  return record.status === 'PARSED' || record.status === 'PARSE_FAILED';
+export function canReparse(record: {
+  status: RecordStatus;
+  category?: string | null;
+}): boolean {
+  return canReparseRecord(record);
 }
 
 export interface StatusView {
