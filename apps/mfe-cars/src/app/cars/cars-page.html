@@ -6,9 +6,43 @@
 
 <li-needs-you module="cars" />
 
+<li-tabs
+  label="Cars"
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="tab.set($event)"
+/>
+
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
-} @if (alerts().length) {
+} @if (tab() === 'review') {
+<cars-review-card
+  [reviews]="reviews()"
+  [vehicles]="vehicles()"
+  (changed)="load()"
+/>
+@if (rejected().length) {
+<details class="li-rejected">
+  <summary>Rejected: {{ rejected().length }} not about any car</summary>
+  <ul>
+    @for (doc of rejected(); track doc.uploadId) {
+    <li>
+      {{ typeLabel(doc.type) }} · {{ doc.title }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reopen(doc.uploadId)"
+      >
+        Review again
+      </button>
+    </li>
+    }
+  </ul>
+</details>
+} } @else { @if (alerts().length) {
 <section class="li-alerts" aria-label="Renewal warnings">
   @for (alert of alerts(); track $index) {
   <ui-alert
@@ -37,23 +71,26 @@
   </ui-alert>
   }
 </section>
-} @if (reviews().length) {
-<cars-review-card
-  id="cars-review"
-  class="li-block"
-  [reviews]="reviews()"
-  [vehicles]="vehicles()"
-  (changed)="load()"
-/>
-} @if (overview() && !vehicles().length && !reviews().length && !adding()) {
+} @if (overview() && !vehicles().length && !adding()) {
 <ui-card class="li-block">
   <ui-empty-state heading="No cars yet" icon="folder">
     <p>
       Load a carta di circolazione, an insurance policy, a bollo receipt or a
-      revisione in the documents app: once it is read, it shows up here for
-      review. Or add a car by its plate.
+      revisione in the documents app: once it is read, it waits for you in
+      <em>To review</em>. Or add a car by its plate.
     </p>
-    <button uiButton type="button" (click)="startAdding()">
+    @if (reviews().length) {
+    <button uiButton type="button" (click)="tab.set('review')">
+      <ui-icon name="inbox" [size]="18" /> Review {{ reviews().length }} {{
+      reviews().length === 1 ? 'document' : 'documents' }}
+    </button>
+    }
+    <button
+      uiButton
+      [variant]="reviews().length ? 'secondary' : 'primary'"
+      type="button"
+      (click)="startAdding()"
+    >
       <ui-icon name="plus" [size]="18" /> Add a car
     </button>
   </ui-empty-state>
@@ -499,25 +536,4 @@ idle) {
     }
   </div>
 </div>
-} @if (rejected().length) {
-<details class="li-rejected">
-  <summary>Rejected: {{ rejected().length }} not about any car</summary>
-  <ul>
-    @for (doc of rejected(); track doc.uploadId) {
-    <li>
-      {{ typeLabel(doc.type) }} · {{ doc.title }}
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        [disabled]="busy() !== null"
-        (click)="reopen(doc.uploadId)"
-      >
-        Review again
-      </button>
-    </li>
-    }
-  </ul>
-</details>
-}
+} }

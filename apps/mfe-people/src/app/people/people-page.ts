@@ -18,6 +18,7 @@ import {
   type ResidenceHouseDto,
   type TaxCodeCheckStatus,
   type UpdatePersonRequest,
+  TO_REVIEW_TAB,
 } from '@life-island/contracts';
 import {
   UiAlert,
@@ -36,7 +37,12 @@ import { PeopleHouseholdCard } from './people-household-card';
 import { PeopleReviewCard } from './people-review-card';
 import { PeopleSeriesCard } from './people-series-card';
 import { alertText, masked, personName, typeLabel } from './labels';
-import { LiNeedsYou } from '@life-island/records-ui';
+import {
+  LiNeedsYou,
+  LiTabs,
+  urlTab,
+  type LiTab,
+} from '@life-island/records-ui';
 
 const TAX_CODE_BADGES: Record<
   TaxCodeCheckStatus,
@@ -58,6 +64,7 @@ const TAX_CODE_BADGES: Record<
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LiNeedsYou,
+    LiTabs,
     DatePipe,
     PeopleCoverageCard,
     PeopleHouseholdCard,
@@ -105,6 +112,21 @@ export class PeoplePage {
 
   protected readonly people = computed(() => this.overview()?.people ?? []);
   protected readonly reviews = computed(() => this.overview()?.reviews ?? []);
+  /**
+   * The page's tabs: the people themselves, and "To review", where the
+   * documents read for this area wait for you (`?tab=review`, the same in
+   * every area that takes documents).
+   */
+  protected readonly tab = urlTab(['people', TO_REVIEW_TAB], 'people');
+  protected readonly tabs = computed<LiTab[]>(() => [
+    { id: 'people', label: 'Everyone', icon: 'user' },
+    {
+      id: TO_REVIEW_TAB,
+      label: 'To review',
+      icon: 'inbox',
+      count: this.reviews().length,
+    },
+  ]);
   protected readonly alerts = computed(() => this.overview()?.alerts ?? []);
   protected readonly rejected = computed(() => this.overview()?.rejected ?? []);
   protected readonly selected = computed(

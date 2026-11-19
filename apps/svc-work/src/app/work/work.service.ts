@@ -462,7 +462,7 @@ export class WorkService {
       items: reviews.map((r) =>
         documentToReview(
           r,
-          '/work?tab=review',
+          '/work',
           r.type ? WORK_DOCUMENT_TYPE_LABELS[r.type] : null,
           r.employerName,
         ),

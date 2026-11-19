@@ -11,10 +11,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import type {
-  CompleteUploadResponse,
-  CreateUploadResponse,
-  UploadDto,
+import { ActivatedRoute } from '@angular/router';
+import {
+  agendaArea,
+  type CompleteUploadResponse,
+  type CreateUploadResponse,
+  type UploadDto,
 } from '@life-island/contracts';
 import {
   ACCEPTED_FILE_TYPES,
@@ -108,6 +110,24 @@ export class UploadPage {
     stream: () => this.api.categories(),
   });
 
+  /**
+   * Opened from a date's "Upload proof" (Needs you, the Agenda):
+   * `?area=cars&for=Insurance · Panda&proof=the new insurance certificate`.
+   * The page says what to load and where it goes next, and each file gets
+   * "Proof for: …" as its description, so the reading knows what it is.
+   */
+  protected readonly proofFor = (() => {
+    const query = inject(ActivatedRoute).snapshot.queryParamMap;
+    const title = query.get('for')?.trim().slice(0, 200);
+    const area = query.get('area')?.trim();
+    if (!title || !area) return null;
+    return {
+      title,
+      area: agendaArea(area).name,
+      proof: query.get('proof')?.trim().slice(0, 120) || 'the document',
+    };
+  })();
+
   protected readonly items = signal<UploadItem[]>([]);
   protected readonly uploading = signal(false);
   protected readonly cameraOpen = signal(false);
@@ -180,7 +200,17 @@ export class UploadPage {
     this.notice.set(rejected.join('. '));
     this.items.update((items) => [
       ...items,
-      ...accepted.map((file) => new UploadItem(file)),
+      ...accepted.map((file) => {
+        const item = new UploadItem(file);
+        if (this.proofFor)
+          item.description.set(
+            `Proof for: ${this.proofFor.title}`.slice(
+              0,
+              DESCRIPTION_MAX_LENGTH,
+            ),
+          );
+        return item;
+      }),
     ]);
   }
 

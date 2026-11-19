@@ -20,11 +20,10 @@ import {
   UiAlert,
   UiBadge,
   UiButton,
-  UiCard,
   UiIcon,
   type UiTone,
 } from '@life-island/design-system';
-import { errorText } from '@life-island/records-ui';
+import { errorText, LiReviewItem, LiToReview } from '@life-island/records-ui';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
 import { typeLabel, valueText, vehicleName } from './labels';
@@ -62,7 +61,7 @@ const LABELS = new Map<string, string>(
 @Component({
   selector: 'cars-review-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiAlert, UiBadge, UiButton, UiCard, UiIcon],
+  imports: [LiReviewItem, LiToReview, UiAlert, UiBadge, UiButton, UiIcon],
   templateUrl: './car-review-card.html',
   styleUrls: ['./cars-bits.css', './car-review-card.css'],
 })

@@ -409,45 +409,25 @@
 
 <!-- ================================================================ review -->
 @case ('review') {
-<ui-card heading="To review" class="li-block">
-  @if (reviews().length) {
-  <ui-badge uiCardActions tone="warning"
-    >{{ reviews().length }} waiting</ui-badge
-  >
-  }
-  <p class="li-muted li-intro">
+<li-to-review
+  [count]="reviews().length"
+  what="payslips, evaluations and employment contracts"
+>
+  <p intro>
     A new work document never changes a workplace on its own. Pick which
     workplace each one is about and which printed values to take. An employer
     you do not have yet is suggested as a new workplace.
   </p>
-  @if (!reviews().length) {
-  <ui-empty-state heading="Nothing to review" icon="check">
-    <p class="li-muted">
-      Payslips, evaluations and employment contracts you load in the documents
-      app show up here.
-    </p>
-  </ui-empty-state>
-  } @for (review of reviews(); track review.uploadId) {
-  <article class="review" [class.review--busy]="busy() === review.uploadId">
-    <header class="review__head">
-      <div>
-        <h3 class="review__title">
-          {{ typeLabel(review.type) }} @if (review.employerName) { · {{
-          review.employerName }} }
-        </h3>
-        <p class="li-muted">{{ review.title }}</p>
-      </div>
-      <a
-        uiButton
-        variant="ghost"
-        size="sm"
-        [href]="previewUrl(review.uploadId)"
-        target="_blank"
-        rel="noopener"
-      >
-        <ui-icon name="eye" [size]="16" /> Open
-      </a>
-    </header>
+  @for (review of reviews(); track review.uploadId) {
+  <li-review-item
+    [heading]="typeLabel(review.type)"
+    [previewUrl]="previewUrl(review.uploadId)"
+    [busy]="busy() === review.uploadId"
+  >
+    <ng-container title>
+      @if (review.employerName) { · {{ review.employerName }} }
+    </ng-container>
+    <ng-container meta>{{ review.title }}</ng-container>
 
     @if (review.facts.length) {
     <dl class="facts">
@@ -483,7 +463,7 @@
     </ui-alert>
     }
 
-    <label class="review__whose">
+    <label class="li-review__whose">
       <span>Which workplace?</span>
       <select
         class="ui-input compact"
@@ -501,7 +481,7 @@
     </label>
 
     @if (isNew(review)) {
-    <label class="review__whose">
+    <label class="li-review__whose">
       <span>Call it</span>
       <input
         class="ui-input compact"
@@ -554,7 +534,10 @@
     <p class="li-muted li-small">It prints nothing new for this workplace.</p>
     }
 
-    <footer class="review__buttons">
+    <ng-container actions>
+      <button uiButton variant="ghost" type="button" (click)="reject(review)">
+        Not about my work
+      </button>
       <button
         uiButton
         type="button"
@@ -563,13 +546,10 @@
       >
         <ui-icon name="check" [size]="16" /> Approve
       </button>
-      <button uiButton variant="ghost" type="button" (click)="reject(review)">
-        Not about my work
-      </button>
-    </footer>
-  </article>
+    </ng-container>
+  </li-review-item>
   }
-</ui-card>
+</li-to-review>
 
 @if (rejected().length) {
 <ui-card heading="Set aside" class="li-block">

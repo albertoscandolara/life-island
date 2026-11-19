@@ -6,6 +6,13 @@
 
 <li-needs-you module="people" />
 
+<li-tabs
+  label="People"
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="tab.set($event)"
+/>
+
 @if (people().length || reviews().length) {
 <div class="toolbar">
   <button
@@ -22,7 +29,35 @@
 </div>
 } @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">{{ message }}</ui-alert>
-} @if (alerts().length) {
+} @if (tab() === 'review') {
+<people-review-card
+  [reviews]="reviews()"
+  [people]="people()"
+  [revealed]="revealed()"
+  (changed)="load()"
+/>
+@if (rejected().length) {
+<details class="li-rejected">
+  <summary>Rejected: {{ rejected().length }} not about anyone</summary>
+  <ul>
+    @for (doc of rejected(); track doc.uploadId) {
+    <li>
+      {{ typeLabel(doc.type) }} · {{ doc.title }}
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [disabled]="busy() !== null"
+        (click)="reopen(doc.uploadId)"
+      >
+        Review again
+      </button>
+    </li>
+    }
+  </ul>
+</details>
+} } @else { @if (alerts().length) {
 <section class="li-alerts" aria-label="Expiry warnings">
   @for (alert of alerts(); track alert.uploadId + (alert.category ?? '')) {
   <ui-alert [tone]="alert.level === 'expired' ? 'danger' : 'warning'">
@@ -45,22 +80,19 @@
   </ui-alert>
   }
 </section>
-} @if (reviews().length) {
-<people-review-card
-  id="people-review"
-  class="li-block"
-  [reviews]="reviews()"
-  [people]="people()"
-  [revealed]="revealed()"
-  (changed)="load()"
-/>
-} @if (overview() && !people().length && !reviews().length) {
+} @if (overview() && !people().length) {
 <ui-card class="li-block">
   <ui-empty-state heading="No ID documents yet" icon="folder">
     <p>
       Load an identity card, passport, health card or driving licence in the
-      documents app. Once it is read, it shows up here for review.
+      documents app. Once it is read, it waits for you in <em>To review</em>.
     </p>
+    @if (reviews().length) {
+    <button uiButton type="button" (click)="tab.set('review')">
+      <ui-icon name="inbox" [size]="18" /> Review {{ reviews().length }} {{
+      reviews().length === 1 ? 'document' : 'documents' }}
+    </button>
+    }
   </ui-empty-state>
 </ui-card>
 } @if (people().length) {
@@ -383,25 +415,4 @@
     }
   </div>
 </div>
-} @if (rejected().length) {
-<details class="li-rejected">
-  <summary>Rejected: {{ rejected().length }} not about anyone</summary>
-  <ul>
-    @for (doc of rejected(); track doc.uploadId) {
-    <li>
-      {{ typeLabel(doc.type) }} · {{ doc.title }}
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        [disabled]="busy() !== null"
-        (click)="reopen(doc.uploadId)"
-      >
-        Review again
-      </button>
-    </li>
-    }
-  </ul>
-</details>
-}
+} }
