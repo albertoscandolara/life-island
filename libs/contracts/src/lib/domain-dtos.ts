@@ -47,6 +47,10 @@ export interface ReceiptDto {
   /** The review record it was confirmed from. */
   sourceStagingId: string;
   uploadId: string;
+  /** Your own name for it; null shows the shop's name. */
+  title: string | null;
+  /** Kept out of Groceries (software, credits); Money still tracks it. */
+  notGroceries: boolean;
   merchant: MerchantDto;
   purchasedAt: string;
   currency: string;

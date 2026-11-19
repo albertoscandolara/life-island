@@ -288,5 +288,191 @@ describe.skipIf(!configured)(
       });
       expect((await detail()).bankPayment).toBeNull();
     });
+    it('renames a receipt, edits and removes its items, and drops it when it is not groceries', async () => {
+      const unique = randomUUID().slice(0, 8);
+      const record = approved({
+        ...receipt,
+        purchasedAt: '2026-08-02T10:00:00Z',
+        total: 3.79,
+        items: [
+          { ...receipt.items[0], normalizedName: `Milk ${unique}` },
+          { ...receipt.items[1], normalizedName: `Bread ${unique}` },
+          {
+            rawName: 'SHOPPER',
+            normalizedName: 'Shopping bag',
+            category: 'household',
+            quantity: 1,
+            lineTotal: 0.1,
+          },
+        ],
+      });
+      await deliver(record);
+      const id = (await answers(record.recordId))[0].payload.domainRecordId!;
+      const json = { 'content-type': 'application/json' };
+
+      expect(
+        (
+          await fetch(`${base}/receipts/${id}`, {
+            method: 'PATCH',
+            headers: json,
+            body: JSON.stringify({ title: 'Saturday shopping' }),
+          })
+        ).status,
+      ).toBe(204);
+      const renamed = (await (
+        await fetch(`${base}/receipts/${id}`)
+      ).json()) as ReceiptDetailDto;
+      expect(renamed.title).toBe('Saturday shopping');
+
+      const overview = async () =>
+        (await (await fetch(`${base}/overview`)).json()) as {
+          items: {
+            id: string;
+            name: string;
+            link: string | null;
+            imageVersion: number | null;
+          }[];
+          recent: ReceiptDto[];
+        };
+      let items = (await overview()).items;
+      // The bag is a receipt line, not something you buy.
+      expect(items.some((i) => i.name === 'Shopping bag')).toBe(false);
+      const milk = items.find((i) => i.name === `Milk ${unique}`)!;
+      const bread = items.find((i) => i.name === `Bread ${unique}`)!;
+      expect(milk.id).toBeTruthy();
+
+      // Renamed with a link and another aisle: every line follows.
+      const put = (itemId: string, body: unknown) =>
+        fetch(`${base}/items/${itemId}`, {
+          method: 'PUT',
+          headers: json,
+          body: JSON.stringify(body),
+        });
+      const changed = await put(milk.id, {
+        name: `Whole milk ${unique}`,
+        category: 'dairy',
+        link: 'https://shop.example/milk',
+      });
+      expect(changed.status).toBe(200);
+      items = (await overview()).items;
+      expect(
+        items.find((i) => i.name === `Whole milk ${unique}`),
+      ).toMatchObject({ id: milk.id, link: 'https://shop.example/milk' });
+      expect((await put(milk.id, { name: 'x', link: 'ftp://no' })).status).toBe(
+        400,
+      );
+
+      // A photo, checked by its bytes and served back.
+      const png = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0,
+      ]);
+      const upload = (body: Buffer) =>
+        fetch(`${base}/items/${milk.id}/image`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/octet-stream' },
+          body,
+        });
+      expect((await upload(Buffer.from('<svg/>'))).status).toBe(400);
+      expect((await upload(png)).status).toBe(204);
+      const photo = await fetch(`${base}/items/${milk.id}/image`);
+      expect(photo.headers.get('content-type')).toBe('image/png');
+      expect(Buffer.from(await photo.arrayBuffer())).toEqual(png);
+      const withPhoto = (await overview()).items.find((i) => i.id === milk.id);
+      expect(withPhoto).toMatchObject({ imageVersion: expect.any(Number) });
+
+      // Renamed as another item: the two become one.
+      const merged = (await (
+        await put(bread.id, { name: `whole MILK ${unique}` })
+      ).json()) as { id: string };
+      expect(merged.id).toBe(milk.id);
+      items = (await overview()).items;
+      expect(items.some((i) => i.id === bread.id)).toBe(false);
+
+      // Removed from What you buy: the receipt keeps its lines.
+      expect(
+        (await fetch(`${base}/items/${milk.id}`, { method: 'DELETE' })).status,
+      ).toBe(204);
+      items = (await overview()).items;
+      expect(items.some((i) => i.id === milk.id)).toBe(false);
+      const kept = (await (
+        await fetch(`${base}/receipts/${id}`)
+      ).json()) as ReceiptDetailDto;
+      expect(kept.items).toHaveLength(3);
+
+      // Not groceries: off the Groceries page, still listed for Money.
+      expect(
+        (
+          await fetch(`${base}/receipts/${id}`, {
+            method: 'PATCH',
+            headers: json,
+            body: JSON.stringify({ notGroceries: true }),
+          })
+        ).status,
+      ).toBe(204);
+      let page = await overview();
+      expect(page.recent.some((r) => r.id === id)).toBe(false);
+      const flagged = (await (await fetch(`${base}/overview`)).json()) as {
+        notGroceries: ReceiptDto[];
+      };
+      expect(flagged.notGroceries.find((r) => r.id === id)).toMatchObject({
+        title: 'Saturday shopping',
+        notGroceries: true,
+      });
+      const forMoney = (await (
+        await fetch(`${base}/payables?from=2026-08-02&to=2026-08-02`)
+      ).json()) as PayableDto[];
+      expect(forMoney.some((p) => p.key === `groceries:receipt:${id}`)).toBe(
+        true,
+      );
+      expect(
+        (await fetch(`${base}/receipts/${id}`, { method: 'DELETE' })).status,
+      ).toBe(404);
+
+      // Software credits only: kept out of Groceries from the start, filed in Money as a subscription.
+      const credits = approved({
+        merchant: { name: `${merchantName} AI` },
+        purchasedAt: '2026-08-03T10:00:00Z',
+        currency: 'EUR',
+        total: 24.4,
+        paymentMethod: 'card',
+        items: [
+          {
+            rawName: 'One-time credit purchase',
+            normalizedName: 'One-time credit purchase',
+            category: 'digital',
+            quantity: 1,
+            lineTotal: 20,
+          },
+          {
+            rawName: 'VAT Italy 22%',
+            normalizedName: 'VAT Italy 22%',
+            category: 'digital',
+            quantity: 1,
+            lineTotal: 4.4,
+          },
+        ],
+      });
+      await deliver(credits);
+      const creditsId = (await answers(credits.recordId))[0].payload
+        .domainRecordId!;
+      page = await overview();
+      expect(page.recent.some((r) => r.id === creditsId)).toBe(false);
+      expect(
+        page.items.some((i) => i.name === 'One-time credit purchase'),
+      ).toBe(false);
+      const filed = (await (
+        await fetch(`${base}/payables?from=2026-08-03&to=2026-08-03`)
+      ).json()) as PayableDto[];
+      expect(
+        filed.find((p) => p.key === `groceries:receipt:${creditsId}`)?.lines,
+      ).toEqual([
+        {
+          name: 'One-time credit purchase',
+          amount: 20,
+          category: 'subscriptions',
+        },
+        { name: 'VAT Italy 22%', amount: 4.4, category: 'subscriptions' },
+      ]);
+    });
   },
 );

@@ -7,7 +7,7 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime } from '@life-island/be-nest';
+import { EventsRuntime, IngestionFiles } from '@life-island/be-nest';
 import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CarModels } from './cars/car-models.js';
 import { CarPeople } from './cars/car-people.js';
@@ -20,7 +20,6 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
-import { IngestionFiles } from './documents/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 
 const logger = new Logger('DocumentEvents');
@@ -45,7 +44,10 @@ export class AppModule {
         CarModels,
         CarPeople,
         QuoteAdvisor,
-        IngestionFiles,
+        {
+          provide: IngestionFiles,
+          useValue: new IngestionFiles(config.ingestionUrl),
+        },
         ...(options.events === false
           ? []
           : [

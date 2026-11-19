@@ -10,7 +10,10 @@ const item = (
   everyDays: number | null,
   purchases = 4,
 ): GroceryItemStatsDto => ({
+  id: null,
   name,
+  link: null,
+  imageVersion: null,
   category: 'other',
   purchases,
   lastBought,

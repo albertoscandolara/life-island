@@ -1,6 +1,7 @@
 import {
   numberEnv,
   requiredEnv,
+  serviceStorageFromEnv,
   type StorageOptions,
 } from '@life-island/be-common';
 
@@ -49,17 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): CarsConfig {
       env['PEOPLE_URL'] ??
       `http://localhost:${numberEnv('PEOPLE_PORT', 3006, env)}`
     ).replace(/\/+$/, ''),
-    storage:
-      env['S3_ENDPOINT'] && env['S3_ACCESS_KEY'] && env['S3_SECRET_KEY']
-        ? {
-            endpoint: env['S3_ENDPOINT'],
-            publicEndpoint: env['S3_PUBLIC_ENDPOINT'] || undefined,
-            region: env['S3_REGION'] || 'us-east-1',
-            accessKeyId: env['S3_ACCESS_KEY'],
-            secretAccessKey: env['S3_SECRET_KEY'],
-            bucket: env['CARS_S3_BUCKET'] || 'cars-models',
-          }
-        : null,
+    storage: serviceStorageFromEnv('CARS_S3_BUCKET', 'cars-models', env),
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['CARS_AI_MODEL']?.trim() || DEFAULT_CARS_AI_MODEL,
   };

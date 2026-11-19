@@ -1,4 +1,5 @@
-import { basketChange, type PurchaseLine } from './stats.js';
+import { isNotAProduct } from '@life-island/contracts';
+import { basketChange, itemStats, type PurchaseLine } from './stats.js';
 
 const line = (name: string, date: string, unitPrice: number | null) =>
   ({
@@ -46,5 +47,73 @@ describe('your grocery inflation', () => {
     expect(basketChange([line('pasta', '2026-10-01', 1)], today).change).toBe(
       null,
     );
+  });
+});
+
+describe('what you buy', () => {
+  it('leaves out lines that are not a product', () => {
+    for (const name of [
+      'VAT Italy 22%',
+      'IVA 22%',
+      'Imposta di bollo',
+      'Shopping bag',
+      'Shopper',
+      'Sacchetto biodegradabile',
+      'Busta spesa',
+      'Sconto fedeltà',
+      'Spese di spedizione',
+      'Arrotondamento',
+      'Totale',
+    ])
+      expect(isNotAProduct(name)).toBe(true);
+    for (const name of [
+      'Mortadella',
+      'Trash bags 30 L',
+      'De Cecco semolina pasta 500 g',
+      'Ivanhoe biscuits',
+      'Vaticano wine',
+    ])
+      expect(isNotAProduct(name)).toBe(false);
+
+    const items = itemStats([
+      line('Mortadella', '2026-11-19', 6.54),
+      line('Shopping bag', '2026-11-19', 0.1),
+      line('VAT Italy 22%', '2026-11-19', 4.4),
+    ]);
+    expect(items.map((i) => i.name)).toEqual(['Mortadella']);
+  });
+
+  it('joins names without case and adds what you keep about the item', () => {
+    const items = itemStats(
+      [
+        line('whole milk 1 L', '2026-10-01', 1.5),
+        line('Whole milk 1 L', '2026-11-01', 1.6),
+        line('Removed thing', '2026-11-01', 2),
+      ],
+      new Map([
+        [
+          'whole milk 1 l',
+          {
+            id: 'p1',
+            link: 'https://shop.example/milk',
+            imageUpdatedAt: new Date(1000),
+            hidden: false,
+          },
+        ],
+        [
+          'removed thing',
+          { id: 'p2', link: null, imageUpdatedAt: null, hidden: true },
+        ],
+      ]),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: 'p1',
+      name: 'Whole milk 1 L',
+      link: 'https://shop.example/milk',
+      imageVersion: 1000,
+      purchases: 2,
+      priceChange: 0.07,
+    });
   });
 });

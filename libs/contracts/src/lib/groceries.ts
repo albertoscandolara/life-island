@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   lifeName,
   lifeNote,
+  lifeUrl,
   type LifeAiAnswerDto,
   type LifeRecord,
 } from './life-schemas.js';
@@ -10,9 +11,9 @@ import type { ReceiptDto } from './domain-dtos.js';
 
 /*
  * Groceries (Trice, svc-groceries, mfe-groceries): the receipts you confirmed
- * in the documents app, read into spending by month and category, the shops
- * you use, the price of each item over time, a shopping list, and an AI that
- * suggests the next list from what you usually buy.
+ * in the documents app, read into spending by month and category, the price
+ * of each item over time (with its link and photo), a shopping list, and an
+ * AI that suggests the next list from what you usually buy.
  */
 
 export type GroceryItemCategory = (typeof GROCERY_ITEM_CATEGORIES)[number];
@@ -27,6 +28,7 @@ export const GROCERY_CATEGORY_LABELS: Record<GroceryItemCategory, string> = {
   household: 'Household',
   personal_care: 'Personal care',
   pharmacy: 'Pharmacy',
+  digital: 'Software and digital',
   other: 'Other',
 };
 
@@ -45,9 +47,52 @@ export type ShoppingItemDto = LifeRecord<{
   done: boolean;
 }>;
 
+/**
+ * Receipt lines that are not something you buy: tax, bags, discounts,
+ * deposits, shipping, rounding, totals. They stay on their receipt (they are
+ * part of what you paid) but never show as an item of "What you buy".
+ */
+const NOT_A_PRODUCT = [
+  // VAT and taxes: "IVA 22%", "VAT Italy 22%", "Imposta di bollo".
+  /^(iva|vat|tax|taxes|imposta|imposte|sales tax)\b/,
+  /\b(iva|vat)\b.*\d+([.,]\d+)?\s*%/,
+  // Shopping bags: "Shopping bag", "Shopper", "Sacchetto biodegradabile", "Busta spesa".
+  /^(shopping|carrier|plastic|paper|reusable)\s+bags?\b/,
+  /^(shopper|sacchett[oi]|sacchetti|bust[ae])(\s+(spesa|bio\w*|biodegradabil\w*|compostabil\w*|carta|plastica))*\s*$/,
+  /^bags?$/,
+  // Discounts, coupons, deposits, shipping, rounding, totals.
+  /^(sconto|sconti|discount|promo|promozione|coupon|voucher|buono)\b/,
+  /^(cauzione|deposit|vuoto|vuoti)\b/,
+  /^(spedizione|spese di spedizione|shipping|delivery|consegna)\b/,
+  /^(arrotondamento|rounding)\b/,
+  /^(sub ?total|subtotale|total|totale)\b/,
+];
+
+export function isNotAProduct(name: string): boolean {
+  const text = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return NOT_A_PRODUCT.some((pattern) => pattern.test(text));
+}
+
+/**
+ * A receipt that is not groceries: every line is software or digital (AI
+ * credits, an app). Groceries leaves it out; Money still files it.
+ */
+export function isDigitalOnly(items: readonly { category: string }[]): boolean {
+  return items.length > 0 && items.every((i) => i.category === 'digital');
+}
+
+/** How a receipt line finds its product: its name without case or outer spaces. */
+export const productKey = (name: string) => name.trim().toLowerCase();
+
 /** One item you buy, across receipts: how often and at what price. */
 export interface GroceryItemStatsDto {
+  /** The product's id (`/items/:id`); null only before its first save. */
+  id: string | null;
   name: string;
+  /** Its page in a shop, to buy it again. */
+  link: string | null;
+  /** When its photo last changed (ms), to load the new one; null without a photo. */
+  imageVersion: number | null;
   category: string;
   purchases: number;
   lastBought: string;
@@ -59,14 +104,6 @@ export interface GroceryItemStatsDto {
   priceChange: number | null;
   /** Unit prices over time, oldest first. */
   prices: { date: string; price: number; merchant: string }[];
-}
-
-export interface GroceryMerchantStatsDto {
-  id: string;
-  name: string;
-  receipts: number;
-  total: number;
-  lastVisit: string;
 }
 
 export interface GroceryMonthDto {
@@ -122,8 +159,9 @@ export interface GroceriesOverviewDto {
   categories: { category: string; thisMonth: number; average: number }[];
   items: GroceryItemStatsDto[];
   basket: GroceryBasketDto;
-  merchants: GroceryMerchantStatsDto[];
   recent: ReceiptDto[];
+  /** Receipts kept out of Groceries (software, credits), newest first: Money still tracks them. */
+  notGroceries: ReceiptDto[];
   totals: {
     thisMonth: number;
     lastMonth: number;
@@ -142,3 +180,22 @@ export const applySuggestionRequestSchema = z.object({
 export type ApplySuggestionRequest = z.input<
   typeof applySuggestionRequestSchema
 >;
+
+/** Changing an item of "What you buy": its name and aisle change on every receipt line. */
+export const groceryItemRequestSchema = z.object({
+  name: lifeName(120),
+  category: z.enum(GROCERY_ITEM_CATEGORIES).optional(),
+  link: lifeUrl,
+});
+export type GroceryItemRequest = z.input<typeof groceryItemRequestSchema>;
+
+/**
+ * Your own name for a receipt (empty goes back to the shop's name), and
+ * whether it is groceries at all: one that is not (software credits) leaves
+ * the Groceries page but stays matched and tracked in Money.
+ */
+export const receiptUpdateRequestSchema = z.object({
+  title: lifeNote(120),
+  notGroceries: z.boolean().optional(),
+});
+export type ReceiptUpdateRequest = z.input<typeof receiptUpdateRequestSchema>;

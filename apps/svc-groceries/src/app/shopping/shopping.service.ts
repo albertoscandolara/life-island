@@ -27,6 +27,7 @@ import {
   shoppingSuggestions,
   type ShoppingSuggestionRow,
 } from '../db/schema.js';
+import { ProductsService } from '../products/products.service.js';
 import { toReceiptDto } from '../receipts/receipts.service.js';
 import { groceriesAttention } from './running-out.js';
 import {
@@ -64,6 +65,7 @@ export class ShoppingService implements OnApplicationBootstrap {
   constructor(
     @Inject(CONFIG) config: GroceriesConfig,
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+    @Inject(ProductsService) private readonly products: ProductsService,
   ) {
     this.ai = new AiAssistant({
       toolId: LIST_TOOL,
@@ -98,7 +100,8 @@ export class ShoppingService implements OnApplicationBootstrap {
          from ${this.svc.schema}.receipt_items i
          join ${this.svc.schema}.receipts r on r.id = i.receipt_id
          join ${this.svc.schema}.merchants m on m.id = r.merchant_id
-        where r.purchased_at >= $1::date`,
+        where r.purchased_at >= $1::date
+          and not r.not_groceries and i.category <> 'digital'`,
       [isoAddMonths(`${day.slice(0, 7)}-01`, -months), TZ()],
     );
     return rows.map((r) => ({
@@ -119,7 +122,7 @@ export class ShoppingService implements OnApplicationBootstrap {
 
   async overview(day = today()): Promise<GroceriesOverviewDto> {
     const since = isoAddMonths(`${day.slice(0, 7)}-01`, -12);
-    const [twoYears, receiptRows, list, suggestionRows, aiList] =
+    const [twoYears, receiptRows, list, suggestionRows, aiList, products] =
       await Promise.all([
         // Two years for the basket's change; the rest reads the last 13 months.
         this.lines(day, 24),
@@ -127,13 +130,10 @@ export class ShoppingService implements OnApplicationBootstrap {
           id: string;
           date: string;
           total: string;
-          merchant_id: string;
-          merchant: string;
         }>(
-          `select r.id, (r.purchased_at at time zone $2)::date::text as date, r.total,
-                m.id as merchant_id, m.name as merchant
-           from ${this.svc.schema}.receipts r join ${this.svc.schema}.merchants m on m.id = r.merchant_id
-          where r.purchased_at >= $1::date`,
+          `select r.id, (r.purchased_at at time zone $2)::date::text as date, r.total
+             from ${this.svc.schema}.receipts r
+            where r.purchased_at >= $1::date and not r.not_groceries`,
           [since, TZ()],
         ),
         this.db
@@ -150,20 +150,26 @@ export class ShoppingService implements OnApplicationBootstrap {
           .orderBy(desc(shoppingSuggestions.createdAt))
           .limit(5),
         this.ai.active(),
+        this.products.byKey(),
       ]);
-    const recentRows = await this.db
-      .select({ receipt: receipts, merchant: merchants })
-      .from(receipts)
-      .innerJoin(merchants, eq(merchants.id, receipts.merchantId))
-      .orderBy(desc(receipts.purchasedAt))
-      .limit(10);
+    const [recentRows, notGroceryRows] = await Promise.all(
+      [false, true].map((not) =>
+        this.db
+          .select({ receipt: receipts, merchant: merchants })
+          .from(receipts)
+          .innerJoin(merchants, eq(merchants.id, receipts.merchantId))
+          .where(eq(receipts.notGroceries, not))
+          .orderBy(desc(receipts.purchasedAt))
+          .limit(10),
+      ),
+    );
     const itemCounts = await this.svc.pool.query<{
       receipt_id: string;
       n: string;
     }>(
       `select receipt_id, count(*) as n from ${this.svc.schema}.receipt_items
         where receipt_id = any($1::uuid[]) group by receipt_id`,
-      [recentRows.map((r) => r.receipt.id)],
+      [[...recentRows, ...notGroceryRows].map((r) => r.receipt.id)],
     );
     const nItems = new Map(
       itemCounts.rows.map((r) => [r.receipt_id, Number(r.n)]),
@@ -175,37 +181,16 @@ export class ShoppingService implements OnApplicationBootstrap {
     }));
     const monthList = months(receiptList, day);
     const full = monthList.slice(0, -1).filter((m) => m.receipts);
-    const merchantStats = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        receipts: number;
-        total: number;
-        lastVisit: string;
-      }
-    >();
-    for (const r of receiptList) {
-      const m = merchantStats.get(r.merchant_id) ?? {
-        id: r.merchant_id,
-        name: r.merchant,
-        receipts: 0,
-        total: 0,
-        lastVisit: r.date,
-      };
-      m.receipts++;
-      m.total = Math.round((m.total + r.total) * 100) / 100;
-      if (r.date > m.lastVisit) m.lastVisit = r.date;
-      merchantStats.set(r.merchant_id, m);
-    }
     return {
       today: day,
       months: monthList,
       categories: categorySpend(lines, day),
-      items: itemStats(lines),
+      items: itemStats(lines, products),
       basket: basketChange(twoYears, day),
-      merchants: [...merchantStats.values()].sort((a, b) => b.total - a.total),
       recent: recentRows.map((r) =>
+        toReceiptDto(r.receipt, r.merchant, nItems.get(r.receipt.id) ?? 0),
+      ),
+      notGroceries: notGroceryRows.map((r) =>
         toReceiptDto(r.receipt, r.merchant, nItems.get(r.receipt.id) ?? 0),
       ),
       totals: {
@@ -233,13 +218,15 @@ export class ShoppingService implements OnApplicationBootstrap {
     request: LifeQuestionRequest,
     day = today(),
   ): Promise<ShoppingSuggestionDto> {
-    const [items, list] = await Promise.all([
-      this.lines(day).then(itemStats),
+    const [lines, products, list] = await Promise.all([
+      this.lines(day),
+      this.products.byKey(),
       this.db
         .select({ name: shoppingItems.name })
         .from(shoppingItems)
         .where(eq(shoppingItems.done, false)),
     ]);
+    const items = itemStats(lines, products);
     const onList = list.map((i) => i.name);
     const question = request.question?.trim() || null;
     let row: Omit<ShoppingSuggestionRow, 'id' | 'createdAt'>;

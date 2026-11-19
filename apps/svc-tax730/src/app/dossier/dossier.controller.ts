@@ -32,7 +32,7 @@ import {
   type TaxYearDto,
 } from '@life-island/contracts';
 import { ExportsService } from '../exports/exports.service.js';
-import { IngestionFiles } from '../exports/ingestion-files.js';
+import { IngestionFiles } from '@life-island/be-nest';
 import { DossierService } from './dossier.service.js';
 
 /** `attachment; filename=…` with a UTF-8 name and an ASCII fallback. */

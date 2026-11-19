@@ -1,3 +1,8 @@
+import {
+  UPLOAD_IMAGE_MAX_BYTES,
+  UPLOAD_IMAGE_TYPES,
+  type UploadImageType,
+} from './images.js';
 import type { BankPaymentDto } from './payables.js';
 import { z } from 'zod';
 
@@ -816,15 +821,10 @@ export interface OrganizationDto {
 export const ORGANIZATION_IMAGE_KINDS = ['logo', 'cover'] as const;
 export type OrganizationImageKind = (typeof ORGANIZATION_IMAGE_KINDS)[number];
 /** Image types accepted (no SVG: it can carry scripts). */
-export const ORGANIZATION_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-] as const;
-export type OrganizationImageType = (typeof ORGANIZATION_IMAGE_TYPES)[number];
+export const ORGANIZATION_IMAGE_TYPES = UPLOAD_IMAGE_TYPES;
+export type OrganizationImageType = UploadImageType;
 /** Largest image accepted, in bytes. */
-export const ORGANIZATION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const ORGANIZATION_IMAGE_MAX_BYTES = UPLOAD_IMAGE_MAX_BYTES;
 
 /** A document a company issued, on the company's page. */
 export interface OrganizationDocumentDto {

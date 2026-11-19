@@ -59,10 +59,54 @@
   margin: 0 0 var(--space-3);
 }
 
-.chart-title {
-  margin: 0 0 var(--space-2);
+.row {
+  cursor: pointer;
 }
 
-.row--on th {
-  box-shadow: inset 3px 0 0 var(--accent);
+.row:hover {
+  background: var(--surface-hover);
+}
+
+.item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.thumb {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+/* The name opens it: a plain button that reads as the name. */
+.item__name {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item__name:hover {
+  text-decoration: underline;
+}
+
+.item__name:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.receipt__end {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

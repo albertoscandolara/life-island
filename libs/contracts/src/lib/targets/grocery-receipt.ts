@@ -12,6 +12,7 @@ export const GROCERY_ITEM_CATEGORIES = [
   'household',
   'personal_care',
   'pharmacy',
+  'digital',
   'other',
 ] as const;
 
@@ -42,7 +43,11 @@ export const GroceryReceiptV1 = z
         normalizedName: z
           .string()
           .describe('Readable item name, e.g. "Whole milk 1 L"'),
-        category: z.enum(GROCERY_ITEM_CATEGORIES),
+        category: z
+          .enum(GROCERY_ITEM_CATEGORIES)
+          .describe(
+            'The aisle; digital for software, apps, games, AI or cloud credits, digital subscriptions and services (and the VAT line of such a purchase)',
+          ),
         quantity: z.number(),
         unitPrice: z.number().optional(),
         lineTotal: z.number(),

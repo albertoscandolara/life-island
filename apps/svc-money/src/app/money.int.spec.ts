@@ -60,7 +60,9 @@ describe.skipIf(!configured)(
 
     it('adds an account, imports movements, finds the recurring charges and sends them to the agenda', async () => {
       const day = today();
-      const month = (n: number) => `${isoAddMonths(day, -n).slice(0, 8)}05`;
+      // The same day n months ago: a fixed day of the month (the 5th) falls
+      // out of the 45 days a recurring charge must be seen in after the 19th.
+      const month = (n: number) => isoAddMonths(day, -n);
       const account = await json<{ id: string }>('POST', '/accounts', {
         name: 'Test current account',
         openingBalance: 1000,

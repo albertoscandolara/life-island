@@ -53,6 +53,10 @@ export const receipts = grocery.table(
     merchantId: uuid('merchant_id')
       .notNull()
       .references(() => merchants.id),
+    /** Your own name for it; the shop's name when null. */
+    title: text('title'),
+    /** Not groceries (software, credits): off the Groceries page, still in Money. */
+    notGroceries: boolean('not_groceries').notNull().default(false),
     purchasedAt: timestamp('purchased_at', { withTimezone: true }).notNull(),
     currency: text('currency').notNull(),
     total: money('total').notNull(),
@@ -97,6 +101,36 @@ export const receiptItems = grocery.table(
     index('receipt_items_category_idx').on(table.category),
   ],
 );
+
+/**
+ * Each item you buy, one row per name the receipt lines carry
+ * (`normalized_name`, matched without case): its link, its photo (in this
+ * service's bucket, never in the database) and whether you removed it from
+ * "What you buy". Its receipt lines stay: they are what you paid.
+ */
+export const products = grocery.table(
+  'products',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** `lower(btrim(name))`: how a receipt line finds its product. */
+    nameKey: text('name_key').notNull(),
+    name: text('name').notNull(),
+    link: text('link'),
+    imageKey: text('image_key'),
+    imageType: text('image_type'),
+    imageUpdatedAt: timestamp('image_updated_at', { withTimezone: true }),
+    /** Removed from "What you buy" and from the suggested list. */
+    hidden: boolean('hidden').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex('products_name_key_idx').on(table.nameKey)],
+);
+export type ProductRow = typeof products.$inferSelect;
 
 export type ReceiptRow = typeof receipts.$inferSelect;
 export type ReceiptItemRow = typeof receiptItems.$inferSelect;
