@@ -4,7 +4,9 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import type {
+  Classification,
   DocumentAnalyzer,
+  Extraction,
   ParseInput,
   ParseRunRecord,
 } from './document-parser.js';
@@ -146,6 +148,55 @@ describe('GatedAnalyzer', () => {
       by: 'offline',
     });
     expect(events).toHaveLength(0);
+  });
+
+  it.each([
+    [{ 'ai.enabled': false }, 'offline_ai_off'],
+    [{ 'ai-tool.documents.classify': false }, 'offline_tool_off'],
+    [{ 'ai.budget-reached': true }, 'offline_budget_reached'],
+  ])('flags why a step ran offline (%o)', async (replica, flag) => {
+    const offline = analyzer('offline');
+    vi.mocked(offline.classify).mockResolvedValue({
+      result: { flags: ['fake_parser'] } as unknown as Classification,
+      runs: [],
+    });
+    const { svc } = fakeDb(replica);
+    const gated = new GatedAnalyzer(
+      analyzer('claude', [run]),
+      offline,
+      svc,
+      undefined,
+      openGuard().guard,
+    );
+    const output = await gated.classify(input, []);
+    expect(output.result).toEqual({ flags: ['fake_parser', flag] });
+  });
+
+  it('flags a step that ran offline because the spending guard paused AI', async () => {
+    const offline = analyzer('offline');
+    vi.mocked(offline.extract).mockResolvedValue({
+      result: { flags: ['fake_parser'] } as unknown as Extraction,
+      runs: [],
+    });
+    const guard: AiSpendGuard = {
+      reserve: vi.fn(async () => {
+        throw new AiSpendDenied(
+          'AI is paused: svc-settings cannot be reached.',
+        );
+      }),
+      settle: vi.fn(),
+    };
+    const plan = {} as Parameters<DocumentAnalyzer['extract']>[1];
+    const output = await new GatedAnalyzer(
+      analyzer('claude', [run]),
+      offline,
+      fakeDb({}).svc,
+      undefined,
+      guard,
+    ).extract(input, plan);
+    expect(output.result).toEqual({
+      flags: ['fake_parser', 'offline_ai_paused'],
+    });
   });
 
   it('records the calls of a failed step and rethrows', async () => {

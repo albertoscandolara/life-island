@@ -164,16 +164,20 @@ export async function readBooleanSetting(
   return appSetting(key)?.default === true;
 }
 
+/** Why a tool may not call the model now (see `aiToolBlock`). */
+export type AiToolBlock = 'budget_reached' | 'ai_off' | 'tool_off';
+
 /**
- * Whether a tool may call the model now: the master switch, its own switch
- * and the monthly budget (svc-settings sets AI_BUDGET_REACHED_SETTING when AI
- * must stop), from this service's replica (the registry defaults until set).
+ * Why a tool may not call the model now, or null when it may: the monthly
+ * budget (svc-settings sets AI_BUDGET_REACHED_SETTING when AI must stop), the
+ * master switch and its own switch, from this service's replica (the registry
+ * defaults until set).
  */
-export async function isAiToolEnabled(
+export async function aiToolBlock(
   db: Queryable,
   schema: string,
   toolId: string,
-): Promise<boolean> {
+): Promise<AiToolBlock | null> {
   const tool = requireAiTool(toolId);
   const { rows } = await db.query<{ key: string; value: unknown }>(
     `select key, value from ${assertSchemaName(schema)}.${SETTINGS_REPLICA_TABLE} where key = any($1)`,
@@ -182,11 +186,20 @@ export async function isAiToolEnabled(
   const value = (key: string) => rows.find((row) => row.key === key)?.value;
   const master = value(AI_ENABLED_SETTING);
   const own = value(aiToolSettingKey(toolId));
-  return (
-    value(AI_BUDGET_REACHED_SETTING) !== true &&
-    (typeof master === 'boolean' ? master : true) &&
-    (typeof own === 'boolean' ? own : tool.defaultEnabled)
-  );
+  if (value(AI_BUDGET_REACHED_SETTING) === true) return 'budget_reached';
+  if (!(typeof master === 'boolean' ? master : true)) return 'ai_off';
+  if (!(typeof own === 'boolean' ? own : tool.defaultEnabled))
+    return 'tool_off';
+  return null;
+}
+
+/** Whether a tool may call the model now (`aiToolBlock` says why not). */
+export async function isAiToolEnabled(
+  db: Queryable,
+  schema: string,
+  toolId: string,
+): Promise<boolean> {
+  return (await aiToolBlock(db, schema, toolId)) === null;
 }
 
 export interface AiToolDescription {

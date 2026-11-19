@@ -61,7 +61,8 @@ The front end (`libs/auth-ui`): the sign-in page (sign-in, two-factor code, firs
 `AUTH_DEV_BYPASS=true` signs you in as the local owner, with no login page. It fails closed:
 
 - it works only with `NODE_ENV=development` (or `test`, for the integration tests); with any other value, unset included, and in the service image (`NODE_ENV=production`), every service **refuses to start**;
-- without it, services need `INTERNAL_TOKEN` or refuse to start; forgetting both stops the island, it never opens it.
+- without it, services need `INTERNAL_TOKEN` or refuse to start; forgetting both stops the island, it never opens it;
+- with it and no `INTERNAL_TOKEN`, services call each other with the fixed `DEV_INTERNAL_TOKEN`, which a service accepts only while it runs the bypass with no token of its own. Without that, internal-only routes such as the AI spending guard refused them and every AI feature quietly ran on its own rules.
 
 To try the real sign-in locally, set `AUTH_DEV_BYPASS=false`, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY` and `AUTH_SETUP_TOKEN` in `.env`, restart, and open `/sign-in`.
 

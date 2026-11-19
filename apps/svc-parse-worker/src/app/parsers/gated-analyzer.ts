@@ -1,9 +1,9 @@
 import { Logger } from '@nestjs/common';
 import {
   AiSpendDenied,
+  aiToolBlock,
   aiToolModel,
   HttpAiSpendGuard,
-  isAiToolEnabled,
   recordAiToolUse,
   worstCaseUsd,
   type AiSpendGuard,
@@ -34,6 +34,19 @@ export const STEP_TOOLS: Record<ParseRunRecord['step'], string> = {
   transaction: 'documents.transactions',
   reclassify: 'documents.reclassify',
 };
+
+/**
+ * Why a step ran on the offline analyzer although the worker runs Claude,
+ * added to the document's flags so the review panel can say what to change.
+ */
+export const OFFLINE_FLAGS = {
+  ai_off: 'offline_ai_off',
+  tool_off: 'offline_tool_off',
+  budget_reached: 'offline_budget_reached',
+  paused: 'offline_ai_paused',
+} as const;
+
+type OfflineReason = keyof typeof OFFLINE_FLAGS;
 
 type Method = Exclude<keyof DocumentAnalyzer, 'name'>;
 
@@ -102,8 +115,8 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     call: (analyzer: DocumentAnalyzer) => Promise<StepOutput<T>>,
   ): Promise<StepOutput<T>> {
     const toolId = METHOD_TOOLS[method];
-    if (!(await isAiToolEnabled(this.svc.pool, this.svc.schema, toolId)))
-      return call(this.offline);
+    const block = await aiToolBlock(this.svc.pool, this.svc.schema, toolId);
+    if (block) return this.offlineRun(call, block);
     const model = this.aiOn
       ? await aiToolModel(this.svc.pool, this.svc.schema, toolId)
       : null;
@@ -120,7 +133,7 @@ export class GatedAnalyzer implements DocumentAnalyzer {
       if (!(error instanceof AiSpendDenied)) throw error;
       // Like a tool switched off: the step runs on Life Island's own rules.
       this.logger.warn(`${toolId} runs offline: ${error.message}`);
-      return call(this.offline);
+      return this.offlineRun(call, 'paused');
     }
     let runs: readonly ParseRunRecord[] = [];
     try {
@@ -139,6 +152,20 @@ export class GatedAnalyzer implements DocumentAnalyzer {
           this.logger.warn(`Could not settle the AI spend: ${String(failure)}`),
         );
     }
+  }
+
+  /** The step on the offline analyzer, its result flagged with why. */
+  private async offlineRun<T>(
+    call: (analyzer: DocumentAnalyzer) => Promise<StepOutput<T>>,
+    reason: OfflineReason,
+  ): Promise<StepOutput<T>> {
+    const output = await call(this.offline);
+    const result = output.result as { flags?: unknown } | null;
+    if (result && Array.isArray(result.flags)) {
+      const flag = OFFLINE_FLAGS[reason];
+      if (!result.flags.includes(flag)) result.flags.push(flag);
+    }
+    return output;
   }
 
   private async record(

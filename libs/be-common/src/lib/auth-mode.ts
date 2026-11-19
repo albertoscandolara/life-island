@@ -71,14 +71,32 @@ export function authSettingsFromEnv(
 }
 
 /**
- * Headers for a call to another service: the internal token when one is set.
- * Spread them into every service-to-service fetch.
+ * What services send as their internal token on your own machine when
+ * AUTH_DEV_BYPASS is on and no INTERNAL_TOKEN is set. Without it a call from
+ * one service to another would arrive as the dev owner, not as a service,
+ * and the endpoints only services may call (such as the AI spending guard)
+ * would refuse it. Accepted only by a service that runs the dev bypass with
+ * no INTERNAL_TOKEN of its own.
+ */
+export const DEV_INTERNAL_TOKEN = 'life-island-dev-bypass';
+
+/**
+ * Headers for a call to another service: the internal token when one is set,
+ * else the dev one under the dev bypass. Spread them into every
+ * service-to-service fetch.
  */
 export function internalHeaders(
   env: NodeJS.ProcessEnv = process.env,
 ): Record<string, string> {
   const token = env['INTERNAL_TOKEN']?.trim();
-  return token ? { 'X-Internal-Token': token } : {};
+  if (token) return { 'X-Internal-Token': token };
+  const bypass = ['1', 'true', 'yes', 'on'].includes(
+    env['AUTH_DEV_BYPASS']?.trim().toLowerCase() ?? '',
+  );
+  const nodeEnv = env['NODE_ENV']?.trim().toLowerCase() ?? '';
+  return bypass && DEV_ENVIRONMENTS.has(nodeEnv) && !isProduction(env)
+    ? { 'X-Internal-Token': DEV_INTERNAL_TOKEN }
+    : {};
 }
 
 const requestUser = new AsyncLocalStorage<RequestUser>();

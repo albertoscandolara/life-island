@@ -44,6 +44,7 @@ import {
   UiStatusDot,
 } from '@life-island/design-system';
 import { firstValueFrom, of } from 'rxjs';
+import { environment } from '../../environments/environment';
 import { IngestionApi } from '../api/ingestion-api';
 import { ReviewApi } from '../api/review-api';
 import { DIMENSION_GROUPS } from '../categories/category-rows';
@@ -115,6 +116,36 @@ function canonical(value: unknown, schema: JsonSchema | undefined): string {
  * module, as a form. The footer holds the decisions: Confirm (and next),
  * Reject or Reopen, Delete.
  */
+interface OfflineReason {
+  why: string;
+  action: string;
+}
+
+/** The parse worker's `offline_*` flags (svc-parse-worker, gated-analyzer.ts). */
+const OFFLINE_REASONS: Record<string, OfflineReason> = {
+  offline_ai_off: {
+    why: 'AI is switched off in Settings.',
+    action: 'turn AI on in Settings, AI tools',
+  },
+  offline_tool_off: {
+    why: 'This reading step is switched off in Settings.',
+    action: 'turn the Documents tools on in Settings, AI tools',
+  },
+  offline_budget_reached: {
+    why: 'This month’s AI budget is used up.',
+    action: 'raise the monthly budget in Settings, AI tools',
+  },
+  offline_ai_paused: {
+    why: 'AI was paused because Settings could not be reached when it was read.',
+    action: 'check that Settings is running in Settings, AI tools',
+  },
+  env: {
+    why: 'The parse worker could not use the AI: it ran with PARSER=fake or no ANTHROPIC_API_KEY in .env, or AI was off in Settings when it read it.',
+    action:
+      'check PARSER=claude and your API key in .env (restart npm run dev after a change) and the switches in Settings, AI tools',
+  },
+};
+
 @Component({
   selector: 'app-review-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -437,7 +468,21 @@ export class ReviewPanel {
   protected readonly targetLabel = targetLabel;
 
   protected flagLabel(flag: string): string {
-    return humanize(flag);
+    return flag === 'fake_parser' ? 'Read without AI' : humanize(flag);
+  }
+  /** The flags shown as badges: why it was read offline is told by the notice. */
+  protected shownFlags(flags: readonly string[]): string[] {
+    return flags.filter((flag) => !flag.startsWith('offline_'));
+  }
+  /** Settings, AI tools: where each document step is switched on. */
+  protected readonly aiToolsUrl = `${environment.shellUrl}settings/ai-tools`;
+  /** Why the offline parser read this document, and what turns the AI back on. */
+  protected offlineReason(flags: readonly string[]): OfflineReason | null {
+    if (!flags.includes('fake_parser')) return null;
+    const flag = Object.keys(OFFLINE_REASONS).find((key) =>
+      flags.includes(key),
+    );
+    return flag ? OFFLINE_REASONS[flag] : OFFLINE_REASONS['env'];
   }
   protected schemaShape(): SchemaShape | undefined {
     return this.schema() as SchemaShape | undefined;

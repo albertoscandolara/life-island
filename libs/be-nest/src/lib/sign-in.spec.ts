@@ -1,5 +1,6 @@
 import {
   currentUser,
+  DEV_INTERNAL_TOKEN,
   DEV_OWNER,
   type AuthSettings,
 } from '@life-island/be-common';
@@ -141,6 +142,24 @@ describe('requireSignIn', () => {
       request(),
     );
     expect(result.user).toEqual(DEV_OWNER);
+  });
+
+  it('accepts the dev internal token only under the dev bypass with no token', async () => {
+    const dev = { 'x-internal-token': DEV_INTERNAL_TOKEN };
+    const bypass = requireSignIn({
+      ...settings,
+      devBypass: true,
+      internalToken: null,
+    });
+    expect((await run(bypass, request(dev))).user).toMatchObject({
+      internal: true,
+    });
+    // A real token set, or no bypass: the dev one is refused.
+    expect(
+      (await run(requireSignIn({ ...settings, devBypass: true }), request(dev)))
+        .status,
+    ).toBe(401);
+    expect((await run(requireSignIn(settings), request(dev))).status).toBe(401);
   });
 
   it('reads only well-formed session cookies', () => {
