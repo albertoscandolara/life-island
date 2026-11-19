@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import {
+  DEV_INTERNAL_TOKEN,
   DEV_OWNER,
   INTERNAL_TOKEN_HEADER,
   runAsUser,
@@ -77,7 +78,9 @@ export function requireSignIn(
 
     const offered = headerValue(req, INTERNAL_TOKEN_HEADER);
     if (offered !== undefined) {
-      if (token && safeEqual(Buffer.from(offered), token))
+      const dev =
+        !token && settings.devBypass && offered === DEV_INTERNAL_TOKEN;
+      if (dev || (token && safeEqual(Buffer.from(offered), token)))
         return runAsUser(
           { id: 'internal', role: 'owner', internal: true },
           next,

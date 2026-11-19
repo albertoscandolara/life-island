@@ -3,6 +3,7 @@ import {
   authSettingsFromEnv,
   currentUser,
   DEV_OWNER,
+  DEV_INTERNAL_TOKEN,
   internalHeaders,
   runAsUser,
 } from './auth-mode.js';
@@ -51,6 +52,17 @@ describe('auth settings', () => {
       'X-Internal-Token': TOKEN,
     });
     expect(internalHeaders({})).toEqual({});
+  });
+
+  it('sends the dev internal token under the dev bypass with no token', () => {
+    const dev = { AUTH_DEV_BYPASS: 'true', NODE_ENV: 'development' };
+    expect(internalHeaders(dev)).toEqual({
+      'X-Internal-Token': DEV_INTERNAL_TOKEN,
+    });
+    expect(internalHeaders({ ...dev, INTERNAL_TOKEN: TOKEN })).toEqual({
+      'X-Internal-Token': TOKEN,
+    });
+    expect(internalHeaders({ ...dev, NODE_ENV: 'production' })).toEqual({});
   });
 
   it('knows the user of the running request', () => {
