@@ -21,14 +21,22 @@
     <span class="muted small-inline"
       >AI confidence {{ rec.confidence | percent }}</span
     >
-    } @for (flag of rec.flags; track flag) {
+    } @for (flag of shownFlags(rec.flags); track flag) {
     <ui-badge tone="warning">{{ flagLabel(flag) }}</ui-badge>
     }
   </div>
+  @if (offlineReason(rec.flags); as reason) {
+  <ui-alert tone="warning">
+    <strong>Read without AI.</strong> {{ reason.why }} Its details are only a
+    sample guess, so check them or read it again with the AI:
+    <a [href]="aiToolsUrl" target="_blank" rel="noopener">{{ reason.action }}</a
+    >, then press <em>Parse again</em> below.
+  </ui-alert>
+  }
   <p class="muted small">
     Uploaded {{ rec.uploadedAt | date: 'dd MMM yyyy, HH:mm' }} @if
-    (rec.parsedAt) { · read by the AI {{ rec.parsedAt | date: 'dd MMM yyyy,
-    HH:mm' }} } ·
+    (rec.parsedAt) { · {{ offlineReason(rec.flags) ? 'read' : 'read by the AI'
+    }} {{ rec.parsedAt | date: 'dd MMM yyyy, HH:mm' }} } ·
     <button
       type="button"
       class="link"
