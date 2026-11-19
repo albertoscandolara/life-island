@@ -266,7 +266,7 @@ function firstDate(text: string): string | null {
  * name, title and text, reads only the few fields a regular expression can
  * find (totals, dates, currency) and leaves every other field missing, so the
  * whole pipeline and the review UI work without an API key. The target
- * details are sample data, flagged `fake_parser`.
+ * details hold only what was read (never sample data), flagged `fake_parser`.
  *
  * `quota` simulates a provider usage quota: after `steps` AI steps in a
  * period it fails with QuotaExhaustedError until the period ends, which is
@@ -342,7 +342,7 @@ export class FakeParser implements DocumentAnalyzer {
         category: target.category,
         description: input.description
           ? undefined
-          : `${target.label} (sample data)`,
+          : `${target.label} (read without AI)`,
         flags: ['fake_parser'],
       },
     };
@@ -433,11 +433,18 @@ export class FakeParser implements DocumentAnalyzer {
           : 'The offline parser only reads totals, dates, periods, currency and the main boxes of a payslip',
       };
     });
+    const fields = buildExtractedFields(plan, reported);
+    const amount = fields.fields['total_amount']?.value;
     return {
       runs: [this.run('extract', { fields: reported.length })],
       result: {
-        details: this.sampleDetails(plan.target.targetKey, input),
-        fields: buildExtractedFields(plan, reported),
+        details: this.detailsRead(plan.target.targetKey, input, {
+          total: typeof amount === 'number' ? amount : 0,
+          date,
+          currency,
+          issuer: companyNameIn(text),
+        }),
+        fields,
         flags: ['fake_parser'],
       },
     };
@@ -513,56 +520,46 @@ export class FakeParser implements DocumentAnalyzer {
     return { step, model: 'fake', promptVersion: 'fake-2', rawOutput };
   }
 
-  private sampleDetails(targetKey: string, input: ParseInput): unknown {
-    const today = new Date().toISOString().slice(0, 10);
+  /**
+   * The record details, from only what the text showed: never a sample shop,
+   * item or amount, since a confirmed record lands in the user's real totals
+   * (Groceries, the 730). What was not read is left empty (no shop name, no
+   * items, a 0 total) for the review to fill in; a missing date is the day
+   * the document was read.
+   */
+  private detailsRead(
+    targetKey: string,
+    input: ParseInput,
+    read: {
+      total: number;
+      date: string | null;
+      currency: string | null;
+      issuer: string | null;
+    },
+  ): unknown {
+    const day = read.date ?? new Date().toISOString().slice(0, 10);
     let details: GroceryReceiptV1 | Tax730ExpenseV1 | GeneralDocumentV1;
     if (targetKey === 'grocery.receipt@1') {
       details = {
-        merchant: { name: 'Demo Market', address: 'Via Roma 1, Milano' },
-        purchasedAt: `${today}T00:00:00Z`,
-        currency: 'EUR',
-        total: 7.47,
-        paymentMethod: 'card',
-        items: [
-          {
-            rawName: 'LATTE INTERO 1L',
-            normalizedName: 'Whole milk 1 L',
-            category: 'dairy',
-            quantity: 2,
-            unitPrice: 1.29,
-            lineTotal: 2.58,
-          },
-          {
-            rawName: 'PANE CASERECCIO',
-            normalizedName: 'Homemade bread',
-            category: 'bakery',
-            quantity: 1,
-            lineTotal: 2.4,
-          },
-          {
-            rawName: 'MELE GOLDEN',
-            normalizedName: 'Golden apples',
-            category: 'produce',
-            quantity: 1,
-            lineTotal: 2.49,
-          },
-        ],
+        merchant: { name: read.issuer ?? '' },
+        purchasedAt: `${day}T00:00:00Z`,
+        currency: read.currency ?? 'EUR',
+        total: read.total,
+        items: [],
       };
     } else if (targetKey === 'tax730.expense@1') {
       details = {
-        taxYear: Number(today.slice(0, 4)),
-        expenseType: 'medicines',
-        frame730: 'E1',
-        date: today,
-        amount: 18.9,
-        traceablePayment: true,
-        issuer: 'Farmacia Demo',
+        taxYear: Number(day.slice(0, 4)),
+        expenseType: 'other',
+        date: day,
+        amount: read.total,
+        issuer: read.issuer ?? '',
       };
     } else {
       details = {
         documentType: 'document',
-        date: today,
-        summary: `Sample details for "${input.title}". Set PARSER=claude to extract real data.`,
+        date: day,
+        summary: `Read without AI: "${input.title}". Set PARSER=claude to extract its details.`,
         keyFacts: [{ label: 'File', value: input.filename }],
       };
     }
