@@ -47,7 +47,7 @@ export function groceriesAttention(
       title: `${item.name} is probably running out`,
       detail: `You buy it about every ${Math.round(item.everyDays ?? 0)} days.`,
       since: isoAddDays(item.lastBought, Math.round(item.everyDays ?? 0)),
-      path: '/groceries',
+      path: `/groceries?add=${encodeURIComponent(item.name)}#shopping-list`,
       action: 'Add to list',
     })),
   };

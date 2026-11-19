@@ -48,7 +48,7 @@ describe('runningOut', () => {
           title: 'Milk is probably running out',
           detail: 'You buy it about every 6 days.',
           since: '2026-11-16',
-          path: '/groceries',
+          path: '/groceries?add=Milk#shopping-list',
           action: 'Add to list',
         },
       ],

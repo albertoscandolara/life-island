@@ -16,6 +16,7 @@ import type {
   NeedsYouDto,
 } from '@life-island/contracts';
 import { UiButton, UiCard, UiIcon } from '@life-island/design-system';
+import { appLink, revealOnPage, type AppLink } from './app-link';
 import { dateText, euro } from './format';
 import { LiDue } from './page-parts';
 
@@ -28,21 +29,9 @@ export interface NeedsYouLine {
   /** Days left for a dated thing (negative once late); null for a waiting one. */
   daysLeft: number | null;
   /** The button that opens where it is handled, or null when it is this page. */
-  open: { label: string; path: string; query: Record<string, string> } | null;
+  open: ({ label: string } & AppLink) | null;
   /** The Agenda key a dated thing is marked done with; null for a waiting one. */
   doneKey: string | null;
-}
-
-/** `/cars?vehicle=1` as a router path and its query. */
-function splitPath(path: string): {
-  path: string;
-  query: Record<string, string>;
-} {
-  const [pathname, search = ''] = path.split('?');
-  return {
-    path: pathname,
-    query: Object.fromEntries(new URLSearchParams(search)),
-  };
 }
 
 /**
@@ -57,10 +46,11 @@ export function needsYouLines(
   const here = currentPath.split('?')[0].replace(/\/$/, '') || '/';
   const openOf = (path: string | null, label: string) => {
     if (!path || !path.startsWith('/')) return null;
-    const target = splitPath(path);
+    const target = appLink(path);
     const same =
       (target.path.replace(/\/$/, '') || '/') === here &&
-      !Object.keys(target.query).length;
+      !Object.keys(target.query).length &&
+      !target.fragment;
     return same ? null : { label, ...target };
   };
   const dated = needs.entries
@@ -86,8 +76,9 @@ export function needsYouLines(
       w.since ? `waiting since ${dateText(w.since)}` : null,
     ].filter((m): m is string => !!m),
     daysLeft: null,
-    // A waiting thing always has its own button: it is what handles it.
-    open: { label: w.action, ...splitPath(w.path) },
+    // A waiting thing always has its own button: it is what handles it, so
+    // its path names the tab (`?tab=`) or the block (`#id`) that does.
+    open: { label: w.action, ...appLink(w.path) },
     doneKey: null,
   }));
   // Late dates first, then what waits, then what is coming.
@@ -144,7 +135,9 @@ export function needsYouLines(
                     size="sm"
                     [routerLink]="open.path"
                     [queryParams]="open.query"
+                    [fragment]="open.fragment"
                     [attr.aria-label]="open.label + ': ' + line.title"
+                    (click)="reveal(open.fragment)"
                     >{{ open.label }}</a
                   >
                 }
@@ -254,6 +247,17 @@ export class LiNeedsYou implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    // Arrived from a link to a block of this page (the Agenda, the digest):
+    // bring it into view once it is shown.
+    this.reveal(this.router.parseUrl(this.router.url).fragment);
+  }
+
+  /**
+   * A button's place may be on this very page (another tab, or a block
+   * further down): the router does not move the view there, so this does.
+   */
+  protected reveal(fragment: string | null | undefined): void {
+    revealOnPage(fragment);
   }
 
   /** Reads it again (after the page changed something it lists). */

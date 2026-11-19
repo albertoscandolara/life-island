@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   GROCERY_CATEGORY_LABELS,
@@ -221,6 +222,20 @@ export class GroceriesPage {
     this.load();
     // Added from the island's "Add" menu while this page is open.
     onRecordsChanged(this.api.base, () => this.load());
+    // `?add=Milk`: "Add to list" on something running out (Needs you, the
+    // Agenda) fills the box, ready to add; it then leaves the URL.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      const add = query.get('add')?.trim();
+      if (!add) return;
+      this.newItem.set(add.slice(0, 120));
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { add: null },
+        queryParamsHandling: 'merge',
+        preserveFragment: true,
+        replaceUrl: true,
+      });
+    });
   }
 
   protected setTab(tab: string): void {

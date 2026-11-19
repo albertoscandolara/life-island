@@ -231,7 +231,7 @@
 
 <ui-card heading="Expenses of {{ d.taxYear }}" class="expenses-card">
   @if (d.pairsToReviewCount) {
-  <ui-alert tone="info" class="pairs-alert">
+  <ui-alert tone="info" class="pairs-alert" id="payment-pairs">
     {{ d.pairsToReviewCount }} {{ d.pairsToReviewCount === 1 ? 'expense was' :
     'expenses were' }} paired with {{ d.pairsToReviewCount === 1 ? 'its' :
     'their' }} payments automatically, so each is counted once. Open {{

@@ -72,6 +72,7 @@
   @for (i of live(); track i.id) {
   <article
     class="li-item"
+    [id]="'subscription-' + i.id"
     [class.li-item--warning]="i.daysToCancelBy !== null && i.daysToCancelBy >= 0 && i.daysToCancelBy <= 14"
     [class.li-item--off]="i.status === 'cancelling'"
   >

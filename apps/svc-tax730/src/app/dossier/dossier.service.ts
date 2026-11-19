@@ -568,7 +568,7 @@ export class DossierService {
           } paired with ${y.pairsToReviewCount === 1 ? 'its payment' : 'their payments'}`,
           detail: `Tax year ${y.taxYear}, for the 730/${y.filingYear}`,
           since: null,
-          path: '/taxes/730',
+          path: `/taxes/730?year=${y.taxYear}&view=expenses#payment-pairs`,
           action: 'Confirm',
         })),
     };

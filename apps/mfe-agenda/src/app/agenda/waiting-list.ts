@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { agendaArea, type AgendaWaitingDto } from '@life-island/contracts';
 import { UiButton, UiIcon } from '@life-island/design-system';
-import { dateText } from '@life-island/records-ui';
+import { appLink, dateText } from '@life-island/records-ui';
 
 /**
  * What the areas wait on you for with no date: a document to approve, a
@@ -34,11 +34,14 @@ import { dateText } from '@life-island/records-ui';
             }
           </span>
           <span class="side">
+            @let link = appLink(w.path);
             <a
               uiButton
               variant="secondary"
               size="sm"
-              [routerLink]="w.path"
+              [routerLink]="link.path"
+              [queryParams]="link.query"
+              [fragment]="link.fragment"
               [attr.aria-label]="w.action + ': ' + w.title"
             >
               {{ w.action }}
@@ -54,5 +57,6 @@ export class WaitingList {
   readonly items = input.required<readonly AgendaWaitingDto[]>();
 
   protected readonly area = agendaArea;
+  protected readonly appLink = appLink;
   protected readonly dateText = dateText;
 }
