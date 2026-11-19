@@ -39,6 +39,7 @@ import {
   ContextTooLargeError,
   CredentialsError,
   PermanentParseError,
+  AiUnavailableError,
   QuotaExhaustedError,
   RateLimitedError,
   type CategoryDefinition,
@@ -335,13 +336,18 @@ export class ReclassificationService {
       if (error instanceof QuotaExhaustedError) {
         const plan = await this.queue.pause({
           kind: 'PAUSED_QUOTA',
-          reason: 'The AI provider reports that the usage quota is exhausted',
+          reason:
+            error instanceof AiUnavailableError
+              ? error.message
+              : 'The AI provider reports that the usage quota is exhausted',
           details: error.details,
           providerResumeAt: error.resetAt,
         });
         throw new StopRun(
           'INTERRUPTED',
-          `The AI usage quota is exhausted (until ${plan.resumeAt.toISOString()}); the next run continues where this one stopped`,
+          error instanceof AiUnavailableError
+            ? `${error.message} The next run continues where this one stopped.`
+            : `The AI usage quota is exhausted (until ${plan.resumeAt.toISOString()}); the next run continues where this one stopped`,
         );
       }
       if (error instanceof RateLimitedError) {

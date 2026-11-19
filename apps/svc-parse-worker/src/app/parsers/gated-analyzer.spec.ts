@@ -3,12 +3,11 @@ import {
   type AiSpendGuard,
   type ServiceDb,
 } from '@life-island/be-common';
-import type {
-  Classification,
-  DocumentAnalyzer,
-  Extraction,
-  ParseInput,
-  ParseRunRecord,
+import {
+  AiUnavailableError,
+  type DocumentAnalyzer,
+  type ParseInput,
+  type ParseRunRecord,
 } from './document-parser.js';
 import { GatedAnalyzer, usageOf } from './gated-analyzer.js';
 
@@ -89,114 +88,50 @@ const run: ParseRunRecord = {
 describe('GatedAnalyzer', () => {
   it('calls the model while the tool is on and records the use', async () => {
     const ai = analyzer('claude', [run]);
-    const offline = analyzer('offline');
     const { svc, events } = fakeDb({});
-    const gated = new GatedAnalyzer(
-      ai,
-      offline,
-      svc,
-      undefined,
-      openGuard().guard,
-    );
+    const gated = new GatedAnalyzer(ai, svc, undefined, openGuard().guard);
 
     const output = await gated.classify(input, []);
 
     expect(output.result).toEqual({ by: 'claude' });
-    expect(offline.classify).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('ai.tool_used@1');
     expect(events[0].payload.toolId).toBe('documents.classify');
     expect(events[0].payload.steps).toEqual(usageOf([run]));
   });
 
-  it('runs a step offline when its tool is switched off in Settings', async () => {
+  it('makes a step wait when its tool is switched off in Settings', async () => {
     const ai = analyzer('claude', [run]);
-    const offline = analyzer('offline');
     const { svc, events } = fakeDb({ 'ai-tool.documents.extract': false });
-    const gated = new GatedAnalyzer(
-      ai,
-      offline,
-      svc,
-      undefined,
-      openGuard().guard,
-    );
+    const gated = new GatedAnalyzer(ai, svc, undefined, openGuard().guard);
 
     const plan = {} as Parameters<DocumentAnalyzer['extract']>[1];
-    expect((await gated.extract(input, plan)).result).toEqual({
-      by: 'offline',
-    });
+    const error = await gated.extract(input, plan).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AiUnavailableError);
+    expect((error as Error).message).toContain(
+      'a Documents tool is switched off',
+    );
+    expect((error as AiUnavailableError).resetAt!.getTime()).toBeGreaterThan(
+      Date.now(),
+    );
     expect(ai.extract).not.toHaveBeenCalled();
     // Other tools keep calling the model.
     expect((await gated.classify(input, [])).result).toEqual({ by: 'claude' });
     expect(events.map((e) => e.payload.toolId)).toEqual(['documents.classify']);
   });
 
-  it('runs every step offline with the master switch off', async () => {
-    const ai = analyzer('claude', [run]);
-    const offline = analyzer('offline');
-    const { svc, events } = fakeDb({ 'ai.enabled': false });
-    const gated = new GatedAnalyzer(
-      ai,
-      offline,
-      svc,
-      undefined,
-      openGuard().guard,
-    );
-
-    const context = { analysis: null, categories: [] };
-    expect((await gated.readTransaction(input, context)).result).toEqual({
-      by: 'offline',
-    });
-    expect(events).toHaveLength(0);
-  });
-
   it.each([
-    [{ 'ai.enabled': false }, 'offline_ai_off'],
-    [{ 'ai-tool.documents.classify': false }, 'offline_tool_off'],
-    [{ 'ai.budget-reached': true }, 'offline_budget_reached'],
-  ])('flags why a step ran offline (%o)', async (replica, flag) => {
-    const offline = analyzer('offline');
-    vi.mocked(offline.classify).mockResolvedValue({
-      result: { flags: ['fake_parser'] } as unknown as Classification,
-      runs: [],
-    });
-    const { svc } = fakeDb(replica);
-    const gated = new GatedAnalyzer(
-      analyzer('claude', [run]),
-      offline,
-      svc,
-      undefined,
-      openGuard().guard,
-    );
-    const output = await gated.classify(input, []);
-    expect(output.result).toEqual({ flags: ['fake_parser', flag] });
-  });
-
-  it('flags a step that ran offline because the spending guard paused AI', async () => {
-    const offline = analyzer('offline');
-    vi.mocked(offline.extract).mockResolvedValue({
-      result: { flags: ['fake_parser'] } as unknown as Extraction,
-      runs: [],
-    });
-    const guard: AiSpendGuard = {
-      reserve: vi.fn(async () => {
-        throw new AiSpendDenied(
-          'AI is paused: svc-settings cannot be reached.',
-        );
-      }),
-      settle: vi.fn(),
-    };
-    const plan = {} as Parameters<DocumentAnalyzer['extract']>[1];
-    const output = await new GatedAnalyzer(
-      analyzer('claude', [run]),
-      offline,
-      fakeDb({}).svc,
-      undefined,
-      guard,
-    ).extract(input, plan);
-    expect(output.result).toEqual({
-      flags: ['fake_parser', 'offline_ai_paused'],
-    });
+    [{ 'ai.enabled': false }, 'AI is switched off in Settings'],
+    [{ 'ai.budget-reached': true }, "this month's AI budget is used up"],
+  ])('never reads offline: %o makes every step wait', async (replica, says) => {
+    const ai = analyzer('claude', [run]);
+    const { svc, events } = fakeDb(replica);
+    const gated = new GatedAnalyzer(ai, svc, undefined, openGuard().guard);
+    await expect(
+      gated.readTransaction(input, { analysis: null, categories: [] }),
+    ).rejects.toThrow(says);
+    expect(ai.readTransaction).not.toHaveBeenCalled();
+    expect(events).toHaveLength(0);
   });
 
   it('records the calls of a failed step and rethrows', async () => {
@@ -206,13 +141,7 @@ describe('GatedAnalyzer', () => {
     });
     vi.mocked(ai.readTransaction).mockRejectedValue(failure);
     const { svc, events } = fakeDb({});
-    const gated = new GatedAnalyzer(
-      ai,
-      analyzer('offline'),
-      svc,
-      undefined,
-      openGuard().guard,
-    );
+    const gated = new GatedAnalyzer(ai, svc, undefined, openGuard().guard);
 
     await expect(
       gated.readTransaction(input, { analysis: null, categories: [] }),
@@ -230,13 +159,7 @@ describe('GatedAnalyzer', () => {
     const { svc } = fakeDb({
       'ai-model.documents.classify': 'claude-opus-5-5',
     });
-    const gated = new GatedAnalyzer(
-      ai,
-      analyzer('offline'),
-      svc,
-      aiOn,
-      openGuard().guard,
-    );
+    const gated = new GatedAnalyzer(ai, svc, aiOn, openGuard().guard);
 
     expect((await gated.classify(input, [])).result).toEqual({ by: 'opus' });
     expect(aiOn).toHaveBeenCalledWith('documents.classify', 'claude-opus-5-5');
@@ -245,30 +168,11 @@ describe('GatedAnalyzer', () => {
     expect((await gated.extract(input, plan)).result).toEqual({ by: 'claude' });
   });
 
-  it('runs offline while the monthly budget stops AI', async () => {
-    const ai = analyzer('claude', [run]);
-    const { svc } = fakeDb({ 'ai.budget-reached': true });
-    const gated = new GatedAnalyzer(
-      ai,
-      analyzer('offline'),
-      svc,
-      undefined,
-      openGuard().guard,
-    );
-    expect((await gated.classify(input, [])).result).toEqual({ by: 'offline' });
-  });
-
   it('reserves before the model and settles the real cost', async () => {
     const ai = analyzer('claude', [run]);
     const { svc } = fakeDb({});
     const { guard, settled } = openGuard();
-    await new GatedAnalyzer(
-      ai,
-      analyzer('offline'),
-      svc,
-      undefined,
-      guard,
-    ).classify(input, []);
+    await new GatedAnalyzer(ai, svc, undefined, guard).classify(input, []);
     expect(guard.reserve).toHaveBeenCalledWith(
       expect.objectContaining({ toolId: 'documents.classify', userId: null }),
     );
@@ -276,9 +180,8 @@ describe('GatedAnalyzer', () => {
     expect(settled[0]).toBeCloseTo(0.00027, 6);
   });
 
-  it('runs offline when the spending guard refuses', async () => {
+  it('makes the step wait when the spending guard refuses', async () => {
     const ai = analyzer('claude', [run]);
-    const offline = analyzer('offline');
     const { svc } = fakeDb({});
     const guard: AiSpendGuard = {
       reserve: vi.fn(async () => {
@@ -286,14 +189,13 @@ describe('GatedAnalyzer', () => {
       }),
       settle: vi.fn(),
     };
-    const result = await new GatedAnalyzer(
-      ai,
-      offline,
-      svc,
-      undefined,
-      guard,
-    ).classify(input, []);
-    expect(result.result).toEqual({ by: 'offline' });
+    const error = await new GatedAnalyzer(ai, svc, undefined, guard)
+      .classify(input, [])
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AiUnavailableError);
+    expect((error as Error).message).toBe(
+      'Documents wait for the AI: AI is paused until next month.',
+    );
     expect(ai.classify).not.toHaveBeenCalled();
   });
 });

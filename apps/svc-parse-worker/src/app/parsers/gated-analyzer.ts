@@ -3,6 +3,7 @@ import {
   AiSpendDenied,
   aiToolBlock,
   aiToolModel,
+  type AiToolBlock,
   HttpAiSpendGuard,
   recordAiToolUse,
   worstCaseUsd,
@@ -10,10 +11,11 @@ import {
   type ServiceDb,
 } from '@life-island/be-common';
 import { useCostUsd, type AiStepUsage } from '@life-island/contracts';
-import type {
-  DocumentAnalyzer,
-  ParseRunRecord,
-  StepOutput,
+import {
+  AiUnavailableError,
+  type DocumentAnalyzer,
+  type ParseRunRecord,
+  type StepOutput,
 } from './document-parser.js';
 
 const SERVICE = 'svc-parse-worker';
@@ -35,18 +37,18 @@ export const STEP_TOOLS: Record<ParseRunRecord['step'], string> = {
   reclassify: 'documents.reclassify',
 };
 
-/**
- * Why a step ran on the offline analyzer although the worker runs Claude,
- * added to the document's flags so the review panel can say what to change.
- */
-export const OFFLINE_FLAGS = {
-  ai_off: 'offline_ai_off',
-  tool_off: 'offline_tool_off',
-  budget_reached: 'offline_budget_reached',
-  paused: 'offline_ai_paused',
-} as const;
+/** How long the queue waits before it checks again whether AI is back. */
+const RETRY_MINUTES = { switched_off: 10, budget_reached: 60, paused: 5 };
 
-type OfflineReason = keyof typeof OFFLINE_FLAGS;
+/** What the review inbox's banner says while documents wait for the AI. */
+const BLOCKED_MESSAGES: Record<AiToolBlock, string> = {
+  ai_off:
+    'Documents wait for the AI: AI is switched off in Settings, AI tools. Turn it on and they are read on the next check.',
+  tool_off:
+    'Documents wait for the AI: a Documents tool is switched off in Settings, AI tools. Turn it on and they are read on the next check.',
+  budget_reached:
+    "Documents wait for the AI: this month's AI budget is used up. Raise it in Settings, AI tools, or they are read next month.",
+};
 
 type Method = Exclude<keyof DocumentAnalyzer, 'name'>;
 
@@ -74,9 +76,10 @@ export function usageOf(runs: readonly ParseRunRecord[]): AiStepUsage[] {
 
 /**
  * The Claude parser behind the switches of Settings: before each step it asks
- * this worker's settings replica whether the step's AI tool is on; when it is
- * off, the step runs on Life Island's own rules (the offline analyzer)
- * instead, so documents keep flowing. Every step that reached the model is
+ * this worker's settings replica whether the step's AI tool is on, then
+ * reserves its cost with the spending guard. Documents are only ever read by
+ * the AI: when it may not be called, the step throws `AiUnavailableError` and
+ * the queue pauses until it can (never the offline parser). Every step that reached the model is
  * recorded with its tokens, so Settings shows what each tool really costs.
  */
 export class GatedAnalyzer implements DocumentAnalyzer {
@@ -85,7 +88,6 @@ export class GatedAnalyzer implements DocumentAnalyzer {
 
   constructor(
     private readonly ai: DocumentAnalyzer,
-    private readonly offline: DocumentAnalyzer,
     private readonly svc: ServiceDb,
     /** The AI analyzer on the model you picked for a tool in Settings. */
     private readonly aiOn?: (toolId: string, model: string) => DocumentAnalyzer,
@@ -116,7 +118,13 @@ export class GatedAnalyzer implements DocumentAnalyzer {
   ): Promise<StepOutput<T>> {
     const toolId = METHOD_TOOLS[method];
     const block = await aiToolBlock(this.svc.pool, this.svc.schema, toolId);
-    if (block) return this.offlineRun(call, block);
+    if (block)
+      throw unavailable(
+        BLOCKED_MESSAGES[block],
+        block === 'budget_reached'
+          ? RETRY_MINUTES.budget_reached
+          : RETRY_MINUTES.switched_off,
+      );
     const model = this.aiOn
       ? await aiToolModel(this.svc.pool, this.svc.schema, toolId)
       : null;
@@ -132,8 +140,11 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     } catch (error) {
       if (!(error instanceof AiSpendDenied)) throw error;
       // Like a tool switched off: the step runs on Life Island's own rules.
-      this.logger.warn(`${toolId} runs offline: ${error.message}`);
-      return this.offlineRun(call, 'paused');
+      this.logger.warn(`${toolId} waits for the AI: ${error.message}`);
+      throw unavailable(
+        `Documents wait for the AI: ${error.message}`,
+        RETRY_MINUTES.paused,
+      );
     }
     let runs: readonly ParseRunRecord[] = [];
     try {
@@ -154,20 +165,6 @@ export class GatedAnalyzer implements DocumentAnalyzer {
     }
   }
 
-  /** The step on the offline analyzer, its result flagged with why. */
-  private async offlineRun<T>(
-    call: (analyzer: DocumentAnalyzer) => Promise<StepOutput<T>>,
-    reason: OfflineReason,
-  ): Promise<StepOutput<T>> {
-    const output = await call(this.offline);
-    const result = output.result as { flags?: unknown } | null;
-    if (result && Array.isArray(result.flags)) {
-      const flag = OFFLINE_FLAGS[reason];
-      if (!result.flags.includes(flag)) result.flags.push(flag);
-    }
-    return output;
-  }
-
   private async record(
     toolId: string,
     runs: readonly ParseRunRecord[],
@@ -186,4 +183,12 @@ export class GatedAnalyzer implements DocumentAnalyzer {
       );
     }
   }
+}
+
+function unavailable(message: string, minutes: number): AiUnavailableError {
+  return new AiUnavailableError(
+    message,
+    { message },
+    new Date(Date.now() + minutes * 60_000),
+  );
 }

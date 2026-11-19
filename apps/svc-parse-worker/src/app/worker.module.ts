@@ -58,11 +58,11 @@ function createParser(config: WorkerConfig, svc: ServiceDb): DocumentAnalyzer {
   const models = modelsOf(config);
   const options = { chunkChars: config.chunkChars };
   const claude = new ClaudeParser(client, models, options);
-  // Each step asks Settings' switches first; a step turned off runs offline.
+  // Each step asks Settings' switches and the spending guard first; while AI
+  // may not be called, the queue pauses (documents are never read offline).
   // A model picked in Settings replaces the env one for that tool's calls.
   return new GatedAnalyzer(
     claude,
-    new FakeParser(),
     svc,
     (toolId, model) =>
       new ClaudeParser(
