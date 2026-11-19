@@ -165,6 +165,32 @@ describe('FakeParser', () => {
     expect(
       findTarget('grocery.receipt@1')?.schema.safeParse(result.details).success,
     ).toBe(true);
+    // Never a sample shop or items: a confirmed receipt counts in Groceries.
+    expect(result.details).toEqual({
+      merchant: { name: '' },
+      purchasedAt: '2026-10-12T00:00:00Z',
+      currency: 'EUR',
+      total: 12.4,
+      items: [],
+    });
+  });
+
+  it('puts no sample amount or issuer in a 730 expense', async () => {
+    const plan = buildExtractionPlan(
+      categories.slice(0, 1),
+      'tax730.expense@1',
+    );
+    const { result } = await parser.extract(
+      inputOf('ricevuta.txt', 'FARMACIA ROSSI S.R.L. 03/02/2026'),
+      plan,
+    );
+    expect(result.details).toEqual({
+      taxYear: 2026,
+      expenseType: 'other',
+      date: '2026-02-03',
+      amount: 0,
+      issuer: 'FARMACIA ROSSI S.R.L.',
+    });
   });
 
   it('suggests an issuer category it recognizes', async () => {
