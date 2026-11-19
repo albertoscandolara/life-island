@@ -232,7 +232,7 @@ export class DreamsService implements OnApplicationBootstrap {
           title: `How did “${s.title}” go?`,
           detail: `A step towards “${dto.title}”: a short check-in tells the next step.`,
           since: s.doneOn,
-          path: '/dreams',
+          path: '/dreams?tab=check-ins',
           action: 'Check in',
         })),
     );

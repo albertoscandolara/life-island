@@ -271,7 +271,7 @@
 } @else {
 <div class="li-cards li-block">
   @for (e of d.events; track e.id) {
-  <article class="li-item" [class.li-item--off]="e.done">
+  <article class="li-item" [id]="'event-' + e.id" [class.li-item--off]="e.done">
     <div class="li-item__head">
       <span class="li-item__title"
         >{{ e.done ? '🏅' : '🎯' }} {{ e.name }}</span

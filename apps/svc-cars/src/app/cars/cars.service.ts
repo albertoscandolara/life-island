@@ -205,7 +205,7 @@ export class CarsService {
       items: waiting.map((r) =>
         documentToReview(
           r,
-          '/cars',
+          '/cars#cars-review',
           r.type ? CAR_DOCUMENT_TYPE_LABELS[r.type] : null,
           [r.make, r.commercialName].filter(Boolean).join(' ') || null,
           r.registrationNumber,

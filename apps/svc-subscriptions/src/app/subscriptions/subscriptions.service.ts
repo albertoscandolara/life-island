@@ -276,7 +276,7 @@ export class SubscriptionsService implements OnApplicationBootstrap {
           title: `${i.name} charged more than its price`,
           detail: `The bank charged ${euroText(i.lastCharge!.paid)} on ${i.lastCharge!.paidOn}; the contract says ${euroText(i.lastCharge!.expected)}. Update the cost, or ask the provider why.`,
           since: i.lastCharge!.paidOn,
-          path: '/subscriptions',
+          path: `/subscriptions#subscription-${i.id}`,
           action: 'Update the cost',
         })),
         ...unused.map((i) => ({
@@ -285,7 +285,7 @@ export class SubscriptionsService implements OnApplicationBootstrap {
           title: `Keep or cancel ${i.name}?`,
           detail: `You marked it as never used, and it costs ${euroText(i.yearly)} a year.`,
           since: null,
-          path: '/subscriptions',
+          path: `/subscriptions#subscription-${i.id}`,
           action: 'Decide',
         })),
       ],

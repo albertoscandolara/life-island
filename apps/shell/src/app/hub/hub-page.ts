@@ -16,6 +16,7 @@ import {
   type LifeAttentionDto,
   type PeopleAttentionDto,
 } from '@life-island/contracts';
+import { appLink } from '@life-island/records-ui';
 import { BrowserSettings, hiddenAreas } from '@life-island/settings-ui';
 import {
   UiBadge,
@@ -112,6 +113,9 @@ export class HubPage {
       ? todayCounts(this.upcoming(), this.counts(), this.modules())
       : null,
   );
+
+  /** An entry's place, split for `routerLink` (it may carry `?tab=`). */
+  protected readonly appLink = appLink;
 
   protected emblem(module: string): string {
     return (

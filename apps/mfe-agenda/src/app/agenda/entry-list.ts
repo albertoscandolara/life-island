@@ -7,7 +7,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { agendaArea, type AgendaEntryDto } from '@life-island/contracts';
 import { UiButton, UiIcon } from '@life-island/design-system';
-import { LiDue, euro } from '@life-island/records-ui';
+import { LiDue, appLink, euro } from '@life-island/records-ui';
 
 /** A list of agenda lines: date, what, which area, days left, and Done. */
 @Component({
@@ -60,11 +60,14 @@ import { LiDue, euro } from '@life-island/records-ui';
             }
             <span class="buttons">
               @if (e.path) {
+                @let link = appLink(e.path);
                 <a
                   uiButton
                   variant="ghost"
                   size="sm"
-                  [routerLink]="e.path"
+                  [routerLink]="link.path"
+                  [queryParams]="link.query"
+                  [fragment]="link.fragment"
                   [attr.aria-label]="'Open ' + area(e.module).name"
                   title="Open the area"
                   ><ui-icon name="external" [size]="16"
@@ -115,6 +118,7 @@ export class EntryList {
 
   protected readonly euro = euro;
   protected readonly area = agendaArea;
+  protected readonly appLink = appLink;
 
   protected day(date: string): string {
     return String(Number(date.slice(8, 10)));

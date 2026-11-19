@@ -47,7 +47,13 @@
   <ul class="coming__list" role="list">
     @for (entry of comingUp(); track entry.key) {
     <li>
-      <a class="coming__item" [routerLink]="entry.path ?? '/agenda'">
+      @let link = appLink(entry.path ?? '/agenda');
+      <a
+        class="coming__item"
+        [routerLink]="link.path"
+        [queryParams]="link.query"
+        [fragment]="link.fragment"
+      >
         <span class="coming__emblem" aria-hidden="true"
           >{{ emblem(entry.module) }}</span
         >

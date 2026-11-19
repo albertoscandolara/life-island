@@ -364,7 +364,7 @@ export class PeopleService {
       items: pending.map((r) =>
         documentToReview(
           r,
-          '/people',
+          '/people#people-review',
           r.type ? ID_DOCUMENT_TYPE_LABELS[r.type] : null,
           [r.holder.firstName, r.holder.lastName].filter(Boolean).join(' ') ||
             null,

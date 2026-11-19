@@ -72,7 +72,12 @@ export interface LifeAttentionItemDto {
   detail: string | null;
   /** The day it started waiting, when known (the upload date, the day it was done). */
   since: string | null;
-  /** Where it is handled in the Life Island app, e.g. `/cars`. */
+  /**
+   * Where it is handled in the Life Island app, down to the tab (`?tab=`) or
+   * the block (`#id`) that handles it: `/work?tab=review`, `/cars#cars-review`.
+   * The area's own "Needs you" shows this button on that very page, so a bare
+   * `/cars` would be a button that goes nowhere.
+   */
   path: string;
   /** The button that opens it, verb first: "Review", "Check in". */
   action: string;
