@@ -75,6 +75,58 @@ export const TAX_RETURN_KEYS = {
 } as const;
 
 /**
+ * A filed return as the Agenzia delle Entrate names its telematic copy:
+ * "UNI T2311131450352240926 SCNLRT92M21I775E.pdf". The protocollo
+ * telematico starts with T and the date and time the filing was received
+ * (T231113145035… is 13 November 2023, 14:50:35), then comes the codice
+ * fiscale of the person who filed. It is your own return, whoever sent it
+ * (you, a CAF or a commercialista) and whether or not you have a job.
+ */
+export interface TelematicFiling {
+  /** The protocollo telematico, as named: T2311131450352240926. */
+  protocol: string;
+  /** The day the Agenzia received it, YYYY-MM-DD. */
+  receivedOn: string;
+  /** The filer's codice fiscale, upper-case, when the name carries it. */
+  taxCode: string | null;
+}
+
+const TELEMATIC_FILING =
+  /^UNI[\s_-]+(T(\d{2})(\d{2})(\d{2})\d{6,})(?:[\s_-]+([A-Z0-9]{16})\b)?/i;
+
+/** The filing a file name stands for, or null when it is not one. */
+export function telematicFilingOf(
+  filename: string | null | undefined,
+): TelematicFiling | null {
+  const match = TELEMATIC_FILING.exec((filename ?? '').trim());
+  if (!match) return null;
+  const [, protocol, yy, mm, dd, taxCode] = match;
+  const date = new Date(
+    Date.UTC(2000 + Number(yy), Number(mm) - 1, Number(dd)),
+  );
+  const receivedOn = date.toISOString().slice(0, 10);
+  if (receivedOn !== `20${yy}-${mm}-${dd}`) return null;
+  return {
+    protocol: protocol.toUpperCase(),
+    receivedOn,
+    taxCode: taxCode ? taxCode.toUpperCase() : null,
+  };
+}
+
+/**
+ * The tax year a filing received on `receivedOn` is most likely about, for
+ * when the return's own periodo d'imposta was not read: the year before,
+ * or two years before for a filing received by April (a late return, sent
+ * within 90 days of the October deadline, arrives by the end of January,
+ * and the next year's forms open only in May).
+ */
+export function taxYearOfFiling(receivedOn: string): number {
+  const year = Number(receivedOn.slice(0, 4));
+  const month = Number(receivedOn.slice(5, 7));
+  return month <= 4 ? year - 2 : year - 1;
+}
+
+/**
  * The last day to file the return about `taxYear`'s income, in the next
  * year: the 730 by 30 September (23 July until 2019), Redditi PF by
  * 31 October (30 November until the returns filed in 2023). A day on a

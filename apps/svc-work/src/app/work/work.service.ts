@@ -1263,7 +1263,11 @@ export class WorkService {
       this.svc.db.select().from(documents).where(isNull(documents.deletedAt)),
     ]);
     return rows.flatMap((row) => {
-      const { isWork, type } = workDocumentType(row.categories, parentOf);
+      const { isWork, type } = workDocumentType(
+        row.categories,
+        parentOf,
+        row.originalFilename,
+      );
       return isWork
         ? [{ row, type, reading: readWorkDocument(type, row.fields) }]
         : [];

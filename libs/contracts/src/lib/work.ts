@@ -45,6 +45,14 @@ export type WorkDocumentType = (typeof WORK_DOCUMENT_TYPES)[number];
 /** The subject category of every work document; one filed only under it has no specific type. */
 export const WORK_DOCUMENT_ROOT = 'WORK';
 
+/**
+ * Document types that are never work documents, even filed under the WORK
+ * subject: a tax return (730 or Redditi PF) is your own yearly filing, the
+ * same with or without a job, and belongs to the 730 area. The employment
+ * income it prints is your employer's CU, already read from the CU itself.
+ */
+export const NOT_WORK_DOCUMENT_TYPES = ['TAX_RETURN'] as const;
+
 export const WORK_DOCUMENT_TYPE_LABELS: Record<WorkDocumentType, string> = {
   PAYSLIP: 'Payslip',
   PERFORMANCE_REVIEW: 'Evaluation',
