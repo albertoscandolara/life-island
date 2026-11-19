@@ -8,7 +8,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import type { ServiceDb } from '@life-island/be-common';
-import { parseOrThrow } from '@life-island/be-nest';
+import { IngestionFiles, parseOrThrow } from '@life-island/be-nest';
 import {
   listHomeDocumentsQuerySchema,
   type HomeDocumentDto,
@@ -17,7 +17,6 @@ import { and, desc, ilike, isNull } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import { documents } from '../db/schema.js';
 import { documentAmount, documentDate } from './document-view.js';
-import { IngestionFiles } from './ingestion-files.js';
 
 @Controller('documents')
 export class DocumentsController {

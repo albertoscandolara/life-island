@@ -13,7 +13,7 @@ import {
   Query,
   StreamableFile,
 } from '@nestjs/common';
-import { parseOrThrow } from '@life-island/be-nest';
+import { IngestionFiles, parseOrThrow } from '@life-island/be-nest';
 import {
   addAttachmentRequestSchema,
   deadlinesQuerySchema,
@@ -32,7 +32,6 @@ import {
   type TaxYearDto,
 } from '@life-island/contracts';
 import { ExportsService } from '../exports/exports.service.js';
-import { IngestionFiles } from '../exports/ingestion-files.js';
 import { DossierService } from './dossier.service.js';
 
 /** `attachment; filename=…` with a UTF-8 name and an ASCII fallback. */

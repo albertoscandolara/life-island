@@ -9,6 +9,8 @@ export interface ServiceConfig {
   aiModel: string;
   /** Where each area answers GET /payables: `home=http://svc-home:3000,…`. */
   payableSources: Record<string, string>;
+  /** svc-ingestion, where the receipts filed with movements are kept as documents. */
+  ingestionUrl: string;
 }
 
 /**
@@ -35,6 +37,10 @@ export function loadConfig(
     anthropicApiKey: env['ANTHROPIC_API_KEY']?.trim() || null,
     aiModel: env['MONEY_AI_MODEL']?.trim() || DEFAULT_MONEY_AI_MODEL,
     payableSources: sourcesEnv('PAYABLE_SOURCES', LOCAL_PAYABLE_SOURCES, env),
+    ingestionUrl: (
+      env['INGESTION_URL'] ??
+      `http://localhost:${numberEnv('INGESTION_PORT', 3001, env)}`
+    ).replace(/\/+$/, ''),
   };
 }
 

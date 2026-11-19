@@ -91,6 +91,38 @@ export const accountRequestSchema = z.object({
 });
 export type AccountRequest = z.input<typeof accountRequestSchema>;
 
+/** Where a purchase was made: online (a cart and a checkout) or in a shop. */
+export const MONEY_CHANNELS = ['online', 'store'] as const;
+export type MoneyChannel = (typeof MONEY_CHANNELS)[number];
+export const MONEY_CHANNEL_LABELS: Record<MoneyChannel, string> = {
+  online: 'Online',
+  store: 'In a shop',
+};
+
+/** The most parts one movement can be split into. */
+export const MAX_SPLITS = 10;
+
+/** A part of a movement in another category: a positive amount in euro. */
+export const transactionSplitSchema = z.object({
+  category: z.enum(MONEY_CATEGORIES),
+  amount: lifeAmount.refine((v) => v > 0, 'A part must be more than 0'),
+});
+export type TransactionSplit = z.infer<typeof transactionSplitSchema>;
+
+/**
+ * What is wrong with the parts of a movement, or null: together they must
+ * leave something for the movement's own category, or cover it exactly.
+ */
+export function splitsProblem(
+  amount: number,
+  splits: readonly { amount: number | string }[],
+): string | null {
+  const total = splits.reduce((s, p) => s + Number(p.amount), 0);
+  if (Math.round(total * 100) > Math.round(Math.abs(amount) * 100))
+    return `The parts add up to ${total.toFixed(2)}, more than the movement's ${Math.abs(amount).toFixed(2)}`;
+  return null;
+}
+
 export const transactionRequestSchema = z.object({
   accountId: z.uuid(),
   date: lifeDate,
@@ -102,6 +134,13 @@ export const transactionRequestSchema = z.object({
   description: lifeName(200),
   category: z.enum(MONEY_CATEGORIES).optional(),
   notes: lifeNote(500),
+  /**
+   * Parts of the movement that belong to other categories (an Amazon order
+   * of detergent and a phone case); the rest stays in `category`.
+   */
+  splits: z.array(transactionSplitSchema).max(MAX_SPLITS).optional(),
+  /** Bought online or in a shop; null to guess it from the description. */
+  channel: z.enum(MONEY_CHANNELS).nullable().optional(),
 });
 export type TransactionRequest = z.input<typeof transactionRequestSchema>;
 
@@ -151,7 +190,124 @@ export type TransactionDto = LifeRecord<{
   description: string;
   category: MoneyCategory;
   notes: string | null;
+  /** Parts in other categories, positive; the rest is in `category`. */
+  splits: TransactionSplit[];
+  /** Set by you or read from a receipt; null when never said. */
+  channel: MoneyChannel | null;
+  /** The receipts, orders and photos filed with it (documents in ingestion). */
+  attachments: MovementAttachmentDto[];
 }>;
+
+/** A receipt, an order screenshot or a photo filed with a movement. */
+export interface MovementAttachmentDto {
+  id: string;
+  /** The document in the documents app (svc-ingestion). */
+  uploadId: string;
+  name: string;
+  contentType: string;
+  createdAt: string;
+}
+
+/** Receipts per movement and per reading: up to 6 photos, PDFs or screenshots. */
+export const RECEIPT_MAX_FILES = 6;
+export const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+export const RECEIPT_CONTENT_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+] as const;
+
+/** What the receipt reader found on the photos (the AI tool money.receipt-reader). */
+export const receiptReadingOutputSchema = z.object({
+  merchant: z
+    .string()
+    .describe(
+      'The shop or platform, short, as people say it: "Amazon", "Esselunga", "MediaWorld"',
+    ),
+  date: z
+    .string()
+    .describe(
+      'The day of the purchase (order date or receipt date) as YYYY-MM-DD, or "" if not shown',
+    ),
+  total: z
+    .number()
+    .describe(
+      'What was paid in total in euro, after discounts and promotions, positive; 0 if not shown',
+    ),
+  channel: z
+    .enum(MONEY_CHANNELS)
+    .describe(
+      'online for an order placed on a website or app, store for a receipt from a shop',
+    ),
+  category: z
+    .enum(MONEY_CATEGORIES)
+    .describe('The category of the biggest part of the purchase'),
+  splits: z
+    .array(
+      z.object({
+        category: z.enum(MONEY_CATEGORIES),
+        amount: z
+          .number()
+          .describe('Positive euro, the lines of this category together'),
+      }),
+    )
+    .describe(
+      'Only when lines belong to other categories than `category`: one part per other category',
+    ),
+  note: z
+    .string()
+    .describe(
+      'What was bought, short, for searching later: "ACE detergent x2 €26.64, Scottex kitchen paper €14.89, bamboo placemats €27.99"',
+    ),
+  items: z
+    .array(
+      z.object({
+        name: z.string().describe('Short readable name'),
+        amount: z.number().describe('What the line cost in euro, positive'),
+      }),
+    )
+    .describe('The lines, at most 30, the most expensive first'),
+});
+export type ReceiptReadingOutput = z.infer<typeof receiptReadingOutputSchema>;
+
+/** The reading of a receipt: what the model found, to check before saving. */
+export interface ReceiptReadingDto {
+  reading: ReceiptReadingOutput;
+  model: string;
+}
+
+/** The online shops and marketplaces a bank names (keep in sync with `guessMoneyCategory`). */
+const ONLINE_SHOPS =
+  /amazon|amzn|zalando|shein|temu|aliexpress|ebay|vinted|subito|wallapop|asos|yoox|paypal|klarna|scalapay|etsy|veepee|privalia|groupon|booking|airbnb|deliveroo|glovo|just eat/;
+
+/** Bought online or in a shop: what you said, else what the bank's text suggests. */
+export function moneyChannel(
+  t: Pick<TransactionDto, 'channel' | 'description'>,
+): MoneyChannel {
+  return (
+    t.channel ??
+    (ONLINE_SHOPS.test(t.description.toLowerCase()) ? 'online' : 'store')
+  );
+}
+
+/** The categories counted in "Online or in a shop?": what is bought at a checkout. */
+export const PURCHASE_CATEGORIES: readonly MoneyCategory[] = [
+  'groceries',
+  'shopping',
+  'health',
+  'leisure',
+  'family',
+  'gifts',
+];
+
+/** What went out on purchases in a month, online and in a shop. */
+export interface PurchaseChannelsDto {
+  /** `YYYY-MM`. */
+  month: string;
+  online: number;
+  store: number;
+}
 
 export type BudgetDto = LifeRecord<{
   category: MoneyCategory;
@@ -244,6 +400,10 @@ export interface MoneyOverviewDto {
   aiReview: boolean;
   /** What the movements above paid or received in other areas (Money matching). */
   paidItems: MovementPaidItemDto[];
+  /** The last 6 months of purchases, online and in a shop, oldest first. */
+  purchaseChannels: PurchaseChannelsDto[];
+  /** Whether "Read the receipt" calls the model now (money.receipt-reader). */
+  aiReceipts: boolean;
 }
 
 /** One item of another area a movement paid, linked on the "To match" tab. */
@@ -291,7 +451,10 @@ export function guessMoneyCategory(
       /ristorant|pizzer|bar |caffe|trattor|osteria|mcdonald|burger|sushi|deliveroo|glovo|just eat/,
       'eating-out',
     ],
-    [/amazon|zalando|ikea|decathlon|mediaworld|unieuro|shein/, 'shopping'],
+    [
+      /amazon|amzn|zalando|ikea|decathlon|mediaworld|unieuro|shein|temu|aliexpress|ebay/,
+      'shopping',
+    ],
     [/ryanair|easyjet|ita airways|booking|airbnb|hotel|expedia/, 'travel'],
     [/f24|agenzia entrate|tribut|imu|tari|bollo|pagopa/, 'taxes'],
     [/cinema|teatro|museo|concert|palestra|gym|ticketone/, 'leisure'],

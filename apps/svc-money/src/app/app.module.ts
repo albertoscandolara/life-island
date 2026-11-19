@@ -5,13 +5,19 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime, RecordCollections } from '@life-island/be-nest';
+import {
+  EventsRuntime,
+  ingestionFilesProvider,
+  RecordCollections,
+} from '@life-island/be-nest';
 import { SETTING_CHANGED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { RecordsController } from './records.controller.js';
 import { MoneyController } from './money/money.controller.js';
 import { MoneyService } from './money/money.service.js';
+import { ReceiptsController } from './money/receipts.controller.js';
+import { ReceiptsService } from './money/receipts.js';
 import { MatchingController } from './matching/matching.controller.js';
 import {
   MatchingService,
@@ -38,6 +44,7 @@ export class AppModule {
         HealthController,
         MoneyController,
         MatchingController,
+        ReceiptsController,
         RecordsController,
       ],
       providers: [
@@ -49,6 +56,8 @@ export class AppModule {
             new RecordCollections(db.db, collections(db.db)),
           inject: [SERVICE_DB],
         },
+        ingestionFilesProvider(CONFIG),
+        ReceiptsService,
         MoneyService,
         {
           provide: PAYABLES_READER,

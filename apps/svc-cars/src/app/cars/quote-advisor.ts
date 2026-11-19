@@ -8,6 +8,7 @@ import {
 import type { AiToolDescription, ServiceDb } from '@life-island/be-common';
 import {
   AiAssistant,
+  aiFileBlock,
   describeAiSteps,
   type AiAssistantStep,
   type AiContentBlock,
@@ -35,24 +36,6 @@ export interface QuoteFile {
 export interface WrittenComparison {
   output: QuoteComparisonOutput;
   model: string;
-}
-
-/** A PDF or an image as the model reads it; null for any other kind of file. */
-export function fileBlock(file: QuoteFile): AiContentBlock | null {
-  const type = file.contentType.split(';')[0].trim().toLowerCase();
-  const data = file.data.toString('base64');
-  if (type === 'application/pdf')
-    return {
-      type: 'document',
-      source: { type: 'base64', media_type: 'application/pdf', data },
-      title: file.name,
-    };
-  if (type === 'image/jpeg' || type === 'image/png' || type === 'image/webp')
-    return {
-      type: 'image',
-      source: { type: 'base64', media_type: type, data },
-    };
-  return null;
 }
 
 /** Checks the uploaded quotes before anything is sent. */
@@ -132,7 +115,7 @@ export class QuoteAdvisor implements OnApplicationBootstrap {
       { type: 'text', text: `<car>\n${dossier}\n</car>` },
     ];
     const policyBlocks = policy.flatMap((file) => {
-      const block = fileBlock(file);
+      const block = aiFileBlock(file);
       return block ? [block] : [];
     });
     if (policyBlocks.length)
@@ -141,7 +124,7 @@ export class QuoteAdvisor implements OnApplicationBootstrap {
         ...policyBlocks,
       );
     quotes.forEach((file, index) => {
-      const block = fileBlock(file);
+      const block = aiFileBlock(file);
       if (block)
         content.push(
           { type: 'text', text: `Quote ${index + 1}: ${file.name}` },

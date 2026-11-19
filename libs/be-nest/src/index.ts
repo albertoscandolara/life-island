@@ -4,3 +4,5 @@ export * from './lib/ai-assistant.js';
 export * from './lib/records.js';
 export * from './lib/http-security.js';
 export * from './lib/sign-in.js';
+export * from './lib/ingestion-files.js';
+export * from './lib/ai-files.js';

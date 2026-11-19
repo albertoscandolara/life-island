@@ -7,7 +7,7 @@ import {
   startEventConsumer,
   type ServiceDb,
 } from '@life-island/be-common';
-import { EventsRuntime } from '@life-island/be-nest';
+import { EventsRuntime, ingestionFilesProvider } from '@life-island/be-nest';
 import { RECORD_APPROVED_EVENT } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type Tax730Config } from './config.js';
 import {
@@ -17,7 +17,6 @@ import {
 import { DossierController } from './dossier/dossier.controller.js';
 import { DossierService } from './dossier/dossier.service.js';
 import { ExportsService } from './exports/exports.service.js';
-import { IngestionFiles } from './exports/ingestion-files.js';
 import { HealthController } from './health.controller.js';
 import { expenseLoader } from './expenses/expense-loader.js';
 import { ExpensesController } from './expenses/expenses.controller.js';
@@ -43,7 +42,7 @@ export class AppModule {
         { provide: SERVICE_DB, useValue: svc },
         ExpensesService,
         DossierService,
-        IngestionFiles,
+        ingestionFilesProvider(CONFIG),
         ExportsService,
         ...(options.events === false
           ? []

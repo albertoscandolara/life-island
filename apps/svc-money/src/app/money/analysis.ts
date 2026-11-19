@@ -10,8 +10,11 @@ import {
   type MonthFlowDto,
   type RecurringChargeDto,
   type SpendingReviewOutput,
+  type PurchaseChannelsDto,
   type TransactionDto,
   euroText,
+  moneyChannel,
+  PURCHASE_CATEGORIES,
 } from '@life-island/contracts';
 
 /*
@@ -361,4 +364,52 @@ export function reviewDossier(input: {
       ),
     '</recurring>',
   ].join('\n');
+}
+
+/**
+ * The movements as category parts: a movement split into other categories
+ * (an Amazon order of detergent and a phone case) counts each part in its own
+ * category, with the movement's sign; the rest stays in its category. Totals
+ * do not change, so balances and months read the same.
+ */
+export function categoryParts(
+  transactions: readonly TransactionDto[],
+): TransactionDto[] {
+  return transactions.flatMap((t) => {
+    if (!t.splits?.length) return [t];
+    const sign = t.amount < 0 ? -1 : 1;
+    const parts = t.splits.map((p) => ({
+      ...t,
+      category: p.category,
+      amount: round(sign * p.amount),
+    }));
+    const rest = round(t.amount - parts.reduce((s, p) => s + p.amount, 0));
+    return rest ? [{ ...t, amount: rest }, ...parts] : parts;
+  });
+}
+
+/**
+ * What went out on purchases (groceries, shopping, health…) in each of the
+ * last six months, online and in a shop. Takes the category parts, so only
+ * the detergent of an order split from its phone case counts as groceries.
+ */
+export function purchaseChannels(
+  parts: readonly TransactionDto[],
+  today: string,
+): PurchaseChannelsDto[] {
+  return lastMonths(today, 6).map((month) => {
+    let online = 0;
+    let store = 0;
+    for (const t of parts) {
+      if (
+        t.amount >= 0 ||
+        !t.date.startsWith(month) ||
+        !PURCHASE_CATEGORIES.includes(t.category)
+      )
+        continue;
+      if (moneyChannel(t) === 'online') online -= t.amount;
+      else store -= t.amount;
+    }
+    return { month, online: round(online), store: round(store) };
+  });
 }

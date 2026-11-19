@@ -10,6 +10,8 @@ import {
   ACCOUNT_KIND_LABELS,
   MONEY_CATEGORIES,
   MONEY_CATEGORY_LABELS,
+  MONEY_CHANNEL_LABELS,
+  moneyChannel,
   type AccountDto,
   type MoneyCategory,
   type MoneyOverviewDto,
@@ -53,6 +55,7 @@ import { AiTool } from '@life-island/settings-ui';
 import { MoneyApi } from '../api/money-api';
 import { parseBankCsv, type BankCsv } from './bank-csv';
 import { MoneyMatch } from './money-match';
+import { MoneyReceipt } from './money-receipt';
 
 type MoneyTab =
   'overview' | 'movements' | 'match' | 'budgets' | 'recurring' | 'review';
@@ -141,6 +144,7 @@ const BUDGET_FIELDS: readonly LiField[] = [
     LiRecordDialog,
     LiTabs,
     MoneyMatch,
+    MoneyReceipt,
     RouterLink,
     UiAiPanel,
     UiAiStatus,
@@ -196,6 +200,10 @@ export class MoneyPage {
   protected readonly monthFilter = signal<string | null>(null);
   protected readonly search = signal('');
   protected readonly shown = signal(PAGE);
+
+  // Receipts and notes: a movement's, or a new expense's
+  protected readonly receiptOpen = signal(false);
+  protected readonly receiptMovement = signal<TransactionDto | null>(null);
 
   // CSV import
   protected readonly importOpen = signal(false);
@@ -297,8 +305,12 @@ export class MoneyPage {
       (t) =>
         (!account || t.accountId === account) &&
         (!month || t.date.startsWith(month)) &&
-        (!category || t.category === category) &&
-        (!text || t.description.toLowerCase().includes(text)),
+        (!category ||
+          t.category === category ||
+          t.splits.some((p) => p.category === category)) &&
+        (!text ||
+          t.description.toLowerCase().includes(text) ||
+          (t.notes ?? '').toLowerCase().includes(text)),
     );
   });
 
@@ -379,6 +391,64 @@ export class MoneyPage {
       });
     return { buckets: months.map((m) => m.month), series };
   });
+
+  /**
+   * Purchases (groceries, shopping, health…) month by month, online and in a
+   * shop. What you set on a movement wins; otherwise the shop's name tells.
+   */
+  protected readonly channelMix = computed(() => {
+    const months = this.data()?.purchaseChannels ?? [];
+    const online = months.reduce((s, m) => s + m.online, 0);
+    const total = online + months.reduce((s, m) => s + m.store, 0);
+    return {
+      buckets: months.map((m) => m.month),
+      series: [
+        {
+          id: 'online',
+          label: MONEY_CHANNEL_LABELS.online,
+          color: 'var(--viz-online)',
+          values: months.map((m) => m.online || null),
+        },
+        {
+          id: 'store',
+          label: MONEY_CHANNEL_LABELS.store,
+          color: 'var(--viz-store)',
+          values: months.map((m) => m.store || null),
+        },
+      ] satisfies UiChartSeries[],
+      online,
+      total,
+      share: total > 0 ? online / total : null,
+    };
+  });
+
+  protected channelText(t: TransactionDto): string {
+    return MONEY_CHANNEL_LABELS[moneyChannel(t)];
+  }
+
+  /** "Groceries + Shopping" for a movement split into parts. */
+  protected categoryText(t: TransactionDto): string {
+    const others = t.splits
+      .map((p) => this.category(p.category))
+      .filter((c) => c !== this.category(t.category));
+    return [this.category(t.category), ...new Set(others)].join(' + ');
+  }
+
+  protected splitTitle(t: TransactionDto): string {
+    if (!t.splits.length) return '';
+    const rest =
+      Math.abs(t.amount) - t.splits.reduce((s, p) => s + p.amount, 0);
+    return [
+      ...(rest > 0.004 ? [`${this.category(t.category)} ${euro(rest)}`] : []),
+      ...t.splits.map((p) => `${this.category(p.category)} ${euro(p.amount)}`),
+    ].join(', ');
+  }
+
+  /** Receipts and a note for a movement. */
+  protected openReceipt(t: TransactionDto | null): void {
+    this.receiptMovement.set(t);
+    this.receiptOpen.set(true);
+  }
 
   protected readonly euroWhole = (v: number) => euro(v, false);
   protected readonly monthLong = (m: string) => monthText(m);

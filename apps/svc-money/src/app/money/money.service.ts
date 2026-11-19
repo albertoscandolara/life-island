@@ -23,6 +23,7 @@ import {
   type TransactionImportRequest,
   euroText,
   PAYABLE_SOURCES,
+  type MovementAttachmentDto,
   type MovementPaidItemDto,
 } from '@life-island/contracts';
 import { desc, eq, gte, inArray } from 'drizzle-orm';
@@ -38,10 +39,12 @@ import {
 } from '../db/schema.js';
 import {
   balanceMonthAgo,
+  categoryParts,
   categorySpend,
   lastMonthToDate,
   monthFlows,
   offlineReview,
+  purchaseChannels,
   recurringCharges,
   REVIEW_INSTRUCTIONS,
   reviewDossier,
@@ -49,6 +52,7 @@ import {
   withBalances,
   withSpent,
 } from './analysis.js';
+import { ReceiptsService } from './receipts.js';
 
 /** The AI tool of Money (AI_TOOLS in libs/contracts settings.ts). */
 export const REVIEW_TOOL = 'money.spending-review';
@@ -75,6 +79,7 @@ export class MoneyService implements OnApplicationBootstrap {
   constructor(
     @Inject(CONFIG) config: ServiceConfig,
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
+    @Inject(ReceiptsService) private readonly receipts: ReceiptsService,
   ) {
     this.ai = new AiAssistant({
       toolId: REVIEW_TOOL,
@@ -128,7 +133,12 @@ export class MoneyService implements OnApplicationBootstrap {
           .where(gte(transactions.date, since))
           .orderBy(movementLinks.createdAt),
       ]);
-    const txs = txRows.map(toTransactionDto);
+    const attachments = await this.receipts.byMovement(txRows.map((t) => t.id));
+    const txs = txRows.map((t) =>
+      toTransactionDto(t, attachments.get(t.id) ?? []),
+    );
+    // A movement split into categories counts each part in its own.
+    const parts = categoryParts(txs);
     const paidItems = linkRows.map(({ link }): MovementPaidItemDto => {
       const source = PAYABLE_SOURCES.find((s) => s.module === link.module);
       return {
@@ -150,12 +160,15 @@ export class MoneyService implements OnApplicationBootstrap {
       description: 'Older movements',
       category: 'other',
       notes: null,
+      splits: [],
+      channel: null,
+      attachments: [],
       createdAt: '',
     }));
-    const months = monthFlows(txs, day);
+    const months = monthFlows(parts, day);
     const budgetDtos = withSpent(
       budgetRows.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })),
-      txs,
+      parts,
       day,
     );
     return {
@@ -174,13 +187,14 @@ export class MoneyService implements OnApplicationBootstrap {
       budgets: budgetDtos,
       recurring: recurringCharges(txs, day),
       months,
-      categories: categorySpend(txs, day),
+      categories: categorySpend(parts, day),
+      purchaseChannels: purchaseChannels(parts, day),
       rate: savingsRate(months),
     };
   }
 
   async overview(day = today()): Promise<MoneyOverviewDto> {
-    const [state, reviewRows, aiReview] = await Promise.all([
+    const [state, reviewRows, aiReview, aiReceipts] = await Promise.all([
       this.state(day),
       this.db
         .select()
@@ -188,6 +202,7 @@ export class MoneyService implements OnApplicationBootstrap {
         .orderBy(desc(spendingReviews.createdAt))
         .limit(5),
       this.ai.active(),
+      this.receipts.usesAi(),
     ]);
     const thisMonth = state.months[state.months.length - 1];
     return {
@@ -199,6 +214,8 @@ export class MoneyService implements OnApplicationBootstrap {
       recurring: state.recurring,
       months: state.months,
       categories: state.categories,
+      purchaseChannels: state.purchaseChannels,
+      aiReceipts,
       totals: {
         balance:
           Math.round(
@@ -347,9 +364,14 @@ export class MoneyService implements OnApplicationBootstrap {
   }
 }
 
-export function toTransactionDto(row: TransactionRow): TransactionDto {
+export function toTransactionDto(
+  row: TransactionRow,
+  attachments: MovementAttachmentDto[] = [],
+): TransactionDto {
   return {
     ...row,
+    splits: row.splits ?? [],
+    attachments,
     amount: Number(row.amount),
     createdAt: row.createdAt.toISOString(),
   };

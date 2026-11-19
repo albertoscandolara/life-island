@@ -14,6 +14,7 @@ import {
 import {
   euroText,
   guessMoneyCategory,
+  splitsProblem,
   isoAddDays,
   isoToday,
   linkProblem,
@@ -489,7 +490,21 @@ export class MatchingService {
             `${euroText(linked)} of this movement is linked to other items: undo a link to bring it below that.`,
           );
       }
+      if (request.splits !== undefined || request.amount !== undefined) {
+        const { rows } = await client.query<{
+          splits: { amount: number }[];
+        }>('select splits from money.transactions where id = $1', [id]);
+        const problem = splitsProblem(
+          request.amount !== undefined
+            ? Number(request.amount)
+            : movement.amount,
+          request.splits ?? rows[0]?.splits ?? [],
+        );
+        if (problem) throw new BadRequestException(problem);
+      }
       const values: Record<string, unknown> = { ...request };
+      if (request.splits !== undefined)
+        values['splits'] = JSON.stringify(request.splits);
       if (
         request.description !== undefined &&
         request.amount !== undefined &&
@@ -506,6 +521,8 @@ export class MatchingService {
         description: 'description',
         category: 'category',
         notes: 'notes',
+        splits: 'splits',
+        channel: 'channel',
       };
       const set = Object.entries(values).filter(([k]) => k in columns);
       if (!set.length) return;
