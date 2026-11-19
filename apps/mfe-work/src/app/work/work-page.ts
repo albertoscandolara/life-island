@@ -79,7 +79,12 @@ import {
   valueText,
   workplaceName,
 } from './labels';
-import { LiNeedsYou, urlTab } from '@life-island/records-ui';
+import {
+  LiNeedsYou,
+  LiReviewItem,
+  LiToReview,
+  urlTab,
+} from '@life-island/records-ui';
 
 export type WorkTab =
   | 'career'
@@ -179,6 +184,8 @@ const today = () => new Date().toISOString().slice(0, 10);
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LiNeedsYou,
+    LiReviewItem,
+    LiToReview,
     AiTool,
     AuditTab,
     EvaluationsTab,

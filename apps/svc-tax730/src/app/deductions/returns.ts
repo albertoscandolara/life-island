@@ -731,6 +731,7 @@ export function deadlinesOf(
         amount: null,
         path: '/taxes/730',
         done: filed !== null,
+        proof: `the filed ${label}`,
       });
     const previous = returns.get(filingYear - 1);
     if (previous?.form === 'redditi_pf' && previous.nextAdvanceSecond > 0) {

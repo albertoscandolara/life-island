@@ -55,6 +55,10 @@ export async function readDeadlines(
             module: source.module,
             autoPaid: d.autoPaid === true,
             done: d.done === true,
+            proof:
+              typeof d.proof === 'string' && d.proof.trim()
+                ? d.proof.trim().slice(0, 120)
+                : undefined,
           }));
         status.ok = true;
         status.count = deadlines.length;

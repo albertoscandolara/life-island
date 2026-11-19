@@ -50,6 +50,29 @@ export interface DeadlineDto {
    * return is uploaded): the agenda lists it as handled. Left out means false.
    */
   done?: boolean;
+  /**
+   * The document that proves it done, when the area closes the date from it
+   * ("the new insurance certificate"): it is not marked done by hand, its
+   * button opens the loader instead (`proofUploadUrl`), and approving the
+   * document in the area's "To review" closes it. Left out: a date marked
+   * done by hand.
+   */
+  proof?: string;
+}
+
+/**
+ * The loader of the documents app, set for the proof of one date: it says
+ * what to load and where it then waits. `documentsUrl` is the documents
+ * app's root (`DOCUMENTS_APP_URL`).
+ */
+export function proofUploadUrl(
+  documentsUrl: string,
+  entry: { module: string; title: string; proof?: string | null },
+): string {
+  const base = documentsUrl.endsWith('/') ? documentsUrl : `${documentsUrl}/`;
+  const query = new URLSearchParams({ area: entry.module, for: entry.title });
+  if (entry.proof) query.set('proof', entry.proof);
+  return `${base}upload?${query}`;
 }
 
 /** `GET /deadlines?from&to` on every area that has dates. */
@@ -331,6 +354,8 @@ export interface AgendaEntryDto {
   handled: boolean;
   /** Paid on its own: handled without you, nothing to mark. */
   autoPaid: boolean;
+  /** The document that closes it (`DeadlineDto.proof`): no Done, Upload proof instead. */
+  proof?: string | null;
   /** Your own item's id, to edit it. */
   itemId: string | null;
   category: AgendaCategory | null;

@@ -10,12 +10,14 @@ import {
   type OnInit,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type {
-  AgendaEntryDto,
-  AgendaWaitingDto,
-  NeedsYouDto,
+import {
+  proofUploadUrl,
+  type AgendaEntryDto,
+  type AgendaWaitingDto,
+  type NeedsYouDto,
 } from '@life-island/contracts';
 import { UiButton, UiCard, UiIcon } from '@life-island/design-system';
+import { DOCUMENTS_APP_URL } from '@life-island/settings-ui';
 import { appLink, revealOnPage, type AppLink } from './app-link';
 import { dateText, euro } from './format';
 import { LiDue } from './page-parts';
@@ -30,8 +32,13 @@ export interface NeedsYouLine {
   daysLeft: number | null;
   /** The button that opens where it is handled, or null when it is this page. */
   open: ({ label: string } & AppLink) | null;
-  /** The Agenda key a dated thing is marked done with; null for a waiting one. */
+  /**
+   * The Agenda key a dated thing is marked done with; null for a waiting one,
+   * and for one a document closes (`proof`).
+   */
   doneKey: string | null;
+  /** The document that closes it: its button opens the loader for it. */
+  proof: { module: string; title: string; proof: string } | null;
 }
 
 /**
@@ -65,7 +72,12 @@ export function needsYouLines(
       ].filter((m): m is string => !!m),
       daysLeft: e.daysLeft,
       open: openOf(e.path, 'Open'),
-      doneKey: e.key,
+      // A date a document closes is not marked done by hand: you load the
+      // document, approve it in the area's "To review", and the date goes.
+      doneKey: e.proof ? null : e.key,
+      proof: e.proof
+        ? { module: e.module, title: e.title, proof: e.proof }
+        : null,
     }))
     .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
   const waiting = needs.waiting.map((w: AgendaWaitingDto): NeedsYouLine => ({
@@ -80,6 +92,7 @@ export function needsYouLines(
     // its path names the tab (`?tab=`) or the block (`#id`) that does.
     open: { label: w.action, ...appLink(w.path) },
     doneKey: null,
+    proof: null,
   }));
   // Late dates first, then what waits, then what is coming.
   return [
@@ -140,6 +153,22 @@ export function needsYouLines(
                     (click)="reveal(open.fragment)"
                     >{{ open.label }}</a
                   >
+                }
+                @if (line.proof; as proof) {
+                  <a
+                    uiButton
+                    variant="secondary"
+                    size="sm"
+                    [href]="proofUrl(proof)"
+                    [title]="
+                      'Load ' +
+                      proof.proof +
+                      ': once you approve it in To review, this date is done'
+                    "
+                    [attr.aria-label]="'Upload proof: ' + line.title"
+                  >
+                    <ui-icon name="upload" [size]="16" /> Upload proof
+                  </a>
                 }
                 @if (line.doneKey) {
                   <button
@@ -227,6 +256,7 @@ export function needsYouLines(
 export class LiNeedsYou implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly documentsUrl = inject(DOCUMENTS_APP_URL);
 
   /** The island area, as the Agenda names it: `cars`, `home`, `taxes`… */
   readonly module = input.required<string>();
@@ -271,6 +301,10 @@ export class LiNeedsYou implements OnInit {
         // The Agenda not running: the page shows without the block.
         error: () => this.needs.set(null),
       });
+  }
+
+  protected proofUrl(proof: NonNullable<NeedsYouLine['proof']>): string {
+    return proofUploadUrl(this.documentsUrl, proof);
   }
 
   protected markDone(line: NeedsYouLine): void {

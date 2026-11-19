@@ -100,4 +100,22 @@ describe('needsYouLines', () => {
     );
     expect(here.open).toMatchObject({ path: '/cars', fragment: 'cars-review' });
   });
+
+  it('offers to load the proof, not Done, for a date a document closes', () => {
+    const [line] = needsYouLines(
+      {
+        entries: [
+          entry({ key: 'ins', proof: 'the new insurance certificate' }),
+        ],
+        waiting: [],
+      },
+      '/cars',
+    );
+    expect(line.doneKey).toBeNull();
+    expect(line.proof).toEqual({
+      module: 'cars',
+      title: 'Insurance of the Panda',
+      proof: 'the new insurance certificate',
+    });
+  });
 });

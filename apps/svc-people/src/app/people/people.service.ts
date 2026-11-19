@@ -348,6 +348,8 @@ export class PeopleService {
             date: latest.expiryDate,
             amount: null,
             path: '/people',
+            // The new version, approved in "To review", replaces it.
+            proof: `the renewed ${label.toLowerCase()}`,
           },
         ];
       }),
@@ -364,7 +366,7 @@ export class PeopleService {
       items: pending.map((r) =>
         documentToReview(
           r,
-          '/people#people-review',
+          '/people',
           r.type ? ID_DOCUMENT_TYPE_LABELS[r.type] : null,
           [r.holder.firstName, r.holder.lastName].filter(Boolean).join(' ') ||
             null,

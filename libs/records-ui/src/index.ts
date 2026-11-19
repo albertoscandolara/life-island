@@ -7,3 +7,4 @@ export * from './lib/quick-add';
 export * from './lib/url-tab';
 export * from './lib/records-changed';
 export * from './lib/app-link';
+export * from './lib/to-review';
