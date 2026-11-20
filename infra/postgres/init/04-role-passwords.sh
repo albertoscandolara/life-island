@@ -4,6 +4,9 @@
 # passwords; `npm run db:passwords` runs it again on an existing database.
 # A role whose variable is empty keeps its dev password, which a service refuses
 # in production (refuseDevSecretsInProduction), so a forgotten one never goes unnoticed.
+# The init entrypoint may source this file rather than run it, so the work happens in a
+# subshell: its `set -eu` and variables never leak into the entrypoint.
+(
 set -eu
 
 changed=0
@@ -19,3 +22,4 @@ for name in ingestion review grocery tax730 home people cars work settings studi
   changed=$((changed + 1))
 done
 echo "role passwords: $changed set from DB_PASSWORD_*"
+)

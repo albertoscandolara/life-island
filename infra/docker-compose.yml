@@ -5,6 +5,7 @@ name: life-island
 
 services:
   postgres:
+    restart: ${RESTART_POLICY:-no}
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: life_island
@@ -50,6 +51,7 @@ services:
       retries: 20
 
   storage:
+    restart: ${RESTART_POLICY:-no}
     image: chrislusf/seaweedfs:3.97
     # The S3 keys come from S3_ACCESS_KEY / S3_SECRET_KEY (the dev keys when unset), written
     # to the config file at start so a published island never runs with the dev keys.
@@ -71,6 +73,7 @@ services:
       retries: 30
 
   nats:
+    restart: ${RESTART_POLICY:-no}
     image: nats:2.11-alpine
     command: -js -sd /data -m 8222
     ports:
@@ -99,6 +102,7 @@ services:
       - '127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025'
 
   gateway:
+    restart: ${RESTART_POLICY:-no}
     image: caddy:2.10-alpine
     ports:
       - '${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8080}:80'
@@ -159,6 +163,7 @@ services:
   # `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`.
   # During development run them with `npx nx serve <service>` instead.
   svc-ingestion:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build: &service-build
       context: .
@@ -207,6 +212,7 @@ services:
       storage: { condition: service_started }
 
   svc-auth:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -224,7 +230,7 @@ services:
   svc-parse-worker:
     profiles: [apps]
     # svc-ingestion owns the schema; retry until its migrations have run.
-    restart: on-failure
+    restart: ${RESTART_POLICY:-on-failure}
     build:
       <<: *service-build
       args: { SERVICE: svc-parse-worker }
@@ -247,6 +253,7 @@ services:
       svc-ingestion: { condition: service_started }
 
   svc-review:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -259,6 +266,7 @@ services:
 
   # Domain modules: each loads the confirmed records of its own targets.
   svc-groceries:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -272,6 +280,7 @@ services:
     depends_on: *service-deps
 
   svc-tax730:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -283,6 +292,7 @@ services:
     depends_on: *service-deps
 
   svc-home:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -298,6 +308,7 @@ services:
     depends_on: *service-deps
 
   svc-people:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -311,6 +322,7 @@ services:
     depends_on: *service-deps
 
   svc-cars:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -326,6 +338,7 @@ services:
     depends_on: *service-deps
 
   svc-fitness:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -337,6 +350,7 @@ services:
     depends_on: *service-deps
 
   svc-dreams:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -350,6 +364,7 @@ services:
     depends_on: *service-deps
 
   svc-travel:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -361,6 +376,7 @@ services:
     depends_on: *service-deps
 
   svc-subscriptions:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -372,6 +388,7 @@ services:
     depends_on: *service-deps
 
   svc-health:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -383,6 +400,7 @@ services:
     depends_on: *service-deps
 
   svc-goals:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -394,6 +412,7 @@ services:
     depends_on: *service-deps
 
   svc-money:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -407,6 +426,7 @@ services:
     depends_on: *service-deps
 
   svc-agenda:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -424,6 +444,7 @@ services:
     depends_on: *service-deps
 
   svc-work:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -437,6 +458,7 @@ services:
     depends_on: *service-deps
 
   svc-settings:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build
@@ -446,6 +468,7 @@ services:
     depends_on: *service-deps
 
   svc-studies:
+    restart: ${RESTART_POLICY:-no}
     profiles: [apps]
     build:
       <<: *service-build

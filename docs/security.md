@@ -107,6 +107,7 @@ Every model call goes through `AiAssistant` (the parse worker through `GatedAnal
 - [ ] `.env` comes from `npm run env:production`: real, unique passwords for Postgres, every service role and storage, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY`, `AUTH_SETUP_TOKEN` (first visit only) and `BACKUP_PASSPHRASE`; no `dev_` value and no `AUTH_DEV_BYPASS` left. A copy is in a password manager.
 - [ ] The owner account has two-factor sign-in on; `AUTH_SETUP_TOKEN` was removed after creating it.
 - [ ] `GATEWAY_AUTH=session` (or `basic` for a second password); the island is opened only over HTTPS (Tailscale serve, a tunnel, or Caddy with `SITE_ADDRESS` set to the domain).
+- [ ] With Tailscale: `tailscale serve`, never `funnel`; the access policy lets members reach only the island's port 443; key expiry is off for the island's machine.
 - [ ] Only the gateway is reachable, and only by the people it is for: with Tailscale nothing listens beyond `127.0.0.1`; with a domain, `GATEWAY_BIND=0.0.0.0` and a firewall that opens 80 and 443 only. Storage stays closed.
 - [ ] `AI_HARD_MONTHLY_USD` and the per-person limits fit your budget; the monthly AI budget is set in Settings, and a spending limit is set on the Claude Console as a last line.
 - [ ] `island-backup list` shows a backup, a restore was tested, and `BACKUP_DIR` is copied off the machine now and then.

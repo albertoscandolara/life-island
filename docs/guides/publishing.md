@@ -34,9 +34,38 @@ The machine can be a computer at home that stays on (an old laptop, a mini PC), 
 
 ### 1. Prepare the machine
 
-1. Install Docker (with Compose) and git.
-2. Install Tailscale and sign in; install it on your phone and laptop too, with the same account. In the admin console turn on **HTTPS certificates** (DNS → HTTPS Certificates). The machine's address is `https://<machine>.<tailnet>.ts.net`; `tailscale status` shows it.
-3. Clone the repository on the machine.
+The machine must stay on, awake and online: the island is only reachable while it runs.
+
+**Windows PC.** Install Docker Desktop (WSL 2 engine; Settings → Resources: at least 6 GB of memory) and turn on "Start Docker Desktop when you sign in". Docker Desktop starts only once someone signs in to Windows, so after a restart for updates the island stays down until you do. Turn off sleep (Settings → System → Power: "Never" when plugged in), and turn on BitLocker or Device encryption for the disk.
+
+**Linux (a mini PC, an old laptop).** Install Docker Engine with the Compose plugin; it starts at boot by itself. Encrypt the disk when installing (LUKS).
+
+Then, on either:
+
+1. Install git, Node 22 (only for `npm run env:production`), and Tailscale. Sign in to Tailscale.
+2. In the [Tailscale admin console](https://login.tailscale.com/admin):
+   - DNS → turn on **MagicDNS** and **HTTPS Certificates**.
+   - Machines → the island's machine → **Disable key expiry**, so it does not drop off the tailnet after 180 days.
+   - Access controls: let people reach only the island, not the rest of the machine (its shared folders, remote desktop). Replace the policy with the one below, putting your machine's name, then tag the machine `tag:island` (Machines → … → Edit ACL tags):
+
+     ```json
+     {
+       "tagOwners": { "tag:island": ["autogroup:admin"] },
+       "acls": [
+         { "action": "accept", "src": ["autogroup:admin"], "dst": ["*:*"] },
+         {
+           "action": "accept",
+           "src": ["autogroup:member"],
+           "dst": ["tag:island:443"]
+         }
+       ]
+     }
+     ```
+
+3. Install Tailscale on your phone and laptop and sign in with the same account. The machine's address is `https://<machine>.<tailnet>.ts.net` (`tailscale status` shows the name).
+4. Clone the repository on the machine.
+
+**Never use `tailscale funnel`** for the island: it publishes to the whole internet. `tailscale serve` (below) stays inside your tailnet.
 
 ### 2. Make the settings
 
@@ -47,7 +76,7 @@ mv .env.production .env
 
 Without Node on the machine, run it on your computer and copy the file over (`scp`).
 
-`env:production` writes every secret as a new random value: Postgres and each service role, the storage keys, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY`, the one-time `AUTH_SETUP_TOKEN` and `BACKUP_PASSPHRASE`. It sets `NODE_ENV=production`, `GATEWAY_AUTH=session`, the island's address (`APP_URL`, `S3_PUBLIC_ENDPOINT`) and leaves out `AUTH_DEV_BYPASS`. Then fill in yourself:
+`env:production` writes every secret as a new random value: Postgres and each service role, the storage keys, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY`, the one-time `AUTH_SETUP_TOKEN` and `BACKUP_PASSPHRASE`. It sets `NODE_ENV=production`, `GATEWAY_AUTH=session`, `RESTART_POLICY=unless-stopped` (containers come back after a reboot or a crash), the island's address (`APP_URL`, `S3_PUBLIC_ENDPOINT`) and leaves out `AUTH_DEV_BYPASS`. Then fill in yourself:
 
 - `ANTHROPIC_API_KEY`, if you use the AI tools; and the limits under "AI spending guard" if the defaults ($25 a month, $5 a day per person) do not fit.
 - `SMTP_URL` and `MAIL_FROM` for the Agenda's email digest. Gmail works for free with an app password: `SMTP_URL=smtps://you%40gmail.com:<app-password>@smtp.gmail.com:465`.
@@ -64,8 +93,10 @@ docker compose --project-directory . -f infra/docker-compose.yml --profile apps 
 The first build takes a while (every service and the pages). Then publish it on your tailnet, with HTTPS:
 
 ```sh
-sudo tailscale serve --bg --https=443 http://127.0.0.1:8080
+tailscale serve --bg --https=443 http://127.0.0.1:8080
 ```
+
+(On Linux prefix it with `sudo`; on Windows run it in a terminal opened as administrator.) It is remembered across restarts. `tailscale serve status` shows it; `tailscale serve reset` removes it.
 
 ### 4. First visit
 
@@ -73,7 +104,7 @@ sudo tailscale serve --bg --https=443 http://127.0.0.1:8080
 2. Set up two-factor sign-in with an authenticator app (it is required).
 3. Remove `AUTH_SETUP_TOKEN` from `.env` and restart `svc-auth`:
    `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d svc-auth`.
-4. Invite the people of the household from the Account page. Each one needs Tailscale on their device, invited to your tailnet (Tailscale admin → Users → Invite).
+4. Invite the people of the household from the Account page. Each one also needs Tailscale on their device, invited to your tailnet (Tailscale admin → Users → Invite users); Tailscale's free Personal plan covers 3 users.
 
 ### 5. Last checks
 
@@ -132,4 +163,5 @@ On a new machine: clone, put the same `.env` back, start the island once, then r
 | `DB_PASSWORD_<ROLE>`                                                 | Each service role's database password. Set at the database's creation; `npm run db:passwords` changes them on an existing one |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY`                                     | Storage keys, given to SeaweedFS at start                                                                                     |
 | `BACKUP_PASSPHRASE`, `BACKUP_DIR`, `BACKUP_TIME`, `BACKUP_KEEP_DAYS` | Backups                                                                                                                       |
+| `RESTART_POLICY`                                                     | `unless-stopped` on the published island; `no` (default) on your own machine                                                  |
 | `SITE_DIR`                                                           | Serve pages from a folder instead of the `site` volume (`./dist/site` after `npm run site:build`)                             |

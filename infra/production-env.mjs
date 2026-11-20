@@ -74,6 +74,8 @@ const set = {
   S3_PUBLIC_ENDPOINT: address,
   STORAGE_CORS_ORIGINS: address,
   PARSE_RUN_ON_START: 'false',
+  // Back up by themselves after a reboot or a crash.
+  RESTART_POLICY: 'unless-stopped',
 };
 const remove = new Set(['AUTH_DEV_BYPASS']);
 
