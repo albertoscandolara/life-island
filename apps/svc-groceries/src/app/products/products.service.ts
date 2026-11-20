@@ -40,10 +40,32 @@ export class ProductsService {
     this.storage = config.storage ? new ObjectStorage(config.storage) : null;
   }
 
-  /** Every product, by its name key. */
-  async byKey(): Promise<Map<string, ProductRow>> {
-    const rows = await this.svc.db.select().from(products);
-    return new Map(rows.map((row) => [row.nameKey, row]));
+  /**
+   * Every product, by its name key. Item names with no product yet (lines
+   * loaded before products existed) get one first, so every item of "What
+   * you buy" can be changed or removed.
+   */
+  async byKey(names: readonly string[] = []): Promise<Map<string, ProductRow>> {
+    const read = async () =>
+      new Map(
+        (await this.svc.db.select().from(products)).map((row) => [
+          row.nameKey,
+          row,
+        ]),
+      );
+    const known = await read();
+    const missing = new Map(
+      names
+        .map((name) => name.trim())
+        .filter((name) => name && !known.has(productKey(name)))
+        .map((name) => [productKey(name), name] as const),
+    );
+    if (!missing.size) return known;
+    await this.svc.db
+      .insert(products)
+      .values([...missing].map(([nameKey, name]) => ({ nameKey, name })))
+      .onConflictDoNothing({ target: products.nameKey });
+    return read();
   }
 
   /**
