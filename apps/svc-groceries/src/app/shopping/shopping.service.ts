@@ -122,10 +122,11 @@ export class ShoppingService implements OnApplicationBootstrap {
 
   async overview(day = today()): Promise<GroceriesOverviewDto> {
     const since = isoAddMonths(`${day.slice(0, 7)}-01`, -12);
+    const twoYearLines = this.lines(day, 24);
     const [twoYears, receiptRows, list, suggestionRows, aiList, products] =
       await Promise.all([
         // Two years for the basket's change; the rest reads the last 13 months.
-        this.lines(day, 24),
+        twoYearLines,
         this.svc.pool.query<{
           id: string;
           date: string;
@@ -150,7 +151,7 @@ export class ShoppingService implements OnApplicationBootstrap {
           .orderBy(desc(shoppingSuggestions.createdAt))
           .limit(5),
         this.ai.active(),
-        this.products.byKey(),
+        twoYearLines.then((l) => this.products.byKey(l.map((x) => x.name))),
       ]);
     const [recentRows, notGroceryRows] = await Promise.all(
       [false, true].map((not) =>
@@ -218,14 +219,14 @@ export class ShoppingService implements OnApplicationBootstrap {
     request: LifeQuestionRequest,
     day = today(),
   ): Promise<ShoppingSuggestionDto> {
-    const [lines, products, list] = await Promise.all([
+    const [lines, list] = await Promise.all([
       this.lines(day),
-      this.products.byKey(),
       this.db
         .select({ name: shoppingItems.name })
         .from(shoppingItems)
         .where(eq(shoppingItems.done, false)),
     ]);
+    const products = await this.products.byKey(lines.map((l) => l.name));
     const items = itemStats(lines, products);
     const onList = list.map((i) => i.name);
     const question = request.question?.trim() || null;

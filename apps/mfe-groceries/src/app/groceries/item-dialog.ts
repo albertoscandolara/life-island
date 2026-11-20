@@ -197,6 +197,12 @@ const LINK = /^https?:\/\/\S+$/i;
           <p class="hint">No unit price on its receipts.</p>
         }
 
+        @if (!i.id) {
+          <ui-alert tone="warning">
+            This item can't be changed yet: the Groceries service is running an
+            older version. Restart svc-groceries to update it, then try again.
+          </ui-alert>
+        }
         @if (error(); as message) {
           <ui-alert tone="danger">{{ message }}</ui-alert>
         }
