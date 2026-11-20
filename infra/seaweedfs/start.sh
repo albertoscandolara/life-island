@@ -17,4 +17,6 @@ cat > /tmp/s3.json <<JSON
   ]
 }
 JSON
-exec weed server -dir=/data -s3 -s3.port=8333 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024
+# The image's own entrypoint adds what `server` needs (-volume.max=0: as many volumes
+# as there are buckets), as when Compose ran it with a plain `command`.
+exec /entrypoint.sh server -dir=/data -s3 -s3.port=8333 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024
