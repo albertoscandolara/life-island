@@ -54,13 +54,13 @@ Volumes survive `infra:down` and are deleted by `infra:reset`. Postgres runs its
 
 Mounted configuration files are read-only:
 
-| File                                           | Mounted into                     | Purpose                                                        |
-| ---------------------------------------------- | -------------------------------- | -------------------------------------------------------------- |
-| `infra/postgres/init/01-schemas-and-roles.sql` | `postgres` init folder           | Roles and schemas ([Database](database.md))                    |
-| `infra/postgres/init/02-outbox.sql`            | `postgres` init folder           | Outbox and idempotency tables                                  |
-| `infra/postgres/init/03-check-isolation.sql`   | `/checks/` (not the init folder) | Isolation check, run on demand                                 |
-| `infra/seaweedfs/s3.json`                      | `/etc/seaweedfs/s3.json`         | S3 credentials ([Storage and gateway](storage-and-gateway.md)) |
-| `infra/caddy/Caddyfile`                        | `/etc/caddy/Caddyfile`           | Gateway routes                                                 |
+| File                                           | Mounted into                     | Purpose                                                                                                                  |
+| ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `infra/postgres/init/01-schemas-and-roles.sql` | `postgres` init folder           | Roles and schemas ([Database](database.md))                                                                              |
+| `infra/postgres/init/02-outbox.sql`            | `postgres` init folder           | Outbox and idempotency tables                                                                                            |
+| `infra/postgres/init/03-check-isolation.sql`   | `/checks/` (not the init folder) | Isolation check, run on demand                                                                                           |
+| `infra/seaweedfs/start.sh`                     | `/etc/seaweedfs/start.sh`        | Starts SeaweedFS with the S3 keys from `S3_ACCESS_KEY` / `S3_SECRET_KEY` ([Storage and gateway](storage-and-gateway.md)) |
+| `infra/caddy/Caddyfile`                        | `/etc/caddy/Caddyfile`           | Gateway routes                                                                                                           |
 
 ## NATS
 
@@ -72,4 +72,4 @@ For a command-line view, the [`nats` CLI](https://github.com/nats-io/natscli) wo
 
 ## Production outlook
 
-The plan in [architecture.md](../architecture.md#database) keeps this shape in production: the same Compose file on a small VPS, or managed Postgres later, with secrets from the platform's secret manager, R2 instead of SeaweedFS, and Caddy serving real HTTPS. Nightly `pg_dump` backups to object storage are on the hardening list of the roadmap.
+The same Compose file runs the published island, with the `apps` profile: the gateway also serves the pages, every secret comes from `.env`, and a `backup` service makes nightly encrypted copies. See [Publishing](publishing.md).

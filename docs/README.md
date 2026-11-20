@@ -18,6 +18,7 @@ This folder explains how Life Island is built and how to work on it. Start with 
 | [Design guidelines](guides/design-guidelines.md)     | Design or change a page: actions first, page anatomy, visual identity and character accents, depth and motion, charts, data order, the review checklist |
 | [Code sharing](guides/code-sharing.md)               | Find where shared code lives, the rule of two, what every area does the same way, and the known duplication to remove                                   |
 | [AI tools and Settings](guides/ai-tools.md)          | Add or change a feature that calls an AI model: the registry, the switches in Settings, costs, the request info and the AI visual language              |
+| [Publishing](guides/publishing.md)                   | Run the island on a machine that stays on, for free: Tailscale or a domain, the production settings, first visit, updates and encrypted backups         |
 | [Security](security.md)                              | Publish the app safely, or add a service or route: the security review, what is in place, sign-in, AI cost guards and the rules for new code            |
 | [Testing and CI](guides/testing-and-ci.md)           | Write unit and integration tests and understand what the GitHub Actions pipeline checks                                                                 |
 | [Architecture and ingestion plan](architecture.md)   | Read the source-of-truth plan: principles, AI pipeline, review inbox, roadmap and the new-feature checklist                                             |

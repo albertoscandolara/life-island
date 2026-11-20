@@ -60,3 +60,6 @@ test-output
 .angular
 
 __screenshots__/
+
+# Published island: the backups
+/backups

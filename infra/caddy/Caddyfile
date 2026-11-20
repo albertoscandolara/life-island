@@ -12,11 +12,23 @@
 	servers {
 		# Requests and headers bigger than this are refused before any service sees them.
 		max_header_size 32KB
+		# The visitor's address, for the services' rate limits and sign-in lockouts: a
+		# proxy on this machine or network (Tailscale serve, Cloudflare Tunnel) passes it in
+		# X-Forwarded-For. Taken only from private addresses, never from the internet.
+		trusted_proxies static private_ranges
 	}
 }
 
 (protected) {
 	import /etc/caddy/auth/{$GATEWAY_AUTH}.caddy
+}
+
+(pages) {
+	header Cache-Control "no-cache"
+	# The pages load code only from the island itself: es-module-shims runs the areas'
+	# modules from blob: URLs and puts the import map inline. Fonts come from Google
+	# Fonts; services answer JSON on the same origin.
+	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
 }
 
 (hardening) {
@@ -42,7 +54,10 @@
 	}
 }
 
-:80 {
+# SITE_ADDRESS: `:80` (the default) for plain HTTP behind something that adds HTTPS
+# (Tailscale serve, Cloudflare Tunnel); a domain such as `island.example.com` for
+# Caddy to get and renew its HTTPS certificate itself (docs/guides/publishing.md).
+{$SITE_ADDRESS::80} {
 	import hardening
 
 	handle /healthz {
@@ -144,8 +159,36 @@
 		reverse_proxy svc-agenda:3000
 	}
 
+	# Files go to and from storage with presigned links (docs/document-storage.md) on
+	# this same origin, so storage needs no port or CORS of its own. The link's signature
+	# is the permission; cookies stay here.
+	handle /{$S3_BUCKET:uploads}/* {
+		request_header -Cookie
+		request_header -Authorization
+		reverse_proxy storage:8333
+	}
+
+	# The pages (npm run site:build, or the `site` service, fills /srv). Hashed files
+	# could be cached for ever, but the entry files cannot, so everything is
+	# revalidated: the browser asks, and gets 304 when nothing changed.
+	handle_path /documents/* {
+		import protected
+		import pages
+		root * /srv/documents
+		try_files {path} /index.html
+		file_server
+	}
+	handle_path /mfe/* {
+		import protected
+		import pages
+		root * /srv/mfe
+		file_server
+	}
 	handle {
 		import protected
-		respond "Life Island gateway" 200
+		import pages
+		root * /srv/shell
+		try_files {path} /index.html
+		file_server
 	}
 }
