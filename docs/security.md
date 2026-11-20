@@ -34,7 +34,10 @@ The threats that matter for a published personal app: a stranger on the internet
 - **Gateway** (`infra/caddy/Caddyfile`): `GATEWAY_AUTH` required (an optional extra door in front of sign-in), security headers, `Server` header removed, client identity headers dropped, bodies over 26 MB refused.
 - **Every service** (`applyHttpSecurity` in `libs/be-nest`, called in each `bootstrap.ts`): `nosniff`, `no-referrer`, `SAMEORIGIN` framing, `Cache-Control: no-store` (personal data never cached), `x-powered-by` off, cross-site write check through `Sec-Fetch-Site`, per-client rate limit, and the production dev-secret check (`refuseDevSecretsInProduction` in `libs/be-common`, also called by the parse worker).
 - **Storage**: the bucket is private (no public policy); files are streamed through `svc-ingestion` for preview and download, after sign-in. Presigned links (`/file`, uploads) are handed only to a signed-in person; a download link lasts 60 seconds.
-- **Ports**: Postgres and NATS listen on `127.0.0.1` only. The gateway and storage too, unless `GATEWAY_BIND` / `STORAGE_BIND` open them on a server.
+- **Ports**: Postgres and NATS listen on `127.0.0.1` only. The gateway and storage too, unless `GATEWAY_BIND` / `STORAGE_BIND` open them on a server. Published, storage needs no port: presigned links go through the gateway (`S3_PUBLIC_ENDPOINT` is the island's address), which drops cookies on that route.
+- **Secrets**: every database role password (`DB_PASSWORD_<ROLE>`) and the storage keys come from `.env`; `npm run env:production` writes all of them as new random values ([Publishing](guides/publishing.md)).
+- **Pages**: the gateway serves them with a Content-Security-Policy that loads code only from the island itself.
+- **Backups**: the `backup` service writes an encrypted copy (gpg, AES-256, `BACKUP_PASSPHRASE`) of the database and the files every night.
 
 ## Sign-in
 
@@ -87,7 +90,7 @@ Every model call goes through `AiAssistant` (the parse worker through `GatedAnal
 
 ### Documents
 
-- Server-side encryption of the bucket in production (R2 encrypts at rest by default), and encrypted Postgres backups.
+- Encryption at rest of the files and the database on the island's own disk. Until then, use full-disk encryption on the machine (FileVault, BitLocker, LUKS); R2 encrypts at rest by default.
 
 ## Rules for new code
 
@@ -101,11 +104,10 @@ Every model call goes through `AiAssistant` (the parse worker through `GatedAnal
 
 ## Publishing checklist
 
-- [ ] `.env` has real, unique passwords for Postgres, every service role and storage; no `dev_` value left.
-- [ ] `AUTH_DEV_BYPASS` is not set; `INTERNAL_TOKEN` (same for every service), `AUTH_ENCRYPTION_KEY` and, for the first visit only, `AUTH_SETUP_TOKEN` are set to random values.
+- [ ] `.env` comes from `npm run env:production`: real, unique passwords for Postgres, every service role and storage, `INTERNAL_TOKEN`, `AUTH_ENCRYPTION_KEY`, `AUTH_SETUP_TOKEN` (first visit only) and `BACKUP_PASSPHRASE`; no `dev_` value and no `AUTH_DEV_BYPASS` left. A copy is in a password manager.
 - [ ] The owner account has two-factor sign-in on; `AUTH_SETUP_TOKEN` was removed after creating it.
-- [ ] `GATEWAY_AUTH=session` (or `basic` for a second password); the gateway is behind HTTPS (Caddy does it for a real domain).
-- [ ] Only the gateway (and, if needed, storage for direct uploads) is reachable from the internet: `GATEWAY_BIND=0.0.0.0`, a firewall closing every other port.
-- [ ] `STORAGE_CORS_ORIGINS` lists only the published origin.
+- [ ] `GATEWAY_AUTH=session` (or `basic` for a second password); the island is opened only over HTTPS (Tailscale serve, a tunnel, or Caddy with `SITE_ADDRESS` set to the domain).
+- [ ] Only the gateway is reachable, and only by the people it is for: with Tailscale nothing listens beyond `127.0.0.1`; with a domain, `GATEWAY_BIND=0.0.0.0` and a firewall that opens 80 and 443 only. Storage stays closed.
 - [ ] `AI_HARD_MONTHLY_USD` and the per-person limits fit your budget; the monthly AI budget is set in Settings, and a spending limit is set on the Claude Console as a last line.
-- [ ] Backups are encrypted and a restore was tested.
+- [ ] `island-backup list` shows a backup, a restore was tested, and `BACKUP_DIR` is copied off the machine now and then.
+- [ ] The machine's disk is encrypted.

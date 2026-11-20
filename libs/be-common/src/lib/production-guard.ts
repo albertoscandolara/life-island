@@ -17,7 +17,7 @@ const DEV_SECRET_PATTERNS: readonly RegExp[] = [
   /:\/\/[^:/@]+:dev_[a-z0-9_]*@/i,
   // The Postgres superuser with its default password.
   /:\/\/postgres:postgres@/i,
-  // The SeaweedFS dev identity of infra/seaweedfs/s3.json.
+  // The SeaweedFS dev keys (the default of S3_ACCESS_KEY / S3_SECRET_KEY).
   /^dev_(access|secret)_key$/,
 ];
 

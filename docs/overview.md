@@ -161,10 +161,13 @@ life-island/
 │   ├── ingestion-db/              # Drizzle schema of `ingestion`
 │   └── design-system/             # Angular components and CSS tokens
 ├── infra/
-│   ├── docker-compose.yml         # local stack
-│   ├── postgres/init/             # schemas, roles, outbox tables, isolation check
-│   ├── caddy/                     # gateway routes and sign-in
-│   └── seaweedfs/s3.json          # local S3 credentials
+│   ├── docker-compose.yml         # local stack, and the published one (profile apps)
+│   ├── postgres/init/             # schemas, roles, role passwords, outbox tables, isolation check
+│   ├── caddy/                     # gateway: routes, pages, sign-in
+│   ├── site/assemble.mjs          # puts the built pages where the gateway serves them
+│   ├── backup/backup.sh           # nightly encrypted backups and restores
+│   ├── production-env.mjs         # npm run env:production: a .env with new secrets
+│   └── seaweedfs/start.sh         # storage, with S3 keys from the environment
 ├── docs/                          # this documentation
 ├── .github/workflows/ci.yml       # CI pipeline
 ├── .env.example                   # local settings template

@@ -15,7 +15,7 @@ Because both speak the S3 API, code uses the AWS SDK (`@aws-sdk/client-s3` and `
 
 The `storage` container runs `weed server -s3` with all SeaweedFS parts (master, volume, filer and S3 gateway) in one process, data in the `storage-data` volume and a 1 GB volume size limit.
 
-Credentials come from `infra/seaweedfs/s3.json`:
+Credentials come from `S3_ACCESS_KEY` and `S3_SECRET_KEY`; `infra/seaweedfs/start.sh` writes them into SeaweedFS's config at start. Unset, they are the dev keys:
 
 | Setting               | Value                                            |
 | --------------------- | ------------------------------------------------ |
@@ -48,14 +48,17 @@ For R2: create a bucket and an API token with object read and write, then set `S
 
 The front end talks to exactly one origin. Caddy receives every request and forwards `/api/<service>/*` to the right service, removing the prefix:
 
-| Path               | Forwarded to             | Example                                                 |
-| ------------------ | ------------------------ | ------------------------------------------------------- |
-| `/healthz`         | answered by Caddy (`ok`) |                                                         |
-| `/api/ingestion/*` | `svc-ingestion:3000`     | `/api/ingestion/uploads` → `svc-ingestion:3000/uploads` |
-| `/api/review/*`    | `svc-review:3000`        |                                                         |
-| `/api/groceries/*` | `svc-groceries:3000`     |                                                         |
-| `/api/tax730/*`    | `svc-tax730:3000`        |                                                         |
-| anything else      | answered by Caddy        | Will serve the shell once it exists                     |
+| Path               | Forwarded to              | Example                                                                 |
+| ------------------ | ------------------------- | ----------------------------------------------------------------------- |
+| `/healthz`         | answered by Caddy (`ok`)  |                                                                         |
+| `/api/ingestion/*` | `svc-ingestion:3000`      | `/api/ingestion/uploads` → `svc-ingestion:3000/uploads`                 |
+| `/api/review/*`    | `svc-review:3000`         |                                                                         |
+| `/api/groceries/*` | `svc-groceries:3000`      |                                                                         |
+| `/api/tax730/*`    | `svc-tax730:3000`         |                                                                         |
+| `/<bucket>/*`      | `storage:8333`            | Presigned file links, when `S3_PUBLIC_ENDPOINT` is the island's address |
+| `/documents/*`     | files in `/srv/documents` | The documents app                                                       |
+| `/mfe/<area>/*`    | files in `/srv/mfe`       | Each area's code, loaded by the shell                                   |
+| anything else      | files in `/srv/shell`     | The shell; unknown paths get its `index.html`                           |
 
 Services are reached by their Compose service name on port 3000. Until a service exists, its route answers `502`; that is expected.
 
@@ -65,7 +68,7 @@ The configuration is `infra/caddy/Caddyfile`. Its admin API is off. To add a ser
 docker compose --project-directory . -f infra/docker-compose.yml restart gateway
 ```
 
-In production the same Caddyfile gains a real site address, and Caddy obtains HTTPS certificates automatically.
+The pages come from the `site` volume, which the `site` service fills (or from `SITE_DIR`, for example `./dist/site` after `npm run site:build`). In production `SITE_ADDRESS` names the domain, and Caddy obtains HTTPS certificates automatically; behind Tailscale serve or a tunnel it stays `:80`. See [Publishing](publishing.md).
 
 ### Sign-in
 

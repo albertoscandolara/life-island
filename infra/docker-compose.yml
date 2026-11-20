@@ -10,13 +10,35 @@ services:
       POSTGRES_DB: life_island
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Each service role's password (docs/guides/publishing.md). Unset keeps the
+      # dev password from 01-schemas-and-roles.sql; 04-role-passwords.sh sets the rest.
+      DB_PASSWORD_INGESTION: ${DB_PASSWORD_INGESTION:-}
+      DB_PASSWORD_REVIEW: ${DB_PASSWORD_REVIEW:-}
+      DB_PASSWORD_GROCERY: ${DB_PASSWORD_GROCERY:-}
+      DB_PASSWORD_TAX730: ${DB_PASSWORD_TAX730:-}
+      DB_PASSWORD_HOME: ${DB_PASSWORD_HOME:-}
+      DB_PASSWORD_PEOPLE: ${DB_PASSWORD_PEOPLE:-}
+      DB_PASSWORD_CARS: ${DB_PASSWORD_CARS:-}
+      DB_PASSWORD_WORK: ${DB_PASSWORD_WORK:-}
+      DB_PASSWORD_SETTINGS: ${DB_PASSWORD_SETTINGS:-}
+      DB_PASSWORD_STUDIES: ${DB_PASSWORD_STUDIES:-}
+      DB_PASSWORD_AGENDA: ${DB_PASSWORD_AGENDA:-}
+      DB_PASSWORD_MONEY: ${DB_PASSWORD_MONEY:-}
+      DB_PASSWORD_GOALS: ${DB_PASSWORD_GOALS:-}
+      DB_PASSWORD_HEALTH: ${DB_PASSWORD_HEALTH:-}
+      DB_PASSWORD_SUBSCRIPTIONS: ${DB_PASSWORD_SUBSCRIPTIONS:-}
+      DB_PASSWORD_TRAVEL: ${DB_PASSWORD_TRAVEL:-}
+      DB_PASSWORD_FITNESS: ${DB_PASSWORD_FITNESS:-}
+      DB_PASSWORD_DREAMS: ${DB_PASSWORD_DREAMS:-}
+      DB_PASSWORD_AUTH: ${DB_PASSWORD_AUTH:-}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Only 01 and 02 run at init; 03 is the isolation check, run on demand.
+      # 01, 02 and 04 run at init; 03 is the isolation check, run on demand.
       - ./infra/postgres/init/01-schemas-and-roles.sql:/docker-entrypoint-initdb.d/01-schemas-and-roles.sql:ro
       - ./infra/postgres/init/02-outbox.sql:/docker-entrypoint-initdb.d/02-outbox.sql:ro
+      - ./infra/postgres/init/04-role-passwords.sh:/docker-entrypoint-initdb.d/04-role-passwords.sh:ro
       - ./infra/postgres/init/03-check-isolation.sql:/checks/03-check-isolation.sql:ro
       # Idempotent upgrades for a volume created before a schema existed. npm run db:upgrade
       # pipes them to psql, so this mount is only for running one by hand.
@@ -29,12 +51,17 @@ services:
 
   storage:
     image: chrislusf/seaweedfs:3.97
-    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024
+    # The S3 keys come from S3_ACCESS_KEY / S3_SECRET_KEY (the dev keys when unset), written
+    # to the config file at start so a published island never runs with the dev keys.
+    entrypoint: ['/bin/sh', '/etc/seaweedfs/start.sh']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev_access_key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-dev_secret_key}
     ports:
       - '${STORAGE_BIND:-127.0.0.1}:${STORAGE_S3_PORT:-8333}:8333'
     volumes:
       - storage-data:/data
-      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+      - ./infra/seaweedfs/start.sh:/etc/seaweedfs/start.sh:ro
     healthcheck:
       # The S3 gateway answers /healthz only once its filer is reachable. It listens on IPv4
       # only, and CI runners map localhost to ::1, so the address is explicit.
@@ -75,6 +102,8 @@ services:
     image: caddy:2.10-alpine
     ports:
       - '${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8080}:80'
+      # Used only when SITE_ADDRESS is a domain: Caddy serves HTTPS here (443 on a server).
+      - '${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_HTTPS_PORT:-8443}:443'
     environment:
       # Sign-in for everything behind the gateway: `basic` turns it on (set
       # GATEWAY_USER and GATEWAY_PASSWORD_HASH, see infra/caddy/README.md);
@@ -83,9 +112,48 @@ services:
       GATEWAY_AUTH: ${GATEWAY_AUTH:?Set GATEWAY_AUTH in .env (off on your own machine, basic when published)}
       GATEWAY_USER: ${GATEWAY_USER:-}
       GATEWAY_PASSWORD_HASH: ${GATEWAY_PASSWORD_HASH:-}
+      # `:80` behind Tailscale serve or a tunnel; a domain for Caddy's own HTTPS.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      S3_BUCKET: ${S3_BUCKET:-uploads}
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./infra/caddy/auth:/etc/caddy/auth:ro
+      # The pages: filled by the `site` service (or SITE_DIR=./dist/site after npm run site:build).
+      - ${SITE_DIR:-site}:/srv:ro
+      # HTTPS certificates, when SITE_ADDRESS is a domain.
+      - caddy-data:/data
+
+  # The pages, built once: copies the shell, the documents app and every area into
+  # the `site` volume the gateway serves, then exits. Run again after an update.
+  site:
+    profiles: [apps]
+    build:
+      context: .
+      dockerfile: infra/docker/site.Dockerfile
+    volumes:
+      - site:/srv
+
+  # Nightly encrypted backups of the database and the files (docs/guides/publishing.md).
+  backup:
+    profiles: [apps]
+    build:
+      context: .
+      dockerfile: infra/docker/backup.Dockerfile
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: life_island
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: ${SETTINGS_TIMEZONE:-Europe/Rome}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - storage-data:/storage:ro
+    depends_on:
+      postgres: { condition: service_healthy }
 
   # The services themselves, for running the stack without Node installed:
   # `docker compose --project-directory . -f infra/docker-compose.yml --profile apps up -d --build`.
@@ -98,25 +166,25 @@ services:
       args: { SERVICE: svc-ingestion }
     environment: &service-env
       PORT: 3000
-      INGESTION_DATABASE_URL: postgres://ingestion_svc:dev_ingestion@postgres:5432/life_island
-      REVIEW_DATABASE_URL: postgres://review_svc:dev_review@postgres:5432/life_island
-      GROCERY_DATABASE_URL: postgres://grocery_svc:dev_grocery@postgres:5432/life_island
-      TAX730_DATABASE_URL: postgres://tax730_svc:dev_tax730@postgres:5432/life_island
-      HOME_DATABASE_URL: postgres://home_svc:dev_home@postgres:5432/life_island
-      PEOPLE_DATABASE_URL: postgres://people_svc:dev_people@postgres:5432/life_island
-      CARS_DATABASE_URL: postgres://cars_svc:dev_cars@postgres:5432/life_island
-      WORK_DATABASE_URL: postgres://work_svc:dev_work@postgres:5432/life_island
-      SETTINGS_DATABASE_URL: postgres://settings_svc:dev_settings@postgres:5432/life_island
-      STUDIES_DATABASE_URL: postgres://studies_svc:dev_studies@postgres:5432/life_island
-      FITNESS_DATABASE_URL: postgres://fitness_svc:dev_fitness@postgres:5432/life_island
-      DREAMS_DATABASE_URL: postgres://dreams_svc:dev_dreams@postgres:5432/life_island
-      TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@postgres:5432/life_island
-      SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@postgres:5432/life_island
-      HEALTH_DATABASE_URL: postgres://health_svc:dev_health@postgres:5432/life_island
-      GOALS_DATABASE_URL: postgres://goals_svc:dev_goals@postgres:5432/life_island
-      MONEY_DATABASE_URL: postgres://money_svc:dev_money@postgres:5432/life_island
-      AGENDA_DATABASE_URL: postgres://agenda_svc:dev_agenda@postgres:5432/life_island
-      AUTH_DATABASE_URL: postgres://auth_svc:dev_auth@postgres:5432/life_island
+      INGESTION_DATABASE_URL: postgres://ingestion_svc:${DB_PASSWORD_INGESTION:-dev_ingestion}@postgres:5432/life_island
+      REVIEW_DATABASE_URL: postgres://review_svc:${DB_PASSWORD_REVIEW:-dev_review}@postgres:5432/life_island
+      GROCERY_DATABASE_URL: postgres://grocery_svc:${DB_PASSWORD_GROCERY:-dev_grocery}@postgres:5432/life_island
+      TAX730_DATABASE_URL: postgres://tax730_svc:${DB_PASSWORD_TAX730:-dev_tax730}@postgres:5432/life_island
+      HOME_DATABASE_URL: postgres://home_svc:${DB_PASSWORD_HOME:-dev_home}@postgres:5432/life_island
+      PEOPLE_DATABASE_URL: postgres://people_svc:${DB_PASSWORD_PEOPLE:-dev_people}@postgres:5432/life_island
+      CARS_DATABASE_URL: postgres://cars_svc:${DB_PASSWORD_CARS:-dev_cars}@postgres:5432/life_island
+      WORK_DATABASE_URL: postgres://work_svc:${DB_PASSWORD_WORK:-dev_work}@postgres:5432/life_island
+      SETTINGS_DATABASE_URL: postgres://settings_svc:${DB_PASSWORD_SETTINGS:-dev_settings}@postgres:5432/life_island
+      STUDIES_DATABASE_URL: postgres://studies_svc:${DB_PASSWORD_STUDIES:-dev_studies}@postgres:5432/life_island
+      FITNESS_DATABASE_URL: postgres://fitness_svc:${DB_PASSWORD_FITNESS:-dev_fitness}@postgres:5432/life_island
+      DREAMS_DATABASE_URL: postgres://dreams_svc:${DB_PASSWORD_DREAMS:-dev_dreams}@postgres:5432/life_island
+      TRAVEL_DATABASE_URL: postgres://travel_svc:${DB_PASSWORD_TRAVEL:-dev_travel}@postgres:5432/life_island
+      SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:${DB_PASSWORD_SUBSCRIPTIONS:-dev_subscriptions}@postgres:5432/life_island
+      HEALTH_DATABASE_URL: postgres://health_svc:${DB_PASSWORD_HEALTH:-dev_health}@postgres:5432/life_island
+      GOALS_DATABASE_URL: postgres://goals_svc:${DB_PASSWORD_GOALS:-dev_goals}@postgres:5432/life_island
+      MONEY_DATABASE_URL: postgres://money_svc:${DB_PASSWORD_MONEY:-dev_money}@postgres:5432/life_island
+      AGENDA_DATABASE_URL: postgres://agenda_svc:${DB_PASSWORD_AGENDA:-dev_agenda}@postgres:5432/life_island
+      AUTH_DATABASE_URL: postgres://auth_svc:${DB_PASSWORD_AUTH:-dev_auth}@postgres:5432/life_island
       # Sign-in (docs/security.md): services ask svc-auth about session cookies
       # and call each other with the shared INTERNAL_TOKEN. Unset, they refuse to start.
       AUTH_URL: http://svc-auth:3000
@@ -126,7 +194,8 @@ services:
       NATS_URL: nats://nats:4222
       S3_ENDPOINT: http://storage:8333
       # Presigned URLs are opened by the browser, so they must name a host it can reach.
-      S3_PUBLIC_ENDPOINT: http://localhost:${STORAGE_S3_PORT:-8333}
+      # Published: the island's own address (APP_URL); the gateway passes /<bucket>/* to storage.
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${STORAGE_S3_PORT:-8333}}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev_access_key}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-dev_secret_key}
       S3_REGION: ${S3_REGION:-us-east-1}
@@ -391,3 +460,5 @@ volumes:
   postgres-data:
   storage-data:
   nats-data:
+  site:
+  caddy-data:
