@@ -253,8 +253,8 @@ describe.skipIf(!configured)(
         'Notaio Chiliberti Avv. Giuseppe',
         'Atto notarile prima casa',
         6500,
-        'ok',
-        'ok',
+        '✓',
+        '✓',
         undefined,
         'Altro',
       ]);
