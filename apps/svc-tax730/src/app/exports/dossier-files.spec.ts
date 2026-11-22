@@ -161,7 +161,7 @@ describe('the Riepilogo detrazioni workbook', () => {
       (sheet?.getRow(row).values as unknown[]).slice(1);
     expect(values(1)).toEqual([
       'Data',
-      'Fattura',
+      'N. fattura',
       'Fornitore',
       'Descrizione',
       'Importo',
@@ -170,10 +170,16 @@ describe('the Riepilogo detrazioni workbook', () => {
       'Note',
       'Tipologia',
     ]);
-    expect(values(3).slice(4, 8)).toEqual([550, 'ok', 'ko', 'In arrivo']);
+    expect(values(3).slice(4, 8)).toEqual([550, '✓', '✗', 'In arrivo']);
     expect(sheet?.getCell('E4').value).toEqual({
-      formula: 'SUM(E2:E3)',
+      formula: 'SUBTOTAL(109,Detrazioni2025[Importo])',
       result: 3750,
     });
+    expect(sheet?.getCell('D4').value).toBe('Totale');
+    const table = sheet?.getTable('Detrazioni2025') as unknown as {
+      model: { tableRef: string; style: { theme: string } };
+    };
+    expect(table.model.tableRef).toBe('A1:I4');
+    expect(table.model.style.theme).toBe('TableStyleMedium2');
   });
 });
