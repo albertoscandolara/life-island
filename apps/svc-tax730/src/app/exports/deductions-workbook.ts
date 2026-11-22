@@ -7,11 +7,18 @@ import ExcelJS from 'exceljs';
 
 const EURO = '#,##0.00 [$€-410]';
 
+// Whether the invoice / payment proof is filed: a green tick or a red cross.
+const FILED = { value: '✓', font: { bold: true, color: { argb: 'FF1E8449' } } };
+const MISSING = {
+  value: '✗',
+  font: { bold: true, color: { argb: 'FFC0392B' } },
+};
+
 /**
  * The commercialista's summary ("Riepilogo detrazioni"): one sheet per tax
  * year, oldest first, one row per deductible expense with whether its invoice
- * and its payment proof are filed (ok/ko), and the total at the bottom. The
- * columns follow the commercialista's own sheet; the type comes last. Each
+ * and its payment proof are filed (a green ✓ or a red ✗), and the total at
+ * the bottom, as an Excel table styled like the commercialista's own. Each
  * year also gets "Riepilogo {year}": the spending of every kind against its
  * cap, franchigia and rate, the instalments carried from earlier years and
  * the estimated tax back.
@@ -23,98 +30,128 @@ export function buildDeductionsWorkbook(
   workbook.creator = 'Life Island';
   workbook.created = new Date();
   for (const dossier of [...dossiers].sort((a, b) => a.taxYear - b.taxYear)) {
-    const sheet = workbook.addWorksheet(`Detrazioni ${dossier.taxYear}`, {
-      views: [{ state: 'frozen', ySplit: 1 }],
-    });
-    sheet.columns = [
-      {
-        header: 'Data',
-        key: 'date',
-        width: 12,
-        style: { numFmt: 'dd/mm/yyyy', alignment: { horizontal: 'left' } },
-      },
-      {
-        header: 'Fattura',
-        key: 'number',
-        width: 14,
-        style: { numFmt: '@', alignment: { horizontal: 'left' } },
-      },
-      { header: 'Fornitore', key: 'issuer', width: 28 },
-      {
-        header: 'Descrizione',
-        key: 'description',
-        width: 60,
-        style: { alignment: { wrapText: true, vertical: 'top' } },
-      },
-      { header: 'Importo', key: 'amount', width: 16, style: { numFmt: EURO } },
-      {
-        header: 'Fattura',
-        key: 'invoice',
-        width: 10,
-        style: { alignment: { horizontal: 'center' } },
-      },
-      {
-        header: 'Dettaglio bonifico',
-        key: 'payment',
-        width: 18,
-        style: { alignment: { horizontal: 'center' } },
-      },
-      {
-        header: 'Note',
-        key: 'notes',
-        width: 40,
-        style: { alignment: { wrapText: true, vertical: 'top' } },
-      },
-      // Not in the commercialista's own sheet, last so the rest lines up with it.
-      { header: 'Tipologia', key: 'type', width: 30 },
-    ];
-    const header = sheet.getRow(1);
-    header.font = { bold: true };
-    header.alignment = { horizontal: 'left' };
-
-    for (const expense of dossier.expenses) {
-      const row = sheet.addRow({
-        // A date at midnight UTC, so Excel shows the same day everywhere.
-        date: new Date(`${expense.date}T00:00:00Z`),
-        number: expense.documentNumber ?? '-',
-        issuer: expense.issuer,
-        description: expense.description ?? null,
-        type:
-          TAX730_EXPENSE_TYPE_LABELS[expense.expenseType as Tax730ExpenseType]
-            ?.it ?? expense.expenseType,
-        amount: expense.amount,
-        invoice: expense.hasInvoice ? 'ok' : 'ko',
-        payment: expense.hasPaymentProof ? 'ok' : 'ko',
-        notes: expense.notes ?? null,
-      });
-      for (const key of ['invoice', 'payment']) {
-        const cell = row.getCell(key);
-        if (cell.value === 'ko')
-          cell.font = { bold: true, color: { argb: 'FFC0392B' } };
-      }
-    }
-
-    const first = 2;
-    const last = sheet.rowCount;
-    const total = sheet.addRow({
-      amount: {
-        formula: last >= first ? `SUM(E${first}:E${last})` : '0',
-        result: dossier.total,
-      },
-    });
-    total.getCell('amount').font = { bold: true };
-    total.getCell('description').value = 'Totale';
-    total.getCell('description').font = { bold: true };
-    total.getCell('description').alignment = { horizontal: 'right' };
-    if (last >= first)
-      sheet.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: last, column: 9 },
-      };
+    addExpensesSheet(workbook, dossier);
     addSummarySheet(workbook, dossier);
   }
   if (!workbook.worksheets.length) workbook.addWorksheet('Detrazioni');
   return workbook;
+}
+
+// The columns of the commercialista's own sheet; the type comes last so the
+// rest lines up with it. An Excel table needs unique column names, so the
+// document number is "N. fattura" and "Fattura" says whether it is filed.
+const EXPENSE_COLUMNS = [
+  {
+    name: 'Data',
+    width: 12,
+    style: { numFmt: 'dd/mm/yyyy', alignment: { horizontal: 'left' } },
+  },
+  {
+    name: 'N. fattura',
+    width: 14,
+    style: { numFmt: '@', alignment: { horizontal: 'left' } },
+  },
+  { name: 'Fornitore', width: 28 },
+  {
+    name: 'Descrizione',
+    width: 60,
+    style: { alignment: { wrapText: true, vertical: 'top' } },
+  },
+  { name: 'Importo', width: 16, style: { numFmt: EURO } },
+  {
+    name: 'Fattura',
+    width: 10,
+    style: { alignment: { horizontal: 'center' } },
+  },
+  {
+    name: 'Dettaglio bonifico',
+    width: 18,
+    style: { alignment: { horizontal: 'center' } },
+  },
+  {
+    name: 'Note',
+    width: 40,
+    style: { alignment: { wrapText: true, vertical: 'top' } },
+  },
+  { name: 'Tipologia', width: 30 },
+] as const satisfies readonly {
+  name: string;
+  width: number;
+  style?: Partial<ExcelJS.Style>;
+}[];
+
+/**
+ * "Detrazioni {year}": the expenses as an Excel table in the commercialista's
+ * style (blue header, banded rows, filters, a totals row summing Importo).
+ */
+function addExpensesSheet(
+  workbook: ExcelJS.Workbook,
+  dossier: TaxYearDossierDto,
+): void {
+  const sheet = workbook.addWorksheet(`Detrazioni ${dossier.taxYear}`, {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+  EXPENSE_COLUMNS.forEach((column, i) => {
+    sheet.getColumn(i + 1).width = column.width;
+  });
+  const rows = dossier.expenses.map((expense) => [
+    // A date at midnight UTC, so Excel shows the same day everywhere.
+    new Date(`${expense.date}T00:00:00Z`),
+    expense.documentNumber ?? '-',
+    expense.issuer,
+    expense.description ?? null,
+    expense.amount,
+    (expense.hasInvoice ? FILED : MISSING).value,
+    (expense.hasPaymentProof ? FILED : MISSING).value,
+    expense.notes ?? null,
+    TAX730_EXPENSE_TYPE_LABELS[expense.expenseType as Tax730ExpenseType]?.it ??
+      expense.expenseType,
+  ]);
+  sheet.addTable({
+    name: `Detrazioni${dossier.taxYear}`,
+    ref: 'A1',
+    headerRow: true,
+    totalsRow: true,
+    style: { theme: 'TableStyleMedium2', showRowStripes: true },
+    columns: EXPENSE_COLUMNS.map((column) => ({
+      name: column.name,
+      filterButton: true,
+      // ExcelJS writes only the first column's label into the cell: Data has
+      // none and "Totale" is filled in under Descrizione below.
+      totalsRowLabel:
+        column.name === 'Data'
+          ? ''
+          : column.name === 'Descrizione'
+            ? 'Totale'
+            : undefined,
+      // SUBTOTAL(109, …): the total follows the rows left by the filters.
+      ...(column.name === 'Importo'
+        ? { totalsRowFunction: 'sum' as const, totalsRowResult: dossier.total }
+        : {}),
+    })),
+    // A table needs at least one data row.
+    rows: rows.length ? rows : [EXPENSE_COLUMNS.map(() => null)],
+  });
+
+  // Formats for the data rows and the totals row (the header keeps the table's).
+  const dataRows = Math.max(rows.length, 1);
+  EXPENSE_COLUMNS.forEach((column, i) => {
+    if (!('style' in column)) return;
+    for (let r = 2; r <= dataRows + 2; r++) {
+      const cell = sheet.getRow(r).getCell(i + 1);
+      if ('numFmt' in column.style) cell.numFmt = column.style.numFmt;
+      if ('alignment' in column.style) cell.alignment = column.style.alignment;
+    }
+  });
+  dossier.expenses.forEach((expense, i) => {
+    const row = sheet.getRow(i + 2);
+    row.getCell(6).font = (expense.hasInvoice ? FILED : MISSING).font;
+    row.getCell(7).font = (expense.hasPaymentProof ? FILED : MISSING).font;
+  });
+  const total = sheet.getRow(dataRows + 2);
+  total.font = { bold: true };
+  total.getCell(4).value = 'Totale';
+  total.getCell(4).alignment = { horizontal: 'right' };
 }
 
 const PERCENT = '0%';

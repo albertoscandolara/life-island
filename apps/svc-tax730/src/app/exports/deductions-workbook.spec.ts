@@ -88,7 +88,7 @@ describe('buildDeductionsWorkbook', () => {
     expect(sheet.getRow(1).values).toEqual([
       undefined,
       'Data',
-      'Fattura',
+      'N. fattura',
       'Fornitore',
       'Descrizione',
       'Importo',
@@ -100,7 +100,11 @@ describe('buildDeductionsWorkbook', () => {
     const row = sheet.getRow(2);
     expect(row.getCell(2).value).toBe('10/25');
     expect(row.getCell(5).value).toBe(1000);
-    expect(row.getCell(7).value).toBe('ko');
+    expect(row.getCell(6).value).toBe('✓');
+    expect(row.getCell(6).font?.color?.argb).toBe('FF1E8449');
+    expect(row.getCell(7).value).toBe('✗');
+    expect(row.getCell(7).font?.color?.argb).toBe('FFC0392B');
+    expect(sheet.getRow(3).getCell(7).value).toBe('✓');
     expect(row.getCell(9).value).toBe('Ristrutturazione e bonus casa');
     expect(sheet.getRow(3).getCell(2).value).toBe('-');
 
