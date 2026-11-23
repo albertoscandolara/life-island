@@ -3,6 +3,7 @@ import type { PropertyModelDto } from './home.js';
 import type { BankPaymentDto } from './payables.js';
 import type { PersonLicenceDto } from './people.js';
 import type { CarArchiveDto } from './cars-archive.js';
+import type { CarCngDto } from './cars-cng.js';
 import type {
   CarFinesDto,
   CarUsageDto,
@@ -20,12 +21,13 @@ import type {
  * life-island-docs/cars (vehicle.schema.json and the car blueprints).
  */
 
-/** The car document types: categories of svc-ingestion's migration 0013. */
+/** The car document types: categories of svc-ingestion's migrations 0013 and 0032 (CNG cylinders). */
 export const CAR_DOCUMENT_TYPES = [
   'VEHICLE_REGISTRATION',
   'CAR_INSURANCE',
   'ROAD_TAX',
   'VEHICLE_INSPECTION',
+  'CNG_CYLINDER_INSPECTION',
   'VEHICLE_EXPENSE',
 ] as const;
 export type CarDocumentType = (typeof CAR_DOCUMENT_TYPES)[number];
@@ -38,6 +40,7 @@ export const CAR_DOCUMENT_TYPE_LABELS: Record<CarDocumentType, string> = {
   CAR_INSURANCE: 'Insurance',
   ROAD_TAX: 'Road tax (bollo)',
   VEHICLE_INSPECTION: 'Inspection (revisione)',
+  CNG_CYLINDER_INSPECTION: 'CNG cylinders (revisione bombole)',
   VEHICLE_EXPENSE: 'Expense',
 };
 
@@ -897,11 +900,13 @@ export const EXPENSE_KINDS = [
 export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
 
 /** What a cost is, for the totals: an expense kind, or a renewable document. */
-export type CostKind = ExpenseKind | 'insurance' | 'road_tax' | 'inspection';
+export type CostKind =
+  ExpenseKind | 'insurance' | 'road_tax' | 'inspection' | 'cng_cylinders';
 export const COST_KIND_LABELS: Record<CostKind, string> = {
   insurance: 'Insurance',
   road_tax: 'Road tax',
   inspection: 'Revisione',
+  cng_cylinders: 'CNG cylinders',
   fuel: 'Fuel',
   ev_charging: 'Charging',
   scheduled_service: 'Service',
@@ -924,6 +929,7 @@ export const RENEWABLE_KINDS = [
   'insurance',
   'road_tax',
   'inspection',
+  'cng_cylinders',
   'service',
   'registration',
   'fine',
@@ -935,6 +941,7 @@ export const RENEWABLE_LABELS: Record<RenewableKind, string> = {
   insurance: 'Insurance',
   road_tax: 'Road tax (bollo)',
   inspection: 'Revisione',
+  cng_cylinders: 'CNG cylinders',
   service: 'Service',
   registration: 'Temporary registration',
   fine: 'Fine',
@@ -949,6 +956,8 @@ export const RENEWAL_WARNING_DAYS: Record<RenewableKind, number> = {
   insurance: 30,
   road_tax: 30,
   inspection: 60,
+  // The workshop swaps or tests the cylinders: book it in time.
+  cng_cylinders: 60,
   service: 30,
   registration: 30,
   // An unpaid fine always warns: the discount lasts 5 days, payment 60.
@@ -1143,6 +1152,8 @@ export interface VehicleDto {
   quoteComparisons: QuoteComparisonDto[];
   /** Which documents go in the car, which to keep at home and which can go. */
   archive: CarArchiveDto;
+  /** Its CNG cylinders: for a car that runs on methane (P.3), or with a cylinder label on file. */
+  cng: CarCngDto | null;
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';

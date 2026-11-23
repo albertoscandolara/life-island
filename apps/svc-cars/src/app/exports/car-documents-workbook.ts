@@ -40,6 +40,8 @@ const COLUMNS = [
 function keepUntilCell(item: CarArchiveItemDto): Date | string {
   if (item.keepUntil) return day(item.keepUntil) as Date;
   if (item.action === 'discard') return '-';
+  if (item.rule === 'cng_current')
+    return 'Fino alla prossima revisione bombole';
   return "Finché hai l'auto";
 }
 
@@ -50,7 +52,8 @@ function keepUntilCell(item: CarArchiveItemDto): Date | string {
  * "In auto", the checklist of what has to be on board.
  */
 export function buildCarDocumentsWorkbook(
-  vehicle: Pick<VehicleDto, 'archive' | 'status'>,
+  vehicle: Pick<VehicleDto, 'archive' | 'status'> &
+    Partial<Pick<VehicleDto, 'cng'>>,
   carName: string,
   today: string,
 ): ExcelJS.Workbook {
@@ -64,6 +67,7 @@ export function buildCarDocumentsWorkbook(
     carName,
     today,
     vehicle.status === 'laid_up',
+    vehicle.cng?.dueDate ?? (vehicle.cng ? '' : null),
   );
   return workbook;
 }
@@ -125,6 +129,8 @@ function addOnBoardSheet(
   carName: string,
   today: string,
   laidUp: boolean,
+  /** A car with CNG cylinders: their due date ('' when unknown); null otherwise. */
+  cngDue: string | null = null,
 ): void {
   const sheet = workbook.addWorksheet('In auto');
   sheet.getColumn(1).width = 60;
@@ -157,6 +163,17 @@ function addOnBoardSheet(
         day(item.validUntil),
         '☐',
       ]),
+    // The cylinder label is not carried: it is fixed on the car, so only checked.
+    ...(cngDue === null
+      ? []
+      : [
+          [
+            'Cartellino revisione bombole metano',
+            "Applicato sull'auto: verifica che ci sia",
+            day(cngDue || null),
+            '☐',
+          ],
+        ]),
   ];
   sheet.addTable({
     name: 'InAuto',

@@ -28,6 +28,12 @@ import {
   type VehicleValue,
   type VehicleValues,
   euroText,
+  CNG_CYLINDER_TYPES,
+  CNG_INTERVAL_MONTHS,
+  CNG_MAX_CYLINDERS,
+  type CngApproval,
+  type CngCylinderDto,
+  type CngCylinderType,
 } from '@life-island/contracts';
 
 /*
@@ -234,6 +240,8 @@ export interface CarDocumentReading {
   coverages: string[] | null;
   /** Fine (an expense of kind fine): what the verbale prints. */
   fine: FineReading | null;
+  /** CNG cylinder label: its cylinders and months. */
+  cng: CngReading | null;
   facts: CarDocumentFactDto[];
 }
 
@@ -244,6 +252,137 @@ export interface FineReading {
   article: string | null;
   points: number | null;
   reducedAmount: number | null;
+}
+
+/** What a CNG cylinder label prints (car-cng.ts works out the rest). */
+export interface CngReading {
+  /** YYYY-MM. */
+  appliedMonth: string | null;
+  approval: CngApproval | null;
+  cylinderType: CngCylinderType | null;
+  cylinders: CngCylinderDto[];
+  totalLitres: number | null;
+  /** The month they are due again: printed, else the earliest of the cylinders'. */
+  dueMonth: string | null;
+  /**
+   * The date the cylinders have to be requalified by: the last day of the
+   * printed month, else 4 years (R110) or 5 (national) after the label.
+   */
+  dueDate: string | null;
+  /** Whether dueDate was printed (else worked out from the month applied). */
+  duePrinted: boolean;
+  endOfLifeMonth: string | null;
+  manufactureMonth: string | null;
+}
+
+/**
+ * A month as printed or read: 2027-07, 07/2027, 7-2027, luglio 2023, or a
+ * date (its month) → YYYY-MM.
+ */
+export function monthOf(
+  value: string | number | boolean | null | undefined,
+): string | null {
+  const raw = text(value)?.toLowerCase();
+  if (!raw) return null;
+  const valid = (y: number, m: number) =>
+    m >= 1 && m <= 12 && y >= 1950 && y <= 2100
+      ? `${y}-${String(m).padStart(2, '0')}`
+      : null;
+  let match = /^(\d{4})[-/.](\d{1,2})(?:[-/.]\d{1,2})?$/.exec(raw);
+  if (match) return valid(+match[1], +match[2]);
+  match = /^(?:\d{1,2}[-/.])?(\d{1,2})[-/.](\d{4})$/.exec(raw);
+  if (match) return valid(+match[2], +match[1]);
+  const names = [
+    'gen',
+    'feb',
+    'mar',
+    'apr',
+    'mag',
+    'giu',
+    'lug',
+    'ago',
+    'set',
+    'ott',
+    'nov',
+    'dic',
+  ];
+  match = /^([a-z]+)\.?\s+(\d{4})$/.exec(raw);
+  if (match) {
+    const index = names.findIndex((n) => match?.[1].startsWith(n));
+    return index < 0 ? null : valid(+match[2], index + 1);
+  }
+  return null;
+}
+
+/** The last day of a month (YYYY-MM). */
+export function monthEnd(month: string): string {
+  return endOfMonthAfter(`${month}-01`, 0);
+}
+
+/** The cylinders and months of a CNG cylinder label, from its template fields. */
+export function readCngLabel(f: Fields): CngReading {
+  const cylinders: CngCylinderDto[] = [];
+  for (let i = 1; i <= CNG_MAX_CYLINDERS; i++) {
+    const cylinder: CngCylinderDto = {
+      litres: numberOf(f[`cylinder_${i}_litres`]),
+      make: text(f[`cylinder_${i}_make`]),
+      serialNumber: text(f[`cylinder_${i}_serial`]),
+      dueMonth: monthOf(f[`cylinder_${i}_due_month`]),
+    };
+    if (Object.values(cylinder).some((v) => v !== null))
+      cylinders.push(cylinder);
+  }
+  const option = <T extends string>(
+    key: string,
+    options: readonly T[],
+  ): T | null => {
+    const raw = text(f[key])
+      ?.toLowerCase()
+      .replace(/[\s-]+/g, '');
+    return options.find((o) => o.toLowerCase() === raw) ?? null;
+  };
+  const printedDue = [
+    monthOf(f['next_due_month']),
+    ...cylinders.map((c) => c.dueMonth),
+  ].filter((m): m is string => m !== null);
+  const dueMonth = printedDue.sort()[0] ?? null;
+  const appliedMonth = monthOf(f['applied_month']);
+  const approvalText = text(f['approval'])
+    ?.toLowerCase()
+    .replace(/[\s.-]+/g, '');
+  const approval: CngApproval | null = !approvalText
+    ? null
+    : /r110|cng[1-4]/.test(approvalText)
+      ? 'r110'
+      : /national|nazional|dgm/.test(approvalText)
+        ? 'national'
+        : null;
+  const litres = cylinders
+    .map((c) => c.litres)
+    .filter((l): l is number => l !== null);
+  return {
+    appliedMonth,
+    approval,
+    cylinderType: option('cylinder_type', CNG_CYLINDER_TYPES),
+    cylinders,
+    totalLitres:
+      numberOf(f['total_litres']) ??
+      (litres.length
+        ? Math.round(litres.reduce((a, b) => a + b, 0) * 10) / 10
+        : null),
+    dueMonth,
+    dueDate: dueMonth
+      ? monthEnd(dueMonth)
+      : appliedMonth
+        ? endOfMonthAfter(
+            `${appliedMonth}-01`,
+            CNG_INTERVAL_MONTHS[approval ?? 'r110'],
+          )
+        : null,
+    duePrinted: dueMonth !== null,
+    endOfLifeMonth: monthOf(f['end_of_life_month']),
+    manufactureMonth: monthOf(f['manufacture_month']),
+  };
 }
 
 /** "Furto, incendio; Cristalli" → ['Furto', 'incendio', 'Cristalli']: one cover each. */
@@ -362,6 +501,7 @@ export function readCarDocument(
     cuClass: null,
     coverages: null,
     fine: null,
+    cng: null,
     facts,
   };
 
@@ -441,6 +581,32 @@ export function readCarDocument(
       fact('Km', reading.odometerKm);
       fact('Next one by', reading.validUntil);
       fact('Centre', reading.issuer);
+      fact('Amount', amount === null ? null : money(amount));
+      break;
+    }
+    case 'CNG_CYLINDER_INSPECTION': {
+      const cng = readCngLabel(f);
+      reading.cng = cng;
+      reading.number = str('label_number');
+      reading.issuer = str('workshop');
+      reading.validFrom = cng.appliedMonth ? `${cng.appliedMonth}-01` : null;
+      reading.validUntil = cng.dueDate;
+      reading.amount = amount;
+      reading.costDate = reading.paymentDate ?? reading.validFrom;
+      fact('Requalified', cng.appliedMonth);
+      fact('Next one by', cng.dueDate);
+      fact('Label', reading.number);
+      fact('Workshop', reading.issuer);
+      fact(
+        'Approval',
+        cng.approval === 'r110'
+          ? 'UNECE R110'
+          : cng.approval === 'national'
+            ? 'National (DGM)'
+            : null,
+      );
+      fact('Cylinders', cng.cylinders.length || null);
+      fact('Total litres', cng.totalLitres);
       fact('Amount', amount === null ? null : money(amount));
       break;
     }
@@ -770,7 +936,7 @@ export function buildSeries<T extends ApprovedCarDocument>(
     });
 }
 
-function levelOf(
+export function levelOf(
   kind: RenewableKind,
   dueDate: string,
   today: string,
@@ -1019,6 +1185,8 @@ export function costsOf<T extends ApprovedCarDocument & { title: string }>(
         return 'road_tax';
       case 'VEHICLE_INSPECTION':
         return 'inspection';
+      case 'CNG_CYLINDER_INSPECTION':
+        return 'cng_cylinders';
       case 'VEHICLE_EXPENSE':
         return d.reading.expenseKind ?? 'other';
       default:

@@ -71,6 +71,8 @@ const CAR_WORDS = {
   ROAD_TAX: /(tassa automobilistica|bollo auto|road tax)/i,
   VEHICLE_INSPECTION:
     /(revisione (auto|veicolo|periodica)|centro revisioni|\bMOT\b)/i,
+  CNG_CYLINDER_INSPECTION:
+    /(revisione (delle )?bombole|riqualificazione (delle )?bombole|bombole (di |del )?metano|fondo bombole|cng cylinder)/i,
   VEHICLE_EXPENSE:
     /(carburante|rifornimento|gasolio|benzina|tagliando|officina|gommista|pedaggio|telepass)/i,
 };

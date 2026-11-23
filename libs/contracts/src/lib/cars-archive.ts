@@ -1,6 +1,6 @@
 /*
  * Which documents of a car to keep, which go in the car and which can go:
- * the latest insurance and revisione, the bollo receipts until the Regione
+ * the latest insurance, revisione and CNG cylinder label, the bollo receipts until the Regione
  * can no longer claim them, the whole service history, fines until they can
  * no longer be collected. svc-cars works it out for every car (VehicleDto
  * `archive`) and downloads from it the files for the car (zip), the summary
@@ -13,6 +13,7 @@ export const CAR_ARCHIVE_FOLDERS = [
   'insurance',
   'road_tax',
   'inspection',
+  'cng_cylinders',
   'maintenance',
   'fines',
   'other',
@@ -28,9 +29,10 @@ export const CAR_ARCHIVE_FOLDER_LABELS: Record<
   insurance: { en: 'Insurance', it: '01 - Assicurazione' },
   road_tax: { en: 'Road tax (bollo)', it: '02 - Bollo' },
   inspection: { en: 'Revisione', it: '03 - Revisione' },
-  maintenance: { en: 'Service and repairs', it: '04 - Manutenzione' },
-  fines: { en: 'Fines', it: '05 - Multe' },
-  other: { en: 'Other expenses', it: '06 - Altre spese' },
+  cng_cylinders: { en: 'CNG cylinders', it: '04 - Bombole metano' },
+  maintenance: { en: 'Service and repairs', it: '05 - Manutenzione' },
+  fines: { en: 'Fines', it: '06 - Multe' },
+  other: { en: 'Other expenses', it: '07 - Altre spese' },
 };
 
 /**
@@ -99,6 +101,14 @@ export const CAR_ARCHIVE_RULES = {
     en: 'Replaced by a newer revisione; keep it only if you want the km history.',
     it: 'Sostituita da una revisione più recente; tienila solo per lo storico dei km.',
   },
+  cng_current: {
+    en: 'Latest cylinder label: keep a copy at home, it lists your cylinders and when they are due. Nothing to carry: the workshop fixes the label on the car, and no law asks for a document on board.',
+    it: "Ultimo cartellino delle bombole: conservane la copia a casa, riporta le bombole e la scadenza. Non va tenuto in auto: l'officina applica il cartellino sull'auto e nessuna norma chiede un documento a bordo (art. 180 CdS).",
+  },
+  cng_old: {
+    en: 'Replaced by a newer requalification: you can delete it.',
+    it: 'Sostituito da una riqualificazione più recente: puoi eliminarlo.',
+  },
   maintenance: {
     en: 'Service history: keep it as long as you have the car, it shows how it was looked after.',
     it: "Storico manutenzione: conservalo finché hai l'auto, dimostra come è stata tenuta.",
@@ -137,6 +147,12 @@ export const CAR_ORIGINALS_ON_BOARD = [
     it: 'Patente di chi guida',
   },
 ] as const;
+
+/** For a car with CNG cylinders: what the in-car checklist says of their label. */
+export const CNG_LABEL_ON_BOARD = {
+  en: 'Fixed on the car by the workshop (usually in the engine bay): check that it is there and legible, nothing to print',
+  it: "Applicato sull'auto dall'officina (di solito nel vano motore): verifica che ci sia e sia leggibile, non va stampato",
+} as const;
 
 /** The warning of a laid-up car, on the page and in the summary. */
 export const LAID_UP_WARNING = {

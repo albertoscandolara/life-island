@@ -44,7 +44,15 @@
         }
       </ul>
     </li>
-    @for (item of printable(); track item.uploadId) {
+    @if (cng()) {
+    <li class="car-list__item">
+      <div class="car-list__line">
+        <strong>CNG cylinder label</strong>
+        <ui-badge tone="neutral">On the car</ui-badge>
+      </div>
+      <p class="li-muted li-small">{{ cngLabel.en }}.</p>
+    </li>
+    } @for (item of printable(); track item.uploadId) {
     <li class="car-list__item">
       <div class="car-list__line">
         <span class="docs__names">

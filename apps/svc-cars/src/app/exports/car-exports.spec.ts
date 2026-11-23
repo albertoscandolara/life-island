@@ -102,7 +102,7 @@ describe('buildCarDocumentsWorkbook', () => {
       '✓',
     ]);
     expect(row(3)).toEqual(['02 - Bollo', 'Bollo 2026', '✗', '✓']);
-    expect(row(4)).toEqual(['06 - Altre spese', 'Pieno', '✗', '✗']);
+    expect(row(4)).toEqual(['07 - Altre spese', 'Pieno', '✗', '✗']);
     expect(sheet?.getRow(3).getCell(7).value).toEqual(
       new Date('2029-12-31T00:00:00Z'),
     );
@@ -116,6 +116,42 @@ describe('buildCarDocumentsWorkbook', () => {
       'Patente di chi guida',
       'Certificato RCA 2026',
     ]);
+  });
+
+  it('has a methane car check its cylinder label on board, and keeps its copy at home', async () => {
+    const label = item({
+      uploadId: 'cng',
+      title: 'Revisione bombole 2023',
+      folder: 'cng_cylinders',
+      rule: 'cng_current',
+      date: '2023-07-01',
+      validUntil: '2027-07-31',
+    });
+    const workbook = buildCarDocumentsWorkbook(
+      {
+        ...vehicle([...ITEMS, label]),
+        cng: { dueDate: '2027-07-31' } as VehicleDto['cng'],
+      },
+      'Panda',
+      '2026-11-23',
+    );
+    const documents = workbook.getWorksheet('Documenti');
+    expect(documents?.getRow(5).getCell(1).value).toBe('04 - Bombole metano');
+    expect(documents?.getRow(5).getCell(5).value).toBe('✗');
+    expect(documents?.getRow(5).getCell(6).value).toBe('✓');
+    expect(documents?.getRow(5).getCell(7).value).toBe(
+      'Fino alla prossima revisione bombole',
+    );
+    const onBoard = workbook.getWorksheet('In auto');
+    expect(onBoard?.getRow(9).getCell(1).value).toBe(
+      'Cartellino revisione bombole metano',
+    );
+    expect(onBoard?.getRow(9).getCell(2).value).toBe(
+      "Applicato sull'auto: verifica che ci sia",
+    );
+    expect(onBoard?.getRow(9).getCell(3).value).toEqual(
+      new Date('2027-07-31T00:00:00Z'),
+    );
   });
 
   it('warns on a laid-up car', async () => {

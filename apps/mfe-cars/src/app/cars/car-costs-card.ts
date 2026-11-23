@@ -108,6 +108,7 @@ function groupOf(kind: CostKind): (typeof COST_GROUPS)[number]['id'] {
     case 'tyres':
     case 'body_work':
     case 'inspection':
+    case 'cng_cylinders':
       return 'upkeep';
     default:
       return 'other';

@@ -5,6 +5,7 @@ import {
   VEHICLE_FIELD_DEFINITIONS,
   VEHICLE_OPTION_LABELS,
   type CarDocumentType,
+  type RenewableKind,
   type RenewalAlertDto,
   type RenewalDto,
   type VehicleField,
@@ -58,6 +59,19 @@ export function renewalTitle(renewal: RenewalDto): string {
   return renewal.subject ?? RENEWABLE_LABELS[renewal.kind];
 }
 
+/** Kinds that fall due rather than expire. */
+const DUE_KINDS: readonly RenewableKind[] = [
+  'inspection',
+  'service',
+  'cng_cylinders',
+];
+
+/** A kind inside a sentence: "insurance", "revisione", but "CNG cylinders". */
+function kindText(kind: RenewableKind): string {
+  const label = RENEWABLE_LABELS[kind];
+  return /^[A-Z]{2}/.test(label) ? label : label.toLowerCase();
+}
+
 /** "is due in 12 days", "expired 3 days ago, still covered for 12 days"... */
 export function renewalText(renewal: RenewalDto): string {
   const left = renewal.daysLeft ?? 0;
@@ -75,13 +89,13 @@ export function renewalText(renewal: RenewalDto): string {
     case 'missing':
       return 'none on file';
     case 'expired':
-      if (renewal.kind === 'inspection' || renewal.kind === 'service')
+      if (DUE_KINDS.includes(renewal.kind))
         return left === -1 ? 'was due yesterday' : `was due ${days(-left)} ago`;
       return left === -1 ? 'expired yesterday' : `expired ${days(-left)} ago`;
     case 'grace':
       return `expired ${days(-left)} ago, still covered for ${days(left + INSURANCE_GRACE_DAYS)}`;
     default: {
-      const due = renewal.kind === 'inspection' || renewal.kind === 'service';
+      const due = DUE_KINDS.includes(renewal.kind);
       if (left === 0) return due ? 'is due today' : 'expires today';
       return due ? `is due in ${days(left)}` : `expires in ${days(left)}`;
     }
@@ -99,10 +113,17 @@ export function alertText(alert: RenewalAlertDto): string {
   if (alert.level === 'suspended')
     return `${alert.vehicleName}: insurance suspended.`;
   if (alert.dueDate === null && alert.level !== 'missing')
-    return `${alert.vehicleName}: ${RENEWABLE_LABELS[alert.kind].toLowerCase()} · ${alert.basis}.`;
+    return `${alert.vehicleName}: ${kindText(alert.kind)} · ${alert.basis}.`;
   if (alert.level === 'missing')
-    return `${alert.vehicleName}: no ${RENEWABLE_LABELS[alert.kind].toLowerCase()} on file.`;
-  return `${alert.vehicleName}: ${RENEWABLE_LABELS[alert.kind].toLowerCase()} ${renewalText(alert)}.`;
+    return alert.kind === 'cng_cylinders'
+      ? `${alert.vehicleName}: no CNG cylinder label on file.`
+      : `${alert.vehicleName}: no ${kindText(alert.kind)} on file.`;
+  // "CNG cylinders" is plural: they "are due".
+  const text =
+    alert.kind === 'cng_cylinders'
+      ? renewalText(alert).replace(/^is /, 'are ').replace(/^was /, 'were ')
+      : renewalText(alert);
+  return `${alert.vehicleName}: ${kindText(alert.kind)} ${text}.`;
 }
 
 /** A number as printed on Italian documents, with the thousands always grouped: 1.242 and 119,5. */

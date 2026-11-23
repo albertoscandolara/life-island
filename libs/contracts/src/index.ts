@@ -14,6 +14,7 @@ export * from './lib/people-guides.js';
 export * from './lib/cars.js';
 export * from './lib/cars-insights.js';
 export * from './lib/cars-archive.js';
+export * from './lib/cars-cng.js';
 export * from './lib/work.js';
 export * from './lib/work-insights.js';
 export * from './lib/work-checks.js';

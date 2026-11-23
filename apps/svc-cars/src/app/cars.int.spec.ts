@@ -43,13 +43,14 @@ describe.skipIf(!configured)(
         connectionString: config.databaseUrl,
         schema: 'cars',
       });
-      // The categories of svc-ingestion's migration 0013.
+      // The categories of svc-ingestion's migrations 0013 and 0032.
       for (const [id, parentId] of [
         ['CAR_DOCUMENT', null],
         ['VEHICLE_REGISTRATION', 'CAR_DOCUMENT'],
         ['CAR_INSURANCE', 'CAR_DOCUMENT'],
         ['ROAD_TAX', 'CAR_DOCUMENT'],
         ['VEHICLE_INSPECTION', 'CAR_DOCUMENT'],
+        ['CNG_CYLINDER_INSPECTION', 'CAR_DOCUMENT'],
         ['VEHICLE_EXPENSE', 'CAR_DOCUMENT'],
       ])
         await deliver('category.changed@1', {
@@ -755,6 +756,55 @@ describe.skipIf(!configured)(
         (await send('PATCH', `/vehicles/${vehicleId}`, { status: 'active' }))
           .status,
       ).toBe(204);
+    });
+
+    it('tracks the CNG cylinders from their label, in the Agenda and at home, not in the car', async () => {
+      const due = day(20).slice(0, 7); // due by its last day, within 60 days
+      const label = await upload(['CNG_CYLINDER_INSPECTION'], {
+        registration_number: plate,
+        applied_month: '2022-07',
+        workshop: 'AUTOFFICINA DEMO',
+        label_number: `L${run}`,
+        approval: 'ECE R110',
+        cylinder_1_litres: '66',
+        cylinder_1_make: 'FABER',
+        cylinder_1_serial: '12/3456/055',
+        cylinder_1_due_month: due,
+      });
+      expect((await review(label)).facts).toEqual(
+        expect.arrayContaining([
+          { label: 'Workshop', value: 'AUTOFFICINA DEMO' },
+        ]),
+      );
+      expect(
+        (await send('POST', `/reviews/${label}/approve`, { vehicleId })).status,
+      ).toBe(204);
+      const { cng, renewals, archive } = await car(vehicleId);
+      expect(cng).toMatchObject({
+        approval: 'r110',
+        level: 'expiring',
+        cylinders: [{ litres: 66, make: 'FABER', serialNumber: '12/3456/055' }],
+        history: [{ uploadId: label, month: '2022-07' }],
+      });
+      expect(renewals.find((r) => r.kind === 'cng_cylinders')).toMatchObject({
+        level: 'expiring',
+        uploadId: label,
+      });
+      expect(archive.items.find((i) => i.uploadId === label)).toMatchObject({
+        folder: 'cng_cylinders',
+        action: 'keep',
+      });
+      const deadlines = await json<{ kind: string; proof?: string }[]>(
+        await send('GET', '/deadlines'),
+      );
+      expect(deadlines).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'cng_cylinders',
+            proof: 'the new CNG cylinder label',
+          }),
+        ]),
+      );
     });
 
     it('sends the documents of a removed car back to review', async () => {

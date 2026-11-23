@@ -1,7 +1,7 @@
 import { EntityLink } from '@life-island/entities-ui';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -38,11 +38,15 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiInfoGuide,
+  UiInfoTopic,
   UiPageHeader,
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
+import { CarCngCard } from './car-cng-card';
 import { CarCostsCard } from './car-costs-card';
+import { CngGuideTopic } from './cng-guide-topic';
 import { CarFinesCard } from './car-fines-card';
 import { CarRenewalsCard } from './car-renewals-card';
 import { CarDocumentsCard } from './car-documents-card';
@@ -96,7 +100,9 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
     LiNeedsYou,
     LiTabs,
     EntityLink,
+    CarCngCard,
     CarCostsCard,
+    CngGuideTopic,
     CarDocumentsCard,
     CarFinesCard,
     CarRenewalsCard,
@@ -114,6 +120,8 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiInfoGuide,
+    UiInfoTopic,
     UiPageHeader,
   ],
   host: { 'data-character': 'velo', class: 'cars' },
@@ -122,6 +130,12 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
 })
 export class CarsPage {
   private readonly api = inject(CarsApi);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  /** The Cars guide: reading matter kept off the cards, opened on demand. */
+  protected readonly guideOpen = signal(false);
+  protected readonly guideTopic = signal('cng');
 
   protected readonly overview = signal<CarsOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -191,15 +205,32 @@ export class CarsPage {
   });
 
   constructor() {
-    // A link from anywhere on the island opens one car: /cars?car=<id>.
-    inject(ActivatedRoute)
-      .queryParamMap.pipe(takeUntilDestroyed())
-      .subscribe((query) => {
-        const id = query.get(entityParam('vehicle'));
-        if (id) this.selectedId.set(id);
-      });
+    // A link from anywhere on the island opens one car: /cars?car=<id>,
+    // and `?guide=cng` the guide.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      const id = query.get(entityParam('vehicle'));
+      if (id) this.selectedId.set(id);
+      const topic = query.get('guide');
+      if (topic) this.showGuide(topic);
+    });
     this.load();
     this.loadPeople();
+  }
+
+  protected showGuide(topic: string): void {
+    this.guideTopic.set(topic);
+    this.guideOpen.set(true);
+  }
+
+  /** A closed guide leaves the URL, so a reload does not open it again. */
+  protected onGuideClosed(): void {
+    if (!this.route.snapshot.queryParamMap.get('guide')) return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { guide: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /** The people of People: offered while editing, and their licence shown next to a car. */
