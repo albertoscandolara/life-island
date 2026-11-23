@@ -1012,6 +1012,7 @@ const CAR_REMINDERS: readonly [
   ['insurance', 'Car insurance'],
   ['road_tax', 'Road tax (bollo)'],
   ['inspection', 'Revisione'],
+  ['cng_cylinders', 'CNG cylinders (revisione bombole)'],
   ['service', 'Car service'],
   ['registration', 'Temporary registration'],
 ];

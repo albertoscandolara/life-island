@@ -9,6 +9,7 @@ import {
   CAR_ARCHIVE_FOLDER_LABELS,
   CAR_ARCHIVE_RULES,
   CAR_ORIGINALS_ON_BOARD,
+  CNG_LABEL_ON_BOARD,
   type CarArchiveAction,
   type CarArchiveDto,
   type CarArchiveItemDto,
@@ -49,6 +50,8 @@ export class CarDocumentsCard {
   readonly vehicleId = input.required<string>();
   readonly status = input.required<VehicleStatus>();
   readonly archive = input.required<CarArchiveDto>();
+  /** The car has CNG cylinders: their label is checked on board, not printed. */
+  readonly cng = input(false);
 
   protected readonly inCar = computed(() => this.of('in_car'));
   protected readonly keep = computed(() => this.of('keep'));
@@ -73,6 +76,7 @@ export class CarDocumentsCard {
   });
 
   protected readonly originals = CAR_ORIGINALS_ON_BOARD;
+  protected readonly cngLabel = CNG_LABEL_ON_BOARD;
   protected readonly folderLabels = CAR_ARCHIVE_FOLDER_LABELS;
   protected readonly rules = CAR_ARCHIVE_RULES;
   protected readonly tones = ACTION_TONES;
@@ -92,6 +96,8 @@ export class CarDocumentsCard {
       return item.keepUntil ? `Could go since ${dateText(item.keepUntil)}` : '';
     if (item.rule === 'insurance_suspended') return 'Keep until reactivated';
     if (item.rule === 'insurance_latest') return 'Keep until renewed';
+    if (item.rule === 'cng_current')
+      return 'Keep until the next requalification';
     return item.keepUntil
       ? `Keep until ${dateText(item.keepUntil)}`
       : 'Keep while you have the car';

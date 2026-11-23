@@ -78,6 +78,7 @@ import {
   finePayables,
 } from './payables.js';
 import { carArchive, laidUp } from './car-archive.js';
+import { cngOf, cngRenewals } from './car-cng.js';
 import { insuranceHistory } from './car-insurance.js';
 import { tyreRenewals, tyreSetOf } from './car-tyres.js';
 import { carUsage } from './car-usage.js';
@@ -142,6 +143,7 @@ const RENEWAL_PROOF: Partial<Record<RenewableKind, string>> = {
   insurance: 'the new insurance certificate',
   road_tax: 'the bollo receipt',
   inspection: 'the revisione certificate',
+  cng_cylinders: 'the new CNG cylinder label',
   service: 'the service invoice',
   registration: 'the registration certificate',
 };
@@ -339,6 +341,7 @@ export class CarsService {
             cost.bankPayment =
               carFineList.fines.find((f) => f.uploadId === cost.uploadId)
                 ?.bankPayment ?? null;
+        const cng = cngOf(row.values, series, today, windows);
         const renewals = laidUp(row.status, [
           ...renewalsOf(
             row.values,
@@ -348,6 +351,7 @@ export class CarsService {
             trend,
             windows,
           ),
+          ...cngRenewals(cng),
           ...fineRenewals(carFineList.fines, today),
           ...(row.status === 'active'
             ? tyreRenewals(tyres, maxSpeed, today)
@@ -441,6 +445,7 @@ export class CarsService {
             },
             today,
           ),
+          cng,
         };
       })
       .sort(

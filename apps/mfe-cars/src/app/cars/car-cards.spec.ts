@@ -5,6 +5,7 @@ import type {
   CarCostTotalDto,
   RenewalDto,
 } from '@life-island/contracts';
+import { CarCngCard } from './car-cng-card';
 import { CarDocumentsCard } from './car-documents-card';
 import { CarCostsCard } from './car-costs-card';
 import { CarRenewalsCard } from './car-renewals-card';
@@ -132,5 +133,66 @@ describe('Cars cards', () => {
       '/api/cars/vehicles/v1/exports/documents.xlsx',
       '/api/cars/vehicles/v1/exports/archive.zip',
     ]);
+  });
+
+  it('shows the CNG cylinders: when, which, every label, and how to load the next one', async () => {
+    const fixture = TestBed.createComponent(CarCngCard);
+    fixture.componentRef.setInput('status', 'active');
+    fixture.componentRef.setInput('vehicleName', 'Punto · AB123CD');
+    fixture.componentRef.setInput('cng', {
+      approval: 'r110',
+      cylinderType: null,
+      totalLitres: 84.1,
+      cylinders: [
+        {
+          litres: 66,
+          make: 'FABER',
+          serialNumber: '12/3456/055',
+          dueMonth: '2027-07',
+        },
+        {
+          litres: 18.1,
+          make: 'FABER',
+          serialNumber: '16/7890/066',
+          dueMonth: '2027-07',
+        },
+      ],
+      dueDate: '2027-07-31',
+      level: 'expiring',
+      daysLeft: 40,
+      basis: 'The month printed on the cylinder label',
+      endOfLife: null,
+      history: [
+        {
+          uploadId: 'c23',
+          month: '2023-07',
+          workshop: 'Officina',
+          labelNumber: '1',
+          cylinders: [],
+          replaced: true,
+        },
+        {
+          uploadId: 'c19',
+          month: '2019-07',
+          workshop: 'Officina',
+          labelNumber: '2',
+          cylinders: [],
+          replaced: false,
+        },
+      ],
+    });
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toContain('Requalify by');
+    expect(text).toContain('Due soon');
+    expect(text).toContain('Book a workshop');
+    expect(text).toContain('12/3456/055');
+    expect(text).toContain('07/2027');
+    expect(text).toContain('Cylinders exchanged');
+    expect(text).toContain('Not in the car');
+    const upload = element.querySelector('a[uiButton]')?.getAttribute('href');
+    expect(upload).toContain('upload?area=cars');
+    expect(upload).toContain('proof=the+new+CNG+cylinder+label');
   });
 });

@@ -232,9 +232,9 @@ A database created before this area existed needs its schema and role: `npm run 
 
 ## Cars
 
-Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as its registration certificate (carta di circolazione, the "libretto") describes it, with the documents that keep it on the road: insurance (RCA), road tax (bollo), revisione, and running costs from fuel to the mechanic. The model and every printed code (A, B, C.1, D.1, E, F.1, J, K, P.1, V.7… from EU Directive 1999/37/EC) are documented in the life-island-docs `cars/` folder; the same codes, with their meaning, are in `REGISTRATION_CODES` in `libs/contracts`.
+Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as its registration certificate (carta di circolazione, the "libretto") describes it, with the documents that keep it on the road: insurance (RCA), road tax (bollo), revisione, the CNG cylinders of a methane car, and running costs from fuel to the mechanic. The model and every printed code (A, B, C.1, D.1, E, F.1, J, K, P.1, V.7… from EU Directive 1999/37/EC) are documented in the life-island-docs `cars/` folder; the same codes, with their meaning, are in `REGISTRATION_CODES` in `libs/contracts`.
 
-**Car documents are read, not stored.** A car document is a document whose categories are, or sit under, `CAR_DOCUMENT`: `VEHICLE_REGISTRATION`, `CAR_INSURANCE`, `ROAD_TAX`, `VEHICLE_INSPECTION` or `VEHICLE_EXPENSE` (svc-ingestion's migration `0013`). Every template carries the car reference (`registration_number`, `vin`); the registration certificate also carries the car data, under keys that map to the model's English names (`engine_capacity_cc` is `engine.capacityCc`, code P.1). Numbers printed the Italian way (`1.242`, `119,5`) are read as numbers.
+**Car documents are read, not stored.** A car document is a document whose categories are, or sit under, `CAR_DOCUMENT`: `VEHICLE_REGISTRATION`, `CAR_INSURANCE`, `ROAD_TAX`, `VEHICLE_INSPECTION` or `VEHICLE_EXPENSE` (svc-ingestion's migration `0013`), or `CNG_CYLINDER_INSPECTION` (migration `0032`). Every template carries the car reference (`registration_number`, `vin`); the registration certificate also carries the car data, under keys that map to the model's English names (`engine_capacity_cc` is `engine.capacityCc`, code P.1). Numbers printed the Italian way (`1.242`, `119,5`) are read as numbers.
 
 **Nothing changes a car on its own.** A new car document waits under **To review**:
 
@@ -249,15 +249,27 @@ Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as it
 
 **Renewals** are worked out from the latest version of each series:
 
-| Item         | Due                                                                                                   | Warns   |
-| ------------ | ----------------------------------------------------------------------------------------------------- | ------- |
-| Insurance    | The policy end (or the paid instalment's end); covered for 15 more days (art. 170-bis Cod. Ass.)      | 30 days |
-| Road tax     | The end of the month after its expiry month; an exempt car never warns                                | 30 days |
-| Revisione    | Within the month 4 years after first registration (B), then every 2 years from the last one (art. 80) | 60 days |
-| Service      | The next service date or odometer reading on the last service receipt                                 | 30 days |
-| Registration | A temporary registration's end (H)                                                                    | 30 days |
+| Item          | Due                                                                                                   | Warns   |
+| ------------- | ----------------------------------------------------------------------------------------------------- | ------- |
+| Insurance     | The policy end (or the paid instalment's end); covered for 15 more days (art. 170-bis Cod. Ass.)      | 30 days |
+| Road tax      | The end of the month after its expiry month; an exempt car never warns                                | 30 days |
+| Revisione     | Within the month 4 years after first registration (B), then every 2 years from the last one (art. 80) | 60 days |
+| CNG cylinders | The due month on the latest cylinder label; see **CNG cylinders** below                               | 60 days |
+| Service       | The next service date or odometer reading on the last service receipt                                 | 30 days |
+| Registration  | A temporary registration's end (H)                                                                    | 30 days |
 
 Levels are **ok**, **expiring**, **grace** (insurance past its end, still covered), **expired**, **missing** (no insurance or road tax on file, or a revisione that should have happened) and **suspended** (the insurance of a laid-up car). Warnings of active cars sit at the top of the page and on the car.
+
+**CNG cylinders.** Every car whose fuel (P.3) is CNG (`cng`, `petrol_cng`), and any car with a cylinder label on file, has a **CNG cylinders** card (`VehicleDto.cng`, worked out by `car-cng.ts`) and a `cng_cylinders` renewal, which reaches the Agenda with the new label as its proof. Its cylinders have to be requalified (the "revisione delle bombole") by a workshop of the Fondo Bombole Metano, apart from the car's revisione:
+
+| Cylinders                               | Requalified                                                         | Rule                                   |
+| --------------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| UNECE R110, CNG-1 to CNG-3              | Every 4 years; the first check is visual                            | DM 13 maggio 2022 n. 144, art. 2 c. 2  |
+| UNECE R110, CNG-4 on M1 and N1 vehicles | Every 4 years, unless the maker says otherwise (2 before July 2022) | DM 144/2022, art. 2 c. 3               |
+| National approval (DGM)                 | Every 5 years                                                       | The earlier rules, kept by art. 2 c. 1 |
+| Any R110 cylinder                       | Replaced at the end of life its maker marks, at most 20 years       | DM 144/2022                            |
+
+The workshop applies a label (cartellino) on the car with, per cylinder, its litres, maker, serial number and due month (scadenza). The due date is the last day of the earliest month printed on the latest label; without one, 4 years (5 for national cylinders) after the month applied; with no label at all, an estimate of 4 years after first registration (B), and **missing** once that is past. An end of life (printed, or 20 years from a printed manufacture month) earlier than that wins. Serial numbers that change from one label to the next show as **Cylinders exchanged**. The template reads up to four cylinders (`cylinder_1_…` to `cylinder_4_…`). The rules, with their sources, are the **CNG cylinders** topic of the Cars guide (`?guide=cng`).
 
 **Laid up.** A car parked and unused, its insurance suspended until you drive it again, has the status **Laid up, insurance suspended**. Its insurance stops warning and becomes a standing **Do not use** warning (with the RCA suspended it can be neither driven nor parked on a public road); its bollo is still owed and still warns (and reaches the Agenda), and so do its fines. Its revisione and service stop warning until it is back in use.
 
@@ -269,11 +281,12 @@ Levels are **ok**, **expiring**, **grace** (insurance past its end, still covere
 | 01 - Assicurazione        | The policy in force (also in its 15 days of grace), or the latest one; a laid-up car's suspended policy (it is needed to reactivate it); older policies can go, unless a claim on them is still open | The certificate of the policy in force (a printout is fine) |
 | 02 - Bollo                | Every receipt until the Regione can no longer claim it: 31 December of the 3rd year after the year it was due (5th in Piemonte); the latest always. A notice about a year restarts its 3 years       | Never                                                       |
 | 03 - Revisione            | The latest; older ones only for the km history                                                                                                                                                       | No: the outcome is on the libretto and on record            |
-| 04 - Manutenzione         | Every service, repair, tyre and body work receipt, as long as you have the car                                                                                                                       | No                                                          |
-| 05 - Multe                | An unpaid fine; a paid one until 5 years from the violation (art. 28 L. 689/1981)                                                                                                                    | No                                                          |
-| 06 - Altre spese          | Accessories and other purchases for the 2-year legal warranty; fuel, tolls, parking and washing can go                                                                                               | No                                                          |
+| 04 - Bombole metano       | The latest cylinder label, until the next requalification; older ones can go                                                                                                                         | No: the label is fixed on the car, so it is only checked    |
+| 05 - Manutenzione         | Every service, repair, tyre and body work receipt, as long as you have the car                                                                                                                       | No                                                          |
+| 06 - Multe                | An unpaid fine; a paid one until 5 years from the violation (art. 28 L. 689/1981)                                                                                                                    | No                                                          |
+| 07 - Altre spese          | Accessories and other purchases for the 2-year legal warranty; fuel, tolls, parking and washing can go                                                                                               | No                                                          |
 
-The originals that cannot be printed (libretto and the driver's licence, art. 180 CdS) head the in-car list. Three downloads, in Italian like the 730's: **Files for the car** (`in-car.zip`, every file the law wants in the car that can be printed, exactly as it was loaded), **Excel summary** (`documents.xlsx`, "Riepilogo documenti": every document as an Excel table with a green ✓ or red ✗ for in the car and to keep, until when and why, and an **In auto** checklist sheet) and **Archive** (`archive.zip`, everything worth keeping, one folder per kind, with the summary). Claims (sinistri) have no document type yet: keep their papers until the claim is closed.
+The originals that cannot be printed (libretto and the driver's licence, art. 180 CdS) head the in-car list; a car with CNG cylinders adds its label, to check that it is on the car. Three downloads, in Italian like the 730's: **Files for the car** (`in-car.zip`, every file the law wants in the car that can be printed, exactly as it was loaded), **Excel summary** (`documents.xlsx`, "Riepilogo documenti": every document as an Excel table with a green ✓ or red ✗ for in the car and to keep, until when and why, and an **In auto** checklist sheet) and **Archive** (`archive.zip`, everything worth keeping, one folder per kind, with the summary). Claims (sinistri) have no document type yet: keep their papers until the claim is closed.
 
 **3D models.** As in Houses, the top of the page shows your cars in 3D, side by side: each is a little drawn car in its colour (read from the certificate's colour, Italian or English), until you load your own model on the car's **3D model** card. A single `.glb`, a `.gltf` with embedded buffers or an `.obj`, up to 50 MB, kept in svc-cars' own bucket (`CARS_S3_BUCKET`, default `cars-models`; uploads need the `S3_*` settings). Click a car, in 3D or on its label, to look at it.
 
@@ -429,4 +442,4 @@ Anything a page says that is not your data (what a thing is, how it works, the w
 
 - Open it from elsewhere on the page with `[(open)]` and `[(topic)]`; link to it from another area with `?guide=<topic>` (the page opens it and drops the parameter when it closes).
 - Content tied to your data (a chart's legend, the codes of your own registration certificate, an empty state that says what to upload) stays on the page.
-- Today: the 730 (`basics`, `rates`, `glossary`) and Work (`pension`, how a pension fund works).
+- Today: the 730 (`basics`, `rates`, `glossary`), Work (`pension`, how a pension fund works) and Cars (`cng`, the requalification of CNG cylinders).

@@ -106,6 +106,7 @@ describe('FakeParser', () => {
     ['Polizza RCA 2026.pdf', 'CAR_INSURANCE'],
     ['Bollo auto 2026.pdf', 'ROAD_TAX'],
     ['Revisione auto marzo.pdf', 'VEHICLE_INSPECTION'],
+    ['Revisione bombole metano 2023.pdf', 'CNG_CYLINDER_INSPECTION'],
     ['Tagliando officina.pdf', 'VEHICLE_EXPENSE'],
   ])('recognises %s as a car document (%s)', async (filename, type) => {
     const ids = [
@@ -114,6 +115,7 @@ describe('FakeParser', () => {
       'CAR_INSURANCE',
       'ROAD_TAX',
       'VEHICLE_INSPECTION',
+      'CNG_CYLINDER_INSPECTION',
       'VEHICLE_EXPENSE',
     ].map((id) => ({ ...categories[0], id, title: id }));
     const { result } = await parser.classify(inputOf(filename), [

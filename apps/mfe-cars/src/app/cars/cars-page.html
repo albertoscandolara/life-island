@@ -2,7 +2,23 @@
   emblem="🚗"
   heading="Cars"
   subtitle="Every car you have, with every field of its carta di circolazione, its insurance, road tax, revisione and expenses, and a warning before anything has to be renewed."
-/>
+>
+  <ui-info-guide
+    uiPageActions
+    heading="Cars, in plain words"
+    [(open)]="guideOpen"
+    [(topic)]="guideTopic"
+    (closed)="onGuideClosed()"
+  >
+    <ui-info-topic
+      key="cng"
+      label="CNG cylinders"
+      intro="When the methane cylinders of a car have to be checked again, which date counts and what to keep, at the rules of 2026."
+    >
+      <cars-cng-guide />
+    </ui-info-topic>
+  </ui-info-guide>
+</ui-page-header>
 
 <li-needs-you module="cars" />
 
@@ -343,6 +359,7 @@ idle) {
       [vehicleId]="vehicle.id"
       [status]="vehicle.status"
       [archive]="vehicle.archive"
+      [cng]="vehicle.cng !== null"
     />
 
     <cars-costs-card
@@ -528,6 +545,15 @@ idle) {
       </p>
       }
     </ui-card>
+
+    @if (vehicle.cng; as cng) {
+    <cars-cng-card
+      [cng]="cng"
+      [status]="vehicle.status"
+      [vehicleName]="vehicleName(vehicle)"
+      (showGuide)="showGuide('cng')"
+    />
+    }
 
     <cars-insurance-history [history]="vehicle.insurance" />
 

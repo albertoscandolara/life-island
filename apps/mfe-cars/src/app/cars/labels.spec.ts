@@ -27,6 +27,18 @@ const alert = (
 });
 
 describe('labels', () => {
+  it('says the CNG cylinders are due, and when no label is on file', () => {
+    expect(alertText(alert('cng_cylinders', 'expiring', 38))).toBe(
+      'Panda · AB123CD: CNG cylinders are due in 38 days.',
+    );
+    expect(alertText(alert('cng_cylinders', 'expired', -3))).toBe(
+      'Panda · AB123CD: CNG cylinders were due 3 days ago.',
+    );
+    expect(
+      alertText({ ...alert('cng_cylinders', 'missing', null), dueDate: null }),
+    ).toBe('Panda · AB123CD: no CNG cylinder label on file.');
+  });
+
   it('names the car and the document', () => {
     expect(typeLabel('ROAD_TAX')).toBe('Road tax (bollo)');
     expect(typeLabel(null)).toBe('Car document');

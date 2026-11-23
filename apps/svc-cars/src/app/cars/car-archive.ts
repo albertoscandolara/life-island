@@ -23,9 +23,9 @@ import { addDays, addMonths } from './car-documents.js';
 
 /*
  * Which documents of a car to keep (docs/guides/life-island-app.md,
- * Cars, "Documents to keep"): the current insurance certificate and the latest revisione go in
- * the car, the bollo receipts stay at home until the Regione can no longer
- * claim them, the service history stays as long as the car, a fine until it
+ * Cars, "Documents to keep"): the current insurance certificate goes in
+ * the car, the latest revisione and CNG cylinder label stay at home, the
+ * bollo receipts stay at home until the Regione can no longer claim them, the service history stays as long as the car, a fine until it
  * can no longer be collected, the rest can go. Pure, so every rule is
  * unit-tested on its own.
  */
@@ -175,6 +175,13 @@ function seriesItems(
         v === latest
           ? versionItem('inspection', v, 'keep', 'inspection_current', null)
           : versionItem('inspection', v, 'discard', 'inspection_old', null),
+      );
+    case 'CNG_CYLINDER_INSPECTION':
+      // The label itself is fixed on the car; your copy stays at home.
+      return versions.map((v) =>
+        v === latest
+          ? versionItem('cng_cylinders', v, 'keep', 'cng_current', null)
+          : versionItem('cng_cylinders', v, 'discard', 'cng_old', null),
       );
     default:
       return [];
