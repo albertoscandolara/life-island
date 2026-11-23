@@ -3,24 +3,13 @@ import type {
   Tax730AttachmentDto,
   TaxYearDossierDto,
 } from '@life-island/contracts';
+import {
+  fileExtension as extensionOf,
+  safeFileName as safeName,
+  uniquePaths,
+} from '@life-island/be-common';
 
-/** Makes a string safe as a file or folder name on Windows, macOS and Linux. */
-export function safeName(name: string, max = 150): string {
-  const cleaned = name
-    .replace(/[/\\]/g, '-')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[<>:"|?*\u0000-\u001f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max)
-    .replace(/[. ]+$/, '');
-  return cleaned || 'documento';
-}
-
-function extensionOf(filename: string): string {
-  const match = /\.([A-Za-z0-9]{1,8})$/.exec(filename);
-  return match ? `.${match[1].toLowerCase()}` : '';
-}
+export { safeName };
 
 const ROLE_SUFFIX: Record<Tax730AttachmentDto['role'], string> = {
   INVOICE: 'Fattura',
@@ -49,16 +38,7 @@ export function dossierFiles(
 ): { files: DossierFile[]; missing: string[] } {
   const files: DossierFile[] = [];
   const missing: string[] = [];
-  const taken = new Set<string>();
-  const unique = (path: string) => {
-    let candidate = path;
-    const ext = extensionOf(path);
-    const stem = ext ? path.slice(0, -ext.length) : path;
-    for (let n = 2; taken.has(candidate.toLowerCase()); n++)
-      candidate = `${stem} (${n})${ext}`;
-    taken.add(candidate.toLowerCase());
-    return candidate;
-  };
+  const unique = uniquePaths();
 
   for (const attachment of dossier.yearDocuments) {
     const document = attachment.document;

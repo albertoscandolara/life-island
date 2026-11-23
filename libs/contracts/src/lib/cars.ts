@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PropertyModelDto } from './home.js';
 import type { BankPaymentDto } from './payables.js';
 import type { PersonLicenceDto } from './people.js';
+import type { CarArchiveDto } from './cars-archive.js';
 import type {
   CarFinesDto,
   CarUsageDto,
@@ -963,6 +964,8 @@ export const INSPECTION_INTERVAL_MONTHS = 24;
 
 export const VEHICLE_STATUSES = [
   'active',
+  /** Parked and unused, its insurance suspended until you drive it again. */
+  'laid_up',
   'sold',
   'scrapped',
   'stolen',
@@ -970,6 +973,7 @@ export const VEHICLE_STATUSES = [
 export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
   active: 'In use',
+  laid_up: 'Laid up, insurance suspended',
   sold: 'Sold',
   scrapped: 'Scrapped',
   stolen: 'Stolen',
@@ -1056,7 +1060,9 @@ export interface CarDocumentSeriesDto {
   versions: CarDocumentVersionDto[];
 }
 
-export type RenewalLevel = 'ok' | 'expiring' | 'grace' | 'expired' | 'missing';
+/** `suspended`: the insurance of a laid-up car, which must not be used until it is reactivated. */
+export type RenewalLevel =
+  'ok' | 'expiring' | 'grace' | 'expired' | 'missing' | 'suspended';
 
 /** Where one renewable item of a car stands today. */
 export interface RenewalDto {
@@ -1135,6 +1141,8 @@ export interface VehicleDto {
   tyres: TyreSetDto[];
   /** Insurance quote comparisons, newest first. */
   quoteComparisons: QuoteComparisonDto[];
+  /** Which documents go in the car, which to keep at home and which can go. */
+  archive: CarArchiveDto;
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';

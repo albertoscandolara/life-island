@@ -4,15 +4,11 @@ import {
   type TaxYearDossierDto,
 } from '@life-island/contracts';
 import ExcelJS from 'exceljs';
-
-const EURO = '#,##0.00 [$€-410]';
-
-// Whether the invoice / payment proof is filed: a green tick or a red cross.
-const FILED = { value: '✓', font: { bold: true, color: { argb: 'FF1E8449' } } };
-const MISSING = {
-  value: '✗',
-  font: { bold: true, color: { argb: 'FFC0392B' } },
-};
+import {
+  EXCEL_EURO as EURO,
+  EXCEL_TABLE_STYLE,
+  excelMark,
+} from '@life-island/be-common';
 
 /**
  * The commercialista's summary ("Riepilogo detrazioni"): one sheet per tax
@@ -101,8 +97,8 @@ function addExpensesSheet(
     expense.issuer,
     expense.description ?? null,
     expense.amount,
-    (expense.hasInvoice ? FILED : MISSING).value,
-    (expense.hasPaymentProof ? FILED : MISSING).value,
+    excelMark(expense.hasInvoice).value,
+    excelMark(expense.hasPaymentProof).value,
     expense.notes ?? null,
     TAX730_EXPENSE_TYPE_LABELS[expense.expenseType as Tax730ExpenseType]?.it ??
       expense.expenseType,
@@ -112,7 +108,7 @@ function addExpensesSheet(
     ref: 'A1',
     headerRow: true,
     totalsRow: true,
-    style: { theme: 'TableStyleMedium2', showRowStripes: true },
+    style: EXCEL_TABLE_STYLE,
     columns: EXPENSE_COLUMNS.map((column) => ({
       name: column.name,
       filterButton: true,
@@ -145,8 +141,8 @@ function addExpensesSheet(
   });
   dossier.expenses.forEach((expense, i) => {
     const row = sheet.getRow(i + 2);
-    row.getCell(6).font = (expense.hasInvoice ? FILED : MISSING).font;
-    row.getCell(7).font = (expense.hasPaymentProof ? FILED : MISSING).font;
+    row.getCell(6).font = excelMark(expense.hasInvoice).font;
+    row.getCell(7).font = excelMark(expense.hasPaymentProof).font;
   });
   const total = sheet.getRow(dataRows + 2);
   total.font = { bold: true };

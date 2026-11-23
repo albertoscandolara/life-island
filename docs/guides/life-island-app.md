@@ -257,7 +257,23 @@ Velo's zone (`/cars`, `mfe-cars` and `svc-cars`) keeps every car you have, as it
 | Service      | The next service date or odometer reading on the last service receipt                                 | 30 days |
 | Registration | A temporary registration's end (H)                                                                    | 30 days |
 
-Levels are **ok**, **expiring**, **grace** (insurance past its end, still covered), **expired** and **missing** (no insurance or road tax on file, or a revisione that should have happened). Warnings of active cars sit at the top of the page and on the car.
+Levels are **ok**, **expiring**, **grace** (insurance past its end, still covered), **expired**, **missing** (no insurance or road tax on file, or a revisione that should have happened) and **suspended** (the insurance of a laid-up car). Warnings of active cars sit at the top of the page and on the car.
+
+**Laid up.** A car parked and unused, its insurance suspended until you drive it again, has the status **Laid up, insurance suspended**. Its insurance stops warning and becomes a standing **Do not use** warning (with the RCA suspended it can be neither driven nor parked on a public road); its bollo is still owed and still warns (and reaches the Agenda), and so do its fines. Its revisione and service stop warning until it is back in use.
+
+**Documents to keep.** Each car's **Documents to keep** card (`archive` in `VehicleDto`, worked out by `car-archive.ts`) says what goes in the car, what stays at home and until when, and what can go:
+
+| Folder (in the downloads) | Kept                                                                                                                                                                                                 | In the car                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 00 - Libretto             | The latest carta di circolazione; older ones can go                                                                                                                                                  | The original (art. 180 CdS); the scan is not printed           |
+| 01 - Assicurazione        | The policy in force (also in its 15 days of grace), or the latest one; a laid-up car's suspended policy (it is needed to reactivate it); older policies can go, unless a claim on them is still open | The certificate of the policy in force (a printout is fine)    |
+| 02 - Bollo                | Every receipt until the Regione can no longer claim it: 31 December of the 3rd year after the year it was due (5th in Piemonte); the latest always. A notice about a year restarts its 3 years       | Never                                                          |
+| 03 - Revisione            | The latest; older ones only for the km history                                                                                                                                                       | The latest (the outcome is also on the libretto and on record) |
+| 04 - Manutenzione         | Every service, repair, tyre and body work receipt, as long as you have the car                                                                                                                       | No                                                             |
+| 05 - Multe                | An unpaid fine; a paid one until 5 years from the violation (art. 28 L. 689/1981)                                                                                                                    | No                                                             |
+| 06 - Altre spese          | Accessories and other purchases for the 2-year legal warranty; fuel, tolls, parking and washing can go                                                                                               | No                                                             |
+
+The originals that cannot be printed (libretto, the driver's licence, a blank CAI form) head the in-car list. Three downloads, in Italian like the 730's: **Files for the car** (`in-car.zip`, the files to print exactly as they were loaded, one each, to print only what changed), **Excel summary** (`documents.xlsx`, "Riepilogo documenti": every document as an Excel table with a green ✓ or red ✗ for in the car and to keep, until when and why, and an **In auto** checklist sheet) and **Archive** (`archive.zip`, everything worth keeping, one folder per kind, with the summary). Claims (sinistri) have no document type yet: keep their papers until the claim is closed.
 
 **3D models.** As in Houses, the top of the page shows your cars in 3D, side by side: each is a little drawn car in its colour (read from the certificate's colour, Italian or English), until you load your own model on the car's **3D model** card. A single `.glb`, a `.gltf` with embedded buffers or an `.obj`, up to 50 MB, kept in svc-cars' own bucket (`CARS_S3_BUCKET`, default `cars-models`; uploads need the `S3_*` settings). Click a car, in 3D or on its label, to look at it.
 
@@ -274,6 +290,9 @@ Levels are **ok**, **expiring**, **grace** (insurance past its end, still covere
 | `PUT /documents/:uploadId/group`                                   | `{attachTo: uploadId}` puts it in that document's version (same car and type); `null` detaches  |
 | `PUT /vehicles/:id/model?filename=`, `GET`, `DELETE`               | The car's 3D model: the file is the request body; it replaces the one the car had               |
 | `GET /documents/:uploadId/preview`                                 | The original file (from svc-ingestion)                                                          |
+| `GET /vehicles/:id/exports/in-car.zip`                             | The files to keep in the car, as they were loaded                                               |
+| `GET /vehicles/:id/exports/documents.xlsx`                         | "Riepilogo documenti": every document, in the car or not, kept until when and why               |
+| `GET /vehicles/:id/exports/archive.zip`                            | Every document worth keeping, one folder per kind, with the summary                             |
 
 A database created before this area existed needs its schema and role: `npm run db:upgrade` (idempotent, `infra/postgres/upgrades/003-cars-schema.sql`).
 

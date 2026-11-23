@@ -46,7 +46,7 @@
 <section class="li-alerts" aria-label="Renewal warnings">
   @for (alert of alerts(); track $index) {
   <ui-alert
-    [tone]="alert.level === 'expired' ? 'danger' : alert.level === 'missing' ? 'info' : 'warning'"
+    [tone]="alert.level === 'expired' || alert.level === 'suspended' ? 'danger' : alert.level === 'missing' ? 'info' : 'warning'"
   >
     <strong>{{ alertText(alert) }}</strong>
     <span class="li-muted">
@@ -274,7 +274,12 @@ idle) {
         </div>
         }
       </dl>
-      @if (vehicle.status !== 'active') {
+      @if (vehicle.status === 'laid_up') {
+      <p class="li-muted li-small">
+        Laid up: do not use it until you reactivate its insurance. Its bollo is
+        still due and still warns.
+      </p>
+      } @else if (vehicle.status !== 'active') {
       <p class="li-muted li-small">
         Not in use: its renewals are shown but never warn.
       </p>
@@ -333,6 +338,12 @@ idle) {
     </ui-card>
 
     <cars-renewals-card [renewals]="vehicle.renewals" />
+
+    <cars-documents-card
+      [vehicleId]="vehicle.id"
+      [status]="vehicle.status"
+      [archive]="vehicle.archive"
+    />
 
     <cars-costs-card
       [costs]="vehicle.costs"

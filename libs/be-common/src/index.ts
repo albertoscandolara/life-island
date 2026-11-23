@@ -16,3 +16,4 @@ export * from './lib/auth-mode.js';
 export * from './lib/ai-spend-guard.js';
 export * from './lib/payments.js';
 export * from './lib/payments-table.js';
+export * from './lib/downloads.js';

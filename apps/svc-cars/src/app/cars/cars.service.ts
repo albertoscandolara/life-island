@@ -46,6 +46,7 @@ import {
   bankPaymentOf,
   paymentsByKey,
   RENEWABLE_LABELS,
+  type CarDocumentSeriesDto,
 } from '@life-island/contracts';
 import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
@@ -76,6 +77,7 @@ import {
   finePayableKey,
   finePayables,
 } from './payables.js';
+import { carArchive, laidUp } from './car-archive.js';
 import { insuranceHistory } from './car-insurance.js';
 import { tyreRenewals, tyreSetOf } from './car-tyres.js';
 import { carUsage } from './car-usage.js';
@@ -172,7 +174,7 @@ export class CarsService {
     }
   }
 
-  /** Every renewal date of the cars in use inside the window, for the Agenda (`GET /deadlines`). */
+  /** Every renewal date of the cars in use (and the bollo of a laid-up one) inside the window, for the Agenda (`GET /deadlines`). */
   async deadlines(
     query: DeadlinesQuery,
     today = todayIso(),
@@ -180,10 +182,17 @@ export class CarsService {
     const window = deadlineWindow(query, today);
     const { vehicles: cars } = await this.overview(today);
     return cars
-      .filter((car) => car.status === 'active')
+      .filter((car) => car.status === 'active' || car.status === 'laid_up')
       .flatMap((car) =>
         car.renewals.flatMap((renewal): DeadlineDto[] => {
           if (!inDeadlineWindow(renewal.dueDate, window)) return [];
+          // A laid-up car still owes its bollo and fines, nothing else.
+          if (
+            car.status === 'laid_up' &&
+            renewal.kind !== 'road_tax' &&
+            renewal.kind !== 'fine'
+          )
+            return [];
           const name = vehicleName(car);
           const what = renewal.subject ?? RENEWABLE_LABELS[renewal.kind];
           return [
@@ -330,7 +339,7 @@ export class CarsService {
             cost.bankPayment =
               carFineList.fines.find((f) => f.uploadId === cost.uploadId)
                 ?.bankPayment ?? null;
-        const renewals = [
+        const renewals = laidUp(row.status, [
           ...renewalsOf(
             row.values,
             series,
@@ -343,30 +352,29 @@ export class CarsService {
           ...(row.status === 'active'
             ? tyreRenewals(tyres, maxSpeed, today)
             : []),
-        ];
+        ]);
         const readings = approved
           .map((d) => d.reading.odometerKm)
           .filter((km): km is number => km !== null);
-        // A fine is still to pay once the car is sold; the rest only counts while in use.
+        // A fine is still to pay once the car is sold; the rest only counts
+        // while in use. A laid-up car still owes its bollo, and warns that it
+        // must not be used.
         const alerts: RenewalAlertDto[] = renewals
           .filter(
             (r) =>
               r.level !== 'ok' &&
-              (row.status === 'active' || r.kind === 'fine'),
+              (row.status === 'active' ||
+                r.kind === 'fine' ||
+                (row.status === 'laid_up' &&
+                  (r.kind === 'road_tax' || r.level === 'suspended'))),
           )
           .map((r) => ({
             ...r,
             vehicleId: row.id,
             vehicleName: vehicleName(row),
           }));
-        return {
-          id: row.id,
-          label: row.label,
-          status: row.status,
-          values: completeValues(row.values),
-          createdAt: row.createdAt.toISOString(),
-          updatedAt: row.updatedAt.toISOString(),
-          series: series.map(({ type, versions }) => ({
+        const seriesDtos: CarDocumentSeriesDto[] = series.map(
+          ({ type, versions }) => ({
             type,
             versions: versions.map(({ document: group, version, status }) => {
               const [main] = group.members;
@@ -394,7 +402,16 @@ export class CarsService {
                 })),
               };
             }),
-          })),
+          }),
+        );
+        return {
+          id: row.id,
+          label: row.label,
+          status: row.status,
+          values: completeValues(row.values),
+          createdAt: row.createdAt.toISOString(),
+          updatedAt: row.updatedAt.toISOString(),
+          series: seriesDtos,
           renewals,
           alerts,
           costs,
@@ -407,6 +424,23 @@ export class CarsService {
           fines: carFineList,
           tyres,
           quoteComparisons: (comparisonsOf.get(row.id) ?? []).map(comparisonOf),
+          archive: carArchive(
+            {
+              status: row.status,
+              series: seriesDtos,
+              expenses: approved
+                .filter((d) => d.type === 'VEHICLE_EXPENSE')
+                .map((d) => ({
+                  uploadId: d.uploadId,
+                  title: d.title,
+                  kind: d.reading.expenseKind,
+                  date: d.reading.costDate,
+                  cancelled: d.markedStatus === 'cancelled',
+                })),
+              fines: carFineList.fines,
+            },
+            today,
+          ),
         };
       })
       .sort(
@@ -963,6 +997,28 @@ export class CarsService {
       );
   }
 
+  /**
+   * One car as the overview shows it, with the original file name of each of
+   * its documents, for the downloads (pack, summary, archive).
+   */
+  async exportData(
+    vehicleId: string,
+    today = todayIso(),
+  ): Promise<{ vehicle: VehicleDto; filenames: Map<string, string> }> {
+    const [overview, docs] = await Promise.all([
+      this.overview(today),
+      this.carDocuments(),
+    ]);
+    const vehicle = overview.vehicles.find((v) => v.id === vehicleId);
+    if (!vehicle) throw new NotFoundException('Car not found');
+    return {
+      vehicle,
+      filenames: new Map(
+        docs.map((d) => [d.row.uploadId, d.row.originalFilename]),
+      ),
+    };
+  }
+
   private async parentOf(): Promise<ParentOf> {
     const rows = await this.svc.db.select().from(categoryTree);
     return new Map(
@@ -1036,9 +1092,14 @@ export function withoutChangedParties(
 
 /** Expired first, then in the grace period, missing, and expiring soonest. */
 function alertRank(alert: RenewalAlertDto): number {
-  const base = { expired: 0, grace: 1, missing: 2, expiring: 3, ok: 4 }[
-    alert.level
-  ];
+  const base = {
+    expired: 0,
+    grace: 1,
+    suspended: 2,
+    missing: 3,
+    expiring: 4,
+    ok: 5,
+  }[alert.level];
   return base * 100_000 + (alert.daysLeft ?? 0);
 }
 
