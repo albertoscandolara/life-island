@@ -10,6 +10,8 @@ import {
   signal,
 } from '@angular/core';
 import {
+  CAR_DOCUMENT_CARD_TYPES,
+  CAR_DOCUMENT_RENEWAL_KIND,
   entityParam,
   MODEL_MAX_BYTES,
   modelFormatOf,
@@ -21,7 +23,10 @@ import {
   VEHICLE_OPTION_LABELS,
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
+  type CarDocumentCardType,
+  type CarDocumentSeriesDto,
   type CarsOverviewDto,
+  type RenewalDto,
   type CarsPeopleDto,
   type UpdateVehicleRequest,
   type VehiclePartyField,
@@ -44,14 +49,14 @@ import {
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
-import { CarCngCard } from './car-cng-card';
+import { CarCngCylinders } from './car-cng-cylinders';
+import { CarDocCard } from './car-doc-card';
 import { CarCostsCard } from './car-costs-card';
 import { CngGuideTopic } from './cng-guide-topic';
 import { CarFinesCard } from './car-fines-card';
 import { CarRenewalsCard } from './car-renewals-card';
 import { CarDocumentsCard } from './car-documents-card';
 import { CarReviewCard } from './car-review-card';
-import { CarSeriesCard } from './car-series-card';
 import { CarTyresCard } from './car-tyres-card';
 import { CarUsageCard } from './car-usage-card';
 import { GarageView } from './garage-view';
@@ -100,14 +105,14 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
     LiNeedsYou,
     LiTabs,
     EntityLink,
-    CarCngCard,
+    CarCngCylinders,
+    CarDocCard,
     CarCostsCard,
     CngGuideTopic,
     CarDocumentsCard,
     CarFinesCard,
     CarRenewalsCard,
     CarReviewCard,
-    CarSeriesCard,
     CarTyresCard,
     CarUsageCard,
     DatePipe,
@@ -215,6 +220,42 @@ export class CarsPage {
     });
     this.load();
     this.loadPeople();
+  }
+
+  /**
+   * The document cards of a car, by what needs you first: insurance, bollo,
+   * revisione, the CNG cylinders (a methane car, or one with a label), and
+   * the carta di circolazione last, as it has nothing to renew.
+   */
+  protected docTypes(vehicle: VehicleDto): CarDocumentCardType[] {
+    return CAR_DOCUMENT_CARD_TYPES.filter(
+      (type) =>
+        type !== 'CNG_CYLINDER_INSPECTION' ||
+        vehicle.cng !== null ||
+        vehicle.series.some((s) => s.type === type),
+    );
+  }
+
+  protected docSeries(
+    vehicle: VehicleDto,
+    type: CarDocumentCardType,
+  ): CarDocumentSeriesDto | null {
+    return vehicle.series.find((s) => s.type === type) ?? null;
+  }
+
+  protected docRenewal(
+    vehicle: VehicleDto,
+    type: CarDocumentCardType,
+  ): RenewalDto | null {
+    const kind = CAR_DOCUMENT_RENEWAL_KIND[type];
+    return vehicle.renewals.find((r) => r.kind === kind && !r.subject) ?? null;
+  }
+
+  /** Scrolls to a section or document card of the selected car. */
+  protected jump(id: string): void {
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   protected showGuide(topic: string): void {

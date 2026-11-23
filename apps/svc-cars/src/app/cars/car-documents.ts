@@ -445,6 +445,34 @@ export function nextInspectionDue(
 }
 
 const money = (n: number) => euroText(n);
+const moneyOrNull = (n: number | null) => (n === null ? null : money(n));
+
+/** "REGIONE VENETO", "veneto" → "Veneto": the Regione as one name. */
+export function regionName(value: string | null): string | null {
+  const name = value
+    ?.replace(/^\s*regione\s+/i, '')
+    .trim()
+    .toLowerCase()
+    .replace(/(^|[\s'-])\p{L}/gu, (c) => c.toUpperCase());
+  return name || null;
+}
+
+/** What a revisione printed, as its outcome: passed, repeat or suspended (or the Italian words). */
+export function inspectionOutcome(
+  value: string | null,
+): InspectionOutcome | null {
+  const raw = value?.toLowerCase().trim() ?? '';
+  if (/^(passed|regolare|superata|esito positivo)/.test(raw)) return 'passed';
+  if (/^(repeat|ripetere|da ripetere)/.test(raw)) return 'repeat';
+  if (/^(suspended|sospes)/.test(raw)) return 'suspended';
+  return null;
+}
+
+const INSPECTION_OUTCOME_TEXT: Record<InspectionOutcome, string> = {
+  passed: 'Passed (regolare)',
+  repeat: 'To repeat (ripetere)',
+  suspended: 'Suspended (sospeso)',
+};
 
 /**
  * What a car document prints, from its template fields; `names` (its title
@@ -538,10 +566,13 @@ export function readCarDocument(
       break;
     }
     case 'ROAD_TAX': {
-      const expiryMonth = str('expiry_month');
+      // "APR 2020", "04/2020" or 2020-04: the last month it covers.
+      const expiryMonth = monthOf(f['expiry_month']);
       const months = num('validity_months');
+      const penalty = num('penalty_amount');
+      const interest = num('interest_amount');
       reading.number = str('receipt_number');
-      reading.issuer = str('region');
+      reading.issuer = regionName(str('region'));
       reading.exempt = f['exempt'] === true;
       reading.validUntil = roadTaxDeadline(expiryMonth);
       reading.validFrom =
@@ -550,21 +581,34 @@ export function readCarDocument(
           : null;
       reading.amount = amount;
       reading.costDate = date('payment_date') ?? reading.validFrom;
-      fact('Region', reading.issuer);
-      fact('Covers through', expiryMonth);
-      fact('Months', months);
+      fact(
+        'Covers',
+        reading.validFrom && expiryMonth
+          ? `${reading.validFrom.slice(0, 7)} – ${expiryMonth}`
+          : expiryMonth,
+      );
       fact('Next one due by', reading.validUntil);
+      fact('Region', reading.issuer);
       fact('Paid on', date('payment_date'));
       fact('Amount', amount === null ? null : money(amount));
+      fact('Tax', moneyOrNull(num('tax_amount')));
+      // Only when paid late: a penalty or interest says so.
+      if ((penalty ?? 0) > 0 || (interest ?? 0) > 0) {
+        fact('Penalty', moneyOrNull(penalty));
+        fact('Interest', moneyOrNull(interest));
+      }
+      fact('Fee', moneyOrNull(num('fee_amount')));
+      fact('Power', num('power_kw') === null ? null : `${num('power_kw')} kW`);
+      const reduction = num('reduction_percent');
+      if (reduction) fact('Reduction', `${reduction}%`);
+      fact('Paid by', str('payer_tax_code'));
+      fact('Paid at', str('payment_channel'));
+      fact('Receipt', reading.number);
       if (reading.exempt) fact('Exempt', 'yes');
       break;
     }
     case 'VEHICLE_INSPECTION': {
-      const outcome = str('outcome')?.toLowerCase() ?? null;
-      reading.outcome =
-        (['passed', 'repeat', 'suspended'] as const).find(
-          (o) => o === outcome,
-        ) ?? null;
+      reading.outcome = inspectionOutcome(str('outcome'));
       reading.number = str('report_number');
       reading.issuer = str('inspection_centre');
       reading.validFrom = date('inspection_date');
@@ -577,10 +621,19 @@ export function readCarDocument(
       reading.amount = amount;
       reading.costDate = reading.validFrom;
       fact('Date', reading.validFrom);
-      fact('Outcome', reading.outcome);
-      fact('Km', reading.odometerKm);
+      fact(
+        'Outcome',
+        reading.outcome === null
+          ? null
+          : INSPECTION_OUTCOME_TEXT[reading.outcome],
+      );
       fact('Next one by', reading.validUntil);
+      fact('Km', reading.odometerKm);
       fact('Centre', reading.issuer);
+      fact('Deficiencies', str('deficiencies'));
+      fact('Category', str('vehicle_category'));
+      fact('Inspector', str('inspector'));
+      fact('Certificate', reading.number);
       fact('Amount', amount === null ? null : money(amount));
       break;
     }

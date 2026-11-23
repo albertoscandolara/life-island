@@ -1059,6 +1059,12 @@ export interface CarDocumentVersionDto {
   amount: number | null;
   uploadedAt: string;
   reviewedAt: string;
+  /**
+   * What it prints that matters, in the order the card lists it (region,
+   * months, tax and penalties of a bollo; outcome, km and next date of a
+   * revisione...): dates as YYYY-MM-DD, months as YYYY-MM.
+   */
+  facts: CarDocumentFactDto[];
   /** Every document of the record, main one first. */
   documents: CarDocumentPartDto[];
 }

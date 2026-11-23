@@ -393,6 +393,7 @@ export class CarsService {
                 validFrom: group.reading.validFrom,
                 validUntil: group.reading.validUntil,
                 amount: group.reading.amount,
+                facts: group.reading.facts,
                 uploadedAt: group.uploadedAt,
                 reviewedAt: main.decidedAt.toISOString(),
                 documents: group.members.map((m): CarDocumentPartDto => ({

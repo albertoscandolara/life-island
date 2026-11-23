@@ -1,0 +1,219 @@
+@let g = guide(); @let n = next(); @let v = latest();
+<ui-card [heading]="title()">
+  <ui-badge uiCardActions [tone]="n.tone">{{ n.label }}</ui-badge>
+
+  @if (error(); as message) {
+  <ui-alert tone="danger" class="doc__error">{{ message }}</ui-alert>
+  }
+
+  <!-- 1. The next step: what to do and by when. -->
+  <div class="doc__next" [class.doc__next--urgent]="urgent()">
+    <span class="doc__icon" aria-hidden="true">
+      <ui-icon [name]="icon()" [size]="20" />
+    </span>
+    <div class="doc__next-body">
+      <h3 class="doc__next-title">{{ n.heading }}</h3>
+      @if (n.detail) {
+      <p class="li-muted li-small">{{ n.detail }}</p>
+      } @if (n.level !== 'ok' && n.level !== 'suspended' && vehicleStatus() ===
+      'active') {
+      <p class="li-small">{{ g.todo }}</p>
+      } @if (n.level === 'expired' && vehicleStatus() === 'active') {
+      <p class="li-small doc__late">{{ g.ifLate }}</p>
+      }
+      <div class="li-actions doc__actions">
+        <a
+          uiButton
+          size="sm"
+          [variant]="urgent() ? 'primary' : 'secondary'"
+          [href]="uploadUrl()"
+        >
+          <ui-icon name="upload" [size]="14" /> {{ v ? g.load : 'Load it' }}
+        </a>
+        @if (v) {
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(v.uploadId)"
+          target="_blank"
+          rel="noopener"
+        >
+          <ui-icon name="eye" [size]="14" /> Open the latest
+        </a>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. What the latest one says. -->
+  @if (v && v.facts.length) {
+  <h3 class="li-sub doc__sub">Latest</h3>
+  <dl class="doc__facts">
+    @for (fact of v.facts; track fact.label) {
+    <div class="doc__fact">
+      <dt>{{ fact.label }}</dt>
+      <dd>{{ factText(fact.value, fact.label) }}</dd>
+    </div>
+    }
+  </dl>
+  }
+  <ng-content />
+
+  <!-- 3. The rules: how often, where, how long. -->
+  <details class="doc__about">
+    <summary>
+      <ui-icon name="book" [size]="16" />
+      <span class="doc__about-title">About it</span>
+      <span class="doc__chips">
+        <span class="doc__chip">{{ g.every }}</span>
+        <ui-badge [tone]="where().tone">{{ where().label }}</ui-badge>
+      </span>
+    </summary>
+    <p class="doc__what">{{ g.what }}</p>
+    <dl class="doc__rules">
+      <div>
+        <dt>Renewed</dt>
+        <dd>{{ g.renewal }}</dd>
+      </div>
+      <div>
+        <dt>Date that counts</dt>
+        <dd>{{ g.deadline }}</dd>
+      </div>
+      <div>
+        <dt>Where</dt>
+        <dd>{{ g.whereText }}</dd>
+      </div>
+      <div>
+        <dt>How long</dt>
+        <dd>{{ g.keepFor }}</dd>
+      </div>
+      <div>
+        <dt>If late</dt>
+        <dd>{{ g.ifLate }}</dd>
+      </div>
+    </dl>
+    <p class="doc__sources">
+      Rules of November 2026: @for (source of g.sources; track source) {
+      <span>{{ source }}</span>{{ $last ? '.' : ';' }} }
+    </p>
+    @if (guideTopic(); as topic) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="showGuide.emit(topic)"
+    >
+      <ui-icon name="book" [size]="14" /> More in the guide
+    </button>
+    }
+  </details>
+
+  <!-- 4. Every version, newest first. -->
+  @if (versions().length) {
+  <details class="doc__history">
+    <summary>All versions ({{ versions().length }})</summary>
+    <ol class="li-versions">
+      @for (version of versions(); track version.uploadId) {
+      <li
+        class="li-version"
+        [class.li-version--old]="version.status === 'superseded'"
+      >
+        <span class="li-version__number">v{{ version.version }}</span>
+        <div class="li-version__body">
+          <div class="li-version__line">
+            <ui-badge [tone]="statusTones[version.status]"
+              >{{ statusLabels[version.status] }}</ui-badge
+            >
+            @if (version.number) {
+            <span class="li-mono">{{ version.number }}</span>
+            }
+          </div>
+          <p class="li-muted li-small">
+            @if (version.validFrom) { From {{ dateText(version.validFrom) }} }
+            @if (version.validUntil) { · until {{ dateText(version.validUntil)
+            }} } @if (version.issuer) { · {{ version.issuer }} } @if
+            (version.amount !== null) { · {{ euro(version.amount) }} }
+          </p>
+          @if (version.documents.length > 1) {
+          <ul
+            class="parts"
+            [attr.aria-label]="'Documents of version ' + version.version"
+          >
+            @for (part of version.documents; track part.uploadId) {
+            <li class="part">
+              <ui-badge tone="neutral"
+                >{{ part.role ? roleLabels[part.role] : 'Document' }}</ui-badge
+              >
+              <a
+                class="part__title"
+                [href]="previewUrl(part.uploadId)"
+                target="_blank"
+                rel="noopener"
+                [title]="part.title"
+                >{{ part.title }}@if (part.linkedByHand) {
+                <span class="part__by-hand">· added by you</span>
+                }</a
+              >
+              <button
+                uiButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                [disabled]="busy() !== null"
+                [attr.aria-label]="'Take ' + part.title + ' out of this record'"
+                (click)="detach(part.uploadId)"
+              >
+                Detach
+              </button>
+            </li>
+            }
+          </ul>
+          } @if ($first && attachable(version).length) {
+          <select
+            class="ui-input compact attach"
+            [attr.aria-label]="'Attach a document to version ' + version.version"
+            [disabled]="busy() !== null"
+            (change)="attach($any($event.target), version.uploadId)"
+          >
+            <option value="">Attach another document…</option>
+            @for (part of attachable(version); track part.uploadId) {
+            <option [value]="part.uploadId">
+              {{ part.role ? roleLabels[part.role] + ' · ' : '' }}{{ part.title
+              }}
+            </option>
+            }
+          </select>
+          }
+        </div>
+        <div class="li-version__actions">
+          <a
+            uiButton
+            variant="ghost"
+            size="sm"
+            [iconOnly]="true"
+            [href]="previewUrl(version.uploadId)"
+            target="_blank"
+            rel="noopener"
+            [attr.aria-label]="'Open version ' + version.version"
+          >
+            <ui-icon name="eye" [size]="16" />
+          </a>
+          <select
+            class="ui-input compact"
+            [attr.aria-label]="'Mark version ' + version.version"
+            [value]="version.status === 'cancelled' ? 'cancelled' : ''"
+            [disabled]="busy() !== null"
+            (change)="mark(version.uploadId, $any($event.target).value)"
+          >
+            <option value="">By its dates</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </li>
+      }
+    </ol>
+  </details>
+  }
+</ui-card>

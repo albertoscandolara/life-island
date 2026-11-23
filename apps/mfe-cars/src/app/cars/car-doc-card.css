@@ -1,0 +1,233 @@
+/* The documents of one record: policy, certificate, receipt. */
+.parts {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.part {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.part__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.part__by-hand {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+}
+
+.ui-input.compact.attach {
+  display: block;
+  box-sizing: border-box;
+  margin-top: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+/* ---- one car document: next step, latest, rules, versions ------------- */
+:host {
+  display: block;
+  scroll-margin-top: var(--space-6);
+}
+
+.doc__error {
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.doc__next {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+
+.doc__next--urgent {
+  border-color: var(--accent);
+}
+
+/* The document's sign: the same coin for every kind, its icon tells which. */
+.doc__icon {
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-tile);
+  color: var(--text-secondary);
+}
+
+.doc__next-body {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.doc__next-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.doc__next-body p {
+  margin: 0;
+}
+
+.doc__late {
+  color: var(--tone-danger);
+}
+
+.doc__actions {
+  margin-top: var(--space-2);
+}
+
+.doc__sub {
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.doc__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.doc__fact {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.doc__fact dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.doc__fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+
+/* The rules: the guide's calm blue, the same box on every document. */
+.doc__about {
+  margin-top: var(--space-4);
+  border: 1px solid var(--info-border);
+  border-radius: var(--control-radius);
+  background: var(--info-soft);
+}
+
+.doc__about > summary,
+.doc__history > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.doc__about > summary {
+  color: var(--info-text);
+}
+
+.doc__about-title {
+  margin-right: auto;
+}
+
+.doc__chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doc__chip {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.doc__what,
+.doc__rules,
+.doc__sources,
+.doc__about > button {
+  margin: 0 var(--space-3) var(--space-3);
+}
+
+.doc__what {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.doc__rules {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.doc__rules > div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.doc__rules dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.doc__rules dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.doc__sources {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.doc__history {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.doc__history > summary {
+  padding-left: 0;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 40rem) {
+  .doc__rules > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}

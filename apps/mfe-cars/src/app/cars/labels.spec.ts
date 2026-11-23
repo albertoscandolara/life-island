@@ -2,6 +2,7 @@ import type { RenewalAlertDto } from '@life-island/contracts';
 import {
   alertText,
   carShape,
+  factText,
   paintColour,
   typeLabel,
   valueText,
@@ -140,5 +141,13 @@ describe('carShape', () => {
   it('falls back to a small hatchback', () => {
     expect(carShape({})).toBe('hatchback');
     expect(carShape({ bodyworkCode: 'ZZ' })).toBe('hatchback');
+  });
+
+  it('shows the facts of a document in words, codes as printed', () => {
+    expect(factText('2019-05 – 2020-04')).toBe('May 2019 – April 2020');
+    expect(factText('2020-05-31')).toBe('31 mag 2020');
+    expect(factText('275603', 'Km')).toBe('275.603');
+    expect(factText('84.1', 'Total litres')).toBe('84,1');
+    expect(factText('376752980', 'Receipt')).toBe('376752980');
   });
 });

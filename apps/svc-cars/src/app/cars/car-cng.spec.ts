@@ -225,6 +225,7 @@ describe('CNG cylinders', () => {
         validFrom: document.reading.validFrom,
         validUntil: document.reading.validUntil,
         amount: null,
+        facts: [],
         uploadedAt: document.uploadedAt,
         reviewedAt: document.uploadedAt,
         documents: [],
