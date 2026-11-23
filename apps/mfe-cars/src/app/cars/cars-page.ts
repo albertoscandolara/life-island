@@ -45,6 +45,7 @@ import { CarsApi } from '../api/cars-api';
 import { CarCostsCard } from './car-costs-card';
 import { CarFinesCard } from './car-fines-card';
 import { CarRenewalsCard } from './car-renewals-card';
+import { CarDocumentsCard } from './car-documents-card';
 import { CarReviewCard } from './car-review-card';
 import { CarSeriesCard } from './car-series-card';
 import { CarTyresCard } from './car-tyres-card';
@@ -96,6 +97,7 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
     LiTabs,
     EntityLink,
     CarCostsCard,
+    CarDocumentsCard,
     CarFinesCard,
     CarRenewalsCard,
     CarReviewCard,

@@ -10,6 +10,7 @@ const LEVEL_TONES: Record<RenewalLevel, UiTone> = {
   grace: 'warning',
   expired: 'danger',
   missing: 'neutral',
+  suspended: 'danger',
 };
 
 const LEVEL_LABELS: Record<RenewalLevel, string> = {
@@ -18,6 +19,7 @@ const LEVEL_LABELS: Record<RenewalLevel, string> = {
   grace: 'Grace period',
   expired: 'Expired',
   missing: 'Missing',
+  suspended: 'Suspended',
 };
 
 /** What one car has to renew (insurance, road tax, revisione, service) and when. */
@@ -26,7 +28,7 @@ const LEVEL_LABELS: Record<RenewalLevel, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiBadge, UiCard],
   templateUrl: './car-renewals-card.html',
-  styleUrl: './car-renewals-card.css',
+  styleUrl: './cars-bits.css',
 })
 export class CarRenewalsCard {
   readonly renewals = input.required<RenewalDto[]>();

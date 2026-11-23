@@ -20,6 +20,8 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
+import { CarExportsController } from './exports/car-exports.controller.js';
+import { CarExportsService } from './exports/car-exports.service.js';
 import { HealthController } from './health.controller.js';
 
 const logger = new Logger('DocumentEvents');
@@ -36,11 +38,17 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, CarsController, DocumentsController],
+      controllers: [
+        HealthController,
+        CarsController,
+        CarExportsController,
+        DocumentsController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         CarsService,
+        CarExportsService,
         CarModels,
         CarPeople,
         QuoteAdvisor,

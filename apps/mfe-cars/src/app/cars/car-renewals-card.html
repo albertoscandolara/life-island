@@ -1,8 +1,8 @@
 <ui-card heading="Renewals">
-  <ul class="renewals">
+  <ul class="car-list">
     @for (renewal of renewals(); track $index) {
-    <li class="renewal">
-      <div class="renewal__line">
+    <li class="car-list__item">
+      <div class="car-list__line">
         <strong>{{ renewalTitle(renewal) }}</strong>
         <ui-badge [tone]="levelTones[renewal.level]"
           >{{ levelLabels[renewal.level] }}</ui-badge

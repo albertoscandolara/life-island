@@ -1,0 +1,113 @@
+<ui-card heading="Documents to keep">
+  <div class="li-actions">
+    <a uiButton size="sm" [href]="url('in-car.zip')" download>
+      <ui-icon name="folder" [size]="16" /> Files for the car
+    </a>
+    <a
+      uiButton
+      variant="secondary"
+      size="sm"
+      [href]="url('documents.xlsx')"
+      download
+    >
+      <ui-icon name="download" [size]="16" /> Excel summary
+    </a>
+    <a uiButton variant="ghost" size="sm" [href]="url('archive.zip')" download>
+      <ui-icon name="download" [size]="16" /> Archive
+    </a>
+  </div>
+  <p class="li-muted li-small">
+    <strong>Files for the car</strong> holds every file the law wants in the car
+    (art. 180 Codice della strada), as you loaded it.
+    <strong>Archive</strong> holds everything worth keeping, one folder per
+    kind.
+  </p>
+
+  @if (status() === 'laid_up') {
+  <ui-alert tone="danger" class="docs__warning">
+    <strong>Do not use this car.</strong> With its insurance suspended it can be
+    neither driven nor parked on a public road. Reactivate the policy first,
+    then add its new certificate.
+  </ui-alert>
+  }
+
+  <h3 class="li-sub">In the car</h3>
+  <ul class="car-list">
+    <li class="car-list__item">
+      <div class="car-list__line">
+        <strong>Originals</strong>
+        <ui-badge tone="neutral">Not printable</ui-badge>
+      </div>
+      <ul class="docs__files li-small">
+        @for (original of originals; track original.en) {
+        <li>{{ original.en }}</li>
+        }
+      </ul>
+    </li>
+    @for (item of printable(); track item.uploadId) {
+    <li class="car-list__item">
+      <div class="car-list__line">
+        <span class="docs__names">
+          @for (file of item.printFiles; track file.uploadId) {
+          <a
+            class="li-link"
+            [href]="previewUrl(file.uploadId)"
+            target="_blank"
+            rel="noopener"
+            >{{ file.title }}</a
+          >
+          }
+        </span>
+        <ui-badge [tone]="tones.in_car">Print</ui-badge>
+      </div>
+      <p class="li-muted li-small">
+        {{ folderLabels[item.folder].en }} @if (item.validUntil) { · valid until
+        {{ dateText(item.validUntil) }} } · {{ rules[item.rule].en }}
+      </p>
+    </li>
+    } @if (!printable().length && status() === 'active') {
+    <li class="li-muted li-small">
+      Add the certificate of your current policy to your documents: it is the
+      one file to print for the car.
+    </li>
+    }
+  </ul>
+
+  @if (keep().length) {
+  <h3 class="li-sub">At home ({{ keep().length }})</h3>
+  <ul class="car-list">
+    @for (group of keepGroups(); track group.folder + group.rule) {
+    <li class="car-list__item">
+      <strong>{{ folderLabels[group.folder].en }}</strong>
+      <p class="li-muted li-small">{{ rules[group.rule].en }}</p>
+      <ul class="docs__files">
+        @for (item of group.items; track item.uploadId) {
+        <li class="car-list__line">
+          <a
+            class="li-link"
+            [href]="previewUrl(item.uploadId)"
+            target="_blank"
+            rel="noopener"
+            >{{ item.title }}</a
+          >
+          <span class="li-muted li-small">{{ keepText(item) }}</span>
+        </li>
+        }
+      </ul>
+    </li>
+    }
+  </ul>
+  } @if (discard().length) {
+  <details class="li-rejected docs__discard">
+    <summary>Can go: {{ discard().length }} no longer needed</summary>
+    <ul>
+      @for (item of discard(); track item.uploadId) {
+      <li>
+        {{ folderLabels[item.folder].en }} · {{ item.title }}
+        <span class="li-small">· {{ rules[item.rule].en }}</span>
+      </li>
+      }
+    </ul>
+  </details>
+  }
+</ui-card>

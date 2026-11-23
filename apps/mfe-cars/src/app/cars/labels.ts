@@ -96,6 +96,8 @@ export function alertText(alert: RenewalAlertDto): string {
       ? `${alert.vehicleName}: ${subject} ${renewalText(alert)}.`
       : `${alert.vehicleName}: ${subject}.`;
   }
+  if (alert.level === 'suspended')
+    return `${alert.vehicleName}: insurance suspended.`;
   if (alert.dueDate === null && alert.level !== 'missing')
     return `${alert.vehicleName}: ${RENEWABLE_LABELS[alert.kind].toLowerCase()} · ${alert.basis}.`;
   if (alert.level === 'missing')

@@ -1,0 +1,21 @@
+.docs__warning {
+  display: block;
+  margin-top: var(--space-3);
+}
+
+.docs__discard {
+  margin: var(--space-4) 0 0;
+}
+
+.docs__files {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs__names {
+  display: grid;
+  gap: var(--space-1);
+}

@@ -136,4 +136,12 @@ export class CarsApi {
   previewUrl(uploadId: string): string {
     return `${CARS_API}/documents/${uploadId}/preview`;
   }
+
+  /** The files to keep in the car (in-car.zip), the summary (documents.xlsx) or the archive (archive.zip). */
+  exportUrl(
+    vehicleId: string,
+    file: 'in-car.zip' | 'documents.xlsx' | 'archive.zip',
+  ): string {
+    return `${CARS_API}/vehicles/${vehicleId}/exports/${file}`;
+  }
 }

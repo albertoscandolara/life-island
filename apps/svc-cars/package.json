@@ -2,7 +2,7 @@
   "name": "@life-island/svc-cars",
   "version": "0.0.1",
   "private": true,
-  "description": "The Cars area: your cars with the fields of their carta di circolazione, their insurance, road tax, revisione and expenses, the review of new or different car data, new car suggestions, renewal warnings, odometer and fuel analysis, insurance history, fines, tyres and the AI insurance quote comparison",
+  "description": "The Cars area: your cars with the fields of their carta di circolazione, their insurance, road tax, revisione and expenses, the review of new or different car data, new car suggestions, renewal warnings, odometer and fuel analysis, insurance history, fines, tyres the AI insurance quote comparison, and which documents to keep with the files to keep in the car (zip), the summary (Excel) and the archive (zip)",
   "type": "module",
   "main": "./dist/main.js",
   "nx": {
@@ -32,6 +32,8 @@
     "@nestjs/core": "^12.2.0",
     "@nestjs/platform-express": "^12.2.0",
     "drizzle-orm": "^0.45.4",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "tslib": "^2.3.0"

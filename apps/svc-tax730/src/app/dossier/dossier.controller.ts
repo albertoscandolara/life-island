@@ -1,3 +1,4 @@
+import { attachmentDisposition } from '@life-island/be-common';
 import {
   Body,
   Controller,
@@ -34,12 +35,6 @@ import {
 import { ExportsService } from '../exports/exports.service.js';
 import { IngestionFiles } from '@life-island/be-nest';
 import { DossierService } from './dossier.service.js';
-
-/** `attachment; filename=…` with a UTF-8 name and an ASCII fallback. */
-function attachment(filename: string): string {
-  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, "'");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
-}
 
 @Controller()
 export class DossierController {
@@ -106,7 +101,7 @@ export class DossierController {
     const zip = await this.exports.zip(year);
     return new StreamableFile(zip.body, {
       type: 'application/zip',
-      disposition: attachment(zip.filename),
+      disposition: attachmentDisposition(zip.filename),
     });
   }
 
@@ -117,7 +112,7 @@ export class DossierController {
     const workbook = await this.exports.workbook(year);
     return new StreamableFile(workbook.body, {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      disposition: attachment(workbook.filename),
+      disposition: attachmentDisposition(workbook.filename),
     });
   }
 

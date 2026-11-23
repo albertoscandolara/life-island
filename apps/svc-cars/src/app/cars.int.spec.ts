@@ -709,6 +709,54 @@ describe.skipIf(!configured)(
       },
     );
 
+    it('says which documents to keep, summarises them in Excel, and warns on a laid-up car', async () => {
+      const { archive } = await car(vehicleId);
+      // The libretto goes in the car as the original. The policy was
+      // cancelled above, so nothing of it is carried or kept.
+      expect(
+        archive.items.filter((i) => i.action === 'in_car').map((i) => i.folder),
+      ).toEqual(['registration']);
+      const policies = archive.items.filter((i) => i.folder === 'insurance');
+      expect(policies.length).toBeGreaterThan(0);
+      expect(policies.every((i) => i.action === 'discard')).toBe(true);
+      const xlsx = await send(
+        'GET',
+        `/vehicles/${vehicleId}/exports/documents.xlsx`,
+      );
+      expect(xlsx.status).toBe(200);
+      expect(xlsx.headers.get('content-disposition')).toContain(
+        'Riepilogo documenti auto',
+      );
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await xlsx.arrayBuffer());
+      expect(workbook.worksheets.map((w) => w.name)).toEqual([
+        'Documenti',
+        'In auto',
+      ]);
+      expect(
+        (await send('GET', `/vehicles/${randomUUID()}/exports/documents.xlsx`))
+          .status,
+      ).toBe(404);
+
+      expect(
+        (await send('PATCH', `/vehicles/${vehicleId}`, { status: 'laid_up' }))
+          .status,
+      ).toBe(204);
+      const parked = await car(vehicleId);
+      expect(parked.alerts.find((a) => a.kind === 'insurance')).toMatchObject({
+        level: 'suspended',
+        dueDate: null,
+      });
+      expect(
+        parked.archive.items.find((i) => i.folder === 'registration')?.action,
+      ).toBe('in_car');
+      expect(
+        (await send('PATCH', `/vehicles/${vehicleId}`, { status: 'active' }))
+          .status,
+      ).toBe(204);
+    });
+
     it('sends the documents of a removed car back to review', async () => {
       expect((await send('DELETE', `/vehicles/${vehicleId}`)).status).toBe(204);
       const all = await overview();
