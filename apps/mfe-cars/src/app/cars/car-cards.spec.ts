@@ -5,7 +5,8 @@ import type {
   CarCostTotalDto,
   RenewalDto,
 } from '@life-island/contracts';
-import { CarCngCard } from './car-cng-card';
+import { CarCngCylinders } from './car-cng-cylinders';
+import { CarDocCard } from './car-doc-card';
 import { CarDocumentsCard } from './car-documents-card';
 import { CarCostsCard } from './car-costs-card';
 import { CarRenewalsCard } from './car-renewals-card';
@@ -70,8 +71,42 @@ describe('Cars cards', () => {
     fixture.componentRef.setInput('renewals', [renewal]);
     await fixture.whenStable();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Expiring');
-    expect(text).toContain('From the policy');
+    expect(text).toContain('Due soon');
+    expect(text).toContain('1 needs you');
+  });
+
+  it('puts the most urgent renewal first and opens its card', async () => {
+    const renewal = (o: Partial<RenewalDto>): RenewalDto => ({
+      kind: 'insurance',
+      subject: null,
+      level: 'ok',
+      dueDate: '2027-03-01',
+      daysLeft: 98,
+      graceUntil: null,
+      uploadId: null,
+      basis: '',
+      dueOdometerKm: null,
+      ...o,
+    });
+    const fixture = TestBed.createComponent(CarRenewalsCard);
+    fixture.componentRef.setInput('renewals', [
+      renewal({}),
+      renewal({
+        kind: 'road_tax',
+        level: 'expired',
+        dueDate: '2020-05-31',
+        daysLeft: -2367,
+      }),
+    ]);
+    const opened: string[] = [];
+    fixture.componentInstance.open.subscribe((id) => opened.push(id));
+    await fixture.whenStable();
+    const first = (fixture.nativeElement as HTMLElement).querySelector(
+      'button.next__item',
+    ) as HTMLButtonElement;
+    expect(first.textContent).toContain('Road tax');
+    first.click();
+    expect(opened).toEqual(['doc-ROAD_TAX']);
   });
 
   it('shows what goes in the car, what stays at home and the downloads', async () => {
@@ -135,10 +170,85 @@ describe('Cars cards', () => {
     ]);
   });
 
-  it('shows the CNG cylinders: when, which, every label, and how to load the next one', async () => {
-    const fixture = TestBed.createComponent(CarCngCard);
-    fixture.componentRef.setInput('status', 'active');
+  it('shows a bollo like every car document: next step, latest, rules, versions', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
+    const fixture = TestBed.createComponent(CarDocCard);
+    fixture.componentRef.setInput('type', 'ROAD_TAX');
+    fixture.componentRef.setInput('vehicleStatus', 'active');
     fixture.componentRef.setInput('vehicleName', 'Punto · AB123CD');
+    fixture.componentRef.setInput('renewal', {
+      kind: 'road_tax',
+      subject: null,
+      level: 'expired',
+      dueDate: '2020-05-31',
+      daysLeft: -2367,
+      graceUntil: null,
+      uploadId: 'b19',
+      basis: 'Last day of the month after the one it covers through',
+      dueOdometerKm: null,
+    });
+    fixture.componentRef.setInput('series', {
+      type: 'ROAD_TAX',
+      versions: [
+        {
+          uploadId: 'b19',
+          title: 'Bollo 2019',
+          type: 'ROAD_TAX',
+          version: 2,
+          status: 'expired',
+          number: '376752980',
+          issuer: 'Veneto',
+          validFrom: '2019-05-01',
+          validUntil: '2020-05-31',
+          amount: 163.75,
+          facts: [
+            { label: 'Covers', value: '2019-05 – 2020-04' },
+            { label: 'Paid on', value: '2019-05-22' },
+          ],
+          uploadedAt: '2026-11-23T00:00:00Z',
+          reviewedAt: '2026-11-23T00:00:00Z',
+          documents: [],
+        },
+      ],
+    });
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toContain('Pay by');
+    expect(text).toContain('Expired');
+    expect(text).toContain('pagoPA');
+    expect(text).toContain('May 2019 – April 2020');
+    expect(text).toContain('22 mag 2019');
+    expect(text).toContain('Keep at home');
+    expect(text).toContain('Every 12 months');
+    expect(text).toContain('3 years from 1 January');
+    expect(text).toContain('All versions (1)');
+    const upload = element.querySelector('a[uiButton]')?.getAttribute('href');
+    expect(upload).toContain('upload?area=cars');
+    expect(upload).toContain('proof=the+new+bollo+receipt');
+    expect(element.getAttribute('id')).toBe('doc-ROAD_TAX');
+  });
+
+  it('shows none on file, with the rules, for a document not loaded yet', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
+    const fixture = TestBed.createComponent(CarDocCard);
+    fixture.componentRef.setInput('type', 'VEHICLE_INSPECTION');
+    fixture.componentRef.setInput('vehicleStatus', 'active');
+    fixture.componentRef.setInput('vehicleName', 'Punto');
+    await fixture.whenStable();
+    const text =
+      (fixture.nativeElement as HTMLElement).textContent?.replace(
+        /\s+/g,
+        ' ',
+      ) ?? '';
+    expect(text).toContain('None on file');
+    expect(text).toContain('Every 2 years');
+    expect(text).not.toContain('All versions');
+  });
+
+  it('shows the CNG cylinders and when they were exchanged', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
+    const fixture = TestBed.createComponent(CarCngCylinders);
     fixture.componentRef.setInput('cng', {
       approval: 'r110',
       cylinderType: null,
@@ -182,17 +292,15 @@ describe('Cars cards', () => {
       ],
     });
     await fixture.whenStable();
-    const element = fixture.nativeElement as HTMLElement;
-    const text = element.textContent?.replace(/\s+/g, ' ') ?? '';
-    expect(text).toContain('Requalify by');
-    expect(text).toContain('Due soon');
-    expect(text).toContain('Book a workshop');
+    const text =
+      (fixture.nativeElement as HTMLElement).textContent?.replace(
+        /\s+/g,
+        ' ',
+      ) ?? '';
     expect(text).toContain('12/3456/055');
     expect(text).toContain('07/2027');
-    expect(text).toContain('Cylinders exchanged');
-    expect(text).toContain('Not in the car');
-    const upload = element.querySelector('a[uiButton]')?.getAttribute('href');
-    expect(upload).toContain('upload?area=cars');
-    expect(upload).toContain('proof=the+new+CNG+cylinder+label');
+    expect(text).toContain(
+      'Cylinders exchanged at the requalification of 07/2023.',
+    );
   });
 });

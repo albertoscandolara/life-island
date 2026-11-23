@@ -1,22 +1,38 @@
-<ui-card heading="Renewals">
-  <ul class="car-list">
-    @for (renewal of renewals(); track $index) {
-    <li class="car-list__item">
-      <div class="car-list__line">
-        <strong>{{ renewalTitle(renewal) }}</strong>
+<ui-card heading="What's next">
+  @if (active() && needsYou()) {
+  <ui-badge uiCardActions tone="warning"
+    >{{ needsYou() }} {{ needsYou() === 1 ? 'needs' : 'need' }} you</ui-badge
+  >
+  } @else if (active() && sorted().length) {
+  <ui-badge uiCardActions tone="success">All in order</ui-badge>
+  }
+  <ul class="next">
+    @for (renewal of sorted(); track $index) {
+    <li>
+      <button
+        type="button"
+        class="next__item"
+        [class.next__item--ok]="renewal.level === 'ok'"
+        (click)="open.emit(targets[renewal.kind].id)"
+      >
+        <ui-icon
+          class="next__icon"
+          [name]="targets[renewal.kind].icon"
+          [size]="18"
+        />
+        <span class="next__body">
+          <strong class="next__title">{{ renewalTitle(renewal) }}</strong>
+          <span class="li-muted li-small">
+            @if (renewal.dueDate) { {{ dateText(renewal.dueDate) }} · {{
+            renewalText(renewal) }} } @else { {{ renewal.basis }} } @if
+            (renewal.dueOdometerKm) { · {{ renewal.dueDate ? 'or at' : 'at' }}
+            {{ num(renewal.dueOdometerKm, 0, 0)}} km }
+          </span>
+        </span>
         <ui-badge [tone]="levelTones[renewal.level]"
           >{{ levelLabels[renewal.level] }}</ui-badge
         >
-      </div>
-      <p class="li-muted li-small">
-        @if (renewal.dueDate) { Due by {{ dateText(renewal.dueDate) }} · {{
-        renewalText(renewal) }} } @else { {{ renewal.basis }} } @if
-        (renewal.dueOdometerKm) { · {{ renewal.dueDate ? 'or at' : 'at' }} {{
-        num(renewal.dueOdometerKm, 0, 0)}} km }
-      </p>
-      @if (renewal.dueDate) {
-      <p class="li-muted li-small">{{ renewal.basis }}</p>
-      }
+      </button>
     </li>
     } @empty {
     <li class="li-muted">Nothing to renew is known yet.</li>

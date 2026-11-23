@@ -34,6 +34,7 @@ function version(
     validFrom: null,
     validUntil: null,
     amount: null,
+    facts: [],
     uploadedAt: '2026-01-01T00:00:00.000Z',
     reviewedAt: '2026-01-01T00:00:00.000Z',
     documents: [

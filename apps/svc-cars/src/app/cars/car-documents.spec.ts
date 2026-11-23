@@ -189,6 +189,80 @@ describe('car documents', () => {
     );
   });
 
+  it('reads a bollo receipt as printed by a tobacconist (Lottomatica)', () => {
+    // A 2019 receipt: "Scadenza: APR 2020", 12 months, Veneto, paid 22/05/2019.
+    const reading = readCarDocument('ROAD_TAX', {
+      registration_number: 'AB123CD',
+      region: 'VENETO',
+      expiry_month: 'APR 2020',
+      validity_months: 12,
+      payment_date: '2019-05-22',
+      receipt_number: '376752980',
+      power_kw: 57,
+      tax_amount: 161.88,
+      penalty_amount: 0,
+      interest_amount: 0,
+      fee_amount: 1.87,
+      total_amount: 163.75,
+      payer_tax_code: 'RSSMRA80A01H501U',
+      payment_channel: 'Lottomatica',
+    });
+    expect(reading.validFrom).toBe('2019-05-01');
+    expect(reading.validUntil).toBe('2020-05-31');
+    expect(reading.issuer).toBe('Veneto');
+    expect(reading.amount).toBe(163.75);
+    expect(reading.costDate).toBe('2019-05-22');
+    const labels = reading.facts.map((f) => f.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(['Covers', 'Tax', 'Fee', 'Paid by', 'Power']),
+    );
+    // On time: no penalty or interest to show.
+    expect(labels).not.toContain('Penalty');
+    expect(reading.facts.find((f) => f.label === 'Covers')?.value).toBe(
+      '2019-05 – 2020-04',
+    );
+  });
+
+  it('shows the penalty of a bollo paid late', () => {
+    const reading = readCarDocument('ROAD_TAX', {
+      registration_number: 'AB123CD',
+      expiry_month: '2025-04',
+      total_amount: 170.1,
+      tax_amount: 161.88,
+      penalty_amount: 6.35,
+      interest_amount: 0.0,
+    });
+    expect(reading.facts.find((f) => f.label === 'Penalty')).toBeDefined();
+  });
+
+  it('reads a certificato di revisione, outcome in Italian', () => {
+    const reading = readCarDocument('VEHICLE_INSPECTION', {
+      registration_number: 'AB123CD',
+      vin: 'ZFA19900000000001',
+      inspection_date: '2025-06-24',
+      outcome: 'REGOLARE',
+      odometer_km: 275603,
+      next_due_date: '2027-06-30',
+      report_number: 'VRAS0AB0CDE',
+      inspection_centre: 'Centro Revisioni Demo, Illasi (VR)',
+      vehicle_category: 'M1',
+    });
+    expect(reading.outcome).toBe('passed');
+    expect(reading.validUntil).toBe('2027-06-30');
+    expect(reading.number).toBe('VRAS0AB0CDE');
+    expect(reading.odometerKm).toBe(275603);
+    expect(reading.facts.find((f) => f.label === 'Outcome')?.value).toBe(
+      'Passed (regolare)',
+    );
+    // Without the printed date: by the end of the month, 2 years later.
+    expect(
+      readCarDocument('VEHICLE_INSPECTION', {
+        inspection_date: '2023-06-22',
+        outcome: 'regolare',
+      }).validUntil,
+    ).toBe('2025-06-30');
+  });
+
   it('numbers versions per type, newest first, and leaves expenses out', () => {
     const docs = [
       approved('i1', 'CAR_INSURANCE', {

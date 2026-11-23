@@ -13,6 +13,8 @@ import {
   type VehicleValues,
 } from '@life-island/contracts';
 
+import { dateText, monthText } from '@life-island/records-ui';
+
 const DEFINITION = new Map(VEHICLE_FIELD_DEFINITIONS.map((d) => [d.field, d]));
 
 /** "Insurance", or "Car document" when only the root category is known. */
@@ -203,4 +205,22 @@ export function carShape(values: Partial<VehicleValues>): CarShape {
     AF: 'mpv',
   };
   return byBody[body.slice(0, 2)] ?? 'hatchback';
+}
+
+const MEASURED = /^(km|total litres)$/i;
+
+/**
+ * A fact as a car document prints it, for the page: dates and months in
+ * words ("31 mag 2020", "April 2020"), a span of months as a span, the rest
+ * as it is.
+ */
+export function factText(value: string, label = ''): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return dateText(value);
+  const span = /^(\d{4}-\d{2}) – (\d{4}-\d{2})$/.exec(value);
+  if (span) return `${monthText(span[1])} – ${monthText(span[2])}`;
+  if (/^\d{4}-\d{2}$/.test(value)) return monthText(value);
+  // Quantities read as numbers; codes and numbers of documents stay as printed.
+  if (MEASURED.test(label) && /^\d+(\.\d+)?$/.test(value))
+    return italianNumber(+value, 0, 1);
+  return value;
 }

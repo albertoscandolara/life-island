@@ -206,7 +206,8 @@ idle) {
 </ui-card>
 } @if (selected(); as vehicle) {
 <div class="car">
-  <div class="car__side">
+  <!-- 1. The car and what it needs next. -->
+  <div class="car__top">
     <ui-card [heading]="vehicleName(vehicle)">
       @if (!editing() && !removing()) {
       <div uiCardActions class="car__actions">
@@ -302,275 +303,340 @@ idle) {
       } }
     </ui-card>
 
-    <ui-card heading="3D model">
-      @if (vehicle.model; as m) {
-      <p class="model">
-        <ui-icon name="file" [size]="16" />
-        <strong>{{ m.filename }}</strong>
-        <span class="li-muted"
-          >{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span
-        >
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          [disabled]="busy() !== null"
-          (click)="removeModel(vehicle)"
-        >
-          <ui-icon name="trash" [size]="14" /> Remove
-        </button>
-      </p>
-      } @else {
-      <p class="li-muted li-small">
-        It shows as a little drawn car, in its colour, until you load a model.
-      </p>
+    <cars-renewals-card
+      [renewals]="vehicle.renewals"
+      [active]="vehicle.status === 'active'"
+      (open)="jump($event)"
+    />
+  </div>
+
+  <nav class="car__jump" aria-label="Sections of this car">
+    <button
+      type="button"
+      class="car__jump-link"
+      (click)="jump('car-documents')"
+    >
+      <ui-icon name="file" [size]="14" /> Documents
+    </button>
+    <button type="button" class="car__jump-link" (click)="jump('car-keep')">
+      <ui-icon name="folder" [size]="14" /> To keep
+    </button>
+    <button type="button" class="car__jump-link" (click)="jump('car-money')">
+      <ui-icon name="chart" [size]="14" /> Fines and costs
+    </button>
+    <button
+      type="button"
+      class="car__jump-link"
+      (click)="jump('car-insurance')"
+    >
+      <ui-icon name="shield" [size]="14" /> Insurance
+    </button>
+    <button type="button" class="car__jump-link" (click)="jump('car-details')">
+      <ui-icon name="car" [size]="14" /> Car details
+    </button>
+  </nav>
+
+  <!-- 2. Its documents, the same card for each, most urgent kinds first. -->
+  <section
+    id="car-documents"
+    class="car__group"
+    aria-labelledby="car-documents-title"
+  >
+    <h2 id="car-documents-title" class="car__group-title">Documents</h2>
+    <div class="car__grid">
+      @for (type of docTypes(vehicle); track type) {
+      <cars-doc-card
+        [type]="type"
+        [series]="docSeries(vehicle, type)"
+        [renewal]="docRenewal(vehicle, type)"
+        [vehicleStatus]="vehicle.status"
+        [vehicleName]="vehicleName(vehicle)"
+        [guideTopic]="type === 'CNG_CYLINDER_INSPECTION' ? 'cng' : null"
+        (showGuide)="showGuide($event)"
+        (changed)="load()"
+      >
+        @if (type === 'CNG_CYLINDER_INSPECTION' && vehicle.cng) {
+        <cars-cng-cylinders [cng]="vehicle.cng" />
+        }
+      </cars-doc-card>
       }
-      <input
-        #modelFile
-        type="file"
-        class="file"
-        accept=".glb,.gltf,.obj"
-        (change)="uploadModel(vehicle, $event)"
-      />
-      <div class="model__actions">
-        <button
-          uiButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          [loading]="busy() === 'model:' + vehicle.id"
-          [disabled]="busy() !== null"
-          (click)="modelFile.click()"
-        >
-          <ui-icon name="upload" [size]="14" />
-          {{ vehicle.model ? 'Replace the model' : 'Load a model' }}
-        </button>
-        <small class="li-muted"
-          >A single .glb, .gltf with embedded buffers, or .obj, up to {{ maxMb
-          }} MB.</small
-        >
-      </div>
-    </ui-card>
-
-    <cars-renewals-card [renewals]="vehicle.renewals" />
-
+    </div>
     <cars-documents-card
+      id="car-keep"
+      class="car__keep"
       [vehicleId]="vehicle.id"
       [status]="vehicle.status"
       [archive]="vehicle.archive"
       [cng]="vehicle.cng !== null"
     />
+  </section>
 
-    <cars-costs-card
-      [costs]="vehicle.costs"
-      [totals]="vehicle.costTotals"
-      [usage]="vehicle.usage"
-    />
+  <!-- 3. What it costs and what is still to pay. -->
+  <section id="car-money" class="car__group" aria-labelledby="car-money-title">
+    <h2 id="car-money-title" class="car__group-title">Fines and costs</h2>
+    <div class="car__grid">
+      <cars-fines-card
+        [fines]="vehicle.fines"
+        [people]="people()"
+        [today]="today"
+        (changed)="load()"
+      />
+      <cars-costs-card
+        [costs]="vehicle.costs"
+        [totals]="vehicle.costTotals"
+        [usage]="vehicle.usage"
+      />
+      <cars-usage-card [usage]="vehicle.usage" />
+      <cars-tyres-card
+        [vehicleId]="vehicle.id"
+        [sets]="vehicle.tyres"
+        (changed)="load()"
+      />
+    </div>
+  </section>
 
-    <cars-usage-card [usage]="vehicle.usage" />
+  <!-- 4. Insurance over the years, and quotes for the next one. -->
+  <section
+    id="car-insurance"
+    class="car__group"
+    aria-labelledby="car-insurance-title"
+  >
+    <h2 id="car-insurance-title" class="car__group-title">Insurance</h2>
+    <div class="car__grid">
+      <cars-insurance-history [history]="vehicle.insurance" />
+      <cars-insurance-quotes
+        [vehicleId]="vehicle.id"
+        [comparisons]="vehicle.quoteComparisons"
+        [aiOn]="overview()?.aiQuotes ?? false"
+        (changed)="load()"
+      />
+    </div>
+  </section>
 
-    <cars-fines-card
-      [fines]="vehicle.fines"
-      [people]="people()"
-      [today]="today"
-      (changed)="load()"
-    />
-
-    <cars-tyres-card
-      [vehicleId]="vehicle.id"
-      [sets]="vehicle.tyres"
-      (changed)="load()"
-    />
-  </div>
-
-  <div class="car__main">
-    <ui-card heading="Carta di circolazione">
-      <label uiCardActions class="toggle">
-        <input
-          type="checkbox"
-          [checked]="allCodes()"
-          (change)="allCodes.set(!allCodes())"
-        />
-        Every code
-      </label>
-      @if (editing()) {
-      <form class="edit" (submit)="$event.preventDefault(); save(vehicle)">
-        <label class="edit__field span">
-          <span>Your name for it</span>
+  <!-- 5. Reference: every code of its card, and its 3D model. -->
+  <section
+    id="car-details"
+    class="car__group"
+    aria-labelledby="car-details-title"
+  >
+    <h2 id="car-details-title" class="car__group-title">Car details</h2>
+    <div class="car__details">
+      <ui-card heading="Carta di circolazione">
+        <label uiCardActions class="toggle">
           <input
-            class="ui-input compact"
-            type="text"
-            [value]="editValue('label')"
-            (input)="setValue('label', $any($event.target).value)"
+            type="checkbox"
+            [checked]="allCodes()"
+            (change)="allCodes.set(!allCodes())"
           />
+          Every code
         </label>
-        @for (d of definitions; track d.field) {
-        <label class="edit__field" [for]="'car-' + d.key">
-          <span><span class="code">{{ d.code }}</span> {{ d.label }}</span>
-          @if (d.type === 'enum') {
-          <select
-            class="ui-input compact"
-            [id]="'car-' + d.key"
-            (change)="setValue(d.field, $any($event.target).value)"
-          >
-            <option value="" [selected]="!editValue(d.field)">Unknown</option>
-            @for (option of d.options; track option) {
-            <option [value]="option" [selected]="editValue(d.field) === option">
-              {{ optionLabels[option] ?? option }}
-            </option>
-            }
-          </select>
-          } @else if (isParty(d.field)) {
-          <span class="party">
+        @if (editing()) {
+        <form class="edit" (submit)="$event.preventDefault(); save(vehicle)">
+          <label class="edit__field span">
+            <span>Your name for it</span>
+            <input
+              class="ui-input compact"
+              type="text"
+              [value]="editValue('label')"
+              (input)="setValue('label', $any($event.target).value)"
+            />
+          </label>
+          @for (d of definitions; track d.field) {
+          <label class="edit__field" [for]="'car-' + d.key">
+            <span><span class="code">{{ d.code }}</span> {{ d.label }}</span>
+            @if (d.type === 'enum') {
             <select
               class="ui-input compact"
-              [attr.aria-label]="d.label + ': who'"
-              (change)="pickPerson(d.field, $any($event.target).value)"
+              [id]="'car-' + d.key"
+              (change)="setValue(d.field, $any($event.target).value)"
             >
-              <option value="" [selected]="!pickedPerson(d.field)">
-                A name, as printed
-              </option>
-              @for (person of people().people; track person.id) {
+              <option value="" [selected]="!editValue(d.field)">Unknown</option>
+              @for (option of d.options; track option) {
               <option
-                [value]="person.id"
-                [selected]="pickedPerson(d.field) === person.id"
+                [value]="option"
+                [selected]="editValue(d.field) === option"
               >
-                {{ person.name }}
+                {{ optionLabels[option] ?? option }}
               </option>
               }
             </select>
-            @if (!pickedPerson(d.field)) {
+            } @else if (isParty(d.field)) {
+            <span class="party">
+              <select
+                class="ui-input compact"
+                [attr.aria-label]="d.label + ': who'"
+                (change)="pickPerson(d.field, $any($event.target).value)"
+              >
+                <option value="" [selected]="!pickedPerson(d.field)">
+                  A name, as printed
+                </option>
+                @for (person of people().people; track person.id) {
+                <option
+                  [value]="person.id"
+                  [selected]="pickedPerson(d.field) === person.id"
+                >
+                  {{ person.name }}
+                </option>
+                }
+              </select>
+              @if (!pickedPerson(d.field)) {
+              <input
+                class="ui-input compact"
+                [id]="'car-' + d.key"
+                type="text"
+                [value]="editValue(d.field)"
+                (input)="setValue(d.field, $any($event.target).value)"
+              />
+              }
+            </span>
+            } @else {
             <input
               class="ui-input compact"
               [id]="'car-' + d.key"
-              type="text"
+              [type]="inputType(d)"
               [value]="editValue(d.field)"
               (input)="setValue(d.field, $any($event.target).value)"
             />
             }
-          </span>
-          } @else {
-          <input
-            class="ui-input compact"
-            [id]="'car-' + d.key"
-            [type]="inputType(d)"
-            [value]="editValue(d.field)"
-            (input)="setValue(d.field, $any($event.target).value)"
-          />
+          </label>
+          } @if (!people().available) {
+          <small class="li-muted span"
+            >People is not reachable, so the holder and owner are typed for
+            now.</small
+          >
           }
-        </label>
-        } @if (!people().available) {
-        <small class="li-muted span"
-          >People is not reachable, so the holder and owner are typed for
-          now.</small
-        >
+          <footer class="li-review__actions">
+            <button
+              uiButton
+              variant="ghost"
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="editing.set(null)"
+            >
+              Cancel
+            </button>
+            <button
+              uiButton
+              type="submit"
+              [loading]="busy() === vehicle.id"
+              [disabled]="busy() !== null"
+            >
+              <ui-icon name="check" [size]="18" /> Save
+            </button>
+          </footer>
+        </form>
+        } @else {
+        <div class="li-table-wrap">
+          <table class="li-table codes">
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Meaning</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of codeRows(); track row.code) {
+              <tr [class.codes__group]="row.group && !row.fields.length">
+                <td><span class="code">{{ row.code }}</span></td>
+                <th scope="row">
+                  {{ row.meaning }}
+                  <span class="li-muted printed">{{ row.printed }}</span>
+                </th>
+                <td class="codes__value">
+                  @for (d of row.fields; track d.field) {
+                  <div>
+                    @if (row.fields.length > 1) {
+                    <span class="li-muted small-label">{{ d.label }}:</span>
+                    } @if (value(vehicle, d.field) !== null) {
+                    <span class="value">
+                      @if (linkedPerson(vehicle, d.field)) {
+                      <li-entity-link
+                        kind="person"
+                        [entityId]="personIdOf(vehicle, d.field)"
+                        [name]="valueText(d.field, value(vehicle, d.field))"
+                      />
+                      } @else { {{ valueText(d.field, value(vehicle, d.field))
+                      }} }
+                    </span>
+                    @if (linkedPerson(vehicle, d.field)) {
+                    <ui-badge tone="neutral">In People</ui-badge>
+                    @if (licenceOf(vehicle, d.field); as licence) {
+                    <ui-badge [tone]="licence.tone"
+                      >{{ licence.text }}</ui-badge
+                    >
+                    } } } @else {
+                    <span class="li-muted">—</span>
+                    }
+                  </div>
+                  } @empty { @if (!row.group) {
+                  <span class="li-muted">Not read by Life Island</span>
+                  } }
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="li-muted li-small">
+          Codes of the EU registration certificate (Directive 1999/37/EC), as
+          printed on the Italian carta di circolazione and documento unico. Last
+          changed {{ vehicle.updatedAt | date: 'd MMM y, HH:mm' }}, through the
+          reviews or by you.
+        </p>
         }
-        <footer class="li-review__actions">
+      </ui-card>
+      <ui-card heading="3D model">
+        @if (vehicle.model; as m) {
+        <p class="model">
+          <ui-icon name="file" [size]="16" />
+          <strong>{{ m.filename }}</strong>
+          <span class="li-muted"
+            >{{ m.format }} · {{ megabytes(m.sizeBytes) }}</span
+          >
           <button
             uiButton
             variant="ghost"
+            size="sm"
             type="button"
             [disabled]="busy() !== null"
-            (click)="editing.set(null)"
+            (click)="removeModel(vehicle)"
           >
-            Cancel
+            <ui-icon name="trash" [size]="14" /> Remove
           </button>
+        </p>
+        } @else {
+        <p class="li-muted li-small">
+          It shows as a little drawn car, in its colour, until you load a model.
+        </p>
+        }
+        <input
+          #modelFile
+          type="file"
+          class="file"
+          accept=".glb,.gltf,.obj"
+          (change)="uploadModel(vehicle, $event)"
+        />
+        <div class="model__actions">
           <button
             uiButton
-            type="submit"
-            [loading]="busy() === vehicle.id"
+            variant="secondary"
+            size="sm"
+            type="button"
+            [loading]="busy() === 'model:' + vehicle.id"
             [disabled]="busy() !== null"
+            (click)="modelFile.click()"
           >
-            <ui-icon name="check" [size]="18" /> Save
+            <ui-icon name="upload" [size]="14" />
+            {{ vehicle.model ? 'Replace the model' : 'Load a model' }}
           </button>
-        </footer>
-      </form>
-      } @else {
-      <div class="li-table-wrap">
-        <table class="li-table codes">
-          <thead>
-            <tr>
-              <th scope="col">Code</th>
-              <th scope="col">Meaning</th>
-              <th scope="col">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of codeRows(); track row.code) {
-            <tr [class.codes__group]="row.group && !row.fields.length">
-              <td><span class="code">{{ row.code }}</span></td>
-              <th scope="row">
-                {{ row.meaning }}
-                <span class="li-muted printed">{{ row.printed }}</span>
-              </th>
-              <td class="codes__value">
-                @for (d of row.fields; track d.field) {
-                <div>
-                  @if (row.fields.length > 1) {
-                  <span class="li-muted small-label">{{ d.label }}:</span>
-                  } @if (value(vehicle, d.field) !== null) {
-                  <span class="value">
-                    @if (linkedPerson(vehicle, d.field)) {
-                    <li-entity-link
-                      kind="person"
-                      [entityId]="personIdOf(vehicle, d.field)"
-                      [name]="valueText(d.field, value(vehicle, d.field))"
-                    />
-                    } @else { {{ valueText(d.field, value(vehicle, d.field)) }}
-                    }
-                  </span>
-                  @if (linkedPerson(vehicle, d.field)) {
-                  <ui-badge tone="neutral">In People</ui-badge>
-                  @if (licenceOf(vehicle, d.field); as licence) {
-                  <ui-badge [tone]="licence.tone">{{ licence.text }}</ui-badge>
-                  } } } @else {
-                  <span class="li-muted">—</span>
-                  }
-                </div>
-                } @empty { @if (!row.group) {
-                <span class="li-muted">Not read by Life Island</span>
-                } }
-              </td>
-            </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <p class="li-muted li-small">
-        Codes of the EU registration certificate (Directive 1999/37/EC), as
-        printed on the Italian carta di circolazione and documento unico. Last
-        changed {{ vehicle.updatedAt | date: 'd MMM y, HH:mm' }}, through the
-        reviews or by you.
-      </p>
-      }
-    </ui-card>
-
-    @if (vehicle.cng; as cng) {
-    <cars-cng-card
-      [cng]="cng"
-      [status]="vehicle.status"
-      [vehicleName]="vehicleName(vehicle)"
-      (showGuide)="showGuide('cng')"
-    />
-    }
-
-    <cars-insurance-history [history]="vehicle.insurance" />
-
-    <cars-insurance-quotes
-      [vehicleId]="vehicle.id"
-      [comparisons]="vehicle.quoteComparisons"
-      [aiOn]="overview()?.aiQuotes ?? false"
-      (changed)="load()"
-    />
-
-    @for (series of vehicle.series; track series.type) {
-    <cars-series-card
-      [series]="series"
-      [alerts]="vehicle.alerts"
-      (changed)="load()"
-    />
-    }
-  </div>
+          <small class="li-muted"
+            >A single .glb, .gltf with embedded buffers, or .obj, up to {{ maxMb
+            }} MB.</small
+          >
+        </div>
+      </ui-card>
+    </div>
+  </section>
 </div>
 } }
