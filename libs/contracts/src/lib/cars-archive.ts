@@ -92,8 +92,8 @@ export const CAR_ARCHIVE_RULES = {
     it: 'Prescritto: puoi eliminarlo, salvo avvisi o solleciti su quell’anno (riaprono i 3 anni).',
   },
   inspection_current: {
-    en: 'Latest revisione: the outcome is also on the carta di circolazione and in the Motorizzazione records; a copy in the car helps at a check.',
-    it: "Ultima revisione: l'esito è anche sul libretto e negli archivi della Motorizzazione; una copia in auto aiuta ai controlli.",
+    en: 'Latest revisione: keep it at home. The outcome is recorded on the carta di circolazione and in the Motorizzazione records, so it need not be carried.',
+    it: "Ultima revisione: da conservare a casa. L'esito risulta sul libretto e negli archivi della Motorizzazione: non serve tenerla in auto.",
   },
   inspection_old: {
     en: 'Replaced by a newer revisione; keep it only if you want the km history.',
@@ -126,7 +126,7 @@ export const CAR_ARCHIVE_RULES = {
 } as const satisfies Record<string, { en: string; it: string }>;
 export type CarArchiveRule = keyof typeof CAR_ARCHIVE_RULES;
 
-/** What has to be in the car and cannot be printed from your documents. */
+/** What the law (art. 180 Codice della strada) wants in the car in original, so not printed from your documents. */
 export const CAR_ORIGINALS_ON_BOARD = [
   {
     en: 'Carta di circolazione or Documento Unico',
@@ -135,10 +135,6 @@ export const CAR_ORIGINALS_ON_BOARD = [
   {
     en: "The driver's licence (each driver carries their own)",
     it: 'Patente di chi guida',
-  },
-  {
-    en: 'A blank CAI form (constatazione amichevole), from your insurer',
-    it: "Modulo CAI (constatazione amichevole) in bianco, dall'assicurazione",
   },
 ] as const;
 

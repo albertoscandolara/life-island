@@ -33,7 +33,7 @@ const ACTION_TONES: Record<CarArchiveAction, UiTone> = {
 
 /**
  * Which documents of a car to keep: what goes in the car (download it to
- * print only what changed), what stays at home and until when, what can go.
+ * print it), what stays at home and until when, what can go.
  * The summary of all of them downloads as Excel.
  */
 @Component({

@@ -67,9 +67,9 @@ export class CarExportsService {
   ) {}
 
   /**
-   * The files to keep in the car, as they are (no conversion): the
-   * certificate of the policy in force and the latest revisione, one file
-   * each, to print only what changed.
+   * Every file the law wants in the car (art. 180 CdS) that can be printed,
+   * as it was loaded (no conversion): the certificate of the policy in force.
+   * The libretto and the licence go in original.
    */
   async inCar(vehicleId: string): Promise<Download<Readable>> {
     const today = todayIso();

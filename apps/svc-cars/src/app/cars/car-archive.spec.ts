@@ -205,7 +205,7 @@ describe('carArchive', () => {
     ).toBe('keep');
   });
 
-  it('carries the latest revisione and the libretto', () => {
+  it('carries the libretto, keeps the latest revisione at home', () => {
     const archive = carArchive(
       input({
         series: [
@@ -224,12 +224,12 @@ describe('carArchive', () => {
     expect(archive.items.map((i) => [i.folder, i.action])).toEqual([
       ['registration', 'in_car'],
       ['registration', 'discard'],
-      ['inspection', 'in_car'],
+      ['inspection', 'keep'],
       ['inspection', 'discard'],
     ]);
     // The libretto must be the original: nothing of it is printed.
     expect(archive.items[0].printFiles).toEqual([]);
-    expect(archive.items[2].printFiles).toHaveLength(1);
+    expect(archive.items[2].printFiles).toEqual([]);
   });
 
   it('keeps the service history and a fine until it can no longer be collected', () => {

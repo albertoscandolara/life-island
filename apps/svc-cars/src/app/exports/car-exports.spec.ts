@@ -110,13 +110,10 @@ describe('buildCarDocumentsWorkbook', () => {
     expect(sheet?.getRow(2).getCell(5).font?.color?.argb).toBe('FF1E8449');
 
     const onBoard = read.getWorksheet('In auto');
-    const documents = [6, 7, 8, 9].map(
-      (r) => onBoard?.getRow(r).getCell(1).value,
-    );
+    const documents = [6, 7, 8].map((r) => onBoard?.getRow(r).getCell(1).value);
     expect(documents).toEqual([
       'Carta di circolazione o Documento Unico, in originale',
       'Patente di chi guida',
-      "Modulo CAI (constatazione amichevole) in bianco, dall'assicurazione",
       'Certificato RCA 2026',
     ]);
   });

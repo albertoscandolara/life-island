@@ -19,7 +19,7 @@ export class CarExportsController {
     @Inject(CarExportsService) private readonly exports: CarExportsService,
   ) {}
 
-  /** The files to keep in the car, as they are, zipped: print only what changed. */
+  /** Every file to keep in the car, as it was loaded, zipped. */
   @Get('in-car.zip')
   async inCar(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
     const file = await this.exports.inCar(id);

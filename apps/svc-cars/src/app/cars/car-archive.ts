@@ -173,14 +173,7 @@ function seriesItems(
     case 'VEHICLE_INSPECTION':
       return versions.map((v) =>
         v === latest
-          ? versionItem(
-              'inspection',
-              v,
-              active ? 'in_car' : 'keep',
-              'inspection_current',
-              null,
-              filesOf(v),
-            )
+          ? versionItem('inspection', v, 'keep', 'inspection_current', null)
           : versionItem('inspection', v, 'discard', 'inspection_old', null),
       );
     default:

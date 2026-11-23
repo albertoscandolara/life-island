@@ -711,13 +711,14 @@ describe.skipIf(!configured)(
 
     it('says which documents to keep, summarises them in Excel, and warns on a laid-up car', async () => {
       const { archive } = await car(vehicleId);
-      // The policy in force goes in the car; the libretto too, as the original.
+      // The libretto goes in the car as the original. The policy was
+      // cancelled above, so nothing of it is carried or kept.
       expect(
-        archive.items
-          .filter((i) => i.action === 'in_car')
-          .map((i) => i.folder)
-          .sort(),
-      ).toEqual(['insurance', 'registration']);
+        archive.items.filter((i) => i.action === 'in_car').map((i) => i.folder),
+      ).toEqual(['registration']);
+      const policies = archive.items.filter((i) => i.folder === 'insurance');
+      expect(policies.length).toBeGreaterThan(0);
+      expect(policies.every((i) => i.action === 'discard')).toBe(true);
       const xlsx = await send(
         'GET',
         `/vehicles/${vehicleId}/exports/documents.xlsx`,
@@ -748,11 +749,8 @@ describe.skipIf(!configured)(
         dueDate: null,
       });
       expect(
-        parked.archive.items.find((i) => i.folder === 'insurance'),
-      ).toMatchObject({
-        action: 'keep',
-        rule: 'insurance_suspended',
-      });
+        parked.archive.items.find((i) => i.folder === 'registration')?.action,
+      ).toBe('in_car');
       expect(
         (await send('PATCH', `/vehicles/${vehicleId}`, { status: 'active' }))
           .status,
