@@ -217,7 +217,10 @@ export const recordSortSchema = z.enum(['uploadedAt', 'parsedAt', 'title']);
 const optionalDate = z.iso.date().optional();
 
 export const listRecordsQuerySchema = z.object({
+  /** Matches the title, the description or the original file name. */
   q: z.string().trim().max(200).optional(),
+  /** Only the record of this document: where "Already uploaded" points. */
+  uploadId: z.uuid().optional(),
   status: recordStatusSchema.optional(),
   /** Only records in this historical reclassification state (e.g. PENDING_REVIEW). */
   historical: historicalStatusSchema.optional(),

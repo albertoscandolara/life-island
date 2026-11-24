@@ -92,6 +92,19 @@
   font-size: var(--text-sm);
 }
 
+.original {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+p.original {
+  color: var(--text-muted);
+}
+
+ui-alert.original button {
+  margin-top: var(--space-2);
+}
+
 .inputs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);

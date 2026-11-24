@@ -76,7 +76,7 @@
     <input
       uiInput
       type="search"
-      placeholder="Title or description"
+      placeholder="Title, description or file name"
       [value]="searchText()"
       (input)="searchText.set(inputValue($event))"
     />
@@ -151,7 +151,14 @@
   </div>
 </form>
 
-@if (showingQueue() && !records.error()) {
+@if (uploadId()) {
+<p class="queue-note muted">
+  Showing the document you uploaded this file as.
+  <button type="button" class="link" (click)="uploadId.set('')">
+    Show all documents
+  </button>
+</p>
+} @if (showingQueue() && !records.error()) {
 <p class="queue-note muted">
   Showing the documents waiting for your review; the ones with nothing to check
   are confirmed on their own.

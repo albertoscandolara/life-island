@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   agendaArea,
   type CompleteUploadResponse,
@@ -42,6 +42,7 @@ import {
 } from '@life-island/design-system';
 import { firstValueFrom, last, tap, type Observable } from 'rxjs';
 import { IngestionApi } from '../api/ingestion-api';
+import { ReviewApi } from '../api/review-api';
 import { ReclassificationState } from '../reclassification/reclassification-state';
 import { PROCESSING_VIEW } from '../review/record-status';
 import { CameraDialog } from './camera-dialog';
@@ -80,6 +81,7 @@ function isNetworkError(error: unknown): boolean {
     DatePipe,
     DecimalPipe,
     PreviewDialog,
+    RouterLink,
     UiAlert,
     UiBadge,
     UiButton,
@@ -100,6 +102,7 @@ function isNetworkError(error: unknown): boolean {
 })
 export class UploadPage {
   private readonly api = inject(IngestionApi);
+  private readonly review = inject(ReviewApi);
 
   protected readonly accept = ACCEPTED_FILE_TYPES;
   protected readonly titleMax = TITLE_MAX_LENGTH;
@@ -270,6 +273,7 @@ export class UploadPage {
         const result = await this.send(item);
         item.progress.set(100);
         item.state.set(result.duplicate ? 'duplicate' : 'done');
+        if (result.duplicate) await this.findOriginal(item, result.upload);
       } catch (error) {
         const message = errorMessage(error);
         item.state.set('error');
@@ -283,6 +287,47 @@ export class UploadPage {
     }
     this.uploading.set(false);
     this.documents.reload();
+  }
+
+  /**
+   * "Already uploaded" says which document holds the file, and whether the
+   * documents list has it: if it does not, you can replace it with this one.
+   */
+  private async findOriginal(
+    item: UploadItem,
+    original: UploadDto,
+  ): Promise<void> {
+    item.uploadId.set(null);
+    item.original.set(original);
+    item.originalListed.set(null);
+    try {
+      const page = await firstValueFrom(
+        this.review.list({ uploadId: original.id, limit: 1 }),
+      );
+      item.originalListed.set(page.total > 0);
+    } catch {
+      // Unknown: offer the link only, never the replacement.
+    }
+  }
+
+  /**
+   * The earlier copy is missing from the documents list: delete it and send
+   * this file again, so it gets a document you can find.
+   */
+  protected async replaceOriginal(item: UploadItem): Promise<void> {
+    const original = item.original();
+    if (!original) return;
+    item.error.set('');
+    try {
+      await firstValueFrom(this.api.deleteUpload(original.id));
+    } catch (error) {
+      item.error.set(errorMessage(error));
+      return;
+    }
+    item.original.set(null);
+    item.originalListed.set(null);
+    item.state.set('ready');
+    await this.uploadAll();
   }
 
   private async send(item: UploadItem): Promise<CompleteUploadResponse> {
