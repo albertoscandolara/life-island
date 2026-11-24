@@ -199,6 +199,8 @@ export class InboxPage {
     this.params.get('uploadedFrom') ?? '',
   );
   protected readonly uploadedTo = signal(this.params.get('uploadedTo') ?? '');
+  /** One document only, opened at once: where "Already uploaded" points. */
+  protected readonly uploadId = signal(this.params.get('upload') ?? '');
   protected readonly sort = signal<UiTableSort | null>({
     key: this.params.get('sort') ?? 'uploadedAt',
     direction: this.params.get('order') === 'asc' ? 'asc' : 'desc',
@@ -206,6 +208,8 @@ export class InboxPage {
   protected readonly page = signal(Number(this.params.get('page') ?? 0) || 0);
 
   protected readonly selectedId = signal<string | null>(null);
+  /** The `?upload=` document already opened, so closing it does not reopen it. */
+  private openedUpload = '';
   /** Upload ids of the rows ticked to be parsed again (kept across pages). */
   protected readonly picked = signal<readonly unknown[]>([]);
   protected readonly canReparse = canReparse;
@@ -256,6 +260,7 @@ export class InboxPage {
   /** Every filter but the category one: what the category counts are computed under. */
   private readonly otherFilters = computed<CategoryCountsQuery>(() => ({
     q: this.search() || undefined,
+    uploadId: this.uploadId() || undefined,
     status: this.status() ?? undefined,
     historical: this.historical() ?? undefined,
     autoConfirmed: this.autoConfirmed() || undefined,
@@ -307,6 +312,7 @@ export class InboxPage {
     () =>
       !!(
         this.search() ||
+        this.uploadId() ||
         this.status() !== DEFAULT_STATUS ||
         this.historical() ||
         this.autoConfirmed() ||
@@ -330,6 +336,17 @@ export class InboxPage {
         this.store.reload();
       });
     });
+    // Opened for one document: show it as soon as it loads.
+    effect(() => {
+      const uploadId = this.uploadId();
+      const row = this.rows().find((r) => r.uploadId === uploadId);
+      if (!uploadId || !row) return;
+      untracked(() => {
+        if (this.openedUpload === uploadId) return;
+        this.openedUpload = uploadId;
+        this.openReview(row);
+      });
+    });
     // Debounce typing in the search box.
     effect((onCleanup) => {
       const text = this.searchText().trim();
@@ -340,6 +357,7 @@ export class InboxPage {
     let firstRun = true;
     effect(() => {
       this.search();
+      this.uploadId();
       this.status();
       this.historical();
       this.autoConfirmed();
@@ -361,6 +379,7 @@ export class InboxPage {
         relativeTo: this.route,
         queryParams: {
           q: query.q,
+          upload: query.uploadId,
           status: statusToParam(this.status()),
           historical: this.historical() ?? undefined,
           auto: this.autoConfirmed() ? '1' : undefined,
@@ -563,6 +582,7 @@ export class InboxPage {
     this.fileFormat.set(null);
     this.uploadedFrom.set('');
     this.uploadedTo.set('');
+    this.uploadId.set('');
   }
 
   protected inputValue(event: Event): string {

@@ -81,7 +81,37 @@
             <ui-badge tone="danger">Failed</ui-badge>
             } }
           </div>
-          @if (item.state() === 'uploading') {
+          @if (item.state() === 'duplicate' && item.original(); as original) {
+          @if (item.originalListed() === false) {
+          <ui-alert tone="warning" class="original">
+            Same file as “{{ original.title }}” ({{ original.originalFilename
+            }}), uploaded {{ original.uploadedAt ?? original.createdAt | date:
+            'd MMM y' }}, but your documents list has no record of it. Replace
+            it with this file to get one you can find.
+            <button
+              uiButton
+              size="sm"
+              variant="secondary"
+              type="button"
+              [disabled]="uploading()"
+              (click)="replaceOriginal(item)"
+            >
+              <ui-icon name="upload" [size]="16" />
+              Replace and upload
+            </button>
+          </ui-alert>
+          } @else {
+          <p class="original">
+            Same file as “{{ original.title }}” ({{ original.originalFilename
+            }}), uploaded {{ original.uploadedAt ?? original.createdAt | date:
+            'd MMM y' }}.
+            <a
+              routerLink="/review"
+              [queryParams]="{ upload: original.id, status: 'all' }"
+              >Open it</a
+            >
+          </p>
+          } } @if (item.state() === 'uploading') {
           <ui-progress-bar
             [value]="item.progress()"
             [label]="'Uploading ' + item.file.name"

@@ -579,6 +579,29 @@ describe.skipIf(!configured)(
       expect((await get(`/records/${randomUUID()}`)).status).toBe(404);
     });
 
+    it('finds a document by its file name or by its upload id', async () => {
+      const u = {
+        ...upload('renamed'),
+        originalFilename: `EJ560PZ Bollo 2025 ${marker}.pdf`,
+      };
+      await apply('upload.completed@1', u);
+
+      const byName = await get<Page<RecordDto>>(
+        `/records?q=${encodeURIComponent(`Bollo 2025 ${marker}`)}`,
+      );
+      expect(byName.body.items.map((item) => item.uploadId)).toEqual([
+        u.uploadId,
+      ]);
+
+      const byId = await get<Page<RecordDto>>(
+        `/records?uploadId=${u.uploadId}`,
+      );
+      expect(byId.body.items.map((item) => item.uploadId)).toEqual([
+        u.uploadId,
+      ]);
+      expect((await get(`/records?uploadId=nope`)).status).toBe(400);
+    });
+
     it('shows a quota pause and partial progress, and cannot be confirmed until parsed', async () => {
       const u = upload('bill');
       await apply('upload.completed@1', u);

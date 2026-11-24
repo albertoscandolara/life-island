@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import type { UploadDto } from '@life-island/contracts';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -26,6 +27,13 @@ export class UploadItem {
   readonly progress = signal(0);
   readonly error = signal('');
   readonly uploadId = signal<string | null>(null);
+  /** The document this same file was uploaded as before ("Already uploaded"). */
+  readonly original = signal<UploadDto | null>(null);
+  /**
+   * Whether that earlier document is in the documents list: null while it is
+   * checked (or if the check failed), false when the list has no record of it.
+   */
+  readonly originalListed = signal<boolean | null>(null);
   /** Object URL for image thumbnails; revoked when the item is removed. */
   readonly previewUrl: string | null;
 

@@ -183,9 +183,13 @@ export class RecordsService {
         or(
           ilike(stagingRecords.title, pattern),
           ilike(stagingRecords.description, pattern),
+          // The name the file had on your computer: what you remember it by.
+          ilike(stagingRecords.originalFilename, pattern),
         )!,
       );
     }
+    if (query.uploadId)
+      conditions.push(eq(stagingRecords.uploadId, query.uploadId));
     if (query.status) conditions.push(eq(stagingRecords.status, query.status));
     if (query.historical)
       conditions.push(eq(stagingRecords.historicalStatus, query.historical));
