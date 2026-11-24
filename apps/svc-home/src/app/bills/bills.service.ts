@@ -21,6 +21,7 @@ import {
   payments as paymentRows,
   bills,
   documents,
+  organizations,
   properties,
   supplyContracts,
   supplyPoints,
@@ -40,6 +41,7 @@ export function toBillDto(
   pointHouse: string | null | undefined,
   autoPaid = false,
   payments: readonly PaymentRow[] = [],
+  supplierName: string | null = null,
 ): BillDto {
   const viaPoint = !row.manualProperty && row.supplyPointId !== null;
   const propertyId = viaPoint ? (pointHouse ?? null) : row.propertyId;
@@ -73,6 +75,7 @@ export function toBillDto(
     invoiceNumber: row.invoiceNumber,
     totalDue: row.totalDue,
     supplierId: row.supplierId,
+    supplierName: row.supplierId ? supplierName : null,
     supplyPointId: row.supplyPointId,
     contractId: row.contractId,
     directDebit: row.directDebit,
@@ -113,10 +116,12 @@ export class BillsService {
         bill: bills,
         pointHouse: supplyPoints.propertyId,
         autoPay: supplyContracts.autoPay,
+        supplierName: organizations.name,
       })
       .from(bills)
       .leftJoin(supplyPoints, eq(bills.supplyPointId, supplyPoints.id))
-      .leftJoin(supplyContracts, eq(bills.contractId, supplyContracts.id));
+      .leftJoin(supplyContracts, eq(bills.contractId, supplyContracts.id))
+      .leftJoin(organizations, eq(bills.supplierId, organizations.id));
     const payments = paymentsByKey(
       await this.svc.db
         .select()
@@ -134,6 +139,7 @@ export class BillsService {
           r.bill.contractId ? detected.get(r.bill.contractId) : undefined,
         ),
         payments.get(billPayableKey(r.bill.uploadId)),
+        r.supplierName,
       ),
       counted: r.bill.duplicateOf === null,
     }));

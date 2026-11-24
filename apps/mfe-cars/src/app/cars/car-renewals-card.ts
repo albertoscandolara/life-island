@@ -83,7 +83,7 @@ const TARGETS: Record<RenewableKind, { id: string; icon: UiIconName }> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [UiBadge, UiCard, UiIcon],
   templateUrl: './car-renewals-card.html',
-  styleUrls: ['./cars-bits.css', './car-renewals-card.css'],
+  styleUrls: ['./cars-bits.css'],
 })
 export class CarRenewalsCard {
   readonly renewals = input.required<RenewalDto[]>();

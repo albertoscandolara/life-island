@@ -58,7 +58,7 @@ export function billPayables(
           .filter((name): name is string => !!name),
       ),
     ];
-    const who = bill.provider ?? supplier?.name ?? 'Unknown supplier';
+    const who = supplier?.name ?? bill.provider ?? 'Unknown supplier';
     return [
       {
         key: billPayableKey(bill.uploadId),

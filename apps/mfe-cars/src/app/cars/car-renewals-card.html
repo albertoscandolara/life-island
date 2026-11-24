@@ -6,22 +6,22 @@
   } @else if (active() && sorted().length) {
   <ui-badge uiCardActions tone="success">All in order</ui-badge>
   }
-  <ul class="next">
+  <ul class="li-next">
     @for (renewal of sorted(); track $index) {
     <li>
       <button
         type="button"
-        class="next__item"
-        [class.next__item--ok]="renewal.level === 'ok'"
+        class="li-next__item"
+        [class.li-next__item--ok]="renewal.level === 'ok'"
         (click)="open.emit(targets[renewal.kind].id)"
       >
         <ui-icon
-          class="next__icon"
+          class="li-next__icon"
           [name]="targets[renewal.kind].icon"
           [size]="18"
         />
-        <span class="next__body">
-          <strong class="next__title">{{ renewalTitle(renewal) }}</strong>
+        <span class="li-next__body">
+          <strong class="li-next__title">{{ renewalTitle(renewal) }}</strong>
           <span class="li-muted li-small">
             @if (renewal.dueDate) { {{ dateText(renewal.dueDate) }} · {{
             renewalText(renewal) }} } @else { {{ renewal.basis }} } @if

@@ -6,13 +6,14 @@ const org = (
   id: string,
   name: string,
   aliases: string[] = [],
+  taxCode: string | null = null,
 ): OrganizationRow =>
   ({
     id,
     name,
     nameKey: name.toLowerCase(),
     aliases,
-    taxCode: null,
+    taxCode,
     vatNumber: null,
     mergedCodes: [],
     roles: [],
@@ -55,5 +56,24 @@ describe('possibleDuplicates', () => {
         mine: 'MINISTERO AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE',
       },
     ]);
+  });
+
+  it('suggests one company printed with and without spaces, codes apart', () => {
+    // Wind Tre's codice fiscale is not its VAT number: one bill read each.
+    const found = possibleDuplicates([
+      org('w', 'Wind Tre S.p.A.', [], '02517580920'),
+      org('x', 'WINDTRE', [], '13378520152'),
+      org('h', 'Hera Comm S.p.A.', [], '02221101203'),
+    ]);
+    expect(found.get('x')).toEqual([{ id: 'w', name: 'Wind Tre S.p.A.' }]);
+    expect(found.get('h')).toBeUndefined();
+  });
+
+  it('never suggests a typo apart when the codes differ', () => {
+    const found = possibleDuplicates([
+      org('a', 'Elektrosystem', [], '01234567890'),
+      org('b', 'Elektrosistem', [], '09876543210'),
+    ]);
+    expect(found.size).toBe(0);
   });
 });

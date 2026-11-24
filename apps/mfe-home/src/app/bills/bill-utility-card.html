@@ -1,0 +1,311 @@
+@let v = view(); @let s = v.step; @let g = guide();
+<ui-card [heading]="utilityLabel(v.utility)">
+  <ui-badge uiCardActions [tone]="badge().tone">{{ badge().label }}</ui-badge>
+
+  <!-- 1. The next step: what to do and by when. -->
+  <div class="li-step" [class.li-step--urgent]="urgent()">
+    <span
+      class="li-step__icon utility-coin"
+      [style.--tile-color]="'var(--viz-' + v.utility.toLowerCase() + ')'"
+      aria-hidden="true"
+    >
+      <ui-icon [name]="icon()" [size]="20" />
+    </span>
+    <div class="li-step__body">
+      <h3 class="li-step__title">{{ s.heading }}</h3>
+      @if (s.detail) {
+      <p
+        class="li-small"
+        [class.li-step__late]="s.level === 'late'"
+        [class.li-muted]="s.level !== 'late'"
+      >
+        {{ s.detail }}
+      </p>
+      }
+      <div class="li-actions li-step__actions">
+        @switch (s.level) { @case ('missing') {
+        <a uiButton size="sm" [href]="documentsUrl">
+          <ui-icon name="upload" [size]="14" /> Load the missing bills
+        </a>
+        } @case ('empty') {
+        <a uiButton size="sm" [href]="documentsUrl">
+          <ui-icon name="upload" [size]="14" /> Load a bill
+        </a>
+        } @case ('rising') { @if (g.compare; as compare) {
+        <a
+          uiButton
+          size="sm"
+          [href]="compare.url"
+          target="_blank"
+          rel="noopener"
+        >
+          <ui-icon name="chart" [size]="14" /> {{ compare.label }}
+        </a>
+        } } } @if (s.bill; as bill) {
+        <a
+          uiButton
+          size="sm"
+          [variant]="urgent() ? 'primary' : (s.level === 'rising' && g.compare) ? 'ghost' : 'secondary'"
+          [href]="previewUrl(bill.uploadId)"
+          target="_blank"
+          rel="noopener"
+        >
+          <ui-icon name="eye" [size]="14" />
+          {{ s.level === 'late' || s.level === 'due' ? 'Open the bill' : 'Open
+          the latest' }}
+        </a>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Now: what it costs, what it uses, who supplies it. -->
+  <h3 class="li-sub sub-head">In this period</h3>
+  <dl class="facts">
+    <div class="fact">
+      <dt>Spent</dt>
+      <dd>
+        <strong>{{ formatEuroRound(v.stat?.amount ?? 0) }}</strong>
+        <span class="li-muted"
+          >· {{ v.count }} {{ v.count === 1 ? 'bill' : 'bills' }}</span
+        >
+      </dd>
+    </div>
+    @if (perMonth(); as month) {
+    <div class="fact">
+      <dt>Per month</dt>
+      <dd>{{ formatEuro(month) }}</dd>
+    </div>
+    }
+    <div class="fact">
+      <dt>{{ info().metered ? 'Price now' : 'Fee now' }}</dt>
+      <dd>
+        {{ price(v.price.last) }} @if (v.price.change !== null) {
+        <ui-badge
+          [tone]="v.price.change >= 0.1 ? 'warning' : v.price.change <= -0.05 ? 'success' : 'neutral'"
+          >{{ percent(v.price.change) }} on a year ago</ui-badge
+        >
+        }
+      </dd>
+    </div>
+    @if (info().metered) {
+    <div class="fact">
+      <dt>Used</dt>
+      <dd>
+        @if (v.stat?.consumption) { {{ formatNumber(v.stat!.consumption) }} {{
+        info().unit }} } @else { – }
+      </dd>
+    </div>
+    } @if (v.fee; as fee) {
+    <div class="fact">
+      <dt>Extras</dt>
+      <dd>{{ fee.extras > 0 ? formatEuro(fee.extras) : '–' }}</dd>
+    </div>
+    }
+  </dl>
+  @if (v.offers.length) {
+  <ul class="offers" role="list">
+    @for (o of v.offers; track o.key) {
+    <li class="li-small">
+      @if (o.house) {
+      <span class="li-muted">{{ o.house }}:</span>
+      } {{ o.offer ?? 'Its offer' }} with @if (o.supplierId) {
+      <li-entity-link kind="organization" [entityId]="o.supplierId" />
+      } @else if (o.supplier) {
+      <li-entity-link kind="organization" [name]="o.supplier" />
+      } @else { an unknown supplier } @if (o.since) {
+      <span class="li-muted offer-since">{{ since(o.since) }}</span>
+      }
+    </li>
+    }
+  </ul>
+  }
+
+  <!-- 3. Over time: its price, and what it used (or the fee and extras). -->
+  <div class="charts">
+    <section
+      class="chart"
+      [attr.aria-label]="utilityLabel(v.utility) + ' price'"
+    >
+      <h3 class="li-sub sub-head">
+        {{ info().metered ? 'Price' : 'Fee' }} ({{ unit() }})
+      </h3>
+      @if (v.price.empty) {
+      <p class="li-muted li-small">
+        @if (info().metered) { These bills print no consumption, so there is no
+        price per {{ info().unit }}. } @else { No bills in this period. }
+      </p>
+      } @else {
+      <ui-line-chart
+        [categories]="v.price.categories"
+        [series]="v.price.series"
+        [format]="priceTick()"
+        [title]="priceTitle()"
+        [zero]="false"
+        [area]="false"
+        [step]="!info().metered"
+        [height]="150"
+        [ariaLabel]="utilityLabel(v.utility) + ' price over time, axis not from zero'"
+      />
+      <table class="ui-visually-hidden">
+        <caption>
+          {{ utilityLabel(v.utility) }} price
+        </caption>
+        <tbody>
+          @for (b of v.price.buckets; track b; let i = $index) {
+          <tr>
+            <th scope="row">{{ label(b) }}</th>
+            <td>{{ price(v.price.series[0].values[i]) }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+      }
+    </section>
+
+    @if (v.use; as use) {
+    <section
+      class="chart"
+      [attr.aria-label]="utilityLabel(v.utility) + ' used'"
+    >
+      <h3 class="li-sub sub-head">Used ({{ info().unit }})</h3>
+      @if (use.empty) {
+      <p class="li-muted li-small">These bills print no consumption.</p>
+      } @else {
+      <ui-column-chart
+        [buckets]="use.buckets"
+        [series]="use.series"
+        [format]="useTick()"
+        [label]="label"
+        [shortLabel]="short"
+        [height]="150"
+        [ariaLabel]="utilityLabel(v.utility) + ' used over time'"
+      />
+      <table class="ui-visually-hidden">
+        <caption>
+          {{ utilityLabel(v.utility) }} used ({{ info().unit }})
+        </caption>
+        <tbody>
+          @for (b of use.buckets; track b; let i = $index) {
+          <tr>
+            <th scope="row">{{ label(b) }}</th>
+            <td>{{ formatNumber(use.series[0].values[i] ?? 0) }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+      }
+    </section>
+    } @if (v.fee; as fee) {
+    <section class="chart" aria-label="Fee and extras">
+      <h3 class="li-sub sub-head">The fee and what comes on top</h3>
+      <ui-column-chart
+        [buckets]="fee.buckets"
+        [series]="fee.series"
+        mode="stacked"
+        [format]="euroTick()"
+        [label]="label"
+        [shortLabel]="short"
+        [height]="150"
+        ariaLabel="Internet fee and extras over time"
+      />
+      <table class="ui-visually-hidden">
+        <caption>
+          Internet fee and extras
+        </caption>
+        <tbody>
+          @for (b of fee.buckets; track b; let i = $index) {
+          <tr>
+            <th scope="row">{{ label(b) }}</th>
+            <td>{{ formatEuro(fee.series[0].values[i] ?? 0) }}</td>
+            <td>{{ formatEuro(fee.series[1].values[i] ?? 0) }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+    }
+  </div>
+
+  <!-- 4. The rules: how often, the price, changing supplier, how long. -->
+  <details class="li-about">
+    <summary>
+      <ui-icon name="book" [size]="16" />
+      <span class="li-about__title">About it</span>
+      <span class="li-about__chips">
+        <span class="li-about__chip">{{ g.every }}</span>
+        <ui-badge tone="neutral">Keep 5 years</ui-badge>
+      </span>
+    </summary>
+    <p class="li-about__what">{{ g.what }}</p>
+    <dl class="li-about__rules">
+      <div>
+        <dt>The price</dt>
+        <dd>{{ g.price }}</dd>
+      </div>
+      <div>
+        <dt>Changing</dt>
+        <dd>{{ g.change }}</dd>
+      </div>
+      <div>
+        <dt>How long</dt>
+        <dd>{{ g.keepFor }}</dd>
+      </div>
+      <div>
+        <dt>If late</dt>
+        <dd>{{ g.ifLate }}</dd>
+      </div>
+    </dl>
+    <p class="li-about__sources">
+      Rules of November 2026: @for (source of g.sources; track source) {
+      <span>{{ source }}</span>{{ $last ? '.' : ';' }} }
+    </p>
+    @if (g.compare; as compare) {
+    <a
+      uiButton
+      variant="ghost"
+      size="sm"
+      [href]="compare.url"
+      target="_blank"
+      rel="noopener"
+    >
+      <ui-icon name="chart" [size]="14" /> {{ compare.label }}
+    </a>
+    }
+  </details>
+
+  <!-- 5. Its latest bills, newest first. -->
+  @if (v.latest.length) {
+  <details class="history">
+    <summary>Latest bills ({{ v.count }})</summary>
+    <ul class="latest" role="list">
+      @for (bill of v.latest; track bill.uploadId) {
+      <li class="latest__bill">
+        <a
+          class="latest__title"
+          [href]="previewUrl(bill.uploadId)"
+          target="_blank"
+          rel="noopener"
+          >{{ period(bill) }}</a
+        >
+        <span class="li-muted li-small latest__who"
+          >{{ bill.supplierName ?? bill.provider ?? bill.title }}</span
+        >
+        <strong class="latest__amount">{{ formatEuro(bill.amount) }}</strong>
+      </li>
+      }
+    </ul>
+    @if (v.count > v.latest.length) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="showBills.emit(v.utility)"
+    >
+      Show all {{ v.count }} in the list
+    </button>
+    }
+  </details>
+  }
+</ui-card>

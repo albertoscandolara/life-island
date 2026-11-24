@@ -314,6 +314,7 @@ describe('internet bills', () => {
       supplyPointCode: '0451234567',
       customerCode: 'P0000000001',
       supplierTaxCode: '01234567890',
+      supplierCodes: ['01234567890'],
       offerName: 'Internet 200',
       offerStart: '2020-06-18',
       directDebit: true,
@@ -322,6 +323,19 @@ describe('internet bills', () => {
       readBillFacts(internet({ line_number: null }).fields ?? {}, 'INTERNET')
         .supplyPointCode,
     ).toBe('ABC01234567890123X');
+  });
+
+  it('keeps every code of the supplier: its tax code and its VAT number', () => {
+    const facts = readBillFacts(
+      {
+        provider: 'Wind Tre S.p.A. con Socio Unico',
+        supplier_tax_code: '02517580920',
+        supplier_vat_number: 'IT 13378520152',
+      },
+      'INTERNET',
+    );
+    expect(facts.supplierTaxCode).toBe('02517580920');
+    expect(facts.supplierCodes).toEqual(['02517580920', '13378520152']);
   });
 
   it('finds its house by its line, once the line is the house’s', () => {

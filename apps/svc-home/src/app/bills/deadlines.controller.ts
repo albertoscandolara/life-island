@@ -36,7 +36,7 @@ export class HomeDeadlinesController {
               id: `bill:${bill.id}:${bill.dueDate}`,
               module: 'home',
               kind: 'bill',
-              title: `${UTILITY_NAMES[bill.utility]} bill due${bill.provider ? ` · ${bill.provider}` : ''}`,
+              title: `${UTILITY_NAMES[bill.utility]} bill due${(bill.supplierName ?? bill.provider) ? ` · ${bill.supplierName ?? bill.provider}` : ''}`,
               detail: [
                 bill.invoiceNumber ? `Invoice ${bill.invoiceNumber}.` : null,
                 bill.bankPayment?.full

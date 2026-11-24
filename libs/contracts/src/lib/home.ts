@@ -554,6 +554,12 @@ export interface BillDto {
   /** What was left to pay, when it differs from the total (credits, earlier bills). */
   totalDue: number | null;
   supplierId: string | null;
+  /**
+   * The name of its supplier as the company is filed (Companies), whatever
+   * the bill printed: "Wind Tre S.p.A.", "WINDTRE" and "Wind Tre S.p.A. con
+   * Socio Unico" are all one company. Null when it has no supplier.
+   */
+  supplierName: string | null;
   supplyPointId: string | null;
   contractId: string | null;
   /** What the bill prints on how it is paid: direct debit (true), another way (false), nothing (null). */

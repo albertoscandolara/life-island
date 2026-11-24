@@ -25,6 +25,7 @@ const bill = (over: Partial<BillDto> = {}): BillDto => ({
   invoiceNumber: '123',
   totalDue: 84.37,
   supplierId: 's1',
+  supplierName: 'Enel Energia S.p.A.',
   supplyPointId: null,
   contractId: null,
   directDebit: true,
@@ -48,7 +49,7 @@ describe('bill payables', () => {
         key: 'home:bill:u1',
         module: 'home',
         kind: 'bill',
-        title: 'Enel Energia, electricity bill no. 123',
+        title: 'Enel Energia S.p.A., electricity bill no. 123',
         payees: [
           'Enel Energia',
           'Enel Energia S.p.A.',

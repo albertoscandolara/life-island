@@ -72,55 +72,6 @@
   gap: var(--space-4);
 }
 
-/* Sections at hand: one tap to each group, kept in view while scrolling. */
-.car__jump {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--space-2));
-}
-
-.car__jump-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  background: var(--surface-card);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.car__jump-link:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
-.car__group {
-  display: grid;
-  gap: var(--space-4);
-  min-width: 0;
-  scroll-margin-top: var(--space-12);
-}
-
-.car__group-title {
-  margin: var(--space-2) 0 0;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .car__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));

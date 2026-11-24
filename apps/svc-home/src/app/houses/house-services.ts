@@ -9,7 +9,7 @@ import {
   billingPeriod,
   normalizeCode,
   normalizeText,
-  organizationKey,
+  companyKey,
   toNumber,
   utilityOf,
   withAncestors,
@@ -368,8 +368,7 @@ export function houseServices(
   const internet: HouseInternetDto[] = [];
   const lines = groupBy(
     readings.filter((r) => r.kind === 'INTERNET'),
-    (r) =>
-      `${r.propertyId ?? ''}|${r.provider ? organizationKey(r.provider) : ''}`,
+    (r) => `${r.propertyId ?? ''}|${r.provider ? companyKey(r.provider) : ''}`,
   );
   for (const [key, list] of lines) {
     const bills = list.filter((r) => r.role === 'BILL' && r.amount !== null);
@@ -420,7 +419,7 @@ export function houseServices(
     (r) =>
       [
         r.propertyId ?? '',
-        r.provider ? organizationKey(r.provider) : '',
+        r.provider ? companyKey(r.provider) : '',
         r.policyNumber ? normalizeCode(r.policyNumber) : '',
       ].join('|'),
   );

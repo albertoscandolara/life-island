@@ -310,28 +310,20 @@ idle) {
     />
   </div>
 
-  <nav class="car__jump" aria-label="Sections of this car">
-    <button
-      type="button"
-      class="car__jump-link"
-      (click)="jump('car-documents')"
-    >
+  <nav class="li-jump" aria-label="Sections of this car">
+    <button type="button" class="li-jump__link" (click)="jump('car-documents')">
       <ui-icon name="file" [size]="14" /> Documents
     </button>
-    <button type="button" class="car__jump-link" (click)="jump('car-keep')">
+    <button type="button" class="li-jump__link" (click)="jump('car-keep')">
       <ui-icon name="folder" [size]="14" /> To keep
     </button>
-    <button type="button" class="car__jump-link" (click)="jump('car-money')">
+    <button type="button" class="li-jump__link" (click)="jump('car-money')">
       <ui-icon name="chart" [size]="14" /> Fines and costs
     </button>
-    <button
-      type="button"
-      class="car__jump-link"
-      (click)="jump('car-insurance')"
-    >
+    <button type="button" class="li-jump__link" (click)="jump('car-insurance')">
       <ui-icon name="shield" [size]="14" /> Insurance
     </button>
-    <button type="button" class="car__jump-link" (click)="jump('car-details')">
+    <button type="button" class="li-jump__link" (click)="jump('car-details')">
       <ui-icon name="car" [size]="14" /> Car details
     </button>
   </nav>
@@ -339,10 +331,10 @@ idle) {
   <!-- 2. Its documents, the same card for each, most urgent kinds first. -->
   <section
     id="car-documents"
-    class="car__group"
+    class="li-group"
     aria-labelledby="car-documents-title"
   >
-    <h2 id="car-documents-title" class="car__group-title">Documents</h2>
+    <h2 id="car-documents-title" class="li-group__title">Documents</h2>
     <div class="car__grid">
       @for (type of docTypes(vehicle); track type) {
       <cars-doc-card
@@ -372,8 +364,8 @@ idle) {
   </section>
 
   <!-- 3. What it costs and what is still to pay. -->
-  <section id="car-money" class="car__group" aria-labelledby="car-money-title">
-    <h2 id="car-money-title" class="car__group-title">Fines and costs</h2>
+  <section id="car-money" class="li-group" aria-labelledby="car-money-title">
+    <h2 id="car-money-title" class="li-group__title">Fines and costs</h2>
     <div class="car__grid">
       <cars-fines-card
         [fines]="vehicle.fines"
@@ -398,10 +390,10 @@ idle) {
   <!-- 4. Insurance over the years, and quotes for the next one. -->
   <section
     id="car-insurance"
-    class="car__group"
+    class="li-group"
     aria-labelledby="car-insurance-title"
   >
-    <h2 id="car-insurance-title" class="car__group-title">Insurance</h2>
+    <h2 id="car-insurance-title" class="li-group__title">Insurance</h2>
     <div class="car__grid">
       <cars-insurance-history [history]="vehicle.insurance" />
       <cars-insurance-quotes
@@ -416,10 +408,10 @@ idle) {
   <!-- 5. Reference: every code of its card, and its 3D model. -->
   <section
     id="car-details"
-    class="car__group"
+    class="li-group"
     aria-labelledby="car-details-title"
   >
-    <h2 id="car-details-title" class="car__group-title">Car details</h2>
+    <h2 id="car-details-title" class="li-group__title">Car details</h2>
     <div class="car__details">
       <ui-card heading="Carta di circolazione">
         <label uiCardActions class="toggle">

@@ -35,6 +35,7 @@ export type ReadBill = Omit<
   | 'invoiceNumber'
   | 'totalDue'
   | 'supplierId'
+  | 'supplierName'
   | 'supplyPointId'
   | 'contractId'
   | 'directDebit'
@@ -403,6 +404,12 @@ export interface BillFacts {
   supplierName: string | null;
   /** Codice fiscale or VAT number of the supplier, normalised (no `IT`, no spaces). */
   supplierTaxCode: string | null;
+  /**
+   * Every code the bill prints for its supplier, the tax code first: a big
+   * company's codice fiscale is often not its VAT number (Wind Tre S.p.A.
+   * prints both), and either one finds it.
+   */
+  supplierCodes: string[];
   /** POD, PDR, water supply code or internet line, normalised. */
   supplyPointCode: string | null;
   customerCode: string | null;
@@ -458,6 +465,13 @@ export const normalizeTaxCode = (code: string): string => {
 export const organizationKey = (name: string): string =>
   entityKey(name) || normalizeText(name);
 
+/**
+ * A company's name as one word, to tell its documents together: "Wind Tre
+ * S.p.A.", "WINDTRE" and "Wind Tre S.p.A. con Socio Unico" are one company.
+ */
+export const companyKey = (name: string): string =>
+  organizationKey(name).replace(/\s+/g, '');
+
 /** Every key a company is found by: its name and the other names documents print. */
 export function organizationKeys(org: {
   name: string;
@@ -512,16 +526,20 @@ export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
     ['supply_point_code', 'pod', 'pdr', 'pod_code', 'pdr_code'],
     asText,
   );
-  const taxCode = firstOf(
-    fields,
-    [
-      'supplier_tax_code',
-      'supplier_vat_number',
-      'provider_tax_code',
-      'provider_vat_number',
-    ],
-    asText,
-  );
+  const supplierCodes = [
+    ...new Set(
+      [
+        'supplier_tax_code',
+        'supplier_vat_number',
+        'provider_tax_code',
+        'provider_vat_number',
+      ]
+        .map((key) => asText(fields[key]))
+        .filter((code): code is string => !!code)
+        .map(normalizeTaxCode)
+        .filter(Boolean),
+    ),
+  ];
   const total = toNumber(fields['total_due'] ?? fields['amount_due']);
   return {
     invoiceNumber: firstOf(
@@ -535,7 +553,8 @@ export function readBillFacts(fields: Fields, utility: UtilityKind): BillFacts {
       ['provider', 'issuer', 'supplier', 'merchant_name'],
       asText,
     ),
-    supplierTaxCode: taxCode ? normalizeTaxCode(taxCode) : null,
+    supplierTaxCode: supplierCodes[0] ?? null,
+    supplierCodes,
     supplyPointCode:
       utility === 'INTERNET'
         ? internetLine(fields)
