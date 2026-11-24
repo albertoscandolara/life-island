@@ -167,6 +167,17 @@
               >
                 Detach
               </button>
+              <button
+                uiButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                [disabled]="busy() !== null"
+                [attr.aria-label]="'Set aside ' + part.title + ', a copy of this record'"
+                (click)="drop(part.uploadId)"
+              >
+                It's a copy
+              </button>
             </li>
             }
           </ul>

@@ -39,7 +39,9 @@
 />
 @if (rejected().length) {
 <details class="li-rejected">
-  <summary>Rejected: {{ rejected().length }} not about any car</summary>
+  <summary>
+    Set aside: {{ rejected().length }} not about any car or a copy
+  </summary>
   <ul>
     @for (doc of rejected(); track doc.uploadId) {
     <li>

@@ -223,6 +223,11 @@ export class CarDocCard {
     this.run(uploadId, () => this.api.group(uploadId, { attachTo: null }));
   }
 
+  /** Sets aside a copy of a document the record already has. */
+  protected drop(uploadId: string): void {
+    this.run(uploadId, () => this.api.drop(uploadId));
+  }
+
   private run(key: string, call: () => Observable<void>): void {
     this.busy.set(key);
     this.error.set(null);

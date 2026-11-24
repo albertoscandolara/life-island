@@ -1213,7 +1213,8 @@ export interface PendingCarReviewDto {
   /**
    * A record of the matched car this document belongs to (insurance: the
    * same period of cover, or the same number for one without dates; others:
-   * the same number): approved, it joins it instead of making a new version.
+   * the same number, or the same issue day for one without a number):
+   * approved, it joins it instead of making a new version.
    */
   joins: CarDocumentJoinDto | null;
 }
@@ -1223,6 +1224,11 @@ export interface CarDocumentJoinDto {
   uploadId: string;
   /** The number this document prints, else the record's. */
   number: string | null;
+  /**
+   * What makes it the same document: the period of cover (insurance), the
+   * number it prints, or (printing none) the day it was issued.
+   */
+  by: 'period' | 'number' | 'issued';
   /** The record's period of cover. */
   validFrom: string | null;
   validUntil: string | null;
