@@ -1211,8 +1211,9 @@ export interface PendingCarReviewDto {
   /** What this document is (policy, certificate, receipt), when known. */
   role: CarDocumentRole | null;
   /**
-   * A record of the matched car with the same number: approved, this
-   * document joins it instead of making a new version.
+   * A record of the matched car this document belongs to (insurance: the
+   * same period of cover, or the same number for one without dates; others:
+   * the same number): approved, it joins it instead of making a new version.
    */
   joins: CarDocumentJoinDto | null;
 }
@@ -1220,7 +1221,11 @@ export interface PendingCarReviewDto {
 export interface CarDocumentJoinDto {
   /** The record's main document. */
   uploadId: string;
-  number: string;
+  /** The number this document prints, else the record's. */
+  number: string | null;
+  /** The record's period of cover. */
+  validFrom: string | null;
+  validUntil: string | null;
   /** How many documents the record has already. */
   documentCount: number;
 }

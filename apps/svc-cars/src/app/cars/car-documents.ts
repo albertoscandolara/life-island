@@ -870,6 +870,125 @@ export function groupKeyOf(d: ApprovedCarDocument): string {
   );
 }
 
+/**
+ * Two dates that are the same day of cover: the green card prints the last
+ * day covered (09/04), the policy the day it ends at 00:00 (10/04).
+ */
+function sameDay(a: string | null, b: string | null): boolean {
+  return a !== null && b !== null && Math.abs(daysUntil(a, b)) <= 1;
+}
+
+/** The record of a period of cover, as kept for a document put in it by hand. */
+export function periodKey(from: string | null, until: string | null) {
+  return from ? `period:${from}` : until ? `period:~${until}` : null;
+}
+
+interface CoverPeriod {
+  key: string;
+  from: string | null;
+  until: string | null;
+  numbers: Set<string>;
+}
+
+/**
+ * The records of one car's insurance documents, by uploadId. One car has one
+ * policy at a time, so its period of cover is what makes a record: the same
+ * start or end (within a day), whatever number each file prints. A renewal
+ * that keeps the policy number is a new record; a receipt that prints its own
+ * number joins the policy. A document without dates (an instalment receipt)
+ * joins by its number the record whose period it falls in, else the newest.
+ * Yours by hand wins.
+ */
+function insuranceKeys(
+  documents: readonly ApprovedCarDocument[],
+): Map<string, string> {
+  const keys = new Map<string, string>();
+  const periods: CoverPeriod[] = [];
+  const periodOf = (from: string | null, until: string | null) => {
+    if (!from && !until) return undefined;
+    const found = periods.find(
+      (p) =>
+        (sameDay(from, p.from) || sameDay(until, p.until)) &&
+        !(from && p.from && !sameDay(from, p.from)) &&
+        !(until && p.until && !sameDay(until, p.until)),
+    );
+    if (found) {
+      found.from ??= from;
+      found.until ??= until;
+      return found;
+    }
+    const added: CoverPeriod = {
+      key: periodKey(from, until) as string,
+      from,
+      until,
+      numbers: new Set(),
+    };
+    periods.push(added);
+    return added;
+  };
+  const byUpload = [...documents].sort((a, b) =>
+    a.uploadedAt.localeCompare(b.uploadedAt),
+  );
+  const byNumber: ApprovedCarDocument[] = [];
+  for (const d of byUpload) {
+    const hand = d.groupKey ?? null;
+    if (hand?.startsWith('own:')) {
+      keys.set(d.uploadId, hand);
+      continue;
+    }
+    if (hand?.startsWith('period:')) {
+      const printed = hand.slice('period:'.length);
+      const period = printed.startsWith('~')
+        ? periodOf(null, printed.slice(1))
+        : periodOf(printed, null);
+      if (period) {
+        const number = numberKey(d.reading.number);
+        if (number) period.numbers.add(number);
+        keys.set(d.uploadId, period.key);
+        continue;
+      }
+    }
+    const period = hand
+      ? undefined
+      : periodOf(d.reading.validFrom, d.reading.validUntil);
+    if (!period) {
+      byNumber.push(d);
+      continue;
+    }
+    const number = numberKey(d.reading.number);
+    if (number) period.numbers.add(number);
+    keys.set(d.uploadId, period.key);
+  }
+  for (const d of byNumber) {
+    const number = d.groupKey?.startsWith('number:')
+      ? d.groupKey
+      : numberKey(d.reading.number);
+    const candidates = number
+      ? periods.filter((p) => p.numbers.has(number))
+      : [];
+    const day =
+      d.reading.validFrom ??
+      d.reading.paymentDate ??
+      d.reading.costDate ??
+      d.reading.validUntil;
+    const covering =
+      day &&
+      candidates.find(
+        (p) =>
+          (p.from === null || addDays(p.from, -1) <= day) &&
+          (p.until === null || day < p.until),
+      );
+    const newest = [...candidates].sort((a, b) =>
+      (b.from ?? b.until ?? '').localeCompare(a.from ?? a.until ?? ''),
+    )[0];
+    keys.set(
+      d.uploadId,
+      (covering || newest)?.key ?? number ?? `own:${d.uploadId}`,
+    );
+  }
+  return keys;
+}
+
 /** The main document comes first: the policy, then the others, then the receipt. */
 const ROLE_ORDER: (CarDocumentRole | null)[] = [
   'policy',
@@ -908,15 +1027,18 @@ function mergeReadings(members: readonly ApprovedCarDocument[]) {
 
 /**
  * Documents in records: same type and same number (a policy, its certificate
- * and its receipt), or the record you put them in. Expenses stay one each,
- * unless you put them together.
+ * and its receipt), insurance by its period of cover (insuranceKeys), or the
+ * record you put them in. Expenses stay one each, unless you put them together.
  */
 export function groupDocuments<T extends ApprovedCarDocument>(
   documents: readonly T[],
 ): CarDocumentGroup<T>[] {
+  const insurance = insuranceKeys(
+    documents.filter((d) => d.type === 'CAR_INSURANCE'),
+  );
   const groups = new Map<string, T[]>();
   for (const d of documents) {
-    const key = `${d.type ?? ''}|${groupKeyOf(d)}`;
+    const key = `${d.type ?? ''}|${insurance.get(d.uploadId) ?? groupKeyOf(d)}`;
     const list = groups.get(key) ?? [];
     list.push(d);
     groups.set(key, list);
@@ -942,6 +1064,17 @@ export function groupDocuments<T extends ApprovedCarDocument>(
       groupKey: main.groupKey ?? null,
     };
   });
+}
+
+/** The record key of a document among others of its car, as `group` keeps it. */
+export function recordKeyOf(
+  documents: readonly ApprovedCarDocument[],
+  uploadId: string,
+): string | null {
+  const group = groupDocuments(documents).find((g) =>
+    g.members.some((m) => m.uploadId === uploadId),
+  );
+  return group ? group.key.slice(group.key.indexOf('|') + 1) : null;
 }
 
 /** The order of versions: by when they start to count, else by upload. */
