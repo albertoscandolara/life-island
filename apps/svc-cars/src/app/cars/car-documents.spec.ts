@@ -450,6 +450,78 @@ describe('car documents', () => {
     ).toBe(false);
   });
 
+  it('makes one record of a registration certificate scanned without its number', () => {
+    const unnumbered = { ...libretto, document_number: null };
+    const front = approved('front', 'VEHICLE_REGISTRATION', libretto);
+    const back = approved('back', 'VEHICLE_REGISTRATION', unnumbered);
+    for (const docs of [
+      [front, back],
+      [back, front],
+    ]) {
+      const versions = buildSeries(docs, '2026-11-24')[0].versions;
+      expect(versions).toHaveLength(1);
+      expect(
+        versions[0].document.members.map((m) => m.uploadId).sort(),
+      ).toEqual(['back', 'front']);
+      expect(versions[0].document.reading.number).toBe('CC0000000X');
+    }
+    expect(recordKeyOf([front, back], 'back')).toBe('number:CC0000000X');
+    const second = approved('back2', 'VEHICLE_REGISTRATION', unnumbered);
+    expect(buildSeries([back, second], '2026-11-24')[0].versions).toHaveLength(
+      1,
+    );
+  });
+
+  it('keeps apart a certificate without a number issued another day or by hand', () => {
+    const unnumbered = { ...libretto, document_number: null };
+    const front = approved('front', 'VEHICLE_REGISTRATION', libretto);
+    const later = approved('later', 'VEHICLE_REGISTRATION', {
+      ...unnumbered,
+      issue_date: '2024-01-01',
+    });
+    expect(buildSeries([front, later], '2026-11-24')[0].versions).toHaveLength(
+      2,
+    );
+    const detached = approved(
+      'back',
+      'VEHICLE_REGISTRATION',
+      unnumbered,
+      null,
+      'back',
+      'own:back',
+    );
+    expect(
+      buildSeries([front, detached], '2026-11-24')[0].versions,
+    ).toHaveLength(2);
+    const other = approved('other', 'VEHICLE_REGISTRATION', {
+      ...libretto,
+      document_number: 'DD1111111Y',
+    });
+    const ambiguous = approved('amb', 'VEHICLE_REGISTRATION', unnumbered);
+    expect(
+      buildSeries([front, other, ambiguous], '2026-11-24')[0].versions,
+    ).toHaveLength(3);
+  });
+
+  it('makes one record of an inspection report scanned without its number', () => {
+    const report = {
+      outcome: 'regolare',
+      inspection_date: '2025-05-02',
+      inspection_centre: 'Centro Revisioni',
+    };
+    const versions = buildSeries(
+      [
+        approved('r1', 'VEHICLE_INSPECTION', {
+          ...report,
+          report_number: 'R-123',
+        }),
+        approved('r2', 'VEHICLE_INSPECTION', report),
+      ],
+      '2026-11-24',
+    )[0].versions;
+    expect(versions).toHaveLength(1);
+  });
+
   describe('one insurance sent as policy, certificate and receipt', () => {
     const common = {
       registration_number: 'EJ560PZ',

@@ -307,6 +307,13 @@ export class CarsController {
     );
   }
 
+  /** Sets aside a copy of a document its record already has. */
+  @Post('documents/:uploadId/drop')
+  @HttpCode(204)
+  drop(@Param('uploadId', ParseUUIDPipe) uploadId: string): Promise<void> {
+    return this.cars.drop(uploadId);
+  }
+
   /** Attaches the document to the record of another one, or (null) detaches it. */
   @Put('documents/:uploadId/group')
   @HttpCode(204)

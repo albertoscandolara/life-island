@@ -48,6 +48,11 @@ export class CarsApi {
     return this.http.patch<void>(`${CARS_API}/documents/${uploadId}`, request);
   }
 
+  /** Sets aside a copy of a document its record already has. */
+  drop(uploadId: string): Observable<void> {
+    return this.http.post<void>(`${CARS_API}/documents/${uploadId}/drop`, {});
+  }
+
   /** Puts the document in the record of another (attachTo), or in one of its own (null). */
   group(uploadId: string, request: GroupCarDocumentRequest): Observable<void> {
     return this.http.put<void>(

@@ -509,6 +509,13 @@ export class CarsService {
                   record.members.find((m) => m.uploadId !== doc.row.uploadId)
                     ?.uploadId ?? record.uploadId,
                 number: doc.reading.number ?? record.reading.number,
+                by:
+                  doc.type === 'CAR_INSURANCE' &&
+                  (record.reading.validFrom || record.reading.validUntil)
+                    ? ('period' as const)
+                    : doc.reading.number
+                      ? ('number' as const)
+                      : ('issued' as const),
                 validFrom: record.reading.validFrom,
                 validUntil: record.reading.validUntil,
                 documentCount: record.members.length - 1,
@@ -699,6 +706,25 @@ export class CarsService {
       .update(reviews)
       .set({ groupKey })
       .where(eq(reviews.uploadId, uploadId));
+  }
+
+  /**
+   * Sets aside an approved document that is a copy of another in its record
+   * (the same libretto scanned twice): the record keeps the others, and the
+   * document goes with the rejected ones, where it can be reviewed again.
+   */
+  async drop(uploadId: string): Promise<void> {
+    const { record } = await this.recordOf(uploadId);
+    if (record.members.length < 2)
+      throw new UnprocessableEntityException(
+        'Only a copy in a record with other documents can be set aside',
+      );
+    await this.svc.db
+      .update(reviews)
+      .set({ status: 'rejected', groupKey: null, markedStatus: null })
+      .where(
+        and(eq(reviews.uploadId, uploadId), eq(reviews.status, 'approved')),
+      );
   }
 
   /** An approved document, the record it is in, and every approved document of its car. */

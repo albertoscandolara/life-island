@@ -989,6 +989,47 @@ function insuranceKeys(
   return keys;
 }
 
+/**
+ * The records of one car's documents of a type that is not insurance or an
+ * expense, by uploadId, for the ones that print no number: a scan that missed
+ * it (the back of the libretto, a blurred photo) is the same document as the
+ * one of that type issued the same day, so it joins that one's record. Two
+ * without a number issued the same day are one record too. When more than
+ * one record was issued that day, it stays on its own. Yours by hand wins.
+ */
+function issuedKeys(
+  documents: readonly ApprovedCarDocument[],
+): Map<string, string> {
+  const keys = new Map<string, string>();
+  const numbersOn = new Map<string, Set<string>>();
+  for (const d of documents) {
+    const number = numberKey(d.reading.number);
+    const day = d.reading.validFrom;
+    if (!number || !day) continue;
+    const key = d.groupKey ?? number;
+    numbersOn.set(day, (numbersOn.get(day) ?? new Set()).add(key));
+  }
+  for (const d of documents) {
+    const day = d.reading.validFrom;
+    if (d.groupKey || numberKey(d.reading.number) || !day) continue;
+    const records = [...(numbersOn.get(day) ?? [])];
+    keys.set(
+      d.uploadId,
+      records.length === 1
+        ? records[0]
+        : records.length === 0
+          ? issuedKey(day)
+          : `own:${d.uploadId}`,
+    );
+  }
+  return keys;
+}
+
+/** The record of the documents without a number issued on a day. */
+export function issuedKey(day: string): string {
+  return `issued:${day}`;
+}
+
 /** The main document comes first: the policy, then the others, then the receipt. */
 const ROLE_ORDER: (CarDocumentRole | null)[] = [
   'policy',
@@ -1027,18 +1068,24 @@ function mergeReadings(members: readonly ApprovedCarDocument[]) {
 
 /**
  * Documents in records: same type and same number (a policy, its certificate
- * and its receipt), insurance by its period of cover (insuranceKeys), or the
- * record you put them in. Expenses stay one each, unless you put them together.
+ * and its receipt), insurance by its period of cover (insuranceKeys), one
+ * without a number by the day it was issued (issuedKeys), or the record you
+ * put them in. Expenses stay one each, unless you put them together.
  */
 export function groupDocuments<T extends ApprovedCarDocument>(
   documents: readonly T[],
 ): CarDocumentGroup<T>[] {
-  const insurance = insuranceKeys(
-    documents.filter((d) => d.type === 'CAR_INSURANCE'),
-  );
+  const known = new Map<string, string>();
+  for (const type of new Set(documents.map((d) => d.type))) {
+    if (type === null || type === 'VEHICLE_EXPENSE') continue;
+    const ofType = documents.filter((d) => d.type === type);
+    const keys =
+      type === 'CAR_INSURANCE' ? insuranceKeys(ofType) : issuedKeys(ofType);
+    for (const [uploadId, key] of keys) known.set(uploadId, key);
+  }
   const groups = new Map<string, T[]>();
   for (const d of documents) {
-    const key = `${d.type ?? ''}|${insurance.get(d.uploadId) ?? groupKeyOf(d)}`;
+    const key = `${d.type ?? ''}|${known.get(d.uploadId) ?? groupKeyOf(d)}`;
     const list = groups.get(key) ?? [];
     list.push(d);
     groups.set(key, list);
