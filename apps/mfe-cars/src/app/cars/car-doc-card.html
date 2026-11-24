@@ -7,21 +7,21 @@
   }
 
   <!-- 1. The next step: what to do and by when. -->
-  <div class="doc__next" [class.doc__next--urgent]="urgent()">
-    <span class="doc__icon" aria-hidden="true">
+  <div class="li-step" [class.li-step--urgent]="urgent()">
+    <span class="li-step__icon" aria-hidden="true">
       <ui-icon [name]="icon()" [size]="20" />
     </span>
-    <div class="doc__next-body">
-      <h3 class="doc__next-title">{{ n.heading }}</h3>
+    <div class="li-step__body">
+      <h3 class="li-step__title">{{ n.heading }}</h3>
       @if (n.detail) {
       <p class="li-muted li-small">{{ n.detail }}</p>
       } @if (n.level !== 'ok' && n.level !== 'suspended' && vehicleStatus() ===
       'active') {
       <p class="li-small">{{ g.todo }}</p>
       } @if (n.level === 'expired' && vehicleStatus() === 'active') {
-      <p class="li-small doc__late">{{ g.ifLate }}</p>
+      <p class="li-small li-step__late">{{ g.ifLate }}</p>
       }
-      <div class="li-actions doc__actions">
+      <div class="li-actions li-step__actions">
         <a
           uiButton
           size="sm"
@@ -61,17 +61,17 @@
   <ng-content />
 
   <!-- 3. The rules: how often, where, how long. -->
-  <details class="doc__about">
+  <details class="li-about">
     <summary>
       <ui-icon name="book" [size]="16" />
-      <span class="doc__about-title">About it</span>
-      <span class="doc__chips">
-        <span class="doc__chip">{{ g.every }}</span>
+      <span class="li-about__title">About it</span>
+      <span class="li-about__chips">
+        <span class="li-about__chip">{{ g.every }}</span>
         <ui-badge [tone]="where().tone">{{ where().label }}</ui-badge>
       </span>
     </summary>
-    <p class="doc__what">{{ g.what }}</p>
-    <dl class="doc__rules">
+    <p class="li-about__what">{{ g.what }}</p>
+    <dl class="li-about__rules">
       <div>
         <dt>Renewed</dt>
         <dd>{{ g.renewal }}</dd>
@@ -93,7 +93,7 @@
         <dd>{{ g.ifLate }}</dd>
       </div>
     </dl>
-    <p class="doc__sources">
+    <p class="li-about__sources">
       Rules of November 2026: @for (source of g.sources; track source) {
       <span>{{ source }}</span>{{ $last ? '.' : ';' }} }
     </p>

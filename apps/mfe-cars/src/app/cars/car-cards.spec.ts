@@ -102,7 +102,7 @@ describe('Cars cards', () => {
     fixture.componentInstance.open.subscribe((id) => opened.push(id));
     await fixture.whenStable();
     const first = (fixture.nativeElement as HTMLElement).querySelector(
-      'button.next__item',
+      'button.li-next__item',
     ) as HTMLButtonElement;
     expect(first.textContent).toContain('Road tax');
     first.click();

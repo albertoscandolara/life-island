@@ -1,5 +1,6 @@
 import {
   billUnitPrice,
+  entityKey,
   UTILITIES,
   type BillDto,
   type UtilityKind,
@@ -260,8 +261,37 @@ export function utilityStats(
 
 export type GroupBy = 'period' | 'utility' | 'property' | 'provider';
 
+/**
+ * The company a bill is from, the same however the bill prints it: the
+ * company it is filed under (Companies), else its printed name read as one
+ * word ("Wind Tre S.p.A." = "WINDTRE" = "Wind Tre S.p.A. con Socio Unico").
+ */
+export function providerOf(bill: BillDto): {
+  key: string;
+  name: string;
+  supplierId: string | null;
+} {
+  if (bill.supplierId)
+    return {
+      key: `company:${bill.supplierId}`,
+      name: bill.supplierName ?? bill.provider ?? 'Unknown provider',
+      supplierId: bill.supplierId,
+    };
+  const printed = bill.provider?.trim();
+  const word = printed ? entityKey(printed).replace(/ /g, '') : '';
+  return {
+    key: word ? `name:${word}` : 'unknown',
+    name: printed || 'Unknown provider',
+    supplierId: null,
+  };
+}
+
 export interface GroupRow {
   key: string;
+  /** What the row is called: the company's name for a provider, else the key. */
+  label: string;
+  /** For a provider: the company, to link to it. */
+  supplierId: string | null;
   amount: number;
   consumption: Partial<Record<UtilityKind, number>>;
   bills: number;
@@ -286,17 +316,25 @@ export function groupRows(
     for (const share of shares(bill, options.basis)) {
       if (share.month < options.range.from || share.month > options.range.to)
         continue;
-      const key =
-        options.by === 'period'
+      const provider = options.by === 'provider' ? providerOf(bill) : null;
+      const key = provider
+        ? provider.key
+        : options.by === 'period'
           ? bucketOf(share.month, options.grain)
           : options.by === 'utility'
             ? bill.utility
-            : options.by === 'property'
-              ? options.labelOfProperty(bill.propertyId)
-              : (bill.provider ?? 'Unknown provider');
+            : options.labelOfProperty(bill.propertyId);
       let row = rows.get(key);
       if (!row) {
-        row = { key, amount: 0, consumption: {}, bills: 0, seen: new Set() };
+        row = {
+          key,
+          label: provider?.name ?? key,
+          supplierId: provider?.supplierId ?? null,
+          amount: 0,
+          consumption: {},
+          bills: 0,
+          seen: new Set(),
+        };
         rows.set(key, row);
       }
       row.amount += bill.amount * share.weight;
@@ -421,8 +459,7 @@ export function missingMonths(
   const lines = new Map<string, BillDto[]>();
   for (const bill of bills) {
     if (UTILITIES[bill.utility].metered) continue;
-    const key =
-      bill.supplyPointId ?? bill.contractId ?? bill.provider ?? 'unknown';
+    const key = bill.supplyPointId ?? bill.contractId ?? providerOf(bill).key;
     lines.set(key, [...(lines.get(key) ?? []), bill]);
   }
   const result: MissingMonths[] = [];
@@ -447,7 +484,7 @@ export function missingMonths(
     if (months.length)
       result.push({
         key,
-        provider: own[0].provider,
+        provider: own[0].supplierName ?? own[0].provider,
         propertyId: own[0].propertyId,
         months,
       });

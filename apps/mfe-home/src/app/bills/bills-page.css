@@ -61,12 +61,31 @@
   border-radius: var(--radius-sm);
 }
 
-/* Headline: the one big number, beside the homes in 3D. */
-.hero {
+/*
+ * The top, by priority: the one big number and the homes in 3D, beside
+ * What's next. On a phone: the number, What's next, then the homes.
+ */
+.top {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-areas:
+    'headline next'
+    'houses next';
+  align-items: start;
   gap: var(--space-4);
   margin-bottom: var(--space-4);
+}
+
+.top > .headline {
+  grid-area: headline;
+}
+
+.top > .next-card {
+  grid-area: next;
+}
+
+.top > .houses {
+  grid-area: houses;
 }
 
 .headline {
@@ -155,13 +174,13 @@
 }
 
 .houses {
-  min-height: 15rem;
+  min-height: 13rem;
 }
 
 /* One tile per utility. */
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-4);
 }
@@ -169,6 +188,11 @@
 .tile {
   display: grid;
   gap: var(--space-1);
+  width: 100%;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
@@ -179,6 +203,11 @@
   transition:
     transform var(--duration-normal) var(--ease-spring),
     box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.tile:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .tile:hover {
@@ -208,11 +237,6 @@
   font-weight: 600;
 }
 
-.tile__bills {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
 .tile__value {
   font-size: var(--text-2xl);
   font-weight: 600;
@@ -223,11 +247,30 @@
   font-size: var(--text-sm);
 }
 
+/* One card per utility, two side by side on wide screens. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr));
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.li-group {
+  margin-bottom: var(--space-6);
+  /* Below the houses bar, which stays in view. */
+  scroll-margin-top: calc(var(--space-12) * 2);
+}
+
+/* The houses bar already stays in view: the sections bar scrolls away. */
+.li-jump {
+  position: static;
+  margin-bottom: var(--space-2);
+}
+
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-4);
-  margin-bottom: var(--space-4);
 }
 
 .grid--even {
@@ -256,8 +299,7 @@
   margin-bottom: var(--space-4);
 }
 
-.multiple__head,
-.consumption__head {
+.multiple__head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -267,16 +309,6 @@
 .multiple__head h3 {
   flex: 1;
   font-size: var(--text-lg);
-}
-
-.consumption {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.consumption__head .li-muted {
-  margin-left: auto;
-  font-size: var(--text-sm);
 }
 
 .bill-list {
@@ -357,53 +389,15 @@
 }
 
 @media (width <= 56rem) {
-  .hero,
+  .top,
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
 
-/* Is the price going up? One block per utility, two side by side on wide screens. */
-.prices-card,
-.internet-card {
-  display: block;
-  margin-bottom: var(--space-4);
-}
-
-.prices-card .note {
-  margin: 0 0 var(--space-4);
-}
-
-.prices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  gap: var(--space-5);
-}
-
-.price {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.price__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.price__value {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.offer {
-  margin: 0;
-}
-
-.offer ui-icon {
-  vertical-align: -2px;
-  margin-right: var(--space-1);
+  .top {
+    grid-template-areas:
+      'headline'
+      'next'
+      'houses';
+  }
 }

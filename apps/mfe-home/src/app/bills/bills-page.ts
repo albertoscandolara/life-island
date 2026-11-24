@@ -46,6 +46,14 @@ import {
   utilityLabel,
 } from '../shared/format';
 import { HouseDialog } from '../shared/house-dialog';
+import { BillUtilityCard, type UtilityView } from './bill-utility-card';
+import {
+  byUrgency,
+  newest,
+  STEP_BADGES,
+  utilityStep,
+  type UtilityStep,
+} from './next-steps';
 import { scopeHouses, selectedIds } from '../shared/selection';
 import { PropertyStore } from '../shared/property-store';
 import {
@@ -139,6 +147,7 @@ const YEAR_SHADES = [100, 72, 48, 30];
     UiSparkline,
     HouseDialog,
     HousesView,
+    BillUtilityCard,
   ],
   host: { 'data-character': 'stego', class: 'bills' },
   templateUrl: './bills-page.html',
@@ -174,6 +183,8 @@ export class BillsPage {
   protected readonly yoyUtility = signal<UtilityKind | 'ALL'>('ALL');
   protected readonly groupBy = signal<GroupBy>('period');
   protected readonly onlyUnassigned = signal(false);
+  /** The bill list shows only this utility; null for every one in view. */
+  protected readonly listUtility = signal<UtilityKind | null>(null);
   protected readonly showAllBills = signal(false);
 
   protected readonly presets = PRESETS;
@@ -189,6 +200,7 @@ export class BillsPage {
   protected readonly utilityLabel = utilityLabel;
   protected readonly utilityColor = utilityColor;
   protected readonly propertyColor = propertyColor;
+  protected readonly stepBadges = STEP_BADGES;
   protected readonly previewUrl = (id: string) => this.api.previewUrl(id);
 
   /** The selected house ids; none for every house (and unassigned bills). */
@@ -324,7 +336,7 @@ export class BillsPage {
         .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))[0] ?? null
     );
   });
-  protected readonly latest = computed(() => this.scoped()[0] ?? null);
+  protected readonly latest = computed(() => newest(this.scoped()));
 
   protected readonly unassigned = computed(
     () =>
@@ -427,36 +439,6 @@ export class BillsPage {
     };
   });
 
-  /** Consumption per utility in its own unit: one chart each, never two units on one axis. */
-  protected readonly consumption = computed(() =>
-    this.metered().map((utility) => {
-      const result = aggregate(this.scoped(), {
-        range: this.range(),
-        grain: this.grain(),
-        basis: this.basis(),
-        metric: 'consumption',
-        keys: [utility],
-        keyOf: (bill) => bill.utility,
-      });
-      const stat = this.stats().find((s) => s.utility === utility);
-      return {
-        utility,
-        unit: UTILITIES[utility].unit,
-        stat,
-        buckets: result.buckets,
-        series: [
-          {
-            id: utility,
-            label: `${utilityLabel(utility)} (${UTILITIES[utility].unit})`,
-            color: utilityColor(utility),
-            values: result.series[0].values,
-          },
-        ] satisfies UiChartSeries[],
-        empty: result.series[0].values.every((v) => !v),
-      };
-    }),
-  );
-
   /**
    * Is the price going up? The same question for every utility, each in its
    * own unit (€/kWh, €/Smc, €/m³, €/month): what you pay for what you get,
@@ -507,6 +489,7 @@ export class BillsPage {
             .map((c) => ({
               key: c.id,
               supplier: c.supplierName,
+              supplierId: c.supplierId,
               offer: c.offerName,
               since: c.offerStart ?? c.firstDay,
               house: p.propertyId ? this.store.name(p.propertyId) : null,
@@ -570,6 +553,109 @@ export class BillsPage {
     };
   });
 
+  /** What each utility used, bucket by bucket, in its own unit: never two units on one axis. */
+  private readonly use = computed(
+    () =>
+      Object.fromEntries(
+        this.metered().map((utility) => {
+          const result = aggregate(this.scoped(), {
+            range: this.range(),
+            grain: this.grain(),
+            basis: this.basis(),
+            metric: 'consumption',
+            keys: [utility],
+            keyOf: (bill) => bill.utility,
+          });
+          return [
+            utility,
+            {
+              buckets: result.buckets,
+              series: [
+                {
+                  id: utility,
+                  label: `${utilityLabel(utility)} (${UTILITIES[utility].unit})`,
+                  color: utilityColor(utility),
+                  values: result.series[0].values,
+                },
+              ] satisfies UiChartSeries[],
+              empty: result.series[0].values.every((v) => !v),
+            },
+          ];
+        }),
+      ) as Partial<Record<UtilityKind, NonNullable<UtilityView['use']>>>,
+  );
+
+  /** The bills of the range, as the list counts them: any day of their period inside it. */
+  protected readonly inRange = computed(() => {
+    const { from, to } = this.range();
+    return this.scoped().filter((bill) => {
+      const start = (
+        bill.periodStart ??
+        bill.issueDate ??
+        bill.dueDate ??
+        ''
+      ).slice(0, 7);
+      const end = (
+        bill.periodEnd ??
+        bill.issueDate ??
+        bill.dueDate ??
+        ''
+      ).slice(0, 7);
+      return !start || (end >= from && start <= to);
+    });
+  });
+
+  /**
+   * One card per utility in view, by priority: what it needs from you
+   * first, then what it costs and uses, its price over time and the rules.
+   */
+  protected readonly utilityViews = computed<UtilityView[]>(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const net = this.internet();
+    const inRange = this.inRange();
+    return this.prices().map((p) => {
+      const own = inRange.filter((b) => b.utility === p.utility);
+      const latest = [...own]
+        .sort((a, b) => {
+          const day = (x: BillDto) =>
+            x.periodEnd ?? x.issueDate ?? x.dueDate ?? '';
+          return day(b).localeCompare(day(a));
+        })
+        .slice(0, 4);
+      return {
+        utility: p.utility,
+        step: utilityStep(p.utility, this.scoped(), {
+          today,
+          change: p.change,
+          missing: p.utility === 'INTERNET' ? (net?.missing ?? []) : [],
+        }),
+        stat: this.stats().find((s) => s.utility === p.utility) ?? null,
+        months: this.months(),
+        price: p,
+        use: this.use()[p.utility] ?? null,
+        fee:
+          p.utility === 'INTERNET' && net
+            ? { buckets: net.buckets, series: net.series, extras: net.extras }
+            : null,
+        offers: p.offers,
+        latest,
+        count: own.length,
+      };
+    });
+  });
+
+  /** What's next: each utility's step, most urgent first, then the bills with no home. */
+  protected readonly nextSteps = computed<UtilityStep[]>(() =>
+    this.utilityViews()
+      .map((v) => v.step)
+      .sort(byUrgency),
+  );
+  protected readonly needsYou = computed(
+    () =>
+      this.nextSteps().filter((s) => s.level !== 'ok' && s.level !== 'empty')
+        .length + (this.unassigned() ? 1 : 0),
+  );
+
   protected readonly utilityParts = computed<UiBarPart[]>(() =>
     this.stats().map((s) => ({
       id: s.utility,
@@ -632,30 +718,18 @@ export class BillsPage {
   );
 
   protected readonly listed = computed(() => {
-    const { from, to } = this.range();
-    const inRange = (bill: BillDto) => {
-      const start = (
-        bill.periodStart ??
-        bill.issueDate ??
-        bill.dueDate ??
-        ''
-      ).slice(0, 7);
-      const end = (
-        bill.periodEnd ??
-        bill.issueDate ??
-        bill.dueDate ??
-        ''
-      ).slice(0, 7);
-      return !start || (end >= from && start <= to);
-    };
+    const only = this.listUtility();
     const bills = this.onlyUnassigned()
       ? (this.bills() ?? []).filter((b) => b.propertyId === null)
-      : this.scoped().filter(inRange);
+      : this.inRange().filter((b) => !only || b.utility === only);
     return this.showAllBills() ? bills : bills.slice(0, 12);
   });
-  protected readonly listedTotal = computed(() =>
-    this.onlyUnassigned() ? this.unassigned() : this.scoped().length,
-  );
+  protected readonly listedTotal = computed(() => {
+    const only = this.listUtility();
+    return this.onlyUnassigned()
+      ? this.unassigned()
+      : this.inRange().filter((b) => !only || b.utility === only).length;
+  });
 
   protected readonly formatAxis = computed(() => {
     const max = Math.max(
@@ -741,10 +815,38 @@ export class BillsPage {
     }
   }
 
-  protected groupLabel(key: string): string {
-    if (this.groupBy() === 'period') return bucketLabel(key);
-    if (this.groupBy() === 'utility') return utilityLabel(key as UtilityKind);
-    return key;
+  protected groupLabel(row: { key: string; label: string }): string {
+    if (this.groupBy() === 'period') return bucketLabel(row.key);
+    if (this.groupBy() === 'utility')
+      return utilityLabel(row.key as UtilityKind);
+    return row.label;
+  }
+
+  /** Scrolls to a section or a utility's card. */
+  protected jump(id: string): void {
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  protected utilityAnchor(kind: UtilityKind): string {
+    return `bills-${kind.toLowerCase()}`;
+  }
+
+  /** The bill list, with only one utility's bills. */
+  protected showBillsOf(kind: UtilityKind): void {
+    this.onlyUnassigned.set(false);
+    this.listUtility.set(kind);
+    this.showAllBills.set(true);
+    this.jump('bills-list');
+  }
+
+  /** The bill list, with only the bills not matched to a home. */
+  protected showUnassigned(): void {
+    this.listUtility.set(null);
+    this.onlyUnassigned.set(true);
+    this.showAllBills.set(true);
+    this.jump('bills-list');
   }
 
   private byProperty(metric: 'amount') {
@@ -781,43 +883,6 @@ export class BillsPage {
         ),
       error: (error) => this.error.set(errorMessage(error)),
     });
-  }
-
-  /** Axis ticks: the price without its unit (the unit is in the heading). */
-  protected readonly priceFormat = (kind: UtilityKind) => (value: number) =>
-    formatPrice(value, kind).replace(/\s?€\/.*$/, ' €');
-  protected readonly bucketTitle = (buckets: string[]) => (i: number) =>
-    bucketLabel(buckets[i] ?? '');
-
-  /** "Feb 2026, Mar 2026 and May 2026". */
-  protected monthList(months: string[]): string {
-    const names = months.map((m) => bucketLabel(m));
-    return names.length <= 1
-      ? (names[0] ?? '')
-      : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-  }
-
-  /** "since Jun 2020, 6 years ago". */
-  protected since(day: string): string {
-    const months =
-      monthsBetween({
-        from: day.slice(0, 7),
-        to: currentMonth(),
-      }).length - 1;
-    const ago =
-      months >= 24
-        ? `${Math.floor(months / 12)} years`
-        : months >= 12
-          ? '1 year'
-          : months === 1
-            ? '1 month'
-            : `${Math.max(0, months)} months`;
-    return `since ${bucketLabel(day.slice(0, 7))}, ${ago} ago`;
-  }
-
-  protected percent(value: number): string {
-    const rounded = Math.round(value * 100);
-    return `${rounded > 0 ? '+' : ''}${rounded}%`;
   }
 
   private load(): void {

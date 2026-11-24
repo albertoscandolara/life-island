@@ -135,10 +135,15 @@ export function possibleDuplicates(
     for (const b of live) {
       if (a.id === b.id) continue;
       // Different codes are different companies, unless the names are the
-      // very same: then it is for you to say (a misread code, a branch).
+      // very same, spacing aside ("Wind Tre S.p.A." and "WINDTRE"): then it
+      // is for you to say (a misread code, a codice fiscale that is not the
+      // VAT number, a branch).
       const strict = codesDiffer(a, b);
-      const close = (x: string, y: string) =>
-        strict ? compareNames(x, y) === 'same' : sameName(x, y);
+      const close = (x: string, y: string) => {
+        if (!strict) return sameName(x, y);
+        const how = compareNames(x, y);
+        return how === 'same' || how === 'compact';
+      };
       const pairs = [a.name, ...a.aliases].flatMap((x) =>
         [b.name, ...b.aliases].filter((y) => close(x, y)).map((y) => [x, y]),
       );

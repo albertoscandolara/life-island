@@ -121,10 +121,11 @@ export async function splitOrganization(
   const freed = new Set<string>();
   for (const bill of mine) {
     const facts = readBillFacts(bill.fields ?? {}, bill.utility);
-    if (bill.supplierId === id && facts.supplierTaxCode) {
+    if (bill.supplierId === id) {
       const theirs =
         !!facts.supplierName && organizationKey(facts.supplierName) === key;
-      printedBy[theirs ? 'split' : 'kept'].add(facts.supplierTaxCode);
+      for (const code of facts.supplierCodes)
+        printedBy[theirs ? 'split' : 'kept'].add(code);
     }
     if (
       bill.supplyPointId &&

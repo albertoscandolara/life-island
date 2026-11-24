@@ -116,7 +116,7 @@ export function priceRises(
       {
         id: `price-rise:${id}:${change.since}`,
         kind: 'price-rise',
-        title: `${label} price went up${bill.provider ? `: ${bill.provider}` : ''}`,
+        title: `${label} price went up${(bill.supplierName ?? bill.provider) ? `: ${bill.supplierName ?? bill.provider}` : ''}`,
         detail: `${unitPriceText(change.from, unit)} → ${unitPriceText(change.to, unit)} (+${percent}%) since ${change.since}. A supplier that changes the terms lets you leave without penalties: compare offers before the deadline in its notice.`,
         since: change.since <= today ? change.since : today,
         path: '/home/bills',

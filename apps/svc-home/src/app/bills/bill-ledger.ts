@@ -172,29 +172,34 @@ export async function syncBillsIn(db: Db): Promise<void> {
   );
   const billOf = new Map(existing.map((b) => [b.uploadId, b]));
 
-  /** The organization by tax code, else by name; created when none matches. */
+  /**
+   * The organization by any code the document prints, else by name; created
+   * when none matches. A code it prints that no company has yet is learnt
+   * (as one of its merged codes), so the next bill that prints only that
+   * one finds it too: Wind Tre prints a codice fiscale and a VAT number that
+   * differ, and each bill may be read with either.
+   */
   const organization = async (
     name: string | null,
-    taxCode: string | null,
+    printed: readonly string[],
     role: OrganizationRole,
   ): Promise<OrganizationRow | null> => {
+    const taxCode = printed[0] ?? null;
     const label = name ?? taxCode;
     if (!label) return null;
+    const codes = { taxCode: null, vatNumber: null, mergedCodes: printed };
     const key = name ? organizationKey(name) : null;
-    let org = taxCode ? orgsByTax.get(taxCode) : undefined;
+    let org = printed.map((c) => orgsByTax.get(c)).find((o) => !!o);
     if (!org && key) {
       const byName = orgsByKey.get(key);
       // A name match is the same company unless their codes say otherwise.
-      if (byName && !codesDiffer({ taxCode, vatNumber: null }, byName))
-        org = byName;
+      if (byName && !codesDiffer(codes, byName)) org = byName;
     }
     if (!org && name) {
-      // Printed a little differently ("BancaWidiba", "Elektrosistem").
+      // Printed a little differently ("BancaWidiba", "WINDTRE", "Elektrosistem").
       const similar = matchName(
         name,
-        [...new Set(orgsByKey.values())].filter(
-          (o) => !codesDiffer({ taxCode, vatNumber: null }, o),
-        ),
+        [...new Set(orgsByKey.values())].filter((o) => !codesDiffer(codes, o)),
         (o) => [o.name, ...o.aliases],
         { prefer: (o) => o.status === 'CONFIRMED' },
       );
@@ -207,18 +212,29 @@ export async function syncBillsIn(db: Db): Promise<void> {
           name: label,
           nameKey: key ?? label,
           taxCode,
+          mergedCodes: printed.slice(1),
           roles: [role],
         })
         .returning();
-    } else if ((taxCode && !org.taxCode) || !org.roles.includes(role)) {
-      [org] = await db
-        .update(organizations)
-        .set({
-          taxCode: org.taxCode ?? taxCode,
-          roles: org.roles.includes(role) ? org.roles : [...org.roles, role],
-        })
-        .where(eq(organizations.id, org.id))
-        .returning();
+    } else {
+      const known = codesOf(org);
+      // Codes another company already has stay theirs: that is for you to
+      // merge, never for a bill to decide.
+      const learnt = printed.filter(
+        (c) => !known.includes(c) && !orgsByTax.has(c),
+      );
+      const ownTax = org.taxCode ?? (learnt.length ? learnt[0] : null);
+      const extra = learnt.filter((c) => c !== ownTax);
+      if (ownTax !== org.taxCode || extra.length || !org.roles.includes(role))
+        [org] = await db
+          .update(organizations)
+          .set({
+            taxCode: ownTax,
+            mergedCodes: [...org.mergedCodes, ...extra],
+            roles: org.roles.includes(role) ? org.roles : [...org.roles, role],
+          })
+          .where(eq(organizations.id, org.id))
+          .returning();
     }
     for (const code of codesOf(org))
       if (code === org.taxCode || !orgsByTax.has(code))
@@ -240,7 +256,7 @@ export async function syncBillsIn(db: Db): Promise<void> {
 
     const supplier = await organization(
       facts.supplierName,
-      facts.supplierTaxCode,
+      facts.supplierCodes,
       'ENERGY_SUPPLIER',
     );
 
@@ -248,7 +264,7 @@ export async function syncBillsIn(db: Db): Promise<void> {
     if (facts.supplyPointCode) {
       const distributor = await organization(
         facts.distributorName,
-        null,
+        [],
         'DISTRIBUTOR',
       );
       const house = manual ? (override?.propertyId ?? null) : read.propertyId;

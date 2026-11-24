@@ -37,6 +37,7 @@ const bill = (overrides: Partial<BillDto>): BillDto => ({
   invoiceNumber: null,
   totalDue: null,
   supplierId: null,
+  supplierName: null,
   supplyPointId: null,
   contractId: null,
   directDebit: null,
@@ -210,9 +211,66 @@ describe('groupRows', () => {
       },
     );
     expect(rows).toEqual([
-      { key: 'Via Ponzilovo', amount: 90, consumption: {}, bills: 1 },
-      { key: 'Unassigned', amount: 10, consumption: {}, bills: 1 },
+      {
+        key: 'Via Ponzilovo',
+        label: 'Via Ponzilovo',
+        supplierId: null,
+        amount: 90,
+        consumption: {},
+        bills: 1,
+      },
+      {
+        key: 'Unassigned',
+        label: 'Unassigned',
+        supplierId: null,
+        amount: 10,
+        consumption: {},
+        bills: 1,
+      },
     ]);
+  });
+
+  it('groups by company, however each bill prints its name', () => {
+    const options = {
+      range: { from: '2026-01', to: '2026-12' },
+      basis: 'period' as const,
+      grain: 'month' as const,
+      by: 'provider' as const,
+      labelOfProperty: () => '',
+    };
+    const wind = (provider: string, supplierId: string | null) =>
+      bill({
+        utility: 'INTERNET',
+        provider,
+        supplierId,
+        supplierName: supplierId ? 'Wind Tre S.p.A.' : null,
+        issueDate: '2026-03-02',
+        amount: 30,
+      });
+    const filed = groupRows(
+      [
+        wind('Wind Tre S.p.A.', 'w'),
+        wind('WINDTRE', 'w'),
+        wind('Wind Tre S.p.A. con Socio Unico', 'w'),
+        bill({ provider: 'Hera', supplierId: 'h', issueDate: '2026-03-02' }),
+      ],
+      options,
+    );
+    expect(filed.map((r) => [r.label, r.supplierId, r.bills])).toEqual([
+      ['Hera', 'h', 1],
+      ['Wind Tre S.p.A.', 'w', 3],
+    ]);
+    // Not filed under a company yet: still one, by its name as one word.
+    const printed = groupRows(
+      [
+        wind('Wind Tre S.p.A.', null),
+        wind('WINDTRE', null),
+        wind('Wind Tre S.p.A. con Socio Unico', null),
+      ],
+      options,
+    );
+    expect(printed).toHaveLength(1);
+    expect(printed[0]).toMatchObject({ bills: 3, amount: 90 });
   });
 });
 
