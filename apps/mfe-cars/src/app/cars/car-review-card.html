@@ -44,8 +44,11 @@
     </ui-alert>
     } @if (review.joins; as joins) {
     <ui-alert tone="info">
-      <strong>Same policy as one you have.</strong> It prints
-      <span class="li-mono">{{ joins.number }}</span>, like the record that
+      <strong>Part of a record you have.</strong> @if (joins.validFrom ||
+      joins.validUntil) { It covers the same period ({{ joins.validFrom ?
+      (joins.validFrom | date: 'd MMM y') : '…' }} – {{ joins.validUntil ?
+      (joins.validUntil | date: 'd MMM y') : '…' }}) } @else { It prints
+      <span class="li-mono">{{ joins.number }}</span> } as the record that
       already has {{ joins.documentCount }} {{ joins.documentCount === 1 ?
       'document' : 'documents' }}: approved, it joins that record instead of
       making a new version.

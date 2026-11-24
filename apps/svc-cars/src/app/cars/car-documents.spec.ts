@@ -12,6 +12,7 @@ import {
   numberOf,
   proposeVehicleChanges,
   readCarDocument,
+  recordKeyOf,
   renewalsOf,
   roadTaxDeadline,
   roleOf,
@@ -582,6 +583,120 @@ describe('car documents', () => {
         'scan',
         'rec',
       ]);
+    });
+
+    it('makes a new version of a renewal that keeps the policy number', () => {
+      const renewal = approved(
+        'ren',
+        'CAR_INSURANCE',
+        {
+          ...common,
+          policy_number: 'DI303516658-001',
+          start_date: '2027-04-10',
+          end_date: '2028-04-10',
+        },
+        null,
+        'Certificato_di_Assicurazione_DI303516658-001.pdf',
+      );
+      const instalment = approved(
+        'rata',
+        'CAR_INSURANCE',
+        {
+          policy_number: 'DI303516658-001',
+          total_amount: 136.38,
+          payment_date: '2026-10-10',
+        },
+        null,
+        'Ricevuta rata 2',
+      );
+      const versions = buildSeries(
+        [policy, certificate, receipt, renewal, instalment],
+        '2027-05-01',
+      )[0].versions;
+      expect(
+        versions.map((v) => v.document.members.map((m) => m.uploadId)),
+      ).toEqual([['ren'], ['pol', 'cert', 'rec', 'rata']]);
+      expect(versions[0]).toMatchObject({ version: 2, status: 'current' });
+      expect(
+        renewalsOf(
+          {},
+          buildSeries([policy, renewal], '2027-05-01'),
+          [],
+          '2027-05-01',
+        ).find((r) => r.kind === 'insurance')?.dueDate,
+      ).toBe('2028-04-10');
+    });
+
+    it('makes one record of the same period whatever number each file prints', () => {
+      const other = {
+        insurer: 'Other Assicurazioni',
+        registration_number: 'EJ560PZ',
+      };
+      const newPolicy = approved(
+        'p2',
+        'CAR_INSURANCE',
+        {
+          ...other,
+          policy_number: 'POL-778',
+          start_date: '2027-04-10',
+          end_date: '2028-04-10',
+          total_amount: 310,
+          payment_date: '2027-04-01',
+        },
+        null,
+        'Contratto.pdf',
+      );
+      const quietanza = approved(
+        'q2',
+        'CAR_INSURANCE',
+        {
+          ...other,
+          policy_number: 'Q-99812',
+          start_date: '2027-04-10',
+          end_date: '2028-04-10',
+          total_amount: 310,
+          payment_date: '2027-04-01',
+        },
+        null,
+        'Quietanza.pdf',
+      );
+      const card = approved(
+        'c2',
+        'CAR_INSURANCE',
+        { ...other, end_date: '2028-04-09' },
+        null,
+        'Carta verde.pdf',
+      );
+      const docs = [policy, newPolicy, quietanza, card];
+      const versions = buildSeries(docs, '2027-05-01')[0].versions;
+      expect(versions).toHaveLength(2);
+      expect(versions[0].document.members.map((m) => m.uploadId)).toEqual([
+        'p2',
+        'c2',
+        'q2',
+      ]);
+      expect(costsOf(docs).filter((c) => c.date === '2027-04-01')).toHaveLength(
+        1,
+      );
+    });
+
+    it('keeps a document in the period you put it in by hand', () => {
+      const unread = approved(
+        'scan',
+        'CAR_INSURANCE',
+        { total_amount: 272.76 },
+        null,
+        'scan.pdf',
+        'period:2026-04-10',
+      );
+      const [version] = buildSeries([policy, unread], '2026-11-09')[0].versions;
+      expect(version.document.members.map((m) => m.uploadId)).toEqual([
+        'pol',
+        'scan',
+      ]);
+      expect(recordKeyOf([policy, certificate], 'cert')).toBe(
+        'period:2026-04-10',
+      );
     });
 
     it('cancels the whole record when one of its documents is', () => {

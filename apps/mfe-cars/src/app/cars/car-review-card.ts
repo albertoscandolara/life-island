@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -61,7 +62,15 @@ const LABELS = new Map<string, string>(
 @Component({
   selector: 'cars-review-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LiReviewItem, LiToReview, UiAlert, UiBadge, UiButton, UiIcon],
+  imports: [
+    DatePipe,
+    LiReviewItem,
+    LiToReview,
+    UiAlert,
+    UiBadge,
+    UiButton,
+    UiIcon,
+  ],
   templateUrl: './car-review-card.html',
   styleUrls: ['./cars-bits.css', './car-review-card.css'],
 })

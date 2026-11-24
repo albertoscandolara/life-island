@@ -95,7 +95,7 @@ import {
   isOutdated,
   matchVehicle,
   normalizeCode,
-  numberKey,
+  recordKeyOf,
   proposeVehicleChanges,
   readCarDocument,
   renewalsOf,
@@ -462,11 +462,21 @@ export class CarsService {
         const { vehicle, match } = matchVehicle(doc.reading, known);
         const ofVehicle = vehicle ? (approvedOf.get(vehicle.id) ?? []) : [];
         const outdated = isOutdated(doc.reading, ofVehicle);
-        const key = numberKey(doc.reading.number);
         const record =
-          key && doc.type !== 'VEHICLE_EXPENSE'
-            ? groupDocuments(ofVehicle).find(
-                (g) => g.key === `${doc.type ?? ''}|${key}`,
+          doc.type !== 'VEHICLE_EXPENSE'
+            ? groupDocuments([
+                ...ofVehicle,
+                {
+                  uploadId: doc.row.uploadId,
+                  type: doc.type,
+                  reading: doc.reading,
+                  uploadedAt: doc.row.uploadedAt.toISOString(),
+                  markedStatus: null,
+                },
+              ]).find(
+                (g) =>
+                  g.members.length > 1 &&
+                  g.members.some((m) => m.uploadId === doc.row.uploadId),
               )
             : undefined;
         return {
@@ -493,14 +503,17 @@ export class CarsService {
           ),
           outdated,
           role: doc.reading.role,
-          joins:
-            record && doc.reading.number
-              ? {
-                  uploadId: record.uploadId,
-                  number: doc.reading.number,
-                  documentCount: record.members.length,
-                }
-              : null,
+          joins: record
+            ? {
+                uploadId:
+                  record.members.find((m) => m.uploadId !== doc.row.uploadId)
+                    ?.uploadId ?? record.uploadId,
+                number: doc.reading.number ?? record.reading.number,
+                validFrom: record.reading.validFrom,
+                validUntil: record.reading.validUntil,
+                documentCount: record.members.length - 1,
+              }
+            : null,
         };
       })
       .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
@@ -676,7 +689,11 @@ export class CarsService {
         throw new UnprocessableEntityException(
           'Attach it to a document of the same kind',
         );
-      groupKey = groupKeyOf(target);
+      groupKey =
+        recordKeyOf(
+          approved.filter((d) => d.uploadId !== uploadId),
+          target.uploadId,
+        ) ?? groupKeyOf(target);
     }
     await this.svc.db
       .update(reviews)
