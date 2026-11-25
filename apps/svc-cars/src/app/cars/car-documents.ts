@@ -28,6 +28,9 @@ import {
   type VehicleValue,
   type VehicleValues,
   euroText,
+  OWNERSHIP_DOCUMENT_KINDS,
+  OWNERSHIP_DOCUMENT_KIND_LABELS,
+  type OwnershipDocumentKind,
   CNG_CYLINDER_TYPES,
   CNG_INTERVAL_MONTHS,
   CNG_MAX_CYLINDERS,
@@ -242,7 +245,27 @@ export interface CarDocumentReading {
   fine: FineReading | null;
   /** CNG cylinder label: its cylinders and months. */
   cng: CngReading | null;
+  /** Certificato di proprietà, PRA receipt or sale: who owns the car. */
+  ownership: OwnershipReading | null;
   facts: CarDocumentFactDto[];
+}
+
+/** What an ownership document prints (car-ownership.ts works out the rest). */
+export interface OwnershipReading {
+  kind: OwnershipDocumentKind | null;
+  /** The owners, as printed: one, or several co-owners. */
+  owners: string[];
+  /** Owners before them (numero precedenti intestazioni). */
+  previousOwners: number | null;
+  /** The day of the sale (atto di vendita), when printed. */
+  saleDate: string | null;
+  seller: string | null;
+  /** Liens as printed (fermo amministrativo, ipoteca); null when none. */
+  liens: string | null;
+  /** It says no lien is recorded (non risultano iscritte ipoteche). */
+  noLiens: boolean;
+  /** The code to see a digital certificate online (ID CDPD). */
+  accessCode: string | null;
 }
 
 /** What a fine's verbale prints. */
@@ -385,6 +408,73 @@ export function readCngLabel(f: Fields): CngReading {
   };
 }
 
+/** "UFFICIO PROV. DI VERONA", "verona" → "Verona": the PRA office as a town. */
+export function praOffice(value: string | null): string | null {
+  const name = value
+    ?.replace(
+      /^\s*(?:p\.?r\.?a\.?|ufficio(?:\s+prov(?:inciale|\.)?)?(?:\s+aci)?)\s+(?:di\s+)?/i,
+      '',
+    )
+    .trim()
+    .toLowerCase()
+    .replace(/(^|[\s'-])\p{L}/gu, (c) => c.toUpperCase());
+  return name || null;
+}
+
+/**
+ * What an ownership document is: as read (`document_kind`), else guessed
+ * from its title or file name (certificato, passaggio, atto di vendita).
+ */
+export function ownershipKindOf(
+  printed: string | number | boolean | null | undefined,
+  names: readonly (string | null | undefined)[],
+): OwnershipDocumentKind | null {
+  const read = text(printed)?.toLowerCase();
+  const known = OWNERSHIP_DOCUMENT_KINDS.find((k) => k === read);
+  if (known) return known;
+  const name = names.filter(Boolean).join(' ').toLowerCase();
+  if (/atto di vendita|dichiarazione di vendita|compravendita/.test(name))
+    return 'sale';
+  if (/passaggio|trasferimento|attestazione|formalit/.test(name))
+    return 'transfer';
+  if (/certificato di propriet|\bcdpd?\b/.test(name)) return 'certificate';
+  return null;
+}
+
+/** "ROSSI MARIO; BIANCHI ANNA" → two owners, as printed. */
+export function ownerList(
+  value: string | number | boolean | null | undefined,
+): string[] {
+  if (value === null || value === undefined) return [];
+  return String(value)
+    .split(/[;\n|]/)
+    .map((o) => o.trim().replace(/\s+/g, ' '))
+    .filter((o) => o.length > 1);
+}
+
+/** What an ownership document prints, from its template fields. */
+export function readOwnership(
+  f: Fields,
+  names: readonly (string | null)[] = [],
+): OwnershipReading {
+  const liens = text(f['liens']);
+  // "Non risultano iscritte ipoteche" read into liens is no lien at all.
+  const saysNone = !!liens && /^(non risult|nessun|none\b|no\b)/i.test(liens);
+  return {
+    kind: ownershipKindOf(f['document_kind'], names),
+    owners: ownerList(f['owner_name']),
+    previousOwners: (() => {
+      const n = numberOf(f['previous_owners']);
+      return n === null ? null : Math.round(n);
+    })(),
+    saleDate: dateOf(f['sale_date']),
+    seller: text(f['seller_name']),
+    liens: saysNone ? null : liens,
+    noLiens: f['no_liens'] === true || saysNone,
+    accessCode: text(f['access_code']),
+  };
+}
+
 /** "Furto, incendio; Cristalli" → ['Furto', 'incendio', 'Cristalli']: one cover each. */
 export function coverList(value: string | null): string[] | null {
   if (!value) return null;
@@ -488,7 +578,16 @@ export function readCarDocument(
   const fieldsRead: readonly VehicleField[] =
     type === 'VEHICLE_REGISTRATION'
       ? VEHICLE_FIELDS
-      : ['registrationNumber', 'vin', 'make', 'commercialName'];
+      : type === 'VEHICLE_OWNERSHIP'
+        ? // It prints the first registration too: a car that never changes.
+          [
+            'registrationNumber',
+            'vin',
+            'make',
+            'commercialName',
+            'firstRegistrationDate',
+          ]
+        : ['registrationNumber', 'vin', 'make', 'commercialName'];
   for (const field of fieldsRead) {
     const value = vehicleValueOf(field, f[DEFINITION.get(field)?.key ?? '']);
     if (value !== null) values[field] = value;
@@ -530,6 +629,7 @@ export function readCarDocument(
     coverages: null,
     fine: null,
     cng: null,
+    ownership: null,
     facts,
   };
 
@@ -542,6 +642,32 @@ export function readCarDocument(
       reading.validUntil = (values.registrationValidUntil as string) ?? null;
       fact('Document number', reading.number);
       fact('Issued', reading.validFrom);
+      break;
+    }
+    case 'VEHICLE_OWNERSHIP': {
+      const ownership = readOwnership(f, names);
+      reading.ownership = ownership;
+      reading.number = str('document_number');
+      reading.issuer = praOffice(str('pra_office'));
+      const issued = date('issue_date');
+      // A change of owner counts from the sale, the certificate from its date.
+      reading.validFrom = ownership.saleDate ?? issued;
+      reading.amount = amount;
+      reading.costDate = reading.paymentDate ?? issued ?? reading.validFrom;
+      fact(
+        'Document',
+        ownership.kind ? OWNERSHIP_DOCUMENT_KIND_LABELS[ownership.kind] : null,
+      );
+      fact('Owner', ownership.owners.join(', ') || null);
+      fact('Owner since', ownership.saleDate);
+      fact('Previous owners', ownership.previousOwners);
+      fact('Sold by', ownership.seller);
+      fact('Liens', ownership.liens ?? (ownership.noLiens ? 'None' : null));
+      fact('Number', reading.number);
+      fact('Issued', issued);
+      fact('PRA office', reading.issuer);
+      fact('Access code', ownership.accessCode);
+      fact('Amount', amount === null ? null : money(amount));
       break;
     }
     case 'CAR_INSURANCE': {
@@ -1420,6 +1546,8 @@ export function costsOf<T extends ApprovedCarDocument & { title: string }>(
         return 'inspection';
       case 'CNG_CYLINDER_INSPECTION':
         return 'cng_cylinders';
+      case 'VEHICLE_OWNERSHIP':
+        return 'ownership';
       case 'VEHICLE_EXPENSE':
         return d.reading.expenseKind ?? 'other';
       default:

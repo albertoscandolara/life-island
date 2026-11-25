@@ -16,6 +16,7 @@ export const CAR_DOCUMENT_CARD_TYPES = [
   'VEHICLE_INSPECTION',
   'CNG_CYLINDER_INSPECTION',
   'VEHICLE_REGISTRATION',
+  'VEHICLE_OWNERSHIP',
 ] as const satisfies readonly CarDocumentType[];
 export type CarDocumentCardType = (typeof CAR_DOCUMENT_CARD_TYPES)[number];
 
@@ -30,6 +31,8 @@ export const CAR_DOCUMENT_RENEWAL_KIND: Record<
   CNG_CYLINDER_INSPECTION: 'cng_cylinders',
   // The temporary registration (foglio di via) only, when there is one.
   VEHICLE_REGISTRATION: 'registration',
+  // Nothing to renew: a new one comes with a change of owner.
+  VEHICLE_OWNERSHIP: null,
 };
 
 export interface CarDocumentGuide {
@@ -57,6 +60,11 @@ export interface CarDocumentGuide {
   ifLate: string;
   /** The rules it comes from. */
   sources: string[];
+  /**
+   * Why a car may rightly have none on file: then a card without one is not
+   * a step to take, and says this instead.
+   */
+  notAlways?: string;
 }
 
 export const CAR_DOCUMENT_GUIDES: Record<
@@ -180,5 +188,32 @@ export const CAR_DOCUMENT_GUIDES: Record<
       'Art. 94 Codice della strada (sale within 60 days)',
       'D.Lgs. 98/2017 (Documento Unico)',
     ],
+  },
+  VEHICLE_OWNERSHIP: {
+    what: 'The certificato di proprietà from the PRA (ACI): it proves who owns the car and lists any lien on it (fermo amministrativo, ipoteca). Digital since October 2015, with a code to see it online.',
+    every: 'When the owner changes',
+    renewal:
+      'Never by itself: a new one is issued at every change of owner (passaggio di proprietà), and when a lien is recorded or cancelled.',
+    deadline:
+      'None. A sale has to be recorded at the PRA within 60 days of the signed sale; the receipt of the PRA and the sale date it.',
+    todo: 'Load the certificato di proprietà. After a change of owner, load the PRA receipt and the sale too: each is a step in the history of owners.',
+    dueVerb: 'Issued',
+    load: 'Load the certificate',
+    proof:
+      'the certificato di proprietà, or the PRA receipt of a change of owner',
+    where: 'keep',
+    whereText:
+      'At home, in a safe place, apart from the libretto: no law asks for it on board, and left in a stolen car it makes a fraudulent sale easier.',
+    keepFor:
+      'As long as you have the car: you hand it (or its access code) to the buyer when you sell. Keep the papers of an earlier change of owner too: they prove from which day fines and bollo were no longer the seller’s.',
+    ifLate:
+      'A change of owner not recorded at the PRA within 60 days: a fine for the buyer and the carta di circolazione withdrawn. Until it is recorded, fines and the bollo still reach the seller.',
+    sources: [
+      'Art. 94 Codice della strada (change of owner within 60 days)',
+      'Art. 180 Codice della strada (documents on board)',
+      'D.Lgs. 98/2017 (Documento Unico)',
+    ],
+    notAlways:
+      'A car registered or changing owner since 2020 has the Documento Unico instead, which holds the ownership too: then there is nothing else to load.',
   },
 };

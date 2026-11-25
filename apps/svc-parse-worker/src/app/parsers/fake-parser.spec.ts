@@ -103,6 +103,8 @@ describe('FakeParser', () => {
 
   it.each([
     ['Libretto di circolazione Panda.pdf', 'VEHICLE_REGISTRATION'],
+    ['EJ560PZ Certificato di proprietà.pdf', 'VEHICLE_OWNERSHIP'],
+    ['Passaggio di proprietà Punto.pdf', 'VEHICLE_OWNERSHIP'],
     ['Polizza RCA 2026.pdf', 'CAR_INSURANCE'],
     ['Bollo auto 2026.pdf', 'ROAD_TAX'],
     ['Revisione auto marzo.pdf', 'VEHICLE_INSPECTION'],
@@ -112,6 +114,7 @@ describe('FakeParser', () => {
     const ids = [
       'CAR_DOCUMENT',
       'VEHICLE_REGISTRATION',
+      'VEHICLE_OWNERSHIP',
       'CAR_INSURANCE',
       'ROAD_TAX',
       'VEHICLE_INSPECTION',

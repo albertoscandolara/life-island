@@ -4,6 +4,7 @@ import type { BankPaymentDto } from './payables.js';
 import type { PersonLicenceDto } from './people.js';
 import type { CarArchiveDto } from './cars-archive.js';
 import type { CarCngDto } from './cars-cng.js';
+import type { CarOwnershipDto } from './cars-ownership.js';
 import type {
   CarFinesDto,
   CarUsageDto,
@@ -21,9 +22,13 @@ import type {
  * life-island-docs/cars (vehicle.schema.json and the car blueprints).
  */
 
-/** The car document types: categories of svc-ingestion's migrations 0013 and 0032 (CNG cylinders). */
+/**
+ * The car document types: categories of svc-ingestion's migrations 0013,
+ * 0032 (CNG cylinders) and 0034 (ownership).
+ */
 export const CAR_DOCUMENT_TYPES = [
   'VEHICLE_REGISTRATION',
+  'VEHICLE_OWNERSHIP',
   'CAR_INSURANCE',
   'ROAD_TAX',
   'VEHICLE_INSPECTION',
@@ -37,6 +42,7 @@ export const CAR_DOCUMENT_ROOT = 'CAR_DOCUMENT';
 
 export const CAR_DOCUMENT_TYPE_LABELS: Record<CarDocumentType, string> = {
   VEHICLE_REGISTRATION: 'Registration certificate',
+  VEHICLE_OWNERSHIP: 'Ownership (certificato di proprietà)',
   CAR_INSURANCE: 'Insurance',
   ROAD_TAX: 'Road tax (bollo)',
   VEHICLE_INSPECTION: 'Inspection (revisione)',
@@ -901,9 +907,15 @@ export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
 
 /** What a cost is, for the totals: an expense kind, or a renewable document. */
 export type CostKind =
-  ExpenseKind | 'insurance' | 'road_tax' | 'inspection' | 'cng_cylinders';
+  | ExpenseKind
+  | 'insurance'
+  | 'road_tax'
+  | 'inspection'
+  | 'cng_cylinders'
+  | 'ownership';
 export const COST_KIND_LABELS: Record<CostKind, string> = {
   insurance: 'Insurance',
+  ownership: 'Change of owner',
   road_tax: 'Road tax',
   inspection: 'Revisione',
   cng_cylinders: 'CNG cylinders',
@@ -1160,6 +1172,8 @@ export interface VehicleDto {
   archive: CarArchiveDto;
   /** Its CNG cylinders: for a car that runs on methane (P.3), or with a cylinder label on file. */
   cng: CarCngDto | null;
+  /** Who owns it, from its ownership documents; null when none is on file. */
+  ownership: CarOwnershipDto | null;
 }
 
 export type VehicleChangeKind = 'new_value' | 'different_value';

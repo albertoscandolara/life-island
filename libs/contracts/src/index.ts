@@ -16,6 +16,7 @@ export * from './lib/cars-insights.js';
 export * from './lib/cars-archive.js';
 export * from './lib/cars-cng.js';
 export * from './lib/cars-document-guide.js';
+export * from './lib/cars-ownership.js';
 export * from './lib/work.js';
 export * from './lib/work-insights.js';
 export * from './lib/work-checks.js';

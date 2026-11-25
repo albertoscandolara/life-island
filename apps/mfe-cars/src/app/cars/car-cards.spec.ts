@@ -7,6 +7,7 @@ import type {
 } from '@life-island/contracts';
 import { CarCngCylinders } from './car-cng-cylinders';
 import { CarDocCard } from './car-doc-card';
+import { CarOwnershipHistory } from './car-ownership-history';
 import { CarDocumentsCard } from './car-documents-card';
 import { CarCostsCard } from './car-costs-card';
 import { CarRenewalsCard } from './car-renewals-card';
@@ -302,5 +303,72 @@ describe('Cars cards', () => {
     expect(text).toContain(
       'Cylinders exchanged at the requalification of 07/2023.',
     );
+  });
+
+  it('does not ask for a certificato di proprietà a car may rightly not have', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
+    const fixture = TestBed.createComponent(CarDocCard);
+    fixture.componentRef.setInput('type', 'VEHICLE_OWNERSHIP');
+    fixture.componentRef.setInput('vehicleStatus', 'active');
+    fixture.componentRef.setInput('vehicleName', 'Punto');
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toContain('Ownership (certificato di proprietà)');
+    expect(text).toContain('None on file');
+    expect(text).toContain('Documento Unico');
+    expect(text).toContain('When the owner changes');
+    // Not a step to take: the upload stays a secondary button.
+    expect(element.querySelector('.li-step--urgent')).toBeNull();
+    expect(element.getAttribute('id')).toBe('doc-VEHICLE_OWNERSHIP');
+  });
+
+  it('shows the owners, a lien, a libretto to update and the history of owners', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
+    const fixture = TestBed.createComponent(CarOwnershipHistory);
+    fixture.componentRef.setInput('ownership', {
+      owners: ['VERDI PAOLO'],
+      since: '2026-10-02',
+      previousOwners: 2,
+      liens: 'Fermo amministrativo',
+      noLiens: false,
+      certificateNumber: null,
+      accessCode: null,
+      holderDiffers: 'ROSSI ANNA',
+      events: [
+        {
+          date: '2011-06-30',
+          kind: 'registered',
+          owners: [],
+          seller: null,
+          uploadId: null,
+        },
+        {
+          date: '2026-10-02',
+          kind: 'sale',
+          owners: ['VERDI PAOLO'],
+          seller: 'ROSSI ANNA',
+          uploadId: 'sale',
+        },
+      ],
+    });
+    const opened: string[] = [];
+    fixture.componentInstance.open.subscribe((id) => opened.push(id));
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toContain(
+      'A lien is recorded on the car: Fermo amministrativo',
+    );
+    expect(text).toContain('The libretto still names ROSSI ANNA');
+    const rows = [...element.querySelectorAll('tbody tr')].map((row) =>
+      row.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(rows[0]).toContain('First registration');
+    expect(rows[1]).toContain('Sale (atto di vendita)');
+    expect(rows[1]).toContain('ROSSI ANNA → VERDI PAOLO');
+    expect(text).toContain('2 owners before the current one');
+    element.querySelector<HTMLButtonElement>('button')?.click();
+    expect(opened).toEqual(['doc-VEHICLE_REGISTRATION']);
   });
 });

@@ -96,13 +96,13 @@ describe('buildCarDocumentsWorkbook', () => {
     const row = (r: number) =>
       [1, 2, 5, 6].map((c) => sheet?.getRow(r).getCell(c).value);
     expect(row(2)).toEqual([
-      '01 - Assicurazione',
+      '02 - Assicurazione',
       'Certificato RCA 2026',
       '✓',
       '✓',
     ]);
-    expect(row(3)).toEqual(['02 - Bollo', 'Bollo 2026', '✗', '✓']);
-    expect(row(4)).toEqual(['07 - Altre spese', 'Pieno', '✗', '✗']);
+    expect(row(3)).toEqual(['03 - Bollo', 'Bollo 2026', '✗', '✓']);
+    expect(row(4)).toEqual(['08 - Altre spese', 'Pieno', '✗', '✗']);
     expect(sheet?.getRow(3).getCell(7).value).toEqual(
       new Date('2029-12-31T00:00:00Z'),
     );
@@ -136,7 +136,7 @@ describe('buildCarDocumentsWorkbook', () => {
       '2026-11-23',
     );
     const documents = workbook.getWorksheet('Documenti');
-    expect(documents?.getRow(5).getCell(1).value).toBe('04 - Bombole metano');
+    expect(documents?.getRow(5).getCell(1).value).toBe('05 - Bombole metano');
     expect(documents?.getRow(5).getCell(5).value).toBe('✗');
     expect(documents?.getRow(5).getCell(6).value).toBe('✓');
     expect(documents?.getRow(5).getCell(7).value).toBe(
@@ -175,7 +175,7 @@ describe('helpers', () => {
         'Bollo: 2026?',
         'scan.PDF',
       ),
-    ).toBe('Documenti auto - Panda/02 - Bollo/2026-02-01 - Bollo 2026.pdf');
+    ).toBe('Documenti auto - Panda/03 - Bollo/2026-02-01 - Bollo 2026.pdf');
   });
 
   it('names the files for the car by kind, date and title', () => {

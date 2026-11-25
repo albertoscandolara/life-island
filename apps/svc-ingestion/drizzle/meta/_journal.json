@@ -239,6 +239,13 @@
       "when": 1794333527785,
       "tag": "0033_road_tax_inspection_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794333587785,
+      "tag": "0034_car_ownership_category",
+      "breakpoints": true
     }
   ]
 }

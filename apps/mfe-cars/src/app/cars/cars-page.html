@@ -351,6 +351,11 @@ idle) {
       >
         @if (type === 'CNG_CYLINDER_INSPECTION' && vehicle.cng) {
         <cars-cng-cylinders [cng]="vehicle.cng" />
+        } @if (type === 'VEHICLE_OWNERSHIP' && vehicle.ownership) {
+        <cars-ownership-history
+          [ownership]="vehicle.ownership"
+          (open)="jump($event)"
+        />
         }
       </cars-doc-card>
       }
