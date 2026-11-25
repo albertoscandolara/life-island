@@ -50,6 +50,7 @@ import {
 import type { Observable } from 'rxjs';
 import { CarsApi } from '../api/cars-api';
 import { CarCngCylinders } from './car-cng-cylinders';
+import { CarOwnershipHistory } from './car-ownership-history';
 import { CarDocCard } from './car-doc-card';
 import { CarCostsCard } from './car-costs-card';
 import { CngGuideTopic } from './cng-guide-topic';
@@ -106,6 +107,7 @@ const GROUP_CODES = new Set(['C.1', 'C.2', 'C.3', 'O', 'P', 'U', 'V']);
     LiTabs,
     EntityLink,
     CarCngCylinders,
+    CarOwnershipHistory,
     CarDocCard,
     CarCostsCard,
     CngGuideTopic,
@@ -224,8 +226,9 @@ export class CarsPage {
 
   /**
    * The document cards of a car, by what needs you first: insurance, bollo,
-   * revisione, the CNG cylinders (a methane car, or one with a label), and
-   * the carta di circolazione last, as it has nothing to renew.
+   * revisione, the CNG cylinders (a methane car, or one with a label), then
+   * the carta di circolazione and the ownership beside it, as neither has
+   * anything to renew.
    */
   protected docTypes(vehicle: VehicleDto): CarDocumentCardType[] {
     return CAR_DOCUMENT_CARD_TYPES.filter(

@@ -24,7 +24,8 @@ import { addDays, addMonths } from './car-documents.js';
 /*
  * Which documents of a car to keep (docs/guides/life-island-app.md,
  * Cars, "Documents to keep"): the current insurance certificate goes in
- * the car, the latest revisione and CNG cylinder label stay at home, the
+ * the car, the certificato di proprietà and the papers of every change of
+ * owner stay at home as long as the car, the latest revisione and CNG cylinder label stay at home, the
  * bollo receipts stay at home until the Regione can no longer claim them, the service history stays as long as the car, a fine until it
  * can no longer be collected, the rest can go. Pure, so every rule is
  * unit-tested on its own.
@@ -134,6 +135,13 @@ function seriesItems(
               null,
             )
           : versionItem('registration', v, 'discard', 'registration_old', null),
+      );
+    case 'VEHICLE_OWNERSHIP':
+      // Proof of who owns the car, and of every past change of owner: all kept.
+      return versions.map((v) =>
+        v === latest
+          ? versionItem('ownership', v, 'keep', 'ownership_current', null)
+          : versionItem('ownership', v, 'keep', 'ownership_history', null),
       );
     case 'CAR_INSURANCE':
       return versions.map((v) => {

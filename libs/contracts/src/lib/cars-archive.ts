@@ -10,6 +10,7 @@
 /** The folders of a car's archive, in the order they are listed. */
 export const CAR_ARCHIVE_FOLDERS = [
   'registration',
+  'ownership',
   'insurance',
   'road_tax',
   'inspection',
@@ -26,13 +27,14 @@ export const CAR_ARCHIVE_FOLDER_LABELS: Record<
   { en: string; it: string }
 > = {
   registration: { en: 'Registration', it: '00 - Libretto' },
-  insurance: { en: 'Insurance', it: '01 - Assicurazione' },
-  road_tax: { en: 'Road tax (bollo)', it: '02 - Bollo' },
-  inspection: { en: 'Revisione', it: '03 - Revisione' },
-  cng_cylinders: { en: 'CNG cylinders', it: '04 - Bombole metano' },
-  maintenance: { en: 'Service and repairs', it: '05 - Manutenzione' },
-  fines: { en: 'Fines', it: '06 - Multe' },
-  other: { en: 'Other expenses', it: '07 - Altre spese' },
+  ownership: { en: 'Ownership', it: '01 - Proprietà' },
+  insurance: { en: 'Insurance', it: '02 - Assicurazione' },
+  road_tax: { en: 'Road tax (bollo)', it: '03 - Bollo' },
+  inspection: { en: 'Revisione', it: '04 - Revisione' },
+  cng_cylinders: { en: 'CNG cylinders', it: '05 - Bombole metano' },
+  maintenance: { en: 'Service and repairs', it: '06 - Manutenzione' },
+  fines: { en: 'Fines', it: '07 - Multe' },
+  other: { en: 'Other expenses', it: '08 - Altre spese' },
 };
 
 /**
@@ -68,6 +70,14 @@ export const CAR_ARCHIVE_RULES = {
   registration_old: {
     en: 'Replaced by a newer carta di circolazione.',
     it: 'Sostituita da una carta di circolazione più recente.',
+  },
+  ownership_current: {
+    en: 'Who owns the car: keep it at home in a safe place, apart from the libretto, never in the car. You hand it (or its access code) to the buyer when you sell.',
+    it: 'Prova chi è il proprietario: conservalo a casa in un luogo sicuro, separato dal libretto, mai in auto. Lo consegni (o ne dai il codice di accesso) a chi compra quando vendi.',
+  },
+  ownership_history: {
+    en: 'A past change of owner: keep it as long as you have the car, it proves from which day fines and bollo were no longer the seller’s.',
+    it: "Passaggio di proprietà precedente: conservalo finché hai l'auto, prova da quale giorno multe e bollo non erano più del venditore.",
   },
   insurance_current: {
     en: 'Its certificate goes in the car (art. 180 Codice della strada); a printed copy is fine.',

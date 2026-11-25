@@ -79,6 +79,7 @@ import {
 } from './payables.js';
 import { carArchive, laidUp } from './car-archive.js';
 import { cngOf, cngRenewals } from './car-cng.js';
+import { ownershipOf } from './car-ownership.js';
 import { insuranceHistory } from './car-insurance.js';
 import { tyreRenewals, tyreSetOf } from './car-tyres.js';
 import { carUsage } from './car-usage.js';
@@ -447,6 +448,7 @@ export class CarsService {
             today,
           ),
           cng,
+          ownership: ownershipOf(row.values, series),
         };
       })
       .sort(

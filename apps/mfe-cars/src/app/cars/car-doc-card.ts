@@ -46,6 +46,7 @@ export const CAR_DOCUMENT_ICONS: Record<CarDocumentCardType, UiIconName> = {
   VEHICLE_INSPECTION: 'clipboard',
   CNG_CYLINDER_INSPECTION: 'flame',
   VEHICLE_REGISTRATION: 'car',
+  VEHICLE_OWNERSHIP: 'user',
 };
 
 const STATUS_TONES: Record<CarDocumentStatus, UiTone> = {
@@ -72,7 +73,7 @@ const WHERE_TONES: Record<CarArchiveAction, UiTone> = {
 
 /**
  * One car document, the same shape for every kind (insurance, bollo,
- * revisione, CNG cylinders, carta di circolazione): its next step and
+ * revisione, CNG cylinders, carta di circolazione, ownership): its next step and
  * date on top, then what the latest one says, then the rules (how often,
  * where to keep it and for how long), then every version with the buttons to
  * attach, detach or cancel one. Content projected inside (the CNG cylinders)
@@ -157,6 +158,14 @@ export class CarDocCard {
         detail: guide.renewal,
         tone: STATUS_TONES[latest.status],
         label: CAR_DOCUMENT_STATUS_LABELS[latest.status],
+        level: 'ok' as RenewalLevel,
+      };
+    // A car may rightly have none (an ownership held in the Documento Unico).
+    if (guide.notAlways)
+      return {
+        heading: 'None on file',
+        detail: `${guide.todo} ${guide.notAlways}`,
+        ...LEVELS.missing,
         level: 'ok' as RenewalLevel,
       };
     return {
