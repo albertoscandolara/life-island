@@ -1,4 +1,5 @@
 import {
+  inferPayslipKinds,
   isOutdated,
   levelCode,
   matchWorkplace,
@@ -162,6 +163,43 @@ describe('readWorkDocument', () => {
     expect(
       readWorkDocument('PAYSLIP', { payer: 'ACME SPA' }).employerName,
     ).toBe('ACME SPA');
+  });
+});
+
+describe('inferPayslipKinds', () => {
+  const doc = (
+    id: string,
+    month: string,
+    gross: number,
+    title = `Cedolino ${month}`,
+  ) => ({
+    row: { uploadId: id, title, originalFilename: 'scan.pdf' },
+    reading: readWorkDocument(
+      'PAYSLIP',
+      payslipFields(month, { gross_pay: gross }),
+    ),
+  });
+  const kinds = (docs: ReturnType<typeof doc>[]) =>
+    inferPayslipKinds(docs).map((d) => d.reading.payslipKind);
+
+  it('reads the extra month from the title', () => {
+    expect(
+      kinds([
+        doc('a', '12', 2350, 'Cedolino 13a mensilità 2026'),
+        doc('b', '06', 2350, 'Quattordicesima giugno'),
+      ]),
+    ).toEqual(['thirteenth', 'fourteenth']);
+  });
+
+  it('tells a second December payslip with another gross from a copy', () => {
+    expect(
+      kinds([
+        doc('n', '11', 2350),
+        doc('d', '12', 2350),
+        doc('t', '12', 2290),
+        doc('copy', '12', 2350),
+      ]),
+    ).toEqual(['regular', 'regular', 'thirteenth', 'regular']);
   });
 });
 

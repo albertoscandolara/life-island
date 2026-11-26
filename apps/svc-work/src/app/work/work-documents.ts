@@ -868,3 +868,91 @@ export function cleanValue(
 export function todayIso(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
+
+/** The words that name an extra month on a payslip's title or file name. */
+const THIRTEENTH =
+  /tredicesim|13\s*[ªa°^.]?\s*mens|mensilit[aà]\s*13|gratifica\s*natal/i;
+const FOURTEENTH = /quattordicesim|14\s*[ªa°^.]?\s*mens|mensilit[aà]\s*14/i;
+
+/**
+ * Payslips read as regular that pay only an extra month. The model can miss
+ * the kind (or the payslip was parsed before it was read), and a tredicesima
+ * read as regular looks like a copy of December's payslip, so it is hidden
+ * from the year and its totals. Two clues set it right:
+ * - its title or file name says so ("13ma mensilità", "Tredicesima");
+ * - a second regular payslip of the same employer and month with another
+ *   gross is not a copy: the one furthest from your usual pay is the extra
+ *   one, a tredicesima in December and an extra payslip in any other month.
+ */
+export function inferPayslipKinds<
+  T extends {
+    reading: WorkDocumentReading;
+    row: { uploadId: string; title: string; originalFilename: string };
+  },
+>(docs: readonly T[]): T[] {
+  const named = docs.map((d) => {
+    const r = d.reading;
+    if (r.type !== 'PAYSLIP' || (r.payslipKind ?? 'regular') !== 'regular')
+      return d;
+    const words = `${d.row.title} ${d.row.originalFilename}`;
+    const kind: PayslipKind | null = THIRTEENTH.test(words)
+      ? 'thirteenth'
+      : FOURTEENTH.test(words)
+        ? 'fourteenth'
+        : null;
+    return kind ? { ...d, reading: { ...r, payslipKind: kind } } : d;
+  });
+  const employer = (r: WorkDocumentReading) =>
+    (r.employerTaxCode ?? r.employerName ?? '').toUpperCase();
+  const regular = named.filter(
+    (d) =>
+      d.reading.type === 'PAYSLIP' &&
+      d.reading.period &&
+      (d.reading.payslipKind ?? 'regular') === 'regular' &&
+      d.reading.gross !== null,
+  );
+  const groups = new Map<string, T[]>();
+  for (const d of regular) {
+    const key = `${employer(d.reading)}|${d.reading.period}`;
+    groups.set(key, [...(groups.get(key) ?? []), d]);
+  }
+  const usual = (period: string, who: string) => {
+    const others = regular
+      .filter(
+        (d) =>
+          employer(d.reading) === who &&
+          d.reading.period !== period &&
+          d.reading.period!.slice(0, 4) === period.slice(0, 4),
+      )
+      .map((d) => d.reading.gross!)
+      .sort((a, b) => a - b);
+    return others.length ? others[Math.floor(others.length / 2)] : null;
+  };
+  const extra = new Map<string, PayslipKind>();
+  for (const [key, group] of groups) {
+    const grosses = new Set(group.map((d) => Math.round(d.reading.gross!)));
+    if (grosses.size < 2) continue;
+    const [who, period] = [
+      key.slice(0, key.lastIndexOf('|')),
+      group[0].reading.period!,
+    ];
+    const typical = usual(period, who);
+    // The regular one is the closest to your usual pay (or the largest).
+    const keep = [...group].sort((a, b) =>
+      typical === null
+        ? b.reading.gross! - a.reading.gross!
+        : Math.abs(a.reading.gross! - typical) -
+          Math.abs(b.reading.gross! - typical),
+    )[0];
+    for (const d of group)
+      if (d !== keep && Math.abs(d.reading.gross! - keep.reading.gross!) >= 1)
+        extra.set(
+          d.row.uploadId,
+          period.endsWith('-12') ? 'thirteenth' : 'other',
+        );
+  }
+  return named.map((d) => {
+    const kind = extra.get(d.row.uploadId);
+    return kind ? { ...d, reading: { ...d.reading, payslipKind: kind } } : d;
+  });
+}
