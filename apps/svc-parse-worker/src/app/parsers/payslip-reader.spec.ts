@@ -1,4 +1,8 @@
-import { italianAmount, readPayslipText } from './payslip-reader.js';
+import {
+  italianAmount,
+  readPayslipText,
+  readWelfareCredits,
+} from './payslip-reader.js';
 
 // Anonymized: the text layer of a two-page LUL as normalize.ts rebuilds it,
 // with made-up names, codes and amounts.
@@ -40,6 +44,7 @@ describe('readPayslipText', () => {
       gross_pay: 2600.1,
       total_deductions: 650.05,
       net_pay: 1950.05,
+      welfare_credits: null,
     });
   });
 
@@ -54,5 +59,36 @@ describe('readPayslipText', () => {
   it('reads Italian amounts, rounding five decimals to cents', () => {
     expect(italianAmount('2.313,34000')).toBe(2313.34);
     expect(italianAmount('64,86')).toBe(64.86);
+  });
+});
+
+describe('readWelfareCredits', () => {
+  it('sums every welfare line of the month, art. 100 and CCNL alike', () => {
+    const text = [
+      '001 Retribuzione  2.450,00',
+      '333 Welfare convers. benefit art.100 (no netto) 888,56',
+      '370 WELFARE CCNL NO FRINGE 250,00',
+    ].join('\n');
+    expect(readWelfareCredits(text)).toBe(1138.56);
+  });
+
+  it('takes the amount, not the year printed on the line', () => {
+    expect(
+      readWelfareCredits(
+        '337 Welfare convers. benefit art.51 c.3 (no netto) 2026 983,15 * *',
+      ),
+    ).toBe(983.15);
+  });
+
+  it('counts a line repeated on a second page once, and skips deductions', () => {
+    const line = '370 WELFARE CCNL NO FRINGE 250,00';
+    const text = [line, 'Trattenuta conversione welfare 500,00', line].join(
+      '\n',
+    );
+    expect(readWelfareCredits(text)).toBe(250);
+  });
+
+  it('is null on a payslip without welfare', () => {
+    expect(readWelfareCredits('001 Retribuzione  2.450,00')).toBeNull();
   });
 });

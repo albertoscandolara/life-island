@@ -286,6 +286,73 @@ describe('ClaudeParser', () => {
     expect(requests[0].model).toBe('extract-model');
   });
 
+  it('raises the welfare to the sum of the payslip lines when the model misses one', async () => {
+    const plan = buildExtractionPlan(
+      [
+        {
+          id: 'PAYSLIP',
+          title: 'Payslip',
+          description: 'Busta paga',
+          template: {
+            fields: [
+              {
+                key: 'welfare_credits',
+                label: 'Welfare credits',
+                type: 'amount',
+                description: '',
+                required: false,
+              },
+            ],
+          },
+        },
+      ],
+      'general.document@1',
+    );
+    const payslip: ParseInput = {
+      ...input,
+      document: {
+        kind: 'text',
+        text: [
+          'NETTO IN BUSTA',
+          '333 Welfare convers. benefit art.100 (no netto) 888,56',
+          '370 WELFARE CCNL NO FRINGE 250,00',
+        ].join('\n'),
+      },
+    };
+    const reply = (value: string | null) => ({
+      text: JSON.stringify({
+        details: generalDetails,
+        fields: [
+          {
+            key: 'welfare_credits',
+            status: value ? 'found' : 'missing',
+            value,
+            candidates: [],
+            note: null,
+          },
+        ],
+      }),
+    });
+    for (const [answer, expected] of [
+      [null, 1138.56],
+      ['250.00', 1138.56],
+      ['1138.56', 1138.56],
+    ] as const) {
+      const { client } = fakeClient([reply(answer)]);
+      const { result } = await new ClaudeParser(client, models).extract(
+        payslip,
+        plan,
+      );
+      expect(result.fields.fields['welfare_credits']).toMatchObject({
+        value: expected,
+        status: 'found',
+      });
+      expect(result.fields.warnings.some((w) => /Welfare/.test(w))).toBe(
+        answer !== '1138.56',
+      );
+    }
+  });
+
   it('shows the model its validation errors once and flags data that stays invalid', async () => {
     const plan = buildExtractionPlan([], 'tax730.expense@1');
     const wrongYear = {

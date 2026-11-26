@@ -88,6 +88,14 @@
         <span class="slip__note slip__note--check">{{ c }}</span>
         }
       </div>
+      @if ($last && m.welfare) {
+      <!-- Welfare sits above the actions, so Open and Download stay at the
+           bottom of every card. -->
+      <ng-container
+        [ngTemplateOutlet]="welfareRow"
+        [ngTemplateOutletContext]="{ $implicit: m.welfare }"
+      />
+      }
       <div class="slip__actions">
         <a
           uiButton
@@ -152,17 +160,11 @@
         <span class="slip__note slip__note--check">{{ c }}</span>
         }
       </div>
-      } @if (m.welfare; as w) {
-      <p class="slip__welfare">
-        <span
-          >Welfare @if (w.evaluation) {
-          <span class="slip__welfare-why"
-            >after the {{ dateText(w.evaluation.date) }} evaluation</span
-          >
-          }</span
-        >
-        <strong>+{{ euro(w.amount) }}</strong>
-      </p>
+      } @if (m.welfare && !m.slips.length) {
+      <ng-container
+        [ngTemplateOutlet]="welfareRow"
+        [ngTemplateOutletContext]="{ $implicit: m.welfare }"
+      />
       }
     </li>
     }
@@ -254,3 +256,16 @@
   </ui-empty-state>
   }
 </ui-card>
+
+<ng-template #welfareRow let-w>
+  <p class="slip__welfare">
+    <span
+      >Welfare @if (w.evaluation) {
+      <span class="slip__welfare-why"
+        >after the {{ dateText(w.evaluation.date) }} evaluation</span
+      >
+      }</span
+    >
+    <strong>+{{ euro(w.amount) }}</strong>
+  </p>
+</ng-template>
