@@ -496,6 +496,8 @@ export interface CareerDocumentDto {
   type: WorkDocumentType | null;
   /** The month paid (YYYY-MM) for a payslip, else the document's date (YYYY-MM-DD). */
   period: string | null;
+  /** What a payslip pays (the monthly salary, a tredicesima...); null for other documents. */
+  payslipKind: PayslipKind | null;
   gross: number | null;
   net: number | null;
   facts: WorkFactDto[];

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   CAR_ARCHIVE_FOLDER_LABELS,
   type CarArchiveItemDto,
@@ -9,8 +9,11 @@ import {
   safeFileName,
   uniquePaths,
 } from '@life-island/be-common';
-import { IngestionFiles } from '@life-island/be-nest';
-import JSZip from 'jszip';
+import {
+  IngestionFiles,
+  unavailableFilesNote,
+  zipFromIngestion,
+} from '@life-island/be-nest';
 import type { Readable } from 'node:stream';
 import { todayIso } from '../cars/car-documents.js';
 import { CarsService, vehicleName } from '../cars/cars.service.js';
@@ -59,8 +62,6 @@ export function inCarPath(
  */
 @Injectable()
 export class CarExportsService {
-  private readonly logger = new Logger(CarExportsService.name);
-
   constructor(
     @Inject(CarsService) private readonly cars: CarsService,
     @Inject(IngestionFiles) private readonly files: IngestionFiles,
@@ -142,33 +143,16 @@ export class CarExportsService {
   }
 
   /** The files, read from svc-ingestion as they are, and a note naming any that could not be. */
-  private async zip(
+  private zip(
     root: string,
     files: { uploadId: string; path: string }[],
     extra: { path: string; body: Buffer }[],
   ): Promise<Readable> {
-    const zip = new JSZip();
-    for (const file of extra) zip.file(file.path, file.body);
-    const bytes = await this.readAll(files.map((f) => f.uploadId));
-    const missing: string[] = [];
-    for (const file of files) {
-      const body = bytes.get(file.uploadId);
-      if (body) zip.file(file.path, body);
-      else missing.push(file.path.slice(root.length + 1));
-    }
-    if (missing.length)
-      zip.file(
-        `${root}/DOCUMENTI NON DISPONIBILI.txt`,
-        'Questi file non erano disponibili al momento del download:\r\n\r\n' +
-          missing.map((line) => `- ${line}`).join('\r\n') +
-          '\r\n',
-      );
-    return zip.generateNodeStream({
-      type: 'nodebuffer',
-      streamFiles: true,
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 },
-    }) as Readable;
+    return zipFromIngestion(this.files, {
+      files,
+      extra,
+      missingNote: unavailableFilesNote(root),
+    });
   }
 
   private async workbookBuffer(
@@ -178,22 +162,5 @@ export class CarExportsService {
   ): Promise<Buffer> {
     const workbook = buildCarDocumentsWorkbook(vehicle, name, today);
     return Buffer.from(await workbook.xlsx.writeBuffer());
-  }
-
-  /** Each file once, four at a time; a file that cannot be read is left out. */
-  private async readAll(uploadIds: string[]): Promise<Map<string, Buffer>> {
-    const out = new Map<string, Buffer>();
-    const queue = [...new Set(uploadIds)];
-    const worker = async () => {
-      for (let id = queue.shift(); id; id = queue.shift()) {
-        try {
-          out.set(id, await this.files.read(id));
-        } catch (error) {
-          this.logger.warn(`Could not read document ${id}: ${String(error)}`);
-        }
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    return out;
   }
 }

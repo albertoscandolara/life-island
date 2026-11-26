@@ -6,3 +6,4 @@ export * from './lib/http-security.js';
 export * from './lib/sign-in.js';
 export * from './lib/ingestion-files.js';
 export * from './lib/uploaded-image.js';
+export * from './lib/ingestion-zip.js';

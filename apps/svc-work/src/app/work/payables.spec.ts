@@ -14,6 +14,7 @@ const payslip = (over: Partial<CareerDocumentDto> = {}): CareerDocumentDto => ({
   title: 'Cedolino ottobre',
   type: 'PAYSLIP',
   period: '2026-10',
+  payslipKind: 'regular',
   gross: 3200,
   net: 2187.45,
   facts: [],

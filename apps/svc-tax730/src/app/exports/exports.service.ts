@@ -1,18 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { TaxYearDossierDto } from '@life-island/contracts';
-import JSZip from 'jszip';
 import type { Readable } from 'node:stream';
 import { DossierService } from '../dossier/dossier.service.js';
 import { buildDeductionsWorkbook } from './deductions-workbook.js';
 import { dossierFiles, dossierRoot } from './dossier-files.js';
-import { IngestionFiles } from '@life-island/be-nest';
+import { IngestionFiles, zipFromIngestion } from '@life-island/be-nest';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 @Injectable()
 export class ExportsService {
-  private readonly logger = new Logger(ExportsService.name);
-
   constructor(
     @Inject(DossierService) private readonly dossier: DossierService,
     @Inject(IngestionFiles) private readonly files: IngestionFiles,
@@ -39,39 +36,33 @@ export class ExportsService {
     const dossier = await this.dossier.dossier(taxYear);
     const root = dossierRoot(dossier);
     const { files, missing } = dossierFiles(dossier, root);
-    const zip = new JSZip();
-    zip.file(
-      `${root}/Riepilogo detrazioni ${taxYear}.xlsx`,
-      await this.workbookBuffer([dossier]),
-    );
-    // A few at a time: the files come one by one from svc-ingestion.
-    const queue = [...files];
-    const worker = async () => {
-      for (let file = queue.shift(); file; file = queue.shift()) {
-        try {
-          zip.file(file.path, await this.files.read(file.uploadId));
-        } catch (error) {
-          this.logger.warn(`Skipped ${file.path}: ${String(error)}`);
-          missing.push(`${file.path}: file non disponibile`);
-        }
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    if (missing.length)
-      zip.file(
-        `${root}/DOCUMENTI MANCANTI.txt`,
-        `Documenti da completare per il 730/${dossier.filingYear} (redditi ${taxYear}):\r\n\r\n` +
-          missing.map((line) => `- ${line}`).join('\r\n') +
-          '\r\n',
-      );
+    const body = await zipFromIngestion(this.files, {
+      files,
+      extra: [
+        {
+          path: `${root}/Riepilogo detrazioni ${taxYear}.xlsx`,
+          body: await this.workbookBuffer([dossier]),
+        },
+      ],
+      missingNote: (unread) => {
+        const lines = [
+          ...missing,
+          ...unread.map((path) => `${path}: file non disponibile`),
+        ];
+        return lines.length
+          ? {
+              path: `${root}/DOCUMENTI MANCANTI.txt`,
+              text:
+                `Documenti da completare per il 730/${dossier.filingYear} (redditi ${taxYear}):\r\n\r\n` +
+                lines.map((line) => `- ${line}`).join('\r\n') +
+                '\r\n',
+            }
+          : null;
+      },
+    });
     return {
       filename: `${today()} - Documentazione 730 ${dossier.filingYear} per commercialista.zip`,
-      body: zip.generateNodeStream({
-        type: 'nodebuffer',
-        streamFiles: true,
-        compression: 'DEFLATE',
-        compressionOptions: { level: 6 },
-      }) as Readable,
+      body,
     };
   }
 

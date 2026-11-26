@@ -15,6 +15,8 @@ import {
   DOCUMENT_EVENTS,
 } from './documents/document-events.handler.js';
 import { DocumentsController } from './documents/documents.controller.js';
+import { WorkExportsController } from './exports/work-exports.controller.js';
+import { WorkExportsService } from './exports/work-exports.service.js';
 import { HealthController } from './health.controller.js';
 import { CareerAdvisor } from './work/career-advisor.js';
 import { WorkController } from './work/work.controller.js';
@@ -34,11 +36,17 @@ export class AppModule {
     });
     return {
       module: AppModule,
-      controllers: [HealthController, WorkController, DocumentsController],
+      controllers: [
+        HealthController,
+        WorkController,
+        DocumentsController,
+        WorkExportsController,
+      ],
       providers: [
         { provide: CONFIG, useValue: config },
         { provide: SERVICE_DB, useValue: svc },
         WorkService,
+        WorkExportsService,
         CareerAdvisor,
         {
           provide: IngestionFiles,

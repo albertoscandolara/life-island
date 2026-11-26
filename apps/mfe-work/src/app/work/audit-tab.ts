@@ -4,6 +4,7 @@ import {
   computed,
   inject,
   input,
+  signal,
 } from '@angular/core';
 import type {
   AuditSeverity,
@@ -53,13 +54,15 @@ export class AuditTab {
   protected readonly severityLabels = SEVERITY_LABELS;
   protected readonly severityTones = SEVERITY_TONES;
 
-  protected readonly counts = computed(() => {
-    const findings = this.audit().findings;
-    return (['problem', 'check', 'info'] as const).map((severity) => ({
-      severity,
-      count: findings.filter((f) => f.severity === severity).length,
-    }));
-  });
+  /** Every month, or only the latest six whose net moved. */
+  protected readonly showAll = signal(false);
+  protected readonly shownChanges = computed(() =>
+    this.showAll()
+      ? this.netChanges()
+      : this.netChanges()
+          .filter((c) => c.parts.length)
+          .slice(0, 6),
+  );
 
   protected previewUrl(uploadId: string): string {
     return this.api.previewUrl(uploadId);

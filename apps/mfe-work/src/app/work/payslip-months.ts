@@ -1,0 +1,225 @@
+import type {
+  CareerDocumentDto,
+  PayslipAuditFindingDto,
+  PayslipCheckDto,
+  PayslipKind,
+  TaxCertificateDto,
+  WorkplaceDto,
+} from '@life-island/contracts';
+import { workplaceName } from './labels';
+
+/** One payslip on the grid, with what it needs from you. */
+export interface PayslipSlip {
+  doc: CareerDocumentDto;
+  kind: PayslipKind;
+  workplaceId: string;
+  workplace: string;
+  /** Why it is not fully right: a value not read, a CCNL check that failed. */
+  checks: string[];
+  /** Received in the bank (Money matched it), in part, or not known. */
+  received: 'full' | 'part' | null;
+}
+
+/** What a month of the grid shows. */
+export type MonthState =
+  /** A monthly payslip, all in order. */
+  | 'ok'
+  /** A monthly payslip with something to look at. */
+  | 'check'
+  /** No payslip, though one was due. */
+  | 'missing'
+  /** Not due yet, or outside any job you had. */
+  | 'none';
+
+export interface PayslipMonth {
+  /** YYYY-MM */
+  period: string;
+  /** 1..12 */
+  month: number;
+  state: MonthState;
+  /** The monthly payslips (more than one with two jobs in the month). */
+  slips: PayslipSlip[];
+  /** Tredicesima, quattordicesima and other extra payslips of the month. */
+  extras: PayslipSlip[];
+}
+
+export interface PayslipYear {
+  year: number;
+  months: PayslipMonth[];
+  /** Each payslip once. */
+  count: number;
+  gross: number;
+  net: number;
+  missing: number;
+  toCheck: number;
+  /** The Certificazioni Uniche about the year's income. */
+  certificates: TaxCertificateDto[];
+}
+
+const isoMonth = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+/** Adds months to a YYYY-MM. */
+export function addMonths(period: string, months: number): string {
+  const [y, m] = period.split('-').map(Number);
+  return isoMonth(new Date(y, m - 1 + months, 1));
+}
+
+/**
+ * The latest month whose payslip should be here by `today`: a month's
+ * payslip comes at its end or in the first days of the next, so the previous
+ * month counts from the 15th, the one before always.
+ */
+export function dueThrough(today: string): string {
+  const current = today.slice(0, 7);
+  return addMonths(current, Number(today.slice(8, 10)) >= 15 ? -1 : -2);
+}
+
+/**
+ * The months each job owes a payslip: from its hire date (else its first
+ * payslip) to its end date (else its latest payslip, or the month due now
+ * for the job you have).
+ */
+function owedMonths(workplace: WorkplaceDto, through: string): Set<string> {
+  const payslips = workplace.documents
+    .filter((d) => d.type === 'PAYSLIP' && d.period)
+    .map((d) => d.period!.slice(0, 7))
+    .sort();
+  const hire =
+    typeof workplace.values.hireDate === 'string'
+      ? workplace.values.hireDate.slice(0, 7)
+      : null;
+  const first = [hire, payslips[0]].filter(Boolean).sort()[0];
+  if (!first) return new Set();
+  const end =
+    typeof workplace.values.endDate === 'string'
+      ? workplace.values.endDate.slice(0, 7)
+      : workplace.status === 'current'
+        ? through
+        : (payslips.at(-1) ?? first);
+  const last = end < through ? end : through;
+  const out = new Set<string>();
+  for (let p = first; p <= last; p = addMonths(p, 1)) out.add(p);
+  return out;
+}
+
+/** What identifies one payslip, so a copy you approved twice shows once. */
+function slipKey(workplaceId: string, doc: CareerDocumentDto): string {
+  const kind = doc.payslipKind ?? 'regular';
+  return [
+    workplaceId,
+    doc.period?.slice(0, 7),
+    kind,
+    kind === 'other' ? doc.gross : '',
+  ].join('|');
+}
+
+/**
+ * Your payslips year by year, newest year first: twelve months each, every
+ * payslip in its month with what needs a look, the months missing, and the
+ * year's Certificazione Unica beside them.
+ */
+export function payslipYears(input: {
+  workplaces: readonly WorkplaceDto[];
+  certificates: readonly TaxCertificateDto[];
+  checks: readonly PayslipCheckDto[];
+  findings: readonly PayslipAuditFindingDto[];
+  today: string;
+}): PayslipYear[] {
+  const through = dueThrough(input.today);
+  const notes = new Map<string, string[]>();
+  const note = (uploadId: string | null, text: string) => {
+    if (!uploadId) return;
+    notes.set(uploadId, [...(notes.get(uploadId) ?? []), text]);
+  };
+  for (const c of input.checks) note(c.uploadId, c.message);
+  for (const f of input.findings)
+    if (f.severity !== 'info') note(f.uploadId, f.title);
+
+  const slips = new Map<string, PayslipSlip[]>();
+  const seen = new Set<string>();
+  const owed = new Set<string>();
+  for (const w of input.workplaces) {
+    for (const p of owedMonths(w, through)) owed.add(p);
+    for (const doc of w.documents) {
+      if (doc.type !== 'PAYSLIP' || !doc.period) continue;
+      const key = slipKey(w.id, doc);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const period = doc.period.slice(0, 7);
+      const paid = doc.bankPayment;
+      slips.set(period, [
+        ...(slips.get(period) ?? []),
+        {
+          doc,
+          kind: doc.payslipKind ?? 'regular',
+          workplaceId: w.id,
+          workplace: workplaceName(w),
+          checks: notes.get(doc.uploadId) ?? [],
+          received: paid ? (paid.full ? 'full' : 'part') : null,
+        },
+      ]);
+    }
+  }
+
+  const years = new Set<number>([
+    ...[...slips.keys()].map((p) => Number(p.slice(0, 4))),
+    ...input.certificates.map((c) => c.year),
+  ]);
+  return [...years]
+    .sort((a, b) => b - a)
+    .map((year) => {
+      const months = Array.from({ length: 12 }, (_, i): PayslipMonth => {
+        const period = `${year}-${String(i + 1).padStart(2, '0')}`;
+        const all = slips.get(period) ?? [];
+        const regular = all.filter((s) => s.kind === 'regular');
+        const state: MonthState = regular.length
+          ? all.some((s) => s.checks.length)
+            ? 'check'
+            : 'ok'
+          : owed.has(period)
+            ? 'missing'
+            : 'none';
+        return {
+          period,
+          month: i + 1,
+          state,
+          slips: regular,
+          extras: all.filter((s) => s.kind !== 'regular'),
+        };
+      });
+      const every = months.flatMap((m) => [...m.slips, ...m.extras]);
+      return {
+        year,
+        months,
+        count: every.length,
+        gross: every.reduce((sum, s) => sum + (s.doc.gross ?? 0), 0),
+        net: every.reduce((sum, s) => sum + (s.doc.net ?? 0), 0),
+        missing: months.filter((m) => m.state === 'missing').length,
+        toCheck: every.filter((s) => s.checks.length).length,
+        certificates: input.certificates.filter((c) => c.year === year),
+      };
+    });
+}
+
+/** The latest monthly payslip and the one before, for the tiles. */
+export function latestPayslips(years: readonly PayslipYear[]): {
+  latest: PayslipSlip | null;
+  previous: PayslipSlip | null;
+} {
+  const regular = years
+    .flatMap((y) => y.months)
+    .filter((m) => m.slips.length)
+    .sort((a, b) => b.period.localeCompare(a.period));
+  return {
+    latest: regular[0]?.slips[0] ?? null,
+    previous: regular[1]?.slips[0] ?? null,
+  };
+}
+
+/** A CU within a euro of the payslips matches; null when a side is missing. */
+export function certificateMatches(c: TaxCertificateDto): boolean | null {
+  const gaps = [c.incomeGap, c.taxGap].filter((g): g is number => g !== null);
+  if (!gaps.length) return null;
+  return gaps.every((g) => Math.abs(g) < 1);
+}

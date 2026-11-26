@@ -2,88 +2,12 @@
 <ui-card class="li-block">
   <ui-empty-state heading="No payslips on record yet" icon="file">
     <p class="li-muted">
-      Load your payslips (cedolini) in the documents app and approve them in "To
-      review": your pay month by month and year by year appear here.
+      Load your payslips (cedolini) in the documents app and approve them in To
+      review: your pay month by month and year by year appear here.
     </p>
   </ui-empty-state>
 </ui-card>
-} @else {
-<section class="li-tiles" aria-label="Your pay in numbers">
-  <div class="li-tile li-tile--lead">
-    <span class="li-tile__label">Monthly salary (gross)</span>
-    <strong class="li-tile__value"
-      >{{ euro(stats().currentMonthlySalary) }}</strong
-    >
-    <span class="li-tile__hint">
-      @if (stats().currentLevel) { Level {{ stats().currentLevel }} } @if
-      (stats().currentEmployer) { · {{ stats().currentEmployer }} }
-    </span>
-  </div>
-  <div class="li-tile">
-    <span class="li-tile__label">Growth on record</span>
-    <strong
-      class="li-tile__value"
-      [class.up]="(stats().salaryGrowthPct ?? 0) > 0"
-      >{{ pct(stats().salaryGrowthPct) }}</strong
-    >
-    <span class="li-tile__hint">
-      @if (stats().annualGrowthPct !== null) { {{ pct(stats().annualGrowthPct)
-      }} a year } @else { first to latest monthly salary }
-    </span>
-  </div>
-  <div class="li-tile">
-    <span class="li-tile__label">Since the last rise</span>
-    <strong class="li-tile__value">
-      @if (stats().monthsSinceLastRise !== null) { {{
-      duration(stats().monthsSinceLastRise) }} } @else { none on record }
-    </strong>
-    <span class="li-tile__hint"
-      >Rises and promotions read from your payslips</span
-    >
-  </div>
-  <div class="li-tile">
-    <span class="li-tile__label">Take-home</span>
-    <strong class="li-tile__value">
-      @if (stats().netRatio !== null) { {{ ((stats().netRatio ?? 0) *
-      100).toFixed(0) }}% } @else { – }
-    </strong>
-    <span class="li-tile__hint">Net over gross, last 12 months</span>
-  </div>
-  <div class="li-tile">
-    <span class="li-tile__label">Time off left</span>
-    <strong class="li-tile__value">{{ hours(stats().vacationLeft) }}</strong>
-    <span class="li-tile__hint"
-      >Vacation; ROL {{ hours(stats().leaveLeft) }}</span
-    >
-  </div>
-</section>
-
-@if (stats().checks.length) {
-<ui-alert tone="warning" class="li-block">
-  <strong
-    >{{ stats().checks.length }} payslip{{ stats().checks.length === 1 ? ' is' :
-    's are' }} not fully in these figures.</strong
-  >
-  <span class="li-muted"
-    >Some values could not be read from them. Open each one, then fill the
-    values in or use Parse again in the documents app.</span
-  >
-  <ul class="checks">
-    @for (c of stats().checks; track c.uploadId) {
-    <li>
-      <a [href]="previewUrl(c.uploadId)" target="_blank" rel="noopener"
-        >{{ c.period ? periodText(c.period) : c.title }}</a
-      >: {{ c.message }}
-    </li>
-    }
-  </ul>
-</ui-alert>
-} @if (stats().missingMonths.length) {
-<ui-alert tone="info" class="li-block">
-  No payslip on record for {{ stats().missingMonths.map(periodText).join(', ')
-  }}. Load them to complete the picture.
-</ui-alert>
-} @if (payChart().buckets.length) {
+} @else { @if (payChart().buckets.length) {
 <ui-card heading="Pay month by month" class="li-block">
   <ui-column-chart
     [buckets]="payChart().buckets"
@@ -149,75 +73,3 @@
   }
 </ui-card>
 } }
-
-<!-- Certificazione Unica: what each employer declared, next to your payslips -->
-@if (certificates().length) {
-<ui-card heading="Certificazione Unica" class="li-block">
-  <p class="li-muted">
-    What each employer declared to the tax office for the year, next to the
-    payslips you have. A difference means a payslip is missing or differs from
-    the one the employer counted.
-  </p>
-  <div class="li-table-wrap">
-    <table class="li-table li-table--nowrap">
-      <thead>
-        <tr>
-          <th scope="col">Year</th>
-          <th scope="col">Employer</th>
-          <th scope="col" class="li-num">Income (CU)</th>
-          <th scope="col" class="li-num">Your payslips</th>
-          <th scope="col" class="li-num">Difference</th>
-          <th scope="col" class="li-num">IRPEF withheld (CU)</th>
-          <th scope="col" class="li-num">Your payslips</th>
-          <th scope="col" class="li-num">Difference</th>
-          <th scope="col" class="li-num">Net tax</th>
-          @if (cuPensionFund()) {
-          <th scope="col" class="li-num">Pension fund deducted</th>
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (c of certificates(); track c.uploadId) {
-        <tr>
-          <th scope="row">{{ c.year }}</th>
-          <td>{{ c.workplaceName }}</td>
-          <td class="li-num">{{ euro(c.income) }}</td>
-          <td class="li-num">
-            {{ euro(c.payslipIncome) }} @if (c.payslipIncomeKind === 'gross') {
-            <span class="li-muted">(gross)</span> }
-          </td>
-          <td class="li-num" [class.up]="matches(c.incomeGap)">
-            {{ gap(c.incomeGap) }}
-          </td>
-          <td class="li-num">{{ euro(c.irpefWithheld) }}</td>
-          <td class="li-num">{{ euro(c.payslipIncomeTax) }}</td>
-          <td class="li-num" [class.up]="matches(c.taxGap)">
-            {{ gap(c.taxGap) }}
-          </td>
-          <td class="li-num">{{ euro(c.netTax) }}</td>
-          @if (cuPensionFund()) {
-          <td class="li-num">
-            {{ euro(c.pensionFundDeducted) }} @if (c.pensionFundNotDeducted) {
-            <span class="li-muted li-small"
-              >+ {{ euro(c.pensionFundNotDeducted) }} not</span
-            >
-            }
-          </td>
-          }
-        </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-  @for (c of certificates(); track c.uploadId) { @if (!c.payslips) {
-  <p class="li-muted">
-    {{ c.year }} · {{ c.workplaceName }}: no payslips of that year on record.
-  </p>
-  } @else if (c.missingMonths.length) {
-  <p class="li-muted">
-    {{ c.year }} · {{ c.workplaceName }}: no payslip for {{
-    c.missingMonths.map(periodText).join(', ') }}.
-  </p>
-  } }
-</ui-card>
-}
