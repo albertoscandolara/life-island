@@ -121,6 +121,7 @@ import {
   normalizeName,
   normalizeTaxCode,
   proposeWorkplaceChanges,
+  inferPayslipKinds,
   readWorkDocument,
   todayIso,
   withAncestors,
@@ -1286,16 +1287,18 @@ export class WorkService {
       this.parentOf(),
       this.svc.db.select().from(documents).where(isNull(documents.deletedAt)),
     ]);
-    return rows.flatMap((row) => {
-      const { isWork, type } = workDocumentType(
-        row.categories,
-        parentOf,
-        row.originalFilename,
-      );
-      return isWork
-        ? [{ row, type, reading: readWorkDocument(type, row.fields) }]
-        : [];
-    });
+    return inferPayslipKinds(
+      rows.flatMap((row) => {
+        const { isWork, type } = workDocumentType(
+          row.categories,
+          parentOf,
+          row.originalFilename,
+        );
+        return isWork
+          ? [{ row, type, reading: readWorkDocument(type, row.fields) }]
+          : [];
+      }),
+    );
   }
 
   private async workDocument(uploadId: string): Promise<WorkDocument> {
