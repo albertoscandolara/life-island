@@ -3,14 +3,15 @@ import type {
   CareerDocumentDto,
   TaxCertificateDto,
   WorkplaceDto,
-} from '@life-island/contracts';
+} from './work.js';
 import {
-  addMonths,
+  periodPlusMonths,
   certificateMatches,
-  dueThrough,
+  payslipDueThrough,
   latestPayslips,
   payslipYears,
-} from './payslip-months';
+  recentMissingPayslips,
+} from './work-payslips.js';
 
 const slip = (
   uploadId: string,
@@ -50,10 +51,10 @@ const job = (
 
 describe('payslip months', () => {
   it('counts months and knows which payslip is due', () => {
-    expect(addMonths('2026-01', -1)).toBe('2025-12');
-    expect(addMonths('2026-11', 2)).toBe('2027-01');
-    expect(dueThrough('2026-11-26')).toBe('2026-10');
-    expect(dueThrough('2026-11-05')).toBe('2026-09');
+    expect(periodPlusMonths('2026-01', -1)).toBe('2025-12');
+    expect(periodPlusMonths('2026-11', 2)).toBe('2027-01');
+    expect(payslipDueThrough('2026-11-26')).toBe('2026-10');
+    expect(payslipDueThrough('2026-11-05')).toBe('2026-09');
   });
 
   it('puts each payslip in its month, once, with the months missing and what to check', () => {
@@ -134,6 +135,23 @@ describe('payslip months', () => {
       'ok',
       'none',
     ]);
+  });
+
+  it('lists a year with no payslip between two that have some, and the year missing in the last 12 months', () => {
+    const input = {
+      workplaces: [job([slip('a', '2024-12'), slip('b', '2026-10')])],
+      certificates: [],
+      checks: [],
+      findings: [],
+      today: '2026-11-26',
+    };
+    const years = payslipYears(input);
+    expect(years.map((y) => y.year)).toEqual([2026, 2025, 2024]);
+    expect(years[1].months.every((m) => m.state === 'missing')).toBe(true);
+    const missing = recentMissingPayslips(years, '2026-11-26');
+    expect(missing[0]).toBe('2026-09');
+    expect(missing.at(-1)).toBe('2025-11');
+    expect(missing).toHaveLength(11);
   });
 
   it('matches a CU within a euro', () => {

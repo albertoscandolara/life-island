@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { WorkOverviewDto } from '@life-island/contracts';
-import type { PayslipYear } from './payslip-months';
+import type { PayslipYear, WorkOverviewDto } from '@life-island/contracts';
 import { workSteps } from './next-steps';
 
 const overview = (over: Partial<WorkOverviewDto> = {}): WorkOverviewDto =>

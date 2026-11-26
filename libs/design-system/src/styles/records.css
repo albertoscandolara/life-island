@@ -750,6 +750,8 @@
 
 .li-group {
   display: grid;
+  /* One column no wider than the page: a wide table scrolls in its wrap. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   min-width: 0;
   scroll-margin-top: var(--space-12);

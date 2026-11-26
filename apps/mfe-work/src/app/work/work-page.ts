@@ -14,6 +14,8 @@ import {
   CONTRACT_KIND_LABELS,
   HIRING_PLATFORM_PRESETS,
   identifiesWorkplace,
+  latestPayslips,
+  payslipYears,
   MANUAL_CAREER_EVENT_KINDS,
   PLATFORM_STALE_DAYS,
   PLATFORM_STATUS_LABELS,
@@ -43,6 +45,7 @@ import {
   UiCard,
   UiEmptyState,
   UiIcon,
+  UiDialog,
   UiInfoGuide,
   UiInfoTopic,
   UiPageHeader,
@@ -58,9 +61,15 @@ import { JobsTab } from './jobs-tab';
 import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
 import { PayslipArchive } from './payslip-archive';
-import { latestPayslips, payslipYears } from './payslip-months';
 import { WORK_STEP_BADGES, workSteps, type WorkStep } from './next-steps';
 import { PensionGuideTopic } from './pension-guide-topic';
+import {
+  CU_GUIDE,
+  PAYSLIP_GUIDE,
+  REVIEWS_GUIDE,
+  TFR_GUIDE,
+} from './work-guide';
+import { WorkGuideSections } from './work-guide-sections';
 import { PensionTab } from './pension-tab';
 import { TfrTab } from './tfr-tab';
 import { ToolsTab, type OfferDraft } from './tools-tab';
@@ -212,6 +221,7 @@ const today = () => new Date().toISOString().slice(0, 10);
     PayAnalysisTab,
     PayslipsTab,
     PensionGuideTopic,
+    WorkGuideSections,
     PensionTab,
     TfrTab,
     ToolsTab,
@@ -223,6 +233,7 @@ const today = () => new Date().toISOString().slice(0, 10);
     UiCard,
     UiEmptyState,
     UiIcon,
+    UiDialog,
     UiInfoGuide,
     UiInfoTopic,
     UiPageHeader,
@@ -246,8 +257,16 @@ export class WorkPage {
   private pendingJump: string | null = null;
   /** The Work guide: reading matter kept out of the tabs, opened on demand. */
   protected readonly guideOpen = signal(false);
-  protected readonly guideTopic = signal('pension');
+  protected readonly guideTopic = signal('payslip');
+  protected readonly guides = {
+    payslip: PAYSLIP_GUIDE,
+    cu: CU_GUIDE,
+    tfr: TFR_GUIDE,
+    reviews: REVIEWS_GUIDE,
+  };
   protected readonly selectedId = signal<string | null>(null);
+  /** The selected workplace's details are open, in a dialog. */
+  protected readonly workplaceOpen = signal(false);
   private readonly drafts = signal<Record<string, Draft>>({});
   /** The values being edited on the selected workplace, or null when not editing. */
   protected readonly editing = signal<{
@@ -542,9 +561,10 @@ export class WorkPage {
   }
 
   /** Opens one workplace with its details and documents. */
+  /** Opens a workplace's details, in a dialog over the page. */
   protected openWorkplace(id: string): void {
     this.select(id);
-    this.jump('work-workplaces');
+    this.workplaceOpen.set(true);
   }
 
   /** A workplace's documents but its payslips, which have their own grid. */
@@ -765,6 +785,7 @@ export class WorkPage {
       () => this.api.removeWorkplace(workplace.id),
       () => {
         this.removing.set(false);
+        this.workplaceOpen.set(false);
         this.selectedId.set(null);
       },
     );

@@ -99,7 +99,7 @@ export const PENSION_GUIDE: PensionGuideSection[] = [
     title: 'Is it worth it?',
     body: [
       'For most employees, yes: the employer contribution is money you only get by joining, the deduction gives back a part of what you pay, and the tax at the end is lower than on the TFR. The costs: the money is tied up until you retire (apart from the cases above), and the investment can lose value in a bad year.',
-      'The TFR tab compares, with your own figures, leaving the TFR with the company against sending it to a fund.',
+      'The For later section compares, with your own figures, leaving the TFR with the company against sending it to a fund.',
     ],
   },
 ];

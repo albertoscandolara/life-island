@@ -1,12 +1,21 @@
+/*
+ * Your payslips laid out month by month, shared by the Work page (the grid
+ * and What's next) and svc-work (`GET /attention`), so both see the same
+ * months missing and the same payslips to check.
+ */
 import type {
-  CareerDocumentDto,
-  PayslipAuditFindingDto,
   PayslipCheckDto,
   PayslipKind,
   TaxCertificateDto,
   WorkplaceDto,
-} from '@life-island/contracts';
-import { workplaceName } from './labels';
+  CareerDocumentDto,
+} from './work.js';
+import type { PayslipAuditFindingDto } from './work-checks.js';
+
+const workplaceName = (w: WorkplaceDto): string =>
+  w.label ||
+  (typeof w.values.employerName === 'string' ? w.values.employerName : '') ||
+  'Unnamed workplace';
 
 /** One payslip on the grid, with what it needs from you. */
 export interface PayslipSlip {
@@ -21,7 +30,7 @@ export interface PayslipSlip {
 }
 
 /** What a month of the grid shows. */
-export type MonthState =
+export type PayslipMonthState =
   /** A monthly payslip, all in order. */
   | 'ok'
   /** A monthly payslip with something to look at. */
@@ -36,7 +45,7 @@ export interface PayslipMonth {
   period: string;
   /** 1..12 */
   month: number;
-  state: MonthState;
+  state: PayslipMonthState;
   /** The monthly payslips (more than one with two jobs in the month). */
   slips: PayslipSlip[];
   /** Tredicesima, quattordicesima and other extra payslips of the month. */
@@ -60,7 +69,7 @@ const isoMonth = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
 /** Adds months to a YYYY-MM. */
-export function addMonths(period: string, months: number): string {
+export function periodPlusMonths(period: string, months: number): string {
   const [y, m] = period.split('-').map(Number);
   return isoMonth(new Date(y, m - 1 + months, 1));
 }
@@ -70,9 +79,9 @@ export function addMonths(period: string, months: number): string {
  * payslip comes at its end or in the first days of the next, so the previous
  * month counts from the 15th, the one before always.
  */
-export function dueThrough(today: string): string {
+export function payslipDueThrough(today: string): string {
   const current = today.slice(0, 7);
-  return addMonths(current, Number(today.slice(8, 10)) >= 15 ? -1 : -2);
+  return periodPlusMonths(current, Number(today.slice(8, 10)) >= 15 ? -1 : -2);
 }
 
 /**
@@ -99,7 +108,7 @@ function owedMonths(workplace: WorkplaceDto, through: string): Set<string> {
         : (payslips.at(-1) ?? first);
   const last = end < through ? end : through;
   const out = new Set<string>();
-  for (let p = first; p <= last; p = addMonths(p, 1)) out.add(p);
+  for (let p = first; p <= last; p = periodPlusMonths(p, 1)) out.add(p);
   return out;
 }
 
@@ -126,7 +135,7 @@ export function payslipYears(input: {
   findings: readonly PayslipAuditFindingDto[];
   today: string;
 }): PayslipYear[] {
-  const through = dueThrough(input.today);
+  const through = payslipDueThrough(input.today);
   const notes = new Map<string, string[]>();
   const note = (uploadId: string | null, text: string) => {
     if (!uploadId) return;
@@ -162,10 +171,20 @@ export function payslipYears(input: {
     }
   }
 
-  const years = new Set<number>([
+  const known = [
     ...[...slips.keys()].map((p) => Number(p.slice(0, 4))),
     ...input.certificates.map((c) => c.year),
-  ]);
+  ];
+  // A year with no document between two that have some is a gap, not a
+  // year you did not work: it is listed, with its owed months missing.
+  const years = new Set<number>(
+    known.length
+      ? Array.from(
+          { length: Math.max(...known) - Math.min(...known) + 1 },
+          (_, i) => Math.min(...known) + i,
+        )
+      : [],
+  );
   return [...years]
     .sort((a, b) => b - a)
     .map((year) => {
@@ -173,7 +192,7 @@ export function payslipYears(input: {
         const period = `${year}-${String(i + 1).padStart(2, '0')}`;
         const all = slips.get(period) ?? [];
         const regular = all.filter((s) => s.kind === 'regular');
-        const state: MonthState = regular.length
+        const state: PayslipMonthState = regular.length
           ? all.some((s) => s.checks.length)
             ? 'check'
             : 'ok'
@@ -222,4 +241,24 @@ export function certificateMatches(c: TaxCertificateDto): boolean | null {
   const gaps = [c.incomeGap, c.taxGap].filter((g): g is number => g !== null);
   if (!gaps.length) return null;
   return gaps.every((g) => Math.abs(g) < 1);
+}
+
+/** How far back a missing payslip still asks for you: older gaps stay on the grid only. */
+export const MISSING_PAYSLIP_MONTHS = 12;
+
+/**
+ * The payslips missing in the last year, newest first: what What's next,
+ * the hub and the Agenda ask you to load. An older gap stays on the grid,
+ * so a career loaded only in part does not nag.
+ */
+export function recentMissingPayslips(
+  years: readonly PayslipYear[],
+  today: string,
+): string[] {
+  const from = periodPlusMonths(today.slice(0, 7), -MISSING_PAYSLIP_MONTHS);
+  return years
+    .flatMap((y) => y.months)
+    .filter((m) => m.state === 'missing' && m.period >= from)
+    .map((m) => m.period)
+    .sort((a, b) => b.localeCompare(a));
 }

@@ -11,6 +11,7 @@ import {
 } from '@life-island/contracts';
 import { euro } from './labels';
 import { guideText, PENSION_GUIDE } from './pension-guide';
+import { WorkGuideSections } from './work-guide-sections';
 
 /**
  * How a pension fund works, in plain words, one fold per question, with the
@@ -20,42 +21,32 @@ import { guideText, PENSION_GUIDE } from './pension-guide';
 @Component({
   selector: 'work-pension-guide',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [WorkGuideSections],
   template: `
-    @for (s of guide; track s.id; let first = $first) {
-      <details [open]="first && newcomer()">
-        <summary>{{ s.title }}</summary>
-        @for (p of s.body; track $index) {
-          <p>{{ text(p) }}</p>
+    <work-guide-sections
+      [sections]="guide"
+      [openFirst]="newcomer()"
+      [text]="text"
+    >
+      <p>
+        <a href="/work#work-tfr" (click)="openTfr($event)"
+          >Compare the company and a fund with your figures</a
+        >
+      </p>
+      <p class="ui-info-sources">
+        The pension figures on the Work page are estimates for planning: your
+        fund and your CAF have the last word. Sources:
+        @for (s of pension().sources; track s.url; let last = $last) {
+          <a [href]="s.url" target="_blank" rel="noopener">{{ s.label }}</a
+          >{{ last ? '' : ' · ' }}
         }
-        @if (s.points?.length) {
-          <ul>
-            @for (p of s.points; track $index) {
-              <li>{{ text(p) }}</li>
-            }
-          </ul>
-        }
-        @if (s.id === 'worth') {
-          <p>
-            <a href="/work?tab=tfr" (click)="openTfr($event)"
-              >Open the comparison in the TFR tab</a
-            >
-          </p>
-        }
-      </details>
-    }
-    <p class="ui-info-sources">
-      The figures in the Pension fund tab are estimates for planning: your fund
-      and your CAF have the last word. Sources:
-      @for (s of pension().sources; track s.url; let last = $last) {
-        <a [href]="s.url" target="_blank" rel="noopener">{{ s.label }}</a
-        >{{ last ? '' : ' · ' }}
-      }
-    </p>
+      </p>
+    </work-guide-sections>
   `,
 })
 export class PensionGuideTopic {
   readonly pension = input.required<PensionOverviewDto>();
-  /** Opens the TFR tab, with the company-or-fund comparison. */
+  /** Opens the company-or-fund comparison, in For later. */
   readonly showTfr = output<void>();
 
   protected readonly guide = PENSION_GUIDE;
@@ -68,9 +59,8 @@ export class PensionGuideTopic {
     () => !this.pension().funds.length && !this.pension().onPayslips,
   );
 
-  protected text(value: string): string {
-    return guideText(value, this.limits());
-  }
+  protected readonly text = (value: string): string =>
+    guideText(value, this.limits());
 
   protected openTfr(event: Event): void {
     event.preventDefault();

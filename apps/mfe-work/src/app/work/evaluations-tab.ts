@@ -81,6 +81,8 @@ export class EvaluationsTab {
   readonly reviewsVsPay = input<ReviewPayDto[]>([]);
   /** A goal's status was saved: the page reloads the overview. */
   readonly changed = output<void>();
+  /** Opens the Work guide on performance reviews. */
+  readonly showGuide = output<void>();
 
   protected readonly goalStatuses = GOAL_STATUSES;
   protected readonly goalLabels = GOAL_STATUS_LABELS;

@@ -1,12 +1,12 @@
-import type { WorkOverviewDto } from '@life-island/contracts';
-import type { UiIconName } from '@life-island/design-system';
-import { euro } from './labels';
 import {
   certificateMatches,
-  dueThrough,
+  payslipDueThrough,
+  recentMissingPayslips,
   type PayslipYear,
-} from './payslip-months';
-import { periodText } from './labels';
+  type WorkOverviewDto,
+} from '@life-island/contracts';
+import type { UiIconName } from '@life-island/design-system';
+import { euro, periodText } from './labels';
 
 /** How much a step needs you: late, to do now, to look at, a good idea. */
 export type WorkStepLevel = 'late' | 'due' | 'check' | 'idea';
@@ -78,31 +78,28 @@ export function workSteps(
       date: '',
     });
 
-  const through = dueThrough(today);
-  const missing = years
-    .flatMap((y) => y.months)
-    .filter((m) => m.state === 'missing')
-    .sort((a, b) => b.period.localeCompare(a.period));
+  const through = payslipDueThrough(today);
+  const missing = recentMissingPayslips(years, today);
   if (missing.length) {
     const latest = missing[0];
     add({
       id: 'missing',
-      level: latest.period === through ? 'due' : 'check',
+      level: latest === through ? 'due' : 'check',
       icon: 'file',
       title:
         missing.length === 1
-          ? `Load the payslip of ${periodText(latest.period)}`
+          ? `Load the payslip of ${periodText(latest)}`
           : `Load ${missing.length} missing payslips`,
       detail:
         missing.length === 1
           ? 'Without it your pay, TFR and CU checks have a gap.'
-          : `Latest: ${periodText(latest.period)}. Without them your pay, TFR and CU checks have gaps.`,
+          : `Latest: ${periodText(latest)}. Without them your pay, TFR and CU checks have gaps.`,
       target: {
         kind: 'section',
         id: 'work-payslips',
-        year: Number(latest.period.slice(0, 4)),
+        year: Number(latest.slice(0, 4)),
       },
-      date: latest.period,
+      date: latest,
     });
   }
 

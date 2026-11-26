@@ -295,47 +295,12 @@
 }
 
 /* ---- workplaces -------------------------------------------------------- */
-.split {
-  display: grid;
-  grid-template-columns: minmax(14rem, 18rem) 1fr;
-  gap: var(--space-6);
-  align-items: start;
+.workplace-add {
+  margin-top: var(--space-3);
 }
 
-.list {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.list__item {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  color: var(--text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out);
-}
-
-.list__item:hover {
-  border-color: var(--accent);
-}
-
-.list__item--on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.list__name {
-  font-weight: 600;
-}
-
-.detail {
-  min-width: 0;
+.workplace__actions {
+  margin-bottom: var(--space-4);
 }
 
 .values {
@@ -420,7 +385,8 @@
   color: var(--text-primary);
 }
 
-.platforms {
+/* Cards of workplaces and hiring platforms. */
+.cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
   gap: var(--space-3);
@@ -429,7 +395,7 @@
   list-style: none;
 }
 
-.platform {
+.card {
   display: grid;
   gap: var(--space-2);
   align-content: start;
@@ -440,22 +406,22 @@
   animation: rise var(--duration-slow) var(--ease-out) both;
 }
 
-.platform--off {
+.card--off {
   opacity: 0.7;
 }
 
-.platform p {
+.card p {
   margin: 0;
 }
 
-.platform__head {
+.card__head {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: var(--space-3);
   align-items: center;
 }
 
-.platform__initial {
+.card__initial {
   display: grid;
   place-items: center;
   width: var(--space-10);
@@ -467,7 +433,7 @@
   font-size: var(--text-lg);
 }
 
-.platform__buttons {
+.card__buttons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
@@ -486,10 +452,6 @@
 }
 
 @media (width <= 48rem) {
-  .split {
-    grid-template-columns: 1fr;
-  }
-
   .change {
     grid-template-columns: 1fr;
   }
@@ -498,7 +460,7 @@
 @media (prefers-reduced-motion: reduce) {
   .event,
   .review,
-  .platform {
+  .card {
     animation: none;
   }
 }
@@ -509,4 +471,9 @@
   ui-page-header {
     display: none;
   }
+}
+
+/* Links to the guide under a section title. */
+.group-links {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
 }

@@ -6,7 +6,6 @@ import {
   input,
   model,
 } from '@angular/core';
-import { proofUploadUrl, type TaxCertificateDto } from '@life-island/contracts';
 import {
   UiBadge,
   UiButton,
@@ -19,9 +18,11 @@ import { WorkApi } from '../api/work-api';
 import { dateText, euro, periodText } from './labels';
 import {
   certificateMatches,
+  proofUploadUrl,
   type PayslipSlip,
   type PayslipYear,
-} from './payslip-months';
+  type TaxCertificateDto,
+} from '@life-island/contracts';
 
 const MONTH_NAMES = [
   'January',
