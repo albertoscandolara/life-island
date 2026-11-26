@@ -50,6 +50,21 @@ export interface PayslipMonth {
   slips: PayslipSlip[];
   /** Tredicesima, quattordicesima and other extra payslips of the month. */
   extras: PayslipSlip[];
+  /** Welfare the month's payslips credit outside the net; null when none. */
+  welfare: PayslipWelfare | null;
+}
+
+/** An evaluation a welfare credit follows, at most this many days after it. */
+export const WELFARE_EVALUATION_DAYS = 180;
+
+/**
+ * Welfare credited with a month's payslips, tax free and outside the net: a
+ * premio di risultato converted to welfare, meal vouchers, flexible benefits.
+ */
+export interface PayslipWelfare {
+  amount: number;
+  /** The evaluation it most likely rewards: the latest one before it, within WELFARE_EVALUATION_DAYS. */
+  evaluation: { uploadId: string; title: string; date: string } | null;
 }
 
 export interface PayslipYear {
@@ -61,6 +76,8 @@ export interface PayslipYear {
   net: number;
   missing: number;
   toCheck: number;
+  /** Welfare credited in the year with the payslips, tax free and not in the gross. */
+  welfare: number;
   /** The Certificazioni Uniche about the year's income. */
   certificates: TaxCertificateDto[];
 }
@@ -145,6 +162,31 @@ export function payslipYears(input: {
   for (const f of input.findings)
     if (f.severity !== 'info') note(f.uploadId, f.title);
 
+  const evaluations = input.workplaces
+    .flatMap((w) =>
+      w.documents
+        .filter((d) => d.type === 'PERFORMANCE_REVIEW' && d.period)
+        .map((d) => ({
+          workplaceId: w.id,
+          uploadId: d.uploadId,
+          title: d.title,
+          date: d.period!.slice(0, 10),
+        })),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const evaluationBefore = (workplaceId: string, period: string) => {
+    const end = `${period}-31`;
+    return (
+      evaluations.find(
+        (e) =>
+          e.workplaceId === workplaceId &&
+          e.date <= end &&
+          (Date.parse(`${period}-28`) - Date.parse(e.date)) / 86_400_000 <=
+            WELFARE_EVALUATION_DAYS,
+      ) ?? null
+    );
+  };
+
   const slips = new Map<string, PayslipSlip[]>();
   const seen = new Set<string>();
   const owed = new Set<string>();
@@ -205,6 +247,7 @@ export function payslipYears(input: {
           state,
           slips: regular,
           extras: all.filter((s) => s.kind !== 'regular'),
+          welfare: welfareOf(all, period, evaluationBefore),
         };
       });
       const every = months.flatMap((m) => [...m.slips, ...m.extras]);
@@ -216,9 +259,37 @@ export function payslipYears(input: {
         net: every.reduce((sum, s) => sum + (s.doc.net ?? 0), 0),
         missing: months.filter((m) => m.state === 'missing').length,
         toCheck: every.filter((s) => s.checks.length).length,
+        welfare:
+          Math.round(
+            months.reduce((sum, m) => sum + (m.welfare?.amount ?? 0), 0) * 100,
+          ) / 100,
         certificates: input.certificates.filter((c) => c.year === year),
       };
     });
+}
+
+function welfareOf(
+  slips: readonly PayslipSlip[],
+  period: string,
+  evaluationBefore: (
+    workplaceId: string,
+    period: string,
+  ) => PayslipWelfare['evaluation'],
+): PayslipWelfare | null {
+  const credited = slips.filter((s) => (s.doc.welfare ?? 0) > 0);
+  if (!credited.length) return null;
+  const amount = credited.reduce((sum, s) => sum + s.doc.welfare!, 0);
+  const evaluation = evaluationBefore(credited[0].workplaceId, period);
+  return {
+    amount: Math.round(amount * 100) / 100,
+    evaluation: evaluation
+      ? {
+          uploadId: evaluation.uploadId,
+          title: evaluation.title,
+          date: evaluation.date,
+        }
+      : null,
+  };
 }
 
 /** The latest monthly payslip and the one before, for the tiles. */

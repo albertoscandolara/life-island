@@ -36,7 +36,11 @@
     >
     <span>Gross <strong>{{ euro(y.gross) }}</strong></span>
     <span>Net <strong>{{ euro(y.net) }}</strong></span>
-    @if (y.missing) {
+    @if (y.welfare) {
+    <span class="summary__welfare"
+      >Welfare <strong>{{ euro(y.welfare) }}</strong></span
+    >
+    } @if (y.missing) {
     <ui-badge tone="warning">{{ y.missing }} missing</ui-badge>
     } @if (y.toCheck) {
     <ui-badge tone="warning">{{ y.toCheck }} to check</ui-badge>
@@ -148,6 +152,17 @@
         <span class="slip__note slip__note--check">{{ c }}</span>
         }
       </div>
+      } @if (m.welfare; as w) {
+      <p class="slip__welfare">
+        <span
+          >Welfare @if (w.evaluation) {
+          <span class="slip__welfare-why"
+            >after the {{ dateText(w.evaluation.date) }} evaluation</span
+          >
+          }</span
+        >
+        <strong>+{{ euro(w.amount) }}</strong>
+      </p>
       }
     </li>
     }

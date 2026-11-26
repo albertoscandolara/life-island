@@ -21,6 +21,7 @@ const year = (over: Partial<PayslipYear>): PayslipYear => ({
   net: 0,
   missing: 0,
   toCheck: 0,
+  welfare: 0,
   certificates: [],
   ...over,
 });
@@ -73,6 +74,7 @@ describe('workSteps', () => {
               state: 'missing',
               slips: [],
               extras: [],
+              welfare: null,
             },
           ],
         }),

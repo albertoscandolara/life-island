@@ -18,6 +18,7 @@ const doc = (over: Partial<CareerDocumentDto>): CareerDocumentDto => ({
   payslipKind: 'regular',
   gross: 3200,
   net: 2187.45,
+  welfare: null,
   facts: [],
   uploadedAt: '2026-11-01T00:00:00Z',
   reviewedAt: '2026-11-01T00:00:00Z',
