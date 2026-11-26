@@ -119,6 +119,36 @@ describe('buildAudit', () => {
     expect(unfair.severity).toBe('problem');
   });
 
+  it('ignores a superminimum lower for one month only, or not read', () => {
+    const audit = buildAudit(
+      [workplace],
+      [
+        payslip('2024-09', { base_minimum: 2158.26, superminimum: 120 }),
+        payslip('2024-10', { base_minimum: 2158.26, superminimum: 30.16 }),
+        payslip('2024-11', { base_minimum: 2158.26, superminimum: 120 }),
+        payslip('2024-12', { base_minimum: 2158.26, superminimum: null }),
+      ],
+      '2025-01-10',
+    );
+    expect(
+      audit.findings.filter((f) => f.kind === 'superminimum_absorbed'),
+    ).toEqual([]);
+  });
+
+  it('asks to check a superminimum that stays lower with no rise to absorb it', () => {
+    const f = buildAudit(
+      [workplace],
+      [
+        payslip('2024-09', { base_minimum: 2158.26, superminimum: 120 }),
+        payslip('2024-10', { base_minimum: 2158.26, superminimum: 100 }),
+        payslip('2024-11', { base_minimum: 2158.26, superminimum: 100 }),
+      ],
+      '2025-01-10',
+    ).findings.find((x) => x.kind === 'superminimum_absorbed')!;
+    expect(f).toMatchObject({ severity: 'check', amount: 20 });
+    expect(f.title).toContain('lower');
+  });
+
   it('warns about vacation piling up and a short tredicesima', () => {
     const audit = buildAudit(
       [workplace],

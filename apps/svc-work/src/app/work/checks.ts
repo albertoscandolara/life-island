@@ -198,26 +198,45 @@ export function buildAudit(
     }
   }
 
-  // 3. Superminimum absorbed at a renewal or a promotion.
-  let previous: ApprovedWorkDocument | null = null;
-  for (const p of monthly) {
-    const before = previous;
-    previous = p;
-    if (!before) continue;
+  // 3. Superminimum absorbed at a renewal or a promotion. Only a drop that
+  // lasts counts: a superminimum read lower for one month and back the next
+  // is a month paid in part (sick leave, unpaid hours) or a misread line,
+  // not an absorption. A superminimum not read is unknown, not zero.
+  for (let i = 1; i < monthly.length; i++) {
+    const before = monthly[i - 1];
+    const p = monthly[i];
     const was = num(before.reading.values.superminimum);
-    const now = num(p.reading.values.superminimum) ?? 0;
+    const now = num(p.reading.values.superminimum);
     const baseWas = num(before.reading.values.baseMinimum);
     const baseNow = num(p.reading.values.baseMinimum);
     if (
       was === null ||
+      now === null ||
       now >= was - 0.5 ||
       baseWas === null ||
       baseNow === null
     )
       continue;
+    const after = monthly
+      .slice(i + 1)
+      .map((q) => num(q.reading.values.superminimum))
+      .find((v) => v !== null);
+    if (after !== undefined && after >= was - 0.5) continue;
     const absorbed = round2(was - now);
     const rise = round2(baseNow - baseWas);
     const promoted = levelOf(before) !== levelOf(p);
+    if (rise <= 0.5 && !promoted) {
+      find({
+        kind: 'superminimum_absorbed',
+        severity: 'check',
+        uploadId: p.uploadId,
+        period: p.reading.period,
+        title: `${monthText(p.reading.period!)}: superminimum ${money(absorbed)} lower`,
+        detail: `The superminimum went from ${money(was)} to ${money(now)} with no rise of the minimum and no promotion, so nothing could absorb it. Check the superminimo line of both payslips: if it did not change, correct the value read here; if it did, ask the payroll office.`,
+        amount: absorbed,
+      });
+      continue;
+    }
     find({
       kind: 'superminimum_absorbed',
       severity: absorbed > rise + 0.5 ? 'problem' : 'info',
