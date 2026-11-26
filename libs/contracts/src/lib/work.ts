@@ -500,6 +500,8 @@ export interface CareerDocumentDto {
   payslipKind: PayslipKind | null;
   gross: number | null;
   net: number | null;
+  /** Welfare a payslip credits outside its net (a premio converted to welfare, meal vouchers), tax free; null when none is printed. */
+  welfare: number | null;
   facts: WorkFactDto[];
   uploadedAt: string;
   reviewedAt: string;

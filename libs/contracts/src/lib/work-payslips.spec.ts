@@ -25,6 +25,7 @@ const slip = (
   payslipKind: 'regular',
   gross: 3000,
   net: 2000,
+  welfare: null,
   facts: [],
   uploadedAt: '',
   reviewedAt: '',
@@ -152,6 +153,38 @@ describe('payslip months', () => {
     expect(missing[0]).toBe('2026-09');
     expect(missing.at(-1)).toBe('2025-11');
     expect(missing).toHaveLength(11);
+  });
+
+  it('shows the welfare a payslip credits on its month, after the evaluation before it', () => {
+    const [year] = payslipYears({
+      workplaces: [
+        job([
+          slip('sep', '2026-09'),
+          slip('oct', '2026-10', { welfare: 903.96 }),
+          {
+            ...slip('ev', '2026-07'),
+            type: 'PERFORMANCE_REVIEW',
+            title: 'Valutazione 2026',
+            period: '2026-07-20',
+            payslipKind: null,
+          },
+        ]),
+      ],
+      certificates: [],
+      checks: [],
+      findings: [],
+      today: '2026-11-26',
+    });
+    expect(year.months[9].welfare).toEqual({
+      amount: 903.96,
+      evaluation: {
+        uploadId: 'ev',
+        title: 'Valutazione 2026',
+        date: '2026-07-20',
+      },
+    });
+    expect(year.months[8].welfare).toBeNull();
+    expect(year.welfare).toBe(903.96);
   });
 
   it('matches a CU within a euro', () => {

@@ -252,6 +252,7 @@ export class WorkService {
               payslipKind: doc.type === 'PAYSLIP' ? kindOf(d.reading) : null,
               gross: d.reading.gross,
               net: d.reading.net,
+              welfare: doc.type === 'PAYSLIP' ? d.reading.welfare : null,
               facts: d.reading.facts,
               uploadedAt: doc.row.uploadedAt.toISOString(),
               reviewedAt: reviewOf.get(d.uploadId)!.decidedAt.toISOString(),

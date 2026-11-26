@@ -14,6 +14,7 @@ const slip = (period: string): CareerDocumentDto => ({
   payslipKind: 'regular',
   gross: 3000,
   net: 2000,
+  welfare: null,
   facts: [],
   uploadedAt: '',
   reviewedAt: '',
