@@ -2,9 +2,9 @@
 <ui-card class="li-block">
   <ui-empty-state heading="No TFR on your payslips yet" icon="calendar">
     <p class="li-muted">
-      The TFR (trattamento di fine rapporto) is read from the quota each payslip
-      sets aside. Approve your payslips in "To review" and it is added up here,
-      year by year, with the revaluation the law grants.
+      The TFR is read from the quota each payslip sets aside. Approve your
+      payslips in "To review" and it is added up here, year by year, with the
+      revaluation the law grants.
     </p>
   </ui-empty-state>
 </ui-card>
@@ -48,7 +48,7 @@
     <button
       type="button"
       class="li-link li-small"
-      (click)="tfr().inFund ? showPension.emit() : showGuide.emit()"
+      (click)="tfr().inFund ? showPension.emit() : showGuide.emit('pension')"
     >
       {{ tfr().inFund ? 'Follow it in Pension fund' : 'How a pension fund works'
       }}
@@ -118,11 +118,12 @@
 
 <ui-card heading="Company or pension fund?" class="li-block">
   <p class="li-muted li-intro">
-    From today on, the TFR you will set aside, left with the company or sent to
-    a pension fund (such as Cometa for the metalworkers) with your contribution
-    and the employer's. Your contributions are deductible up to {{
-    euro(deductionLimit) }} a year, and the fund pays out taxed at 15%, less 0.3
-    points a year after the 15th, down to 9%.
+    The TFR you will set aside from today, left with the company or sent to a
+    pension fund with your contribution and the employer's, with your own
+    figures.
+    <button type="button" class="li-link" (click)="showGuide.emit('tfr')">
+      How the TFR works
+    </button>
   </p>
   <form class="li-form" (submit)="$event.preventDefault()">
     <label>

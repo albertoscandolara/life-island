@@ -336,15 +336,14 @@
   </div>
 </ui-card>
 } @if (missingRules()) {
-<ui-card heading="How your marks work" class="li-block">
+<ui-card heading="Load your evaluation rules" class="li-block">
   <p class="li-muted">
-    Load your employer's evaluation rules (the incentive plan, sistema
-    incentivante or scheda obiettivi) in the documents app and approve them
-    under {{ latest()?.workplaceName ?? 'your workplace' }}: what each section
-    is worth, what a mark means and how the score converts to bonus show here,
-    and every evaluation is read against the version in force on its date. When
-    the company publishes a new version, load it too: it takes over from the day
-    it applies.
+    Load the incentive plan (sistema incentivante or scheda obiettivi) in the
+    documents app and approve it under {{ latest()?.workplaceName ?? 'your
+    workplace' }}: each evaluation is then read against the rules of its date.
+    <button type="button" class="li-link" (click)="showGuide.emit()">
+      How your marks work
+    </button>
   </p>
 </ui-card>
 } @if (newestFirst().length) {

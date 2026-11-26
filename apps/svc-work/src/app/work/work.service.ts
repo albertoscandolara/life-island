@@ -77,6 +77,7 @@ import {
   FEEDBACK_TOOL,
   MARKET_CHECK_TOOL,
 } from './career-advisor.js';
+import { payslipAttention } from './payslip-attention.js';
 import {
   buildStats,
   buildTimeline,
@@ -459,14 +460,16 @@ export class WorkService {
     };
   }
 
-  /** The pension fund's dates, for the Agenda. */
   /**
    * What needs you, for the hub badge (`GET /attention`): pension fund dates
-   * already past or within 30 days (a transfer takes time), and the career
-   * documents waiting for review.
+   * already past or within 30 days (a transfer takes time), the career
+   * documents waiting for review, the payslips missing in the last year and
+   * a recent CU that differs from the payslips (both listed for the Agenda).
    */
   async attention(today = todayIso()): Promise<LifeAttentionDto> {
-    const { pension, reviews } = await this.overview(today);
+    const overview = await this.overview(today);
+    const { pension, reviews } = overview;
+    const payslips = payslipAttention(overview, today);
     return {
       expired: pensionDeadlines(pension, {
         from: '0000-01-01',
@@ -476,15 +479,18 @@ export class WorkService {
         from: today,
         to: isoAddDays(today, 30),
       }).length,
-      toReview: reviews.length,
-      items: reviews.map((r) =>
-        documentToReview(
-          r,
-          '/work',
-          r.type ? WORK_DOCUMENT_TYPE_LABELS[r.type] : null,
-          r.employerName,
+      toReview: reviews.length + payslips.length,
+      items: [
+        ...payslips,
+        ...reviews.map((r) =>
+          documentToReview(
+            r,
+            '/work',
+            r.type ? WORK_DOCUMENT_TYPE_LABELS[r.type] : null,
+            r.employerName,
+          ),
         ),
-      ),
+      ],
     };
   }
 
