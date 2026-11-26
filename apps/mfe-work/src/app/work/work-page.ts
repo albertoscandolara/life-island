@@ -57,6 +57,9 @@ import { EvaluationsTab } from './evaluations-tab';
 import { JobsTab } from './jobs-tab';
 import { PayAnalysisTab } from './pay-analysis-tab';
 import { PayslipsTab } from './payslips-tab';
+import { PayslipArchive } from './payslip-archive';
+import { latestPayslips, payslipYears } from './payslip-months';
+import { WORK_STEP_BADGES, workSteps, type WorkStep } from './next-steps';
 import { PensionGuideTopic } from './pension-guide-topic';
 import { PensionTab } from './pension-tab';
 import { TfrTab } from './tfr-tab';
@@ -80,18 +83,26 @@ import {
   workplaceName,
 } from './labels';
 import {
+  LiDelta,
   LiNeedsYou,
   LiReviewItem,
+  LiTabs,
   LiToReview,
   urlTab,
+  type LiTab,
 } from '@life-island/records-ui';
 
+/**
+ * Where the old tabs of Work now live: a link to `?tab=pension` (from the
+ * Agenda, the 730 or a bookmark) opens the page at its section.
+ */
 export type WorkTab =
+  | 'work'
+  | 'review'
   | 'career'
   | 'payslips'
   | 'analysis'
   | 'evaluations'
-  | 'review'
   | 'workplaces'
   | 'feedback'
   | 'audit'
@@ -101,24 +112,29 @@ export type WorkTab =
   | 'jobs'
   | 'platforms';
 
-const TABS: {
-  id: WorkTab;
-  label: string;
-  icon: UiIconName;
-}[] = [
-  { id: 'career', label: 'Overview', icon: 'chart' },
-  { id: 'payslips', label: 'Payslips', icon: 'file' },
-  { id: 'analysis', label: 'Pay analysis', icon: 'layers' },
-  { id: 'evaluations', label: 'Performance reviews', icon: 'check' },
-  { id: 'review', label: 'To review', icon: 'inbox' },
-  { id: 'workplaces', label: 'Workplaces', icon: 'home' },
-  { id: 'feedback', label: 'Career feedback', icon: 'info' },
-  { id: 'audit', label: 'Payslip audit', icon: 'alert' },
-  { id: 'tfr', label: 'TFR', icon: 'calendar' },
-  { id: 'pension', label: 'Pension fund', icon: 'layers' },
-  { id: 'tools', label: 'Tools', icon: 'wrench' },
-  { id: 'jobs', label: 'Job search', icon: 'search' },
-  { id: 'platforms', label: 'Hiring platforms', icon: 'external' },
+export const SECTION_OF: Record<Exclude<WorkTab, 'work' | 'review'>, string> = {
+  career: 'work-career',
+  payslips: 'work-payslips',
+  analysis: 'work-analysis',
+  evaluations: 'work-evaluations',
+  workplaces: 'work-workplaces',
+  feedback: 'work-feedback',
+  audit: 'work-audit',
+  tfr: 'work-tfr',
+  pension: 'work-pension',
+  tools: 'work-tools',
+  jobs: 'work-jobs',
+  platforms: 'work-platforms',
+};
+
+/** The sections of the page, in the order you need them. */
+const SECTIONS: { id: string; label: string; icon: UiIconName }[] = [
+  { id: 'work-payslips', label: 'Payslips', icon: 'file' },
+  { id: 'work-pay', label: 'Pay', icon: 'chart' },
+  { id: 'work-career', label: 'Career', icon: 'layers' },
+  { id: 'work-later', label: 'TFR and pension', icon: 'shield' },
+  { id: 'work-next', label: 'Next move', icon: 'search' },
+  { id: 'work-workplaces', label: 'Workplaces', icon: 'home' },
 ];
 
 /** The choices you make on one document waiting for review. */
@@ -183,7 +199,10 @@ const today = () => new Date().toISOString().slice(0, 10);
   selector: 'work-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LiDelta,
     LiNeedsYou,
+    LiTabs,
+    PayslipArchive,
     LiReviewItem,
     LiToReview,
     AiTool,
@@ -220,10 +239,11 @@ export class WorkPage {
   protected readonly overview = signal<WorkOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
-  protected readonly tab = urlTab(
-    TABS.map((t) => t.id),
-    'career',
-  );
+  protected readonly tab = urlTab(['work', 'review'] as const, 'work');
+  /** The year the payslip grid shows; null: the latest. */
+  protected readonly archiveYear = signal<number | null>(null);
+  /** A section to open once the page is drawn (from a link or a step). */
+  private pendingJump: string | null = null;
   /** The Work guide: reading matter kept out of the tabs, opened on demand. */
   protected readonly guideOpen = signal(false);
   protected readonly guideTopic = signal('pension');
@@ -250,7 +270,17 @@ export class WorkPage {
   /** An offer from the job search, for the comparison in Tools. */
   protected readonly offerPrefill = signal<OfferDraft | null>(null);
 
-  protected readonly tabs = TABS;
+  protected readonly sections = SECTIONS;
+  protected readonly stepBadges = WORK_STEP_BADGES;
+  protected readonly tabs = computed<LiTab[]>(() => [
+    { id: 'work', label: 'Your work', icon: 'chart' },
+    {
+      id: 'review',
+      label: 'To review',
+      icon: 'inbox',
+      count: this.reviews().length || undefined,
+    },
+  ]);
   protected readonly contractKinds = CONTRACT_KINDS;
   protected readonly contractKindLabels = CONTRACT_KIND_LABELS;
   protected readonly manualKinds = MANUAL_CAREER_EVENT_KINDS;
@@ -364,6 +394,74 @@ export class WorkPage {
       null,
   );
 
+  /** Your payslips year by year, month by month, for the grid and the steps. */
+  protected readonly payslipYears = computed(() => {
+    const data = this.overview();
+    if (!data) return [];
+    return payslipYears({
+      workplaces: data.workplaces,
+      certificates: data.certificates,
+      checks: data.stats.checks,
+      findings: data.audit.findings,
+      today: today(),
+    });
+  });
+
+  protected readonly latest = computed(() =>
+    latestPayslips(this.payslipYears()),
+  );
+
+  /** The job the page is about: the current one, else the latest. */
+  protected readonly job = computed<WorkplaceDto | null>(
+    () =>
+      this.workplaces().find((w) => w.status === 'current') ??
+      this.workplaces()[0] ??
+      null,
+  );
+
+  protected readonly steps = computed<WorkStep[]>(() => {
+    const data = this.overview();
+    return data ? workSteps(data, this.payslipYears(), today()) : [];
+  });
+
+  /** Steps that are late, due or to check: the ideas do not count. */
+  protected readonly urgentSteps = computed(
+    () => this.steps().filter((s) => s.level !== 'idea').length,
+  );
+
+  /** Gross of the latest year with payslips, against the same months of the year before. */
+  protected readonly yearToDate = computed(() => {
+    const monthly = this.stats()?.monthly ?? [];
+    const year = Number(
+      monthly.at(-1)?.period.slice(0, 4) ?? today().slice(0, 4),
+    );
+    const own = monthly.filter((m) => m.period.startsWith(`${year}-`));
+    // The same months of the year before, so a month missing either side does not count.
+    const months = new Set(own.map((m) => m.period.slice(5)));
+    const before = monthly.filter(
+      (m) =>
+        m.period.startsWith(`${year - 1}-`) && months.has(m.period.slice(5)),
+    );
+    const sum = (list: typeof monthly) =>
+      list.reduce((total, m) => total + (m.gross ?? 0), 0);
+    return {
+      year,
+      gross: sum(own),
+      months: own.length,
+      before: before.length === own.length ? sum(before) : null,
+    };
+  });
+
+  /** TFR held by the company and the pension fund's value (else what went in). */
+  protected readonly putAside = computed(() => {
+    const data = this.overview();
+    const tfr = data?.tfr.companyFund ?? 0;
+    const fund = data
+      ? (data.pension.totalValue ?? data.pension.totalPaidIn) || 0
+      : 0;
+    return { tfr, fund, total: tfr + fund };
+  });
+
   constructor() {
     // A link from anywhere on the island opens one workplace: /work?workplace=<id>.
     // Only a new id opens the tab, so a click on another tab is not undone.
@@ -372,8 +470,15 @@ export class WorkPage {
       const id = query.get(entityParam('workplace'));
       if (!id || id === opened) return;
       opened = id;
-      this.selectedId.set(id);
-      this.tab.set('workplaces');
+      this.openWorkplace(id);
+    });
+    // `?tab=pension` (an old link) and `#work-pension` open their section.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      const old = query.get('tab');
+      if (old && old in SECTION_OF) this.setTab(old as WorkTab);
+    });
+    this.route.fragment.pipe(takeUntilDestroyed()).subscribe((fragment) => {
+      if (fragment?.startsWith('work-')) this.jump(fragment);
     });
     // `?guide=pension` opens the guide, from a link anywhere on the island.
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
@@ -399,8 +504,60 @@ export class WorkPage {
     });
   }
 
+  /** Opens a view, or the section an old tab now lives in. */
   protected setTab(tab: WorkTab): void {
-    this.tab.set(tab);
+    if (tab === 'review' || tab === 'work') {
+      this.tab.set(tab);
+      return;
+    }
+    this.jump(SECTION_OF[tab]);
+  }
+
+  /** Scrolls to a section of the page, once it is drawn. */
+  protected jump(id: string): void {
+    if (this.tab() !== 'work') this.tab.set('work');
+    this.pendingJump = id;
+    if (this.overview()) this.scrollToPending();
+  }
+
+  private scrollToPending(): void {
+    const id = this.pendingJump;
+    if (!id) return;
+    setTimeout(() => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      this.pendingJump = null;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  /** Does what a step of What's next asks: the review, or its section. */
+  protected follow(step: WorkStep): void {
+    if (step.target.kind === 'review') {
+      this.tab.set('review');
+      return;
+    }
+    if (step.target.year) this.archiveYear.set(step.target.year);
+    this.jump(step.target.id);
+  }
+
+  /** Opens one workplace with its details and documents. */
+  protected openWorkplace(id: string): void {
+    this.select(id);
+    this.jump('work-workplaces');
+  }
+
+  /** A workplace's documents but its payslips, which have their own grid. */
+  protected otherDocuments(workplace: WorkplaceDto) {
+    return workplace.documents.filter((d) => d.type !== 'PAYSLIP');
+  }
+
+  protected payslipCount(workplace: WorkplaceDto): number {
+    return workplace.documents.filter((d) => d.type === 'PAYSLIP').length;
+  }
+
+  protected downloadUrl(uploadId: string): string {
+    return this.api.downloadUrl(uploadId);
   }
 
   protected load(): void {
@@ -408,6 +565,7 @@ export class WorkPage {
       next: (overview) => {
         this.overview.set(overview);
         this.error.set(null);
+        this.scrollToPending();
       },
       error: () =>
         this.error.set(
@@ -439,26 +597,6 @@ export class WorkPage {
     });
   }
 
-  protected tabCount(tab: WorkTab): number | null {
-    if (tab === 'review') return this.reviews().length || null;
-    if (tab === 'platforms') return this.stalePlatforms().length || null;
-    if (tab === 'audit')
-      return (
-        this.overview()?.audit.findings.filter((f) => f.severity === 'problem')
-          .length || null
-      );
-    if (tab === 'jobs') return this.overview()?.jobSearch.stale || null;
-    if (tab === 'pension') {
-      const p = this.overview()?.pension;
-      return (
-        (p?.pending.length ?? 0) +
-          (p?.years.filter((y) => y.noticeDue && !y.noticeSentAt && !y.running)
-            .length ?? 0) || null
-      );
-    }
-    return null;
-  }
-
   protected value(workplace: WorkplaceDto, field: string) {
     return workplace.values[field as WorkplaceField] ?? null;
   }
@@ -471,7 +609,7 @@ export class WorkPage {
   /** Open an offer of the job search in the comparison of Tools. */
   protected compareOffer(draft: OfferDraft): void {
     this.offerPrefill.set({ ...draft });
-    this.setTab('tools');
+    this.jump('work-tools');
   }
 
   // ---- review -------------------------------------------------------------

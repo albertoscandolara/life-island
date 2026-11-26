@@ -1,0 +1,241 @@
+<ui-card heading="Your payslips" class="archive">
+  @if (shown(); as y) {
+  <div uiCardActions class="li-actions">
+    <a
+      uiButton
+      variant="secondary"
+      size="sm"
+      [href]="yearUrl(y.year)"
+      download
+      [attr.aria-disabled]="!y.count || null"
+    >
+      <ui-icon name="download" [size]="16" /> All of {{ y.year }}
+    </a>
+  </div>
+  } @if (shown(); as y) {
+  <nav class="years" aria-label="Year">
+    @for (option of years(); track option.year) {
+    <button
+      type="button"
+      class="years__year"
+      [class.years__year--on]="option.year === y.year"
+      [attr.aria-pressed]="option.year === y.year"
+      (click)="year.set(option.year)"
+    >
+      {{ option.year }} @if (option.missing || option.toCheck) {
+      <span class="years__flag" aria-label="needs a look"></span>
+      }
+    </button>
+    }
+  </nav>
+
+  <p class="summary">
+    <span
+      ><strong>{{ y.count }}</strong> payslip{{ y.count === 1 ? '' : 's'
+      }}</span
+    >
+    <span>Gross <strong>{{ euro(y.gross) }}</strong></span>
+    <span>Net <strong>{{ euro(y.net) }}</strong></span>
+    @if (y.missing) {
+    <ui-badge tone="warning">{{ y.missing }} missing</ui-badge>
+    } @if (y.toCheck) {
+    <ui-badge tone="warning">{{ y.toCheck }} to check</ui-badge>
+    } @if (!y.missing && !y.toCheck && y.count) {
+    <ui-badge tone="success">All in order</ui-badge>
+    }
+  </p>
+
+  <ol class="slips" [attr.aria-label]="'Payslips of ' + y.year">
+    @for (m of y.months; track m.period) {
+    <li
+      class="slip slip--{{ m.state }}"
+      [class.slip--lead]="m.period === latestPeriod()"
+      [attr.aria-label]="monthNames[m.month - 1] + ' ' + y.year"
+    >
+      <header class="slip__head">
+        <span class="slip__month">{{ monthNames[m.month - 1] }}</span>
+        @if (m.state === 'check') {
+        <ui-icon
+          class="slip__mark slip__mark--check"
+          name="alert"
+          [size]="16"
+        />
+        } @else if (m.state === 'ok') {
+        <ui-icon class="slip__mark slip__mark--ok" name="check" [size]="16" />
+        }
+      </header>
+
+      @for (s of m.slips; track s.doc.uploadId) {
+      <div class="slip__pay">
+        <strong class="slip__net">{{ euro(s.doc.net) }}</strong>
+        <span class="slip__gross"
+          >gross {{ euro(s.doc.gross) }} @if (manyJobs()) { · {{ s.workplace }}
+          }</span
+        >
+        @if (s.received === 'full') {
+        <span class="slip__note slip__note--ok"
+          >Received {{ dateText(s.doc.bankPayment!.lastDate) }}</span
+        >
+        } @else if (s.received === 'part') {
+        <span class="slip__note slip__note--check"
+          >{{ euro(s.doc.bankPayment!.paid) }} received</span
+        >
+        } @for (c of s.checks; track $index) {
+        <span class="slip__note slip__note--check">{{ c }}</span>
+        }
+      </div>
+      <div class="slip__actions">
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(s)"
+          target="_blank"
+          rel="noopener"
+          [attr.aria-label]="'Open the payslip of ' + periodText(m.period)"
+        >
+          <ui-icon name="eye" [size]="16" /> Open
+        </a>
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="downloadUrl(s)"
+          download
+          [attr.aria-label]="'Download the payslip of ' + periodText(m.period)"
+        >
+          <ui-icon name="download" [size]="16" />
+        </a>
+      </div>
+      } @if (m.state === 'missing') {
+      <p class="slip__empty">Not loaded</p>
+      <div class="slip__actions">
+        <a uiButton variant="secondary" size="sm" [href]="uploadUrl(m.period)">
+          <ui-icon name="upload" [size]="16" /> Load it
+        </a>
+      </div>
+      } @else if (m.state === 'none' && !m.extras.length) {
+      <p class="slip__empty">–</p>
+      } @for (s of m.extras; track s.doc.uploadId) {
+      <div class="slip__extra">
+        <span
+          >{{ extraNames[s.kind] }} <strong>{{ euro(s.doc.net) }}</strong></span
+        >
+        <span class="slip__extra-actions">
+          <a
+            uiButton
+            variant="ghost"
+            size="sm"
+            [href]="previewUrl(s)"
+            target="_blank"
+            rel="noopener"
+            [attr.aria-label]="'Open the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
+          >
+            <ui-icon name="eye" [size]="16" />
+          </a>
+          <a
+            uiButton
+            variant="ghost"
+            size="sm"
+            [href]="downloadUrl(s)"
+            download
+            [attr.aria-label]="'Download the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
+          >
+            <ui-icon name="download" [size]="16" />
+          </a>
+        </span>
+        @for (c of s.checks; track $index) {
+        <span class="slip__note slip__note--check">{{ c }}</span>
+        }
+      </div>
+      }
+    </li>
+    }
+  </ol>
+
+  <section class="cu" aria-labelledby="cu-title">
+    <h3 id="cu-title" class="cu__title">Certificazione Unica {{ y.year }}</h3>
+    @for (c of y.certificates; track c.uploadId) {
+    <div class="cu__row">
+      <div class="cu__body">
+        <strong>{{ c.workplaceName }}</strong>
+        @switch (matches(c)) { @case (true) {
+        <ui-badge tone="success">Matches your payslips</ui-badge>
+        } @case (false) {
+        <ui-badge tone="warning">Differs from your payslips</ui-badge>
+        } }
+        <dl class="cu__facts">
+          <div>
+            <dt>Income declared</dt>
+            <dd>
+              {{ euro(c.income) }}
+              <span class="cu__gap">{{ gap(c.incomeGap) }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>IRPEF withheld</dt>
+            <dd>
+              {{ euro(c.irpefWithheld) }}
+              <span class="cu__gap">{{ gap(c.taxGap) }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Net tax</dt>
+            <dd>{{ euro(c.netTax) }}</dd>
+          </div>
+        </dl>
+        @if (c.missingMonths.length) {
+        <p class="li-muted li-small">
+          No payslip for {{ c.missingMonths.map(periodText).join(', ') }}.
+        </p>
+        }
+      </div>
+      <div class="slip__actions">
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(c)"
+          target="_blank"
+          rel="noopener"
+          [attr.aria-label]="'Open the CU ' + c.year + ' of ' + c.workplaceName"
+        >
+          <ui-icon name="eye" [size]="16" /> Open
+        </a>
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="downloadUrl(c)"
+          download
+          [attr.aria-label]="'Download the CU ' + c.year + ' of ' + c.workplaceName"
+        >
+          <ui-icon name="download" [size]="16" />
+        </a>
+      </div>
+    </div>
+    } @empty { @if (y.year < currentYear) {
+    <div class="cu__row">
+      <p class="li-muted cu__body">
+        Not loaded. Your employer gives it by {{ cuDue(y.year) }}: it shows
+        whether your payslips add up to what was declared.
+      </p>
+      <a uiButton variant="secondary" size="sm" [href]="cuUploadUrl(y.year)">
+        <ui-icon name="upload" [size]="16" /> Load it
+      </a>
+    </div>
+    } @else {
+    <p class="li-muted li-small">
+      It arrives by {{ cuDue(y.year) }}, once the year is over.
+    </p>
+    } }
+  </section>
+  } @else {
+  <ui-empty-state heading="No payslips on record yet" icon="file">
+    <p class="li-muted">
+      Load your payslips (cedolini) in the documents app and approve them in To
+      review: each month appears here, with its file to open or download.
+    </p>
+  </ui-empty-state>
+  }
+</ui-card>

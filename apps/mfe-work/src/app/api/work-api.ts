@@ -184,4 +184,14 @@ export class WorkApi {
   previewUrl(uploadId: string): string {
     return `${WORK_API}/documents/${uploadId}/preview`;
   }
+
+  /** The original file, saved as "2026-10 - Cedolino - Acme.pdf". */
+  downloadUrl(uploadId: string): string {
+    return `${WORK_API}/documents/${uploadId}/download`;
+  }
+
+  /** Every payslip paid in the year and its CU, zipped. */
+  payslipYearUrl(year: number): string {
+    return `${WORK_API}/payslips/${year}/archive.zip`;
+  }
 }

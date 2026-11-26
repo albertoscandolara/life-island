@@ -81,6 +81,7 @@ import {
   buildStats,
   buildTimeline,
   documentIdentity,
+  kindOf,
   monthsBetween,
   type ApprovedWorkDocument,
   type CareerWorkplace,
@@ -246,6 +247,7 @@ export class WorkService {
               title: d.title,
               type: doc.type,
               period: d.reading.period ?? d.reading.date,
+              payslipKind: doc.type === 'PAYSLIP' ? kindOf(d.reading) : null,
               gross: d.reading.gross,
               net: d.reading.net,
               facts: d.reading.facts,
@@ -439,6 +441,22 @@ export class WorkService {
       dismissed: new Set(dismissed.map((d) => d.uploadId)),
       today,
     });
+  }
+
+  /** The overview, with each document's original file name, for the downloads. */
+  async exportData(
+    today = todayIso(),
+  ): Promise<{ overview: WorkOverviewDto; filenames: Map<string, string> }> {
+    const [overview, docs] = await Promise.all([
+      this.overview(today),
+      this.workDocuments(),
+    ]);
+    return {
+      overview,
+      filenames: new Map(
+        docs.map((d) => [d.row.uploadId, d.row.originalFilename]),
+      ),
+    };
   }
 
   /** The pension fund's dates, for the Agenda. */
