@@ -1,12 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
 import {
+  freeId,
+  LEARNING_PATHS,
   learningPath,
+  pathSlug,
   pathOfStep,
   pathStep,
   type LearningPath,
@@ -17,6 +21,8 @@ import {
   type CertificationRequest,
   type CourseDto,
   type CourseRequest,
+  type PathCreateRequest,
+  type PathOutlineRequest,
   type PathProgressRequest,
   type StepProgressRequest,
   type StudiesAttentionDto,
@@ -34,12 +40,16 @@ import {
   type DeadlineDto,
   type DeadlinesQuery,
 } from '@life-island/contracts';
-import { desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { SERVICE_DB } from '../config.js';
 import {
   certifications,
   courses,
+  learningPaths,
+  outlineChanges,
   pathProgress,
+  scoutResources,
+  scoutSteps,
   stepProgress,
   studyPlans,
   studySessions,
@@ -59,6 +69,7 @@ import {
   yearlyCost,
 } from './progress.js';
 import { pathLink, studyAttentionItems } from './attention.js';
+import { outlinePath, pathTemplates } from './paths.js';
 import { ResourceScout } from './resource-scout.js';
 import { StudyCoach } from './study-coach.js';
 
@@ -220,6 +231,7 @@ export class StudiesService {
         courseDtos.some((c) => c.status === 'in_progress'),
       days: settings.days,
       today,
+      catalogue,
     });
     return {
       platforms,
@@ -233,6 +245,7 @@ export class StudiesService {
       aiCoach,
       reminderDays: settings.days,
       catalogue,
+      templates: pathTemplates(catalogue),
       scout: await this.scout.status(catalogue, today),
     };
   }
@@ -244,11 +257,13 @@ export class StudiesService {
     today = localToday(),
   ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, today);
-    const [platformRows, certificationRows, pathRows] = await Promise.all([
-      this.db.select().from(trainingPlatforms),
-      this.db.select().from(certifications),
-      this.db.select().from(pathProgress),
-    ]);
+    const [platformRows, certificationRows, pathRows, catalogue] =
+      await Promise.all([
+        this.db.select().from(trainingPlatforms),
+        this.db.select().from(certifications),
+        this.db.select().from(pathProgress),
+        this.scout.catalogue(),
+      ]);
     const found: DeadlineDto[] = [];
     const add = (d: Omit<DeadlineDto, 'module'>) =>
       found.push({ ...d, module: 'studies' });
@@ -297,7 +312,7 @@ export class StudiesService {
         add({
           id: `path:${p.pathId}:${p.targetOn}`,
           kind: 'path-target',
-          title: `Target date: ${learningPath(p.pathId)?.name ?? p.pathId}`,
+          title: `Target date: ${learningPath(p.pathId, catalogue)?.name ?? p.pathId}`,
           detail: null,
           date: p.targetOn,
           amount: null,
@@ -468,9 +483,9 @@ export class StudiesService {
    * starts the step (and follows its path) if you had not yet.
    */
   async addSession(request: StudySessionRequest): Promise<{ id: string }> {
-    const step = request.stepId
-      ? checkStep(request.stepId, await this.scout.catalogue())
-      : null;
+    const catalogue =
+      request.stepId || request.pathId ? await this.scout.catalogue() : [];
+    const step = request.stepId ? checkStep(request.stepId, catalogue) : null;
     let topic: StudyTopic = request.topic ?? step?.topic ?? 'other';
     if (request.courseId) {
       const [course] = await this.db
@@ -481,8 +496,10 @@ export class StudiesService {
       if (!request.topic && !step) topic = course.topic;
     }
     const pathId = step?.pathId ?? request.pathId ?? null;
+    if (!step && pathId && !learningPath(pathId, catalogue))
+      throw new BadRequestException('Unknown path');
     if (!request.topic && !step && pathId)
-      topic = learningPath(pathId)?.topic ?? topic;
+      topic = learningPath(pathId, catalogue)?.topic ?? topic;
     return this.svc.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(studySessions)
@@ -535,7 +552,11 @@ export class StudiesService {
     request: PathProgressRequest,
     today = localToday(),
   ): Promise<void> {
-    if (!learningPath(pathId)) throw new NotFoundException('Path not found');
+    if (
+      !learningPath(pathId, await this.scout.catalogue()) &&
+      !learningPath(pathId, LEARNING_PATHS)
+    )
+      throw new NotFoundException('Path not found');
     if (request.status === null) {
       await this.db.delete(pathProgress).where(eq(pathProgress.pathId, pathId));
       return;
@@ -557,6 +578,111 @@ export class StudiesService {
             : {}),
         },
       });
+  }
+
+  /**
+   * Add a topic: a curated template, or a path you wrote (its id is a slug
+   * of its name). Either way you follow it from today.
+   */
+  async addPath(
+    request: PathCreateRequest,
+    today = localToday(),
+  ): Promise<{ id: string }> {
+    const catalogue = await this.scout.catalogue();
+    if ('template' in request) {
+      const id = request.template;
+      if (!learningPath(id, LEARNING_PATHS))
+        throw new NotFoundException('Path not found');
+      if (learningPath(id, catalogue))
+        throw new ConflictException('This path is already yours.');
+      await this.db
+        .insert(pathProgress)
+        .values({ pathId: id, status: 'following', startedOn: today })
+        .onConflictDoNothing();
+      return { id };
+    }
+    const stored = await this.db
+      .select({ id: learningPaths.id })
+      .from(learningPaths);
+    const taken = new Set([
+      ...LEARNING_PATHS.map((p) => p.id),
+      ...catalogue.map((p) => p.id),
+      ...stored.map((p) => p.id),
+    ]);
+    const id = freeId(pathSlug(request.outline.name), taken);
+    const path = outlinePath(id, request.outline);
+    await this.svc.db.transaction(async (tx) => {
+      await tx.insert(learningPaths).values({ ...path, templateId: null });
+      await tx
+        .insert(pathProgress)
+        .values({ pathId: id, status: 'following', startedOn: today })
+        .onConflictDoNothing();
+    });
+    return { id };
+  }
+
+  /**
+   * Saves a path's card, stages and steps as you wrote them. A curated path
+   * you change becomes yours (a row with its id); a step you keep keeps its
+   * progress, and a step you drop keeps it too, should you bring it back.
+   */
+  async editPath(pathId: string, outline: PathOutlineRequest): Promise<void> {
+    const catalogue = await this.scout.catalogue();
+    if (!learningPath(pathId, catalogue))
+      throw new NotFoundException('Path not found');
+    const path = outlinePath(pathId, outline);
+    const templateId = learningPath(pathId, LEARNING_PATHS) ? pathId : null;
+    const now = new Date();
+    await this.db
+      .insert(learningPaths)
+      .values({ ...path, templateId, updatedAt: now })
+      .onConflictDoUpdate({
+        target: learningPaths.id,
+        set: { ...path, updatedAt: now },
+      });
+  }
+
+  /**
+   * Removes a path from yours with your progress on its steps; the sessions
+   * you logged stay. A path you wrote goes with everything the scout found
+   * for it; a curated one keeps what you pinned, should you add it again.
+   */
+  async removePath(pathId: string): Promise<void> {
+    const catalogue = await this.scout.catalogue();
+    if (!learningPath(pathId, catalogue))
+      throw new NotFoundException('Path not found');
+    const curated = Boolean(learningPath(pathId, LEARNING_PATHS));
+    await this.svc.db.transaction(async (tx) => {
+      await tx.delete(pathProgress).where(eq(pathProgress.pathId, pathId));
+      await tx.delete(stepProgress).where(eq(stepProgress.pathId, pathId));
+      await tx.delete(learningPaths).where(eq(learningPaths.id, pathId));
+      if (curated) {
+        await tx
+          .delete(outlineChanges)
+          .where(
+            and(
+              eq(outlineChanges.pathId, pathId),
+              eq(outlineChanges.status, 'proposed'),
+            ),
+          );
+        await tx
+          .delete(scoutResources)
+          .where(
+            and(
+              eq(scoutResources.pathId, pathId),
+              inArray(scoutResources.status, ['suggested']),
+            ),
+          );
+      } else {
+        await tx
+          .delete(outlineChanges)
+          .where(eq(outlineChanges.pathId, pathId));
+        await tx
+          .delete(scoutResources)
+          .where(eq(scoutResources.pathId, pathId));
+        await tx.delete(scoutSteps).where(eq(scoutSteps.pathId, pathId));
+      }
+    });
   }
 
   /** Marks a step not started, studying or done, with your notes. */

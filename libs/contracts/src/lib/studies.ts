@@ -1,7 +1,7 @@
 import type { LifeAttentionDto } from './life-schemas.js';
 import { z } from 'zod';
 import {
-  LEARNING_PATHS,
+  PATH_ID_PATTERN,
   STUDY_TOPICS,
   type StudyTopic,
   type LearningPath,
@@ -26,9 +26,7 @@ const webUrl = z
     message: 'Use a web address starting with https://',
   });
 const money = z.number().min(0).max(100000);
-const pathId = z
-  .string()
-  .refine((id) => LEARNING_PATHS.some((p) => p.id === id), 'Unknown path');
+const pathId = z.string().regex(PATH_ID_PATTERN, 'Unknown path');
 
 // ---------------------------------------------------------------------------
 // Training platforms
@@ -476,6 +474,75 @@ export const stepProgressRequestSchema = z.object({
 export type StepProgressRequest = z.input<typeof stepProgressRequestSchema>;
 
 // ---------------------------------------------------------------------------
+// Learning paths: yours to add and change
+// ---------------------------------------------------------------------------
+
+/**
+ * A curated path you have not added yet (LEARNING_PATHS): Add a topic
+ * offers it as a start.
+ */
+export interface PathTemplateDto {
+  id: string;
+  topic: StudyTopic;
+  emblem: string;
+  name: string;
+  summary: string;
+  stages: number;
+  steps: number;
+  hours: number;
+}
+
+const resourceSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  url: webUrl.nullable(),
+  free: z.boolean(),
+});
+
+const stepSchema = z.object({
+  /** Kept when you edit a step, so your progress on it stays; empty for a new one. */
+  id: z.string().max(120).nullable().optional(),
+  title: z.string().trim().min(1).max(160),
+  kind: z.enum(['learn', 'build', 'practice']),
+  hours: z.number().min(0.5).max(200),
+  detail: z.string().trim().max(2000).default(''),
+  outcome: z.string().trim().max(500).default(''),
+  resources: z.array(resourceSchema).max(12).default([]),
+});
+
+const stageSchema = z.object({
+  id: z.string().max(60).nullable().optional(),
+  title: z.string().trim().min(1).max(120),
+  goal: z.string().trim().max(500).default(''),
+  steps: z.array(stepSchema).min(1).max(20),
+});
+
+/** A path you write or change: its card, its stages and their steps. */
+export const pathOutlineRequestSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  emblem: z.string().trim().min(1).max(8),
+  topic: z.enum(STUDY_TOPICS),
+  summary: z.string().trim().max(300).default(''),
+  why: z.string().trim().max(1000).default(''),
+  capstone: z.string().trim().max(1000).default(''),
+  certifications: z
+    .array(z.string().trim().min(1).max(200))
+    .max(10)
+    .default([]),
+  stages: z.array(stageSchema).min(1).max(12),
+});
+export type PathOutlineRequest = z.input<typeof pathOutlineRequestSchema>;
+
+/**
+ * Add a topic: a curated template (`template`, its id) or a path of your own
+ * (`outline`). Either way you follow it from today.
+ */
+export const pathCreateRequestSchema = z.union([
+  z.object({ template: z.string().regex(PATH_ID_PATTERN) }),
+  z.object({ outline: pathOutlineRequestSchema }),
+]);
+export type PathCreateRequest = z.input<typeof pathCreateRequestSchema>;
+
+// ---------------------------------------------------------------------------
 // Statistics and reminders
 // ---------------------------------------------------------------------------
 
@@ -601,10 +668,13 @@ export interface StudiesOverviewDto {
   /** The reminder windows from Settings, in days. */
   reminderDays: StudyReminderDays;
   /**
-   * The learning paths as you study them: LEARNING_PATHS with the outline
-   * changes you accepted from the resource scout.
+   * Your learning paths as you study them: the ones you added (a template
+   * or your own, as you last edited it) with the outline changes you
+   * accepted from the resource scout.
    */
   catalogue: LearningPath[];
+  /** The curated paths you have not added yet. */
+  templates: PathTemplateDto[];
   /** The resource scout: the path it watches, what it found, what it proposes. */
   scout: StudyScoutDto;
 }

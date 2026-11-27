@@ -15,6 +15,13 @@
       "when": 1794503498391,
       "tag": "0001_resource_scout",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795790807654,
+      "tag": "0002_learning-paths",
+      "breakpoints": true
     }
   ]
 }

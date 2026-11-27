@@ -1,0 +1,306 @@
+@let d = draft();
+<ui-dialog
+  size="lg"
+  [heading]="path() ? 'Edit ' + path()!.name : 'Write your own path'"
+  [open]="open()"
+  [dismissible]="!saving()"
+  (openChange)="open.set($event)"
+>
+  <form
+    id="studies-path-editor"
+    class="editor"
+    (submit)="$event.preventDefault(); save()"
+  >
+    <div class="card-fields">
+      <label class="emblem">
+        <span>Emblem</span>
+        <input
+          class="ui-input"
+          maxlength="8"
+          aria-label="Emblem"
+          [value]="d.emblem"
+          (input)="set('emblem', value($event))"
+        />
+      </label>
+      <label>
+        <span>Name</span>
+        <input
+          class="ui-input"
+          maxlength="80"
+          required
+          placeholder="Team leadership"
+          [value]="d.name"
+          (input)="set('name', value($event))"
+        />
+      </label>
+      <label>
+        <span>Topic</span>
+        <select class="ui-input" (change)="set('topic', $any(value($event)))">
+          @for (t of topics; track t) {
+          <option [value]="t" [selected]="d.topic === t">
+            {{ topicLabels[t] }}
+          </option>
+          }
+        </select>
+      </label>
+      <label class="wide">
+        <span>In one line</span>
+        <input
+          class="ui-input"
+          maxlength="300"
+          placeholder="What you will be able to do at the end"
+          [value]="d.summary"
+          (input)="set('summary', value($event))"
+        />
+      </label>
+    </div>
+
+    <details class="more">
+      <summary class="li-link li-small">
+        Why it matters, the project that proves it, certifications
+      </summary>
+      <div class="more__fields">
+        <label>
+          <span>Why this path, for you</span>
+          <textarea
+            class="ui-input"
+            rows="2"
+            maxlength="1000"
+            [value]="d.why"
+            (input)="set('why', value($event))"
+          ></textarea>
+        </label>
+        <label>
+          <span>Capstone project</span>
+          <textarea
+            class="ui-input"
+            rows="2"
+            maxlength="1000"
+            placeholder="Something you build along the way that shows the skill"
+            [value]="d.capstone"
+            (input)="set('capstone', value($event))"
+          ></textarea>
+        </label>
+        <label>
+          <span>Certifications that fit (one per line)</span>
+          <textarea
+            class="ui-input"
+            rows="2"
+            [value]="d.certifications"
+            (input)="set('certifications', value($event))"
+          ></textarea>
+        </label>
+      </div>
+    </details>
+
+    <ol class="stages" aria-label="Stages">
+      @for (stage of d.stages; track $index; let i = $index; let lastStage =
+      $last) {
+      <li class="stage">
+        <div class="stage__head">
+          <span class="stage__number" aria-hidden="true">{{ i + 1 }}</span>
+          <input
+            class="ui-input stage__title"
+            maxlength="120"
+            placeholder="Stage title, e.g. The role"
+            [attr.aria-label]="'Stage ' + (i + 1) + ' title'"
+            [value]="stage.title"
+            (input)="setStage(i, { title: value($event) })"
+          />
+          <span class="tools">
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [disabled]="i === 0"
+              [attr.aria-label]="'Move stage ' + (i + 1) + ' up'"
+              (click)="moveStage(i, -1)"
+            >
+              <ui-icon name="arrow-up" [size]="14" />
+            </button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [disabled]="lastStage"
+              [attr.aria-label]="'Move stage ' + (i + 1) + ' down'"
+              (click)="moveStage(i, 1)"
+            >
+              <ui-icon name="arrow-down" [size]="14" />
+            </button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [disabled]="d.stages.length === 1"
+              [attr.aria-label]="'Remove stage ' + (i + 1)"
+              (click)="removeStage(i)"
+            >
+              <ui-icon name="trash" [size]="14" />
+            </button>
+          </span>
+        </div>
+        <input
+          class="ui-input stage__goal"
+          maxlength="500"
+          placeholder="Its goal: what you know once the stage is done"
+          [attr.aria-label]="'Stage ' + (i + 1) + ' goal'"
+          [value]="stage.goal"
+          (input)="setStage(i, { goal: value($event) })"
+        />
+
+        <ol class="steps" [attr.aria-label]="'Steps of stage ' + (i + 1)">
+          @for (step of stage.steps; track $index; let j = $index; let lastStep
+          = $last) {
+          <li class="step">
+            <div class="step__row">
+              <input
+                class="ui-input step__title"
+                maxlength="160"
+                placeholder="Step, e.g. One-on-ones that matter"
+                [attr.aria-label]="'Step ' + (j + 1) + ' title'"
+                [value]="step.title"
+                (input)="setStep(i, j, { title: value($event) })"
+              />
+              <select
+                class="ui-input step__kind"
+                [attr.aria-label]="'Step ' + (j + 1) + ' kind'"
+                (change)="setStep(i, j, { kind: $any(value($event)) })"
+              >
+                @for (k of kinds; track k) {
+                <option [value]="k" [selected]="step.kind === k">
+                  {{ kindLabels[k] }}
+                </option>
+                }
+              </select>
+              <label class="step__hours">
+                <input
+                  class="ui-input"
+                  type="number"
+                  min="0.5"
+                  max="200"
+                  step="0.5"
+                  [attr.aria-label]="'Step ' + (j + 1) + ' hours'"
+                  [value]="step.hours"
+                  (input)="setStep(i, j, { hours: +value($event) })"
+                />
+                <span aria-hidden="true">h</span>
+              </label>
+              <span class="tools">
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="j === 0"
+                  [attr.aria-label]="'Move step ' + (j + 1) + ' up'"
+                  (click)="moveStep(i, j, -1)"
+                >
+                  <ui-icon name="arrow-up" [size]="14" />
+                </button>
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="lastStep"
+                  [attr.aria-label]="'Move step ' + (j + 1) + ' down'"
+                  (click)="moveStep(i, j, 1)"
+                >
+                  <ui-icon name="arrow-down" [size]="14" />
+                </button>
+                <button
+                  uiButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [attr.aria-label]="'Remove step ' + (j + 1)"
+                  (click)="removeStep(i, j)"
+                >
+                  <ui-icon name="trash" [size]="14" />
+                </button>
+              </span>
+            </div>
+            <details class="step__more">
+              <summary class="li-small li-muted">
+                What you will be able to do, details and resources@if
+                (step.resources) { · {{ step.resources.split('\n').length }}
+                resource{{ step.resources.split('\n').length === 1 ? '' : 's' }}
+                }
+              </summary>
+              <label>
+                <span>You will…</span>
+                <input
+                  class="ui-input"
+                  maxlength="500"
+                  placeholder="run a one-on-one that ends with an agreed next step"
+                  [value]="step.outcome"
+                  (input)="setStep(i, j, { outcome: value($event) })"
+                />
+              </label>
+              <label>
+                <span>Details</span>
+                <textarea
+                  class="ui-input"
+                  rows="2"
+                  maxlength="2000"
+                  [value]="step.detail"
+                  (input)="setStep(i, j, { detail: value($event) })"
+                ></textarea>
+              </label>
+              <label>
+                <span
+                  >Resources, one per line: a name and its https:// address,
+                  “(paid)” if not free</span
+                >
+                <textarea
+                  class="ui-input"
+                  rows="3"
+                  [value]="step.resources"
+                  (input)="setStep(i, j, { resources: value($event) })"
+                ></textarea>
+              </label>
+            </details>
+          </li>
+          }
+        </ol>
+        <button type="button" class="li-link li-small add" (click)="addStep(i)">
+          <ui-icon name="plus" [size]="14" /> Add a step
+        </button>
+      </li>
+      }
+    </ol>
+    <button uiButton variant="secondary" type="button" (click)="addStage()">
+      <ui-icon name="plus" [size]="16" /> Add a stage
+    </button>
+
+    @if (tried() && problem(); as message) {
+    <p class="li-warn li-small" role="alert">{{ message }}</p>
+    } @if (error(); as message) {
+    <p class="li-warn li-small" role="alert">{{ message }}</p>
+    }
+  </form>
+
+  <div uiDialogFooter>
+    <button
+      uiButton
+      variant="secondary"
+      type="button"
+      [disabled]="saving()"
+      (click)="open.set(false)"
+    >
+      Cancel
+    </button>
+    <button
+      uiButton
+      type="submit"
+      form="studies-path-editor"
+      [loading]="saving()"
+    >
+      {{ path() ? 'Save the path' : 'Add the path' }}
+    </button>
+  </div>
+</ui-dialog>

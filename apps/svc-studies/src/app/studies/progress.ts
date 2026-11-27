@@ -1,6 +1,5 @@
 import {
   LEARNING_PATHS,
-  pathOfStep,
   pathSteps,
   type CertificationDto,
   type CourseDto,
@@ -309,7 +308,7 @@ export function pathProgress(
     .filter(
       (s) =>
         s.pathId === path.id ||
-        (s.stepId !== null && pathOfStep(s.stepId)?.id === path.id),
+        (s.stepId !== null && s.stepId.startsWith(`${path.id}.`)),
     )
     .reduce((sum, s) => sum + s.minutes, 0);
   const next = steps.find((s) => !done.has(s.id)) ?? null;
@@ -321,7 +320,7 @@ export function pathProgress(
       (s) =>
         s.date > since &&
         (s.pathId === path.id ||
-          (s.stepId !== null && pathOfStep(s.stepId)?.id === path.id)),
+          (s.stepId !== null && s.stepId.startsWith(`${path.id}.`))),
     )
     .reduce((sum, s) => sum + s.minutes, 0);
   const hoursPerWeek =
@@ -368,6 +367,8 @@ export interface ReminderInput {
   studying: boolean;
   days: StudyReminderDays;
   today: string;
+  /** Your paths, for their names; LEARNING_PATHS if left out. */
+  catalogue?: readonly LearningPath[];
 }
 
 const formatDays = (days: number) =>
@@ -449,7 +450,9 @@ export function studyReminders(input: ReminderInput): StudyReminderDto[] {
 
   for (const p of input.paths) {
     if (p.status !== 'following' || !p.behind || !p.targetOn) continue;
-    const path = LEARNING_PATHS.find((l) => l.id === p.pathId);
+    const path = (input.catalogue ?? LEARNING_PATHS).find(
+      (l) => l.id === p.pathId,
+    );
     reminders.push({
       kind: 'target',
       refId: p.pathId,

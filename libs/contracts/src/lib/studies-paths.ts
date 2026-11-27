@@ -76,7 +76,8 @@ export interface LearningPath {
   summary: string;
   /** Why this path, for you. */
   why: string;
-  level: 'beginner';
+  /** The curated templates start at beginner level; a path of yours may not say. */
+  level?: 'beginner';
   stages: readonly PathStage[];
   /** The project that proves the path, built along the way. */
   capstone: string;
@@ -1488,6 +1489,32 @@ export function pathStep(
     for (const stage of path.stages)
       for (const step of stage.steps) if (step.id === stepId) return step;
   return undefined;
+}
+
+/**
+ * What a path id may look like: lower case, digits and dashes, because a
+ * step id starts with it (`<path>.<stage>.<step>`).
+ */
+export const PATH_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,47}$/;
+
+/** A short id from a name: "Team leadership" → `team-leadership`. */
+export function pathSlug(name: string, fallback = 'path'): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+      .replace(/-+$/g, '') || fallback
+  );
+}
+
+/** `base`, or `base-2`, `base-3`… whichever is not taken. */
+export function freeId(base: string, taken: ReadonlySet<string>): string {
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+  return id;
 }
 
 export function pathHours(path: LearningPath): number {

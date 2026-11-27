@@ -109,7 +109,7 @@ describe('studies requests', () => {
       studySessionRequestSchema.safeParse({
         date: '2026-11-10',
         minutes: 30,
-        pathId: 'cooking',
+        pathId: 'Not a path!',
       }).success,
     ).toBe(false);
   });

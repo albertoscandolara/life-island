@@ -1,276 +1,437 @@
-<ul class="path-cards" aria-label="Learning paths">
-  @for (p of paths(); track p.id) { @let pr = progressOf().get(p.id);
-  <li>
+@if (selected(); as path) { @let pr = progress();
+<div class="layout">
+  <nav class="rail" aria-label="Your paths">
+    <ul class="rail__list">
+      @for (p of paths(); track p.id) { @let pp = progressOf().get(p.id);
+      <li>
+        <button
+          type="button"
+          class="rail__item"
+          [class.rail__item--on]="path.id === p.id"
+          [attr.aria-current]="path.id === p.id ? 'page' : null"
+          (click)="selectPath.emit(p.id)"
+        >
+          <span class="rail__emblem" aria-hidden="true">{{ p.emblem }}</span>
+          <span class="rail__text">
+            <strong>{{ p.name }}</strong>
+            <span class="li-muted li-small">
+              @if (pp?.status === 'paused') { Paused · } @else if (!pp?.status)
+              { Not followed · } {{ percent(p.id) }}%
+            </span>
+            <ui-progress-bar
+              [value]="percent(p.id)"
+              [label]="p.name + ' progress'"
+            />
+          </span>
+        </button>
+      </li>
+      }
+    </ul>
     <button
+      uiButton
+      variant="secondary"
       type="button"
-      class="path-card"
-      [class.path-card--on]="selected().id === p.id"
-      [attr.aria-pressed]="selected().id === p.id"
-      (click)="selectPath.emit(p.id)"
+      class="rail__add"
+      (click)="addOpen.set(true)"
     >
-      <span class="path-card__emblem" aria-hidden="true">{{ p.emblem }}</span>
-      <strong>{{ p.name }}</strong>
-      <span class="li-muted li-small">
-        @if (pr?.status === 'following') { Following · } @else if (pr?.status
-        === 'paused') { Paused · } {{ percent(p.id) }}% · {{ pr?.hoursTotal }} h
-      </span>
-      <ui-progress-bar [value]="percent(p.id)" [label]="p.name + ' progress'" />
+      <ui-icon name="plus" [size]="16" /> Add a topic
     </button>
-  </li>
-  }
-</ul>
+  </nav>
 
-@let path = selected(); @let pr = progress();
-<ui-card class="li-block">
-  <div class="path-head">
-    <span class="path-head__emblem" aria-hidden="true">{{ path.emblem }}</span>
-    <div>
-      <h2 class="path-head__title">{{ path.name }}</h2>
-      <p class="li-muted">{{ path.summary }}</p>
-    </div>
-    <div class="li-actions">
-      @if (pr.status !== 'following') {
-      <button
-        uiButton
-        type="button"
-        [loading]="busy() === 'path'"
-        (click)="follow('following')"
-      >
-        {{ pr.status === 'paused' ? 'Resume' : 'Follow this path' }}
-      </button>
-      } @else {
+  <div class="main">
+    <ui-card>
+      <div class="path-head">
+        <span class="path-head__emblem" aria-hidden="true"
+          >{{ path.emblem }}</span
+        >
+        <div>
+          <h2 class="path-head__title">{{ path.name }}</h2>
+          @if (path.summary) {
+          <p class="li-muted">{{ path.summary }}</p>
+          }
+        </div>
+        <div class="li-actions">
+          @if (pr?.status !== 'following') {
+          <button
+            uiButton
+            type="button"
+            [loading]="busy() === 'path'"
+            (click)="follow(path.id, 'following')"
+          >
+            {{ pr?.status === 'paused' ? 'Resume' : 'Follow this path' }}
+          </button>
+          } @else {
+          <button
+            uiButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [loading]="busy() === 'path'"
+            (click)="follow(path.id, 'paused')"
+          >
+            Pause
+          </button>
+          }
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="edit(path)"
+          >
+            <ui-icon name="edit" [size]="14" /> Edit
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Remove ' + path.name"
+            (click)="removeOpen.set(true)"
+          >
+            <ui-icon name="trash" [size]="14" />
+          </button>
+        </div>
+      </div>
+
+      <ui-trail
+        class="trail"
+        [label]="'Stages of ' + path.name"
+        [stops]="stops()"
+        (pick)="goToStage($event)"
+      />
+
+      @if (pr) {
+      <div class="path-progress">
+        <p class="li-small">
+          {{ pr.doneSteps }} of {{ pr.totalSteps }} steps · {{ pr.hoursDone }}
+          of {{ pr.hoursTotal }} h · {{ duration(pr.minutesLogged) }} logged @if
+          (pr.projectedOn) { · at your pace, done by
+          <strong>{{ dateText(pr.projectedOn) }}</strong> } @if (pr.behind) {
+          <span class="li-warn">· behind your target</span> }
+        </p>
+        <label class="target">
+          <span>Finish by</span>
+          <input
+            class="ui-input"
+            type="date"
+            [value]="pr.targetOn ?? ''"
+            (change)="setTarget(path.id, $any($event.target).value)"
+          />
+        </label>
+      </div>
+      } @if (path.why || path.capstone || path.certifications.length) {
+      <details class="about">
+        <summary class="li-link li-small">
+          Why this path, the capstone project@if (path.certifications.length) {
+          and certifications }
+        </summary>
+        <div class="path-facts">
+          @if (path.why) {
+          <div>
+            <span class="label">Why this path</span>
+            <p>{{ path.why }}</p>
+          </div>
+          } @if (path.capstone) {
+          <div>
+            <span class="label">Capstone project</span>
+            <p>{{ path.capstone }}</p>
+          </div>
+          } @if (path.certifications.length) {
+          <div>
+            <span class="label">Certifications that fit</span>
+            <ul class="bullets">
+              @for (c of path.certifications; track c) {
+              <li>{{ c }}</li>
+              }
+            </ul>
+          </div>
+          }
+        </div>
+      </details>
+      }
+    </ui-card>
+
+    <studies-scout-panel
+      [data]="data()"
+      [path]="path"
+      (changed)="changed.emit()"
+      (failed)="failed.emit($event)"
+    />
+
+    @for (stage of path.stages; track stage.id; let i = $index) { @let state =
+    stageStates().get(stage.id);
+    <details
+      class="stage"
+      [class.stage--current]="state === 'current'"
+      [class.stage--done]="state === 'done'"
+      [id]="'studies-stage-' + stage.id"
+      [open]="stageOpen(stage.id)"
+      (toggle)="fold(stage.id, $any($event.target).open)"
+    >
+      <summary class="stage__head">
+        <span class="stage__number" aria-hidden="true">
+          @if (state === 'done') {
+          <ui-icon name="check" [size]="14" />
+          } @else { {{ i + 1 }} }
+        </span>
+        <span class="stage__text">
+          <span class="stage__title">{{ stage.title }}</span>
+          @if (stage.goal) {
+          <span class="li-muted li-small">{{ stage.goal }}</span>
+          }
+        </span>
+        @if (state === 'current') {
+        <span class="stage__here">You are here</span>
+        }
+        <ui-badge [tone]="state === 'done' ? 'success' : 'neutral'"
+          >{{ stageDone(stage.steps) }}/{{ stage.steps.length }}</ui-badge
+        >
+        <ui-icon class="stage__chevron" name="chevron-down" [size]="16" />
+      </summary>
+      <ol class="steps">
+        @for (step of stage.steps; track step.id) { @let sp =
+        stepOf().get(step.id);
+        <li
+          class="step"
+          [class.step--doing]="sp?.status === 'doing'"
+          [class.step--done]="sp?.status === 'done'"
+        >
+          <div class="step__head">
+            <div>
+              <strong class="step__title">{{ step.title }}</strong>
+              <span class="li-muted li-small step__meta"
+                >{{ kindLabels[step.kind] }} · about {{ step.hours }} h @if
+                (data().scout.paces[step.id]; as pace) { · {{ paceLabels[pace]
+                }} } @if (sp?.minutes) { · {{ duration(sp!.minutes) }} logged }
+                @if (sp?.doneOn) { · done {{ dateText(sp!.doneOn) }} }</span
+              >
+            </div>
+            <div
+              class="li-seg"
+              role="group"
+              [attr.aria-label]="step.title + ' status'"
+            >
+              @for (st of statuses; track st) {
+              <button
+                type="button"
+                class="li-seg__item"
+                [class.li-seg__item--on]="(sp?.status ?? 'todo') === st"
+                [attr.aria-pressed]="(sp?.status ?? 'todo') === st"
+                [disabled]="busy() === step.id"
+                (click)="setStatus(step.id, st)"
+              >
+                {{ statusLabels[st] }}
+              </button>
+              }
+            </div>
+          </div>
+          <p class="step__detail">{{ step.detail }}</p>
+          <p class="step__outcome">
+            <span class="label">You will</span> {{ step.outcome }}
+          </p>
+          @if (step.resources.length) {
+          <ul class="resources">
+            @for (r of step.resources; track r.label) {
+            <li>
+              @if (safeUrl(r.url); as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer"
+                >{{ r.label }} <ui-icon name="external" [size]="12"
+              /></a>
+              } @else { {{ r.label }} } @if (!r.free) {
+              <ui-badge tone="neutral">Paid</ui-badge> }
+            </li>
+            }
+          </ul>
+          } @if (scouted().get(step.id); as found) {
+          <div class="scouted">
+            <p class="scouted__head li-small">
+              <ui-ai-badge label="Scout" /> Found for this step
+            </p>
+            <ul class="li-list scouted__list">
+              @for (r of found; track r.id) {
+              <li
+                class="scouted__item"
+                [class.scouted__item--pinned]="r.status === 'pinned'"
+              >
+                <div class="scouted__text">
+                  @if (safeUrl(r.url); as url) {
+                  <a [href]="url" target="_blank" rel="noopener noreferrer"
+                    >{{ r.title }} <ui-icon name="external" [size]="12"
+                  /></a>
+                  } @else { {{ r.title }} }
+                  <span class="li-muted li-small">
+                    {{ resourceKinds[r.kind] }}@if (r.publishedOn) { · {{
+                    r.publishedOn }} } · {{ r.free ? 'Free' : 'Paid' }}@if
+                    (r.status === 'pinned') { · pinned }
+                  </span>
+                  <span class="li-small">{{ r.why }}</span>
+                  @if (r.outdated) {
+                  <span class="li-warn li-small"
+                    ><ui-icon name="alert" [size]="12" /> Outdated: {{
+                    r.outdated }}</span
+                  >
+                  }
+                </div>
+                <div class="li-actions">
+                  @if (r.status === 'suggested' || r.outdated) {
+                  <button
+                    uiButton
+                    size="sm"
+                    variant="secondary"
+                    type="button"
+                    [disabled]="busy() === r.id"
+                    (click)="decide(r, 'pinned')"
+                  >
+                    <ui-icon name="check" [size]="14" /> {{ r.outdated ? 'Keep'
+                    : 'Pin' }}
+                  </button>
+                  }
+                  <button
+                    uiButton
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    [disabled]="busy() === r.id"
+                    [attr.aria-label]="(r.status === 'pinned' ? 'Remove ' : 'Dismiss ') + r.title"
+                    (click)="decide(r, 'dismissed')"
+                  >
+                    <ui-icon name="x" [size]="14" /> {{ r.status === 'pinned' ?
+                    'Remove' : 'Dismiss' }}
+                  </button>
+                </div>
+              </li>
+              }
+            </ul>
+          </div>
+          }
+          <div class="step__foot">
+            <span class="li-muted li-small">Log today:</span>
+            @for (m of quick; track m) {
+            <button
+              type="button"
+              class="li-chip chip--sm"
+              [disabled]="busy() === step.id"
+              (click)="logTime(step.id, m)"
+            >
+              {{ duration(m) }}
+            </button>
+            }
+            <button
+              type="button"
+              class="li-link li-small"
+              (click)="notesOpen.set(notesOpen() === step.id ? null : step.id)"
+            >
+              {{ sp?.notes ? 'Your notes' : 'Add notes' }}
+            </button>
+          </div>
+          @if (notesOpen() === step.id || sp?.notes) { @if (notesOpen() ===
+          step.id) {
+          <textarea
+            class="ui-input"
+            rows="3"
+            maxlength="2000"
+            placeholder="What you learned, links, what to revisit"
+            [value]="sp?.notes ?? ''"
+            (blur)="saveNotes(step.id, $any($event.target).value)"
+          ></textarea>
+          } @else {
+          <p class="li-muted li-small notes">{{ sp?.notes }}</p>
+          } }
+        </li>
+        }
+      </ol>
+    </details>
+    }
+  </div>
+</div>
+} @else {
+<ui-card>
+  <ui-empty-state heading="No paths yet" icon="layers">
+    <p>
+      Add a topic you want to grow in: start from a curated path or write your
+      own, and Studies shows you the next step every day.
+    </p>
+    <button uiButton type="button" (click)="addOpen.set(true)">
+      <ui-icon name="plus" [size]="16" /> Add a topic
+    </button>
+  </ui-empty-state>
+</ui-card>
+}
+
+<ui-dialog
+  heading="Add a topic"
+  size="lg"
+  [open]="addOpen()"
+  (openChange)="addOpen.set($event)"
+>
+  <p class="li-muted add-intro">
+    Start from a curated path, change it as you go, or write your own.
+  </p>
+  <ul class="templates">
+    @for (t of data().templates; track t.id) {
+    <li class="template">
+      <span class="template__emblem" aria-hidden="true">{{ t.emblem }}</span>
+      <span class="template__text">
+        <strong>{{ t.name }}</strong>
+        <span class="li-small">{{ t.summary }}</span>
+        <span class="li-muted li-small"
+          >{{ topicLabels[t.topic] }} · {{ t.stages }} stages · {{ t.steps }}
+          steps · about {{ t.hours }} h</span
+        >
+      </span>
       <button
         uiButton
         variant="secondary"
+        size="sm"
         type="button"
-        [loading]="busy() === 'path'"
-        (click)="follow('paused')"
+        [loading]="busy() === 'template:' + t.id"
+        (click)="addTemplate(t.id)"
       >
-        Pause
+        <ui-icon name="plus" [size]="14" /> Add
       </button>
-      } @if (pr.status) {
-      <button uiButton variant="ghost" type="button" (click)="follow(null)">
-        Stop following
-      </button>
-      }
-    </div>
-  </div>
-
-  <div class="path-facts">
-    <div>
-      <span class="label">Why this path</span>
-      <p>{{ path.why }}</p>
-    </div>
-    <div>
-      <span class="label">Capstone project</span>
-      <p>{{ path.capstone }}</p>
-    </div>
-    @if (path.certifications.length) {
-    <div>
-      <span class="label">Certifications that fit</span>
-      <ul class="bullets">
-        @for (c of path.certifications; track c) {
-        <li>{{ c }}</li>
-        }
-      </ul>
-    </div>
-    }
-  </div>
-
-  <div class="path-progress">
-    <ui-progress-bar
-      [value]="(pr.hoursDone / pr.hoursTotal) * 100"
-      [label]="path.name + ' progress'"
-    />
-    <p class="li-small">
-      {{ pr.doneSteps }} of {{ pr.totalSteps }} steps · {{ pr.hoursDone }} of {{
-      pr.hoursTotal }} h · {{ duration(pr.minutesLogged) }} logged @if
-      (pr.projectedOn) { · at your pace, done by
-      <strong>{{ dateText(pr.projectedOn) }}</strong> } @if (pr.behind) {
-      <span class="li-warn">· behind your target</span> }
-    </p>
-    <label class="target">
-      <span>Finish by</span>
-      <input
-        class="ui-input"
-        type="date"
-        [value]="pr.targetOn ?? ''"
-        (change)="setTarget($any($event.target).value)"
-      />
-    </label>
-  </div>
-</ui-card>
-
-<studies-scout-panel
-  [data]="data()"
-  [path]="path"
-  (changed)="changed.emit()"
-  (failed)="failed.emit($event)"
-/>
-
-@for (stage of path.stages; track stage.id; let i = $index) {
-<section class="stage li-block" [attr.aria-label]="stage.title">
-  <header class="stage__head">
-    <span class="stage__number">{{ i + 1 }}</span>
-    <div>
-      <h3 class="stage__title">{{ stage.title }}</h3>
-      <p class="li-muted li-small">{{ stage.goal }}</p>
-    </div>
-    <ui-badge
-      [tone]="stageDone(stage.steps) === stage.steps.length ? 'success' : 'neutral'"
-      >{{ stageDone(stage.steps) }}/{{ stage.steps.length }}</ui-badge
-    >
-  </header>
-  <ol class="steps">
-    @for (step of stage.steps; track step.id) { @let sp = stepOf().get(step.id);
-    <li
-      class="step"
-      [class.step--doing]="sp?.status === 'doing'"
-      [class.step--done]="sp?.status === 'done'"
-    >
-      <div class="step__head">
-        <div>
-          <strong class="step__title">{{ step.title }}</strong>
-          <span class="li-muted li-small step__meta"
-            >{{ kindLabels[step.kind] }} · about {{ step.hours }} h @if
-            (data().scout.paces[step.id]; as pace) { · {{ paceLabels[pace] }} }
-            @if (sp?.minutes) { · {{ duration(sp!.minutes) }} logged } @if
-            (sp?.doneOn) { · done {{ dateText(sp!.doneOn) }} }</span
-          >
-        </div>
-        <div
-          class="li-seg"
-          role="group"
-          [attr.aria-label]="step.title + ' status'"
-        >
-          @for (st of statuses; track st) {
-          <button
-            type="button"
-            class="li-seg__item"
-            [class.li-seg__item--on]="(sp?.status ?? 'todo') === st"
-            [attr.aria-pressed]="(sp?.status ?? 'todo') === st"
-            [disabled]="busy() === step.id"
-            (click)="setStatus(step.id, st)"
-          >
-            {{ statusLabels[st] }}
-          </button>
-          }
-        </div>
-      </div>
-      <p class="step__detail">{{ step.detail }}</p>
-      <p class="step__outcome">
-        <span class="label">You will</span> {{ step.outcome }}
-      </p>
-      @if (step.resources.length) {
-      <ul class="resources">
-        @for (r of step.resources; track r.label) {
-        <li>
-          @if (safeUrl(r.url); as url) {
-          <a [href]="url" target="_blank" rel="noopener noreferrer"
-            >{{ r.label }} <ui-icon name="external" [size]="12"
-          /></a>
-          } @else { {{ r.label }} } @if (!r.free) {
-          <ui-badge tone="neutral">Paid</ui-badge> }
-        </li>
-        }
-      </ul>
-      } @if (scouted().get(step.id); as found) {
-      <div class="scouted">
-        <p class="scouted__head li-small">
-          <ui-ai-badge label="Scout" /> Found for this step
-        </p>
-        <ul class="li-list scouted__list">
-          @for (r of found; track r.id) {
-          <li
-            class="scouted__item"
-            [class.scouted__item--pinned]="r.status === 'pinned'"
-          >
-            <div class="scouted__text">
-              @if (safeUrl(r.url); as url) {
-              <a [href]="url" target="_blank" rel="noopener noreferrer"
-                >{{ r.title }} <ui-icon name="external" [size]="12"
-              /></a>
-              } @else { {{ r.title }} }
-              <span class="li-muted li-small">
-                {{ resourceKinds[r.kind] }}@if (r.publishedOn) { · {{
-                r.publishedOn }} } · {{ r.free ? 'Free' : 'Paid' }}@if (r.status
-                === 'pinned') { · pinned }
-              </span>
-              <span class="li-small">{{ r.why }}</span>
-              @if (r.outdated) {
-              <span class="li-warn li-small"
-                ><ui-icon name="alert" [size]="12" /> Outdated: {{ r.outdated
-                }}</span
-              >
-              }
-            </div>
-            <div class="li-actions">
-              @if (r.status === 'suggested' || r.outdated) {
-              <button
-                uiButton
-                size="sm"
-                variant="secondary"
-                type="button"
-                [disabled]="busy() === r.id"
-                (click)="decide(r, 'pinned')"
-              >
-                <ui-icon name="check" [size]="14" /> {{ r.outdated ? 'Keep' :
-                'Pin' }}
-              </button>
-              }
-              <button
-                uiButton
-                size="sm"
-                variant="ghost"
-                type="button"
-                [disabled]="busy() === r.id"
-                [attr.aria-label]="(r.status === 'pinned' ? 'Remove ' : 'Dismiss ') + r.title"
-                (click)="decide(r, 'dismissed')"
-              >
-                <ui-icon name="x" [size]="14" /> {{ r.status === 'pinned' ?
-                'Remove' : 'Dismiss' }}
-              </button>
-            </div>
-          </li>
-          }
-        </ul>
-      </div>
-      }
-      <div class="step__foot">
-        <span class="li-muted li-small">Log today:</span>
-        @for (m of quick; track m) {
-        <button
-          type="button"
-          class="li-chip chip--sm"
-          [disabled]="busy() === step.id"
-          (click)="logTime(step.id, m)"
-        >
-          {{ duration(m) }}
-        </button>
-        }
-        <button
-          type="button"
-          class="li-link li-small"
-          (click)="notesOpen.set(notesOpen() === step.id ? null : step.id)"
-        >
-          {{ sp?.notes ? 'Your notes' : 'Add notes' }}
-        </button>
-      </div>
-      @if (notesOpen() === step.id || sp?.notes) { @if (notesOpen() === step.id)
-      {
-      <textarea
-        class="ui-input"
-        rows="3"
-        maxlength="2000"
-        placeholder="What you learned, links, what to revisit"
-        [value]="sp?.notes ?? ''"
-        (blur)="saveNotes(step.id, $any($event.target).value)"
-      ></textarea>
-      } @else {
-      <p class="li-muted li-small notes">{{ sp?.notes }}</p>
-      } }
     </li>
     }
-  </ol>
-</section>
+    <li class="template template--own">
+      <span class="template__emblem" aria-hidden="true">✍️</span>
+      <span class="template__text">
+        <strong>Write your own</strong>
+        <span class="li-small"
+          >Any topic: name its stages and steps, the resources you trust and
+          what you will be able to do.</span
+        >
+      </span>
+      <button uiButton size="sm" type="button" (click)="writeOwn()">
+        <ui-icon name="edit" [size]="14" /> Write it
+      </button>
+    </li>
+  </ul>
+</ui-dialog>
+
+<studies-path-editor
+  [path]="editing()"
+  [open]="editorOpen()"
+  (openChange)="editorOpen.set($event)"
+  (saved)="onSaved($event)"
+/>
+
+@if (selected(); as path) {
+<ui-confirm-dialog
+  [heading]="'Remove ' + path.name + '?'"
+  confirmLabel="Remove the path"
+  tone="danger"
+  [busy]="busy() === 'remove'"
+  [open]="removeOpen()"
+  (openChange)="removeOpen.set($event)"
+  (confirmed)="remove(path.id)"
+>
+  <p>
+    It leaves your paths with your progress and notes on its steps. The study
+    sessions you logged stay in your weeks.
+  </p>
+  <p class="li-muted li-small">
+    @if (path.level) { You can add it again from Add a topic, as it was first
+    written. } @else { A path you wrote cannot be brought back. }
+  </p>
+</ui-confirm-dialog>
 }

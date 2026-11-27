@@ -22,6 +22,7 @@ import type {
   StepPace,
   CertificationStatus,
   CourseStatus,
+  PathStage,
   PathStatus,
   StepStatus,
   StudyPlanOutput,
@@ -121,7 +122,34 @@ export const studySessions = studies.table(
 );
 export type StudySessionRow = typeof studySessions.$inferSelect;
 
-/** The learning paths you follow (LEARNING_PATHS in libs/contracts). */
+/**
+ * The paths you wrote, and the curated ones you changed (same id as the
+ * template, which this row then replaces). A curated path you only follow
+ * has no row here: it is read from LEARNING_PATHS in libs/contracts.
+ */
+export const learningPaths = studies.table('learning_paths', {
+  id: text('id').primaryKey(),
+  topic: text('topic').$type<StudyTopic>().notNull(),
+  emblem: text('emblem').notNull(),
+  name: text('name').notNull(),
+  summary: text('summary').notNull().default(''),
+  why: text('why').notNull().default(''),
+  capstone: text('capstone').notNull().default(''),
+  certifications: jsonb('certifications')
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  stages: jsonb('stages').$type<PathStage[]>().notNull(),
+  /** The curated path it started from, if any. */
+  templateId: text('template_id'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export type LearningPathRow = typeof learningPaths.$inferSelect;
+
+/** The learning paths you follow: a curated one or one of yours. */
 export const pathProgress = studies.table('path_progress', {
   pathId: text('path_id').primaryKey(),
   status: text('status').$type<PathStatus>().notNull(),
