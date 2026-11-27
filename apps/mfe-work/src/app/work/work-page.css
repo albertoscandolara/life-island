@@ -59,13 +59,16 @@
 }
 
 .job__more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
-/* Four tiles across on a laptop. */
+/* Three tiles across on a laptop. */
 @media (width > 52rem) {
   .tiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -88,15 +91,11 @@
   outline-offset: 2px;
 }
 
-/* A block a step or a tile opens: it lands below the sticky section bar. */
+/* A block a step or a link opens: it lands with some room above it. */
 .anchor {
   display: block;
   min-width: 0;
   scroll-margin-top: var(--space-12);
-}
-
-.li-jump {
-  margin-bottom: var(--space-4);
 }
 
 .li-group {

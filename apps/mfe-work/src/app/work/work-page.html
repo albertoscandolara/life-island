@@ -35,7 +35,7 @@
           <button
             type="button"
             class="li-link"
-            (click)="guideOpen.set(false); setTab('tfr')"
+            (click)="guideOpen.set(false); jump('work-tfr')"
           >
             Compare the company and a fund with your figures
           </button>
@@ -49,7 +49,7 @@
     >
       <work-pension-guide
         [pension]="data.pension"
-        (showTfr)="guideOpen.set(false); setTab('tfr')"
+        (showTfr)="guideOpen.set(false); jump('work-tfr')"
       />
     </ui-info-topic>
     <ui-info-topic
@@ -64,13 +64,6 @@
 </ui-page-header>
 
 <li-needs-you module="work" />
-
-<li-tabs
-  label="Work"
-  [tabs]="tabs()"
-  [active]="tab()"
-  (activeChange)="tab.set($event)"
-/>
 
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
@@ -87,7 +80,68 @@
 </ui-alert>
 } @if (!overview() && !error()) {
 <p class="li-muted">Loading your career…</p>
-} @if (overview(); as data) { @if (tab() === 'review') {
+} @if (overview(); as data) {
+<!-- Where you stand: each tile opens its tab. -->
+@if (stats()?.payslips) {
+<section class="li-tiles tiles" aria-label="Your pay in numbers">
+  <button
+    type="button"
+    class="li-tile li-tile--lead tile"
+    (click)="tab.set('payslips')"
+  >
+    <span class="li-tile__label">Latest net pay</span>
+    <strong class="li-tile__value"
+      >{{ euro(latest().latest?.doc?.net ?? null) }}</strong
+    >
+    <span class="li-tile__hint">
+      {{ periodText(latest().latest?.doc?.period ?? null) }}
+    </span>
+    @if (latest().previous) {
+    <li-delta
+      [now]="latest().latest?.doc?.net"
+      [before]="latest().previous?.doc?.net"
+      against="the month before"
+    />
+    }
+  </button>
+  <button type="button" class="li-tile tile" (click)="tab.set('pay')">
+    <span class="li-tile__label">Gross in {{ yearToDate().year }}</span>
+    <strong class="li-tile__value">{{ euro(yearToDate().gross) }}</strong>
+    <span class="li-tile__hint"
+      >{{ yearToDate().months }} month{{ yearToDate().months === 1 ? '' : 's' }}
+      of payslips</span
+    >
+    @if (yearToDate().before) {
+    <li-delta
+      [now]="yearToDate().gross"
+      [before]="yearToDate().before"
+      [against]="'the same months of ' + (yearToDate().year - 1)"
+    />
+    }
+  </button>
+  <button type="button" class="li-tile tile" (click)="tab.set('career')">
+    <span class="li-tile__label">Since your last rise</span>
+    <strong class="li-tile__value">
+      @if (stats()!.monthsSinceLastRise !== null) { {{
+      duration(stats()!.monthsSinceLastRise) }} } @else { None on record }
+    </strong>
+    <span class="li-tile__hint">
+      @if (stats()!.annualGrowthPct !== null) { {{ pct(stats()!.annualGrowthPct)
+      }} a year on record } @else { Rises and promotions from your payslips }
+    </span>
+  </button>
+</section>
+} }
+
+<li-tabs
+  label="Work"
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="tab.set($event)"
+/>
+
+@if (overview(); as data) { @switch (tab()) { @case ('review') {
+<!-- ================================================================ review -->
 <!-- ================================================================ review -->
 <li-to-review
   [count]="reviews().length"
@@ -250,207 +304,8 @@
     }
   </ul>
 </ui-card>
-} } @else {
-<!-- 1. Your job beside what it needs next. -->
-<div class="top">
-  @if (job(); as w) {
-  <ui-card [heading]="workplaceName(w)" class="job">
-    <ui-badge
-      uiCardActions
-      [tone]="w.status === 'current' ? 'success' : 'neutral'"
-      >{{ workplaceStatusLabels[w.status] }}</ui-badge
-    >
-    <dl class="li-facts">
-      @if (data.evaluations.latest?.role; as role) {
-      <div>
-        <dt>Role</dt>
-        <dd>{{ role }}</dd>
-      </div>
-      } @if (w.values.level) {
-      <div>
-        <dt>Level</dt>
-        <dd>{{ w.values.level }}</dd>
-      </div>
-      } @if (w.tenureMonths !== null) {
-      <div>
-        <dt>Here for</dt>
-        <dd>{{ duration(w.tenureMonths) }}</dd>
-      </div>
-      } @if (stats()?.currentMonthlySalary) {
-      <div>
-        <dt>Monthly salary</dt>
-        <dd>{{ euro(stats()!.currentMonthlySalary) }} gross</dd>
-      </div>
-      }
-    </dl>
-    @if (latest().latest; as slip) {
-    <div class="job__slip">
-      <ui-icon name="file" [size]="18" />
-      <span class="job__slip-text">
-        <strong>Payslip of {{ periodText(slip.doc.period) }}</strong>
-        <span class="li-muted li-small">
-          Net {{ euro(slip.doc.net) }} @if (slip.received === 'full') { ·
-          received {{ dateText(slip.doc.bankPayment!.lastDate) }} }
-        </span>
-      </span>
-      <a
-        uiButton
-        variant="ghost"
-        size="sm"
-        [href]="previewUrl(slip.doc.uploadId)"
-        target="_blank"
-        rel="noopener"
-        aria-label="Open the latest payslip"
-      >
-        <ui-icon name="eye" [size]="16" />
-      </a>
-      <a
-        uiButton
-        variant="ghost"
-        size="sm"
-        [href]="downloadUrl(slip.doc.uploadId)"
-        download
-        aria-label="Download the latest payslip"
-      >
-        <ui-icon name="download" [size]="16" />
-      </a>
-    </div>
-    }
-    <button
-      uiButton
-      variant="ghost"
-      size="sm"
-      type="button"
-      class="job__more"
-      (click)="openWorkplace(w.id)"
-    >
-      Details and documents
-    </button>
-  </ui-card>
-  } @else {
-  <ui-card class="job">
-    <ui-empty-state heading="No career on record yet" icon="chart">
-      <p class="li-muted">
-        Load your payslips (cedolini), evaluations or employment contracts in
-        the documents app and approve them in To review: your job, pay and
-        timeline appear here.
-      </p>
-    </ui-empty-state>
-  </ui-card>
-  }
-
-  <ui-card heading="What's next" class="next">
-    @if (urgentSteps()) {
-    <ui-badge uiCardActions tone="warning"
-      >{{ urgentSteps() }} {{ urgentSteps() === 1 ? 'needs' : 'need' }}
-      you</ui-badge
-    >
-    } @else {
-    <ui-badge uiCardActions tone="success">All in order</ui-badge>
-    }
-    <ul class="li-next">
-      @for (step of steps(); track step.id) {
-      <li>
-        <button
-          type="button"
-          class="li-next__item"
-          [class.li-next__item--ok]="step.level === 'idea'"
-          (click)="follow(step)"
-        >
-          <ui-icon class="li-next__icon" [name]="step.icon" [size]="18" />
-          <span class="li-next__body">
-            <strong class="li-next__title">{{ step.title }}</strong>
-            <span class="li-muted li-small">{{ step.detail }}</span>
-          </span>
-          <ui-badge [tone]="stepBadges[step.level].tone"
-            >{{ stepBadges[step.level].label }}</ui-badge
-          >
-        </button>
-      </li>
-      } @empty {
-      <li class="li-muted">
-        Nothing needs you: your payslips are in, checked and paid.
-      </li>
-      }
-    </ul>
-  </ui-card>
-</div>
-
-<!-- 2. Where you stand: each tile opens its card. -->
-@if (stats()?.payslips) {
-<section class="li-tiles tiles" aria-label="Your pay in numbers">
-  <button
-    type="button"
-    class="li-tile li-tile--lead tile"
-    (click)="jump('work-audit')"
-  >
-    <span class="li-tile__label">Latest net pay</span>
-    <strong class="li-tile__value"
-      >{{ euro(latest().latest?.doc?.net ?? null) }}</strong
-    >
-    <span class="li-tile__hint">
-      {{ periodText(latest().latest?.doc?.period ?? null) }}
-    </span>
-    @if (latest().previous) {
-    <li-delta
-      [now]="latest().latest?.doc?.net"
-      [before]="latest().previous?.doc?.net"
-      against="the month before"
-    />
-    }
-  </button>
-  <button type="button" class="li-tile tile" (click)="jump('work-pay')">
-    <span class="li-tile__label">Gross in {{ yearToDate().year }}</span>
-    <strong class="li-tile__value">{{ euro(yearToDate().gross) }}</strong>
-    <span class="li-tile__hint"
-      >{{ yearToDate().months }} month{{ yearToDate().months === 1 ? '' : 's' }}
-      of payslips</span
-    >
-    @if (yearToDate().before) {
-    <li-delta
-      [now]="yearToDate().gross"
-      [before]="yearToDate().before"
-      [against]="'the same months of ' + (yearToDate().year - 1)"
-    />
-    }
-  </button>
-  <button type="button" class="li-tile tile" (click)="jump('work-career')">
-    <span class="li-tile__label">Since your last rise</span>
-    <strong class="li-tile__value">
-      @if (stats()!.monthsSinceLastRise !== null) { {{
-      duration(stats()!.monthsSinceLastRise) }} } @else { None on record }
-    </strong>
-    <span class="li-tile__hint">
-      @if (stats()!.annualGrowthPct !== null) { {{ pct(stats()!.annualGrowthPct)
-      }} a year on record } @else { Rises and promotions from your payslips }
-    </span>
-  </button>
-  <button type="button" class="li-tile tile" (click)="jump('work-later')">
-    <span class="li-tile__label">Put aside for later</span>
-    <strong class="li-tile__value">{{ euro(putAside().total) }}</strong>
-    <span class="li-tile__hint">
-      TFR at the company {{ euro(putAside().tfr) }} @if (putAside().fund) { ·
-      pension fund {{ euro(putAside().fund) }} }
-    </span>
-  </button>
-</section>
-}
-
-<!-- 3. The sections, in the order you need them. -->
-<nav class="li-jump" aria-label="Sections of Work">
-  @for (s of sections; track s.id) {
-  <button type="button" class="li-jump__link" (click)="jump(s.id)">
-    <ui-icon [name]="s.icon" [size]="14" /> {{ s.label }}
-  </button>
-  }
-</nav>
-
-<section
-  id="work-payslips"
-  class="li-group"
-  aria-labelledby="work-payslips-title"
->
-  <h2 id="work-payslips-title" class="li-group__title">Payslips</h2>
+} } @case ('payslips') {
+<section id="work-payslips" class="li-group" aria-label="Payslips">
   <p class="li-muted li-small group-links">
     <button type="button" class="li-link" (click)="showGuide('payslip')">
       How to read a payslip
@@ -465,9 +320,8 @@
     <work-audit [audit]="data.audit" [netChanges]="data.netChanges" />
   </div>
 </section>
-
-<section id="work-pay" class="li-group" aria-labelledby="work-pay-title">
-  <h2 id="work-pay-title" class="li-group__title">Pay</h2>
+} @case ('pay') {
+<section id="work-pay" class="li-group" aria-label="Pay and taxes">
   @if (stats(); as s) {
   <work-payslips [stats]="s" />
   <div id="work-analysis" class="anchor">
@@ -475,9 +329,127 @@
   </div>
   }
 </section>
+} @case ('career') {
+<section id="work-career" class="li-group" aria-label="Career">
+  <div id="work-workplaces" class="anchor">
+    <ui-card heading="Workplaces" class="li-block">
+      @if (workplaces().length) {
+      <ul class="cards" aria-label="Your workplaces">
+        @for (w of workplaces(); track w.id) {
+        <li class="card" [class.card--off]="w.status !== 'current'">
+          <div class="card__head">
+            <span class="card__initial" aria-hidden="true"
+              >{{ workplaceName(w).slice(0, 1) }}</span
+            >
+            <div>
+              <strong>{{ workplaceName(w) }}</strong>
+              <span class="li-muted li-small block-line">
+                @if (w.values.level) { {{ w.values.level }} · } @if
+                (w.tenureMonths !== null) { {{ duration(w.tenureMonths) }} }
+                @else { {{ workplaceStatusLabels[w.status] }} }
+              </span>
+            </div>
+            <ui-badge [tone]="w.status === 'current' ? 'success' : 'neutral'"
+              >{{ workplaceStatusLabels[w.status] }}</ui-badge
+            >
+          </div>
+          <p class="li-small li-muted">
+            {{ payslipCount(w) }} payslip{{ payslipCount(w) === 1 ? '' : 's' }}
+            · {{ otherDocuments(w).length }} other document{{
+            otherDocuments(w).length === 1 ? '' : 's' }}
+          </p>
+          <div class="card__buttons">
+            <button
+              uiButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="openWorkplace(w.id)"
+            >
+              Details
+            </button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              aria-label="Edit"
+              (click)="openWorkplace(w.id); startEdit(w)"
+            >
+              <ui-icon name="edit" [size]="16" />
+            </button>
+          </div>
+        </li>
+        }
+      </ul>
+      } @else if (!adding()) {
+      <ui-empty-state heading="No workplace yet" icon="home">
+        <p class="li-muted">
+          Approve a payslip in "To review" and its employer becomes a workplace,
+          or add one by hand.
+        </p>
+      </ui-empty-state>
+      }
+      <div class="workplace-add">
+        @if (adding(); as a) {
+        <form
+          class="li-form li-form--narrow"
+          (submit)="$event.preventDefault(); addWorkplace()"
+        >
+          <label>
+            <span>Employer</span>
+            <input
+              class="ui-input"
+              [value]="a.employer"
+              maxlength="200"
+              required
+              (input)="setAdding({ employer: $any($event.target).value })"
+            />
+          </label>
+          <label>
+            <span>Call it (optional)</span>
+            <input
+              class="ui-input"
+              [value]="a.label"
+              maxlength="60"
+              (input)="setAdding({ label: $any($event.target).value })"
+            />
+          </label>
+          <div class="li-form__buttons">
+            <button
+              uiButton
+              type="submit"
+              size="sm"
+              [loading]="busy() === 'add-workplace'"
+            >
+              Add
+            </button>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="adding.set(null)"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+        } @else {
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="setAdding({})"
+        >
+          <ui-icon name="plus" [size]="16" /> Add a workplace
+        </button>
+        }
+      </div>
+    </ui-card>
+  </div>
 
-<section id="work-career" class="li-group" aria-labelledby="work-career-title">
-  <h2 id="work-career-title" class="li-group__title">Career</h2>
   <ui-card heading="Timeline" class="li-block">
     <div uiCardActions class="li-actions">
       <label class="switch">
@@ -717,16 +689,13 @@
     />
   </div>
 </section>
-
-<section id="work-later" class="li-group" aria-labelledby="work-later-title">
-  <h2 id="work-later-title" class="li-group__title">
-    For later: TFR and pension fund
-  </h2>
+} @case ('pension') {
+<section id="work-later" class="li-group" aria-label="TFR and pension">
   <div id="work-tfr" class="anchor">
     <work-tfr
       [tfr]="data.tfr"
       [pension]="data.pension"
-      (showPension)="setTab('pension')"
+      (showPension)="jump('work-pension')"
       (showGuide)="showGuide($event)"
     />
   </div>
@@ -734,14 +703,13 @@
     <work-pension
       [pension]="data.pension"
       (changed)="load()"
-      (showTfr)="setTab('tfr')"
+      (showTfr)="jump('work-tfr')"
       (showGuide)="showGuide('pension')"
     />
   </div>
 </section>
-
-<section id="work-next" class="li-group" aria-labelledby="work-next-title">
-  <h2 id="work-next-title" class="li-group__title">Next move</h2>
+} @case ('jobs') {
+<section id="work-next" class="li-group" aria-label="Job search">
   <div id="work-tools" class="anchor">
     <work-tools
       [baseline]="data.insights.offer"
@@ -1070,351 +1038,91 @@
     </ui-card>
   </div>
 </section>
-
-<section
-  id="work-workplaces"
-  class="li-group"
-  aria-labelledby="work-workplaces-title"
->
-  <h2 id="work-workplaces-title" class="li-group__title">Workplaces</h2>
-  @if (workplaces().length) {
-  <ul class="cards" aria-label="Your workplaces">
-    @for (w of workplaces(); track w.id) {
-    <li class="card" [class.card--off]="w.status !== 'current'">
-      <div class="card__head">
-        <span class="card__initial" aria-hidden="true"
-          >{{ workplaceName(w).slice(0, 1) }}</span
-        >
-        <div>
-          <strong>{{ workplaceName(w) }}</strong>
-          <span class="li-muted li-small block-line">
-            @if (w.values.level) { {{ w.values.level }} · } @if (w.tenureMonths
-            !== null) { {{ duration(w.tenureMonths) }} } @else { {{
-            workplaceStatusLabels[w.status] }} }
-          </span>
-        </div>
-        <ui-badge [tone]="w.status === 'current' ? 'success' : 'neutral'"
-          >{{ workplaceStatusLabels[w.status] }}</ui-badge
-        >
-      </div>
-      <p class="li-small li-muted">
-        {{ payslipCount(w) }} payslip{{ payslipCount(w) === 1 ? '' : 's' }} · {{
-        otherDocuments(w).length }} other document{{ otherDocuments(w).length
-        === 1 ? '' : 's' }}
-      </p>
-      <div class="card__buttons">
-        <button
-          uiButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="openWorkplace(w.id)"
-        >
-          Details
-        </button>
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          aria-label="Edit"
-          (click)="openWorkplace(w.id); startEdit(w)"
-        >
-          <ui-icon name="edit" [size]="16" />
-        </button>
-      </div>
-    </li>
-    }
-  </ul>
-  } @else if (!adding()) {
-  <ui-empty-state heading="No workplace yet" icon="home">
-    <p class="li-muted">
-      Approve a payslip in "To review" and its employer becomes a workplace, or
-      add one by hand.
-    </p>
-  </ui-empty-state>
-  }
-  <div class="workplace-add">
-    @if (adding(); as a) {
-    <form
-      class="li-form li-form--narrow"
-      (submit)="$event.preventDefault(); addWorkplace()"
+} @default {
+<!-- Overview: your job beside what it needs next. -->
+<div class="top">
+  @if (job(); as w) {
+  <ui-card [heading]="workplaceName(w)" class="job">
+    <ui-badge
+      uiCardActions
+      [tone]="w.status === 'current' ? 'success' : 'neutral'"
+      >{{ workplaceStatusLabels[w.status] }}</ui-badge
     >
-      <label>
-        <span>Employer</span>
-        <input
-          class="ui-input"
-          [value]="a.employer"
-          maxlength="200"
-          required
-          (input)="setAdding({ employer: $any($event.target).value })"
-        />
-      </label>
-      <label>
-        <span>Call it (optional)</span>
-        <input
-          class="ui-input"
-          [value]="a.label"
-          maxlength="60"
-          (input)="setAdding({ label: $any($event.target).value })"
-        />
-      </label>
-      <div class="li-form__buttons">
-        <button
-          uiButton
-          type="submit"
-          size="sm"
-          [loading]="busy() === 'add-workplace'"
-        >
-          Add
-        </button>
-        <button
-          uiButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          (click)="adding.set(null)"
-        >
-          Cancel
-        </button>
+    <dl class="li-facts">
+      @if (data.evaluations.latest?.role; as role) {
+      <div>
+        <dt>Role</dt>
+        <dd>{{ role }}</dd>
       </div>
-    </form>
-    } @else {
-    <button
-      uiButton
-      variant="secondary"
-      size="sm"
-      type="button"
-      (click)="setAdding({})"
-    >
-      <ui-icon name="plus" [size]="16" /> Add a workplace
-    </button>
-    }
-  </div>
-
-  @if (selected(); as w) {
-  <ui-dialog
-    size="lg"
-    [heading]="workplaceName(w)"
-    [open]="workplaceOpen()"
-    (openChange)="workplaceOpen.set($event)"
-    (closed)="editing.set(null); removing.set(false)"
-  >
-    <div class="li-actions workplace__actions">
-      <ui-badge [tone]="w.status === 'current' ? 'success' : 'neutral'"
-        >{{ workplaceStatusLabels[w.status] }}</ui-badge
+      } @if (w.values.level) {
+      <div>
+        <dt>Level</dt>
+        <dd>{{ w.values.level }}</dd>
+      </div>
+      } @if (w.tenureMonths !== null) {
+      <div>
+        <dt>Here for</dt>
+        <dd>{{ duration(w.tenureMonths) }}</dd>
+      </div>
+      } @if (stats()?.currentMonthlySalary) {
+      <div>
+        <dt>Monthly salary</dt>
+        <dd>{{ euro(stats()!.currentMonthlySalary) }} gross</dd>
+      </div>
+      }
+    </dl>
+    @if (latest().latest; as slip) {
+    <div class="job__slip">
+      <ui-icon name="file" [size]="18" />
+      <span class="job__slip-text">
+        <strong>Payslip of {{ periodText(slip.doc.period) }}</strong>
+        <span class="li-muted li-small">
+          Net {{ euro(slip.doc.net) }} @if (slip.received === 'full') { ·
+          received {{ dateText(slip.doc.bankPayment!.lastDate) }} }
+        </span>
+      </span>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="previewUrl(slip.doc.uploadId)"
+        target="_blank"
+        rel="noopener"
+        aria-label="Open the latest payslip"
       >
-      @if (!editing()) {
+        <ui-icon name="eye" [size]="16" />
+      </a>
+      <a
+        uiButton
+        variant="ghost"
+        size="sm"
+        [href]="downloadUrl(slip.doc.uploadId)"
+        download
+        aria-label="Download the latest payslip"
+      >
+        <ui-icon name="download" [size]="16" />
+      </a>
+    </div>
+    }
+    <div class="job__more">
       <button
         uiButton
         variant="ghost"
         size="sm"
         type="button"
-        (click)="startEdit(w)"
+        (click)="openWorkplace(w.id)"
       >
-        <ui-icon name="edit" [size]="16" /> Edit
+        Details and documents
       </button>
-      }
-    </div>
-
-    @if (editing(); as e) {
-    <form class="li-form" (submit)="$event.preventDefault(); saveEdit(w)">
-      <label>
-        <span>Call it</span>
-        <input
-          class="ui-input"
-          [value]="e.label"
-          maxlength="60"
-          (input)="editMeta({ label: $any($event.target).value })"
-        />
-      </label>
-      <label>
-        <span>Status</span>
-        <select
-          class="ui-input"
-          (change)="editMeta({ status: $any($event.target).value })"
-        >
-          @for (status of workplaceStatuses; track status) {
-          <option [value]="status" [selected]="e.status === status">
-            {{ workplaceStatusLabels[status] }}
-          </option>
-          }
-        </select>
-      </label>
-      @for (g of groups; track g.group) {
-      <h3 class="li-form__group">{{ g.label }}</h3>
-      @for (d of g.fields; track d.field) {
-      <label [for]="'wp-' + d.field">
-        <span>{{ d.label }}</span>
-        @if (d.type === 'enum') {
-        <select
-          [id]="'wp-' + d.field"
-          class="ui-input"
-          (change)="editValue(d.field, $any($event.target).value)"
-        >
-          <option value="" [selected]="!e.values[d.field]">–</option>
-          @for (kind of contractKinds; track kind) {
-          <option [value]="kind" [selected]="e.values[d.field] === kind">
-            {{ contractKindLabels[kind] }}
-          </option>
-          }
-        </select>
-        } @else {
-        <input
-          [id]="'wp-' + d.field"
-          class="ui-input"
-          [type]="d.type === 'date' ? 'date' : 'text'"
-          [attr.inputmode]="d.type === 'amount' || d.type === 'number' || d.type === 'integer' ? 'decimal' : null"
-          [value]="e.values[d.field] ?? ''"
-          [title]="d.description"
-          (input)="editValue(d.field, $any($event.target).value)"
-        />
-        }
-      </label>
-      } }
-      <label class="li-form__wide">
-        <span>Notes</span>
-        <textarea
-          class="ui-input"
-          rows="3"
-          maxlength="2000"
-          [value]="e.notes"
-          (input)="editMeta({ notes: $any($event.target).value })"
-        ></textarea>
-      </label>
-      <div class="li-form__buttons">
-        <button uiButton type="submit" [loading]="busy() === w.id">Save</button>
-        <button
-          uiButton
-          variant="ghost"
-          type="button"
-          (click)="editing.set(null)"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-    } @else {
-    <div class="values">
-      @for (g of groups; track g.group) {
-      <section>
-        <h3 class="values__group">{{ g.label }}</h3>
-        <dl class="facts">
-          @for (d of g.fields; track d.field) { @if (value(w, d.field) !== null)
-          {
-          <div>
-            <dt>{{ d.label }}</dt>
-            <dd>{{ valueText(d.field, value(w, d.field)) }}</dd>
-          </div>
-          } }
-        </dl>
-      </section>
-      }
-    </div>
-    @if (w.notes) {
-    <p class="notes">{{ w.notes }}</p>
-    } }
-
-    <h3 class="values__group">Documents</h3>
-    @if (payslipCount(w); as count) {
-    <p class="li-muted li-small">
-      {{ count }} payslip{{ count === 1 ? '' : 's' }}, month by month, are in
-      <button
-        type="button"
-        class="li-link"
-        (click)="workplaceOpen.set(false); jump('work-payslips')"
-      >
-        Payslips</button
-      >.
-    </p>
-    } @if (!otherDocuments(w).length) {
-    <p class="li-muted">No contract, evaluation or CU approved here yet.</p>
-    } @else {
-    <div class="li-table-wrap">
-      <table class="li-table li-table--nowrap">
-        <thead>
-          <tr>
-            <th scope="col">When</th>
-            <th scope="col">Document</th>
-            <th scope="col" class="li-num">Gross</th>
-            <th scope="col" class="li-num">Net</th>
-            <th scope="col"><span class="ui-visually-hidden">Open</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (d of otherDocuments(w); track d.uploadId) {
-          <tr>
-            <th scope="row">{{ periodText(d.period) }}</th>
-            <td>
-              {{ typeLabel(d.type) }}
-              <span class="li-muted li-small">· {{ d.title }}</span>
-            </td>
-            <td class="li-num">{{ d.gross === null ? '–' : euro(d.gross) }}</td>
-            <td class="li-num">
-              {{ d.net === null ? '–' : euro(d.net) }} @if (d.bankPayment; as
-              paid) {
-              <ui-badge
-                [tone]="paid.full ? 'success' : 'warning'"
-                [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
-                >{{ paid.full ? 'Received' : euro(paid.paid) + ' received' }} {{
-                dateText(paid.lastDate) }}</ui-badge
-              >
-              }
-            </td>
-            <td>
-              <a
-                uiButton
-                variant="ghost"
-                size="sm"
-                [href]="previewUrl(d.uploadId)"
-                target="_blank"
-                rel="noopener"
-                aria-label="Open the document"
-              >
-                <ui-icon name="eye" [size]="16" />
-              </a>
-              <a
-                uiButton
-                variant="ghost"
-                size="sm"
-                [href]="downloadUrl(d.uploadId)"
-                download
-                aria-label="Download the document"
-              >
-                <ui-icon name="download" [size]="16" />
-              </a>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    }
-
-    <footer class="danger-zone">
-      @if (removing()) {
-      <span
-        >Remove {{ workplaceName(w) }}? Its documents are kept and go back to
-        review.</span
-      >
-      <button
-        uiButton
-        variant="danger"
-        size="sm"
-        type="button"
-        [loading]="busy() === w.id"
-        (click)="remove(w)"
-      >
-        Remove
-      </button>
+      @if (workplaces().length > 1) {
       <button
         uiButton
         variant="ghost"
         size="sm"
         type="button"
-        (click)="removing.set(false)"
+        (click)="jump('work-workplaces')"
       >
-        Cancel
+        All {{ workplaces().length }} workplaces
       </button>
       } @else {
       <button
@@ -1422,13 +1130,295 @@
         variant="ghost"
         size="sm"
         type="button"
-        (click)="removing.set(true)"
+        (click)="jump('work-workplaces')"
       >
-        <ui-icon name="trash" [size]="16" /> Remove this workplace
+        Add a past workplace
       </button>
       }
-    </footer>
-  </ui-dialog>
+    </div>
+  </ui-card>
+  } @else {
+  <ui-card class="job">
+    <ui-empty-state heading="No career on record yet" icon="chart">
+      <p class="li-muted">
+        Load your payslips (cedolini), evaluations or employment contracts in
+        the documents app and approve them in To review: your job, pay and
+        timeline appear here.
+      </p>
+    </ui-empty-state>
+  </ui-card>
   }
-</section>
+
+  <ui-card heading="What's next" class="next">
+    @if (urgentSteps()) {
+    <ui-badge uiCardActions tone="warning"
+      >{{ urgentSteps() }} {{ urgentSteps() === 1 ? 'needs' : 'need' }}
+      you</ui-badge
+    >
+    } @else {
+    <ui-badge uiCardActions tone="success">All in order</ui-badge>
+    }
+    <ul class="li-next">
+      @for (step of steps(); track step.id) {
+      <li>
+        <button
+          type="button"
+          class="li-next__item"
+          [class.li-next__item--ok]="step.level === 'idea'"
+          (click)="follow(step)"
+        >
+          <ui-icon class="li-next__icon" [name]="step.icon" [size]="18" />
+          <span class="li-next__body">
+            <strong class="li-next__title">{{ step.title }}</strong>
+            <span class="li-muted li-small">{{ step.detail }}</span>
+          </span>
+          <ui-badge [tone]="stepBadges[step.level].tone"
+            >{{ stepBadges[step.level].label }}</ui-badge
+          >
+        </button>
+      </li>
+      } @empty {
+      <li class="li-muted">
+        Nothing needs you: your payslips are in, checked and paid.
+      </li>
+      }
+    </ul>
+  </ui-card>
+</div>
+} } @if (selected(); as w) {
+<ui-dialog
+  size="lg"
+  [heading]="workplaceName(w)"
+  [open]="workplaceOpen()"
+  (openChange)="workplaceOpen.set($event)"
+  (closed)="editing.set(null); removing.set(false)"
+>
+  <div class="li-actions workplace__actions">
+    <ui-badge [tone]="w.status === 'current' ? 'success' : 'neutral'"
+      >{{ workplaceStatusLabels[w.status] }}</ui-badge
+    >
+    @if (!editing()) {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="startEdit(w)"
+    >
+      <ui-icon name="edit" [size]="16" /> Edit
+    </button>
+    }
+  </div>
+
+  @if (editing(); as e) {
+  <form class="li-form" (submit)="$event.preventDefault(); saveEdit(w)">
+    <label>
+      <span>Call it</span>
+      <input
+        class="ui-input"
+        [value]="e.label"
+        maxlength="60"
+        (input)="editMeta({ label: $any($event.target).value })"
+      />
+    </label>
+    <label>
+      <span>Status</span>
+      <select
+        class="ui-input"
+        (change)="editMeta({ status: $any($event.target).value })"
+      >
+        @for (status of workplaceStatuses; track status) {
+        <option [value]="status" [selected]="e.status === status">
+          {{ workplaceStatusLabels[status] }}
+        </option>
+        }
+      </select>
+    </label>
+    @for (g of groups; track g.group) {
+    <h3 class="li-form__group">{{ g.label }}</h3>
+    @for (d of g.fields; track d.field) {
+    <label [for]="'wp-' + d.field">
+      <span>{{ d.label }}</span>
+      @if (d.type === 'enum') {
+      <select
+        [id]="'wp-' + d.field"
+        class="ui-input"
+        (change)="editValue(d.field, $any($event.target).value)"
+      >
+        <option value="" [selected]="!e.values[d.field]">–</option>
+        @for (kind of contractKinds; track kind) {
+        <option [value]="kind" [selected]="e.values[d.field] === kind">
+          {{ contractKindLabels[kind] }}
+        </option>
+        }
+      </select>
+      } @else {
+      <input
+        [id]="'wp-' + d.field"
+        class="ui-input"
+        [type]="d.type === 'date' ? 'date' : 'text'"
+        [attr.inputmode]="d.type === 'amount' || d.type === 'number' || d.type === 'integer' ? 'decimal' : null"
+        [value]="e.values[d.field] ?? ''"
+        [title]="d.description"
+        (input)="editValue(d.field, $any($event.target).value)"
+      />
+      }
+    </label>
+    } }
+    <label class="li-form__wide">
+      <span>Notes</span>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="e.notes"
+        (input)="editMeta({ notes: $any($event.target).value })"
+      ></textarea>
+    </label>
+    <div class="li-form__buttons">
+      <button uiButton type="submit" [loading]="busy() === w.id">Save</button>
+      <button
+        uiButton
+        variant="ghost"
+        type="button"
+        (click)="editing.set(null)"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+  } @else {
+  <div class="values">
+    @for (g of groups; track g.group) {
+    <section>
+      <h3 class="values__group">{{ g.label }}</h3>
+      <dl class="facts">
+        @for (d of g.fields; track d.field) { @if (value(w, d.field) !== null) {
+        <div>
+          <dt>{{ d.label }}</dt>
+          <dd>{{ valueText(d.field, value(w, d.field)) }}</dd>
+        </div>
+        } }
+      </dl>
+    </section>
+    }
+  </div>
+  @if (w.notes) {
+  <p class="notes">{{ w.notes }}</p>
+  } }
+
+  <h3 class="values__group">Documents</h3>
+  @if (payslipCount(w); as count) {
+  <p class="li-muted li-small">
+    {{ count }} payslip{{ count === 1 ? '' : 's' }}, month by month, are in
+    <button
+      type="button"
+      class="li-link"
+      (click)="workplaceOpen.set(false); jump('work-payslips')"
+    >
+      Payslips</button
+    >.
+  </p>
+  } @if (!otherDocuments(w).length) {
+  <p class="li-muted">No contract, evaluation or CU approved here yet.</p>
+  } @else {
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Document</th>
+          <th scope="col" class="li-num">Gross</th>
+          <th scope="col" class="li-num">Net</th>
+          <th scope="col"><span class="ui-visually-hidden">Open</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of otherDocuments(w); track d.uploadId) {
+        <tr>
+          <th scope="row">{{ periodText(d.period) }}</th>
+          <td>
+            {{ typeLabel(d.type) }}
+            <span class="li-muted li-small">· {{ d.title }}</span>
+          </td>
+          <td class="li-num">{{ d.gross === null ? '–' : euro(d.gross) }}</td>
+          <td class="li-num">
+            {{ d.net === null ? '–' : euro(d.net) }} @if (d.bankPayment; as
+            paid) {
+            <ui-badge
+              [tone]="paid.full ? 'success' : 'warning'"
+              [title]="'Matched in Money with a movement of ' + (paid.accounts.join(', ') || 'your bank')"
+              >{{ paid.full ? 'Received' : euro(paid.paid) + ' received' }} {{
+              dateText(paid.lastDate) }}</ui-badge
+            >
+            }
+          </td>
+          <td>
+            <a
+              uiButton
+              variant="ghost"
+              size="sm"
+              [href]="previewUrl(d.uploadId)"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open the document"
+            >
+              <ui-icon name="eye" [size]="16" />
+            </a>
+            <a
+              uiButton
+              variant="ghost"
+              size="sm"
+              [href]="downloadUrl(d.uploadId)"
+              download
+              aria-label="Download the document"
+            >
+              <ui-icon name="download" [size]="16" />
+            </a>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+
+  <footer class="danger-zone">
+    @if (removing()) {
+    <span
+      >Remove {{ workplaceName(w) }}? Its documents are kept and go back to
+      review.</span
+    >
+    <button
+      uiButton
+      variant="danger"
+      size="sm"
+      type="button"
+      [loading]="busy() === w.id"
+      (click)="remove(w)"
+    >
+      Remove
+    </button>
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="removing.set(false)"
+    >
+      Cancel
+    </button>
+    } @else {
+    <button
+      uiButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      (click)="removing.set(true)"
+    >
+      <ui-icon name="trash" [size]="16" /> Remove this workplace
+    </button>
+    }
+  </footer>
+</ui-dialog>
 } }

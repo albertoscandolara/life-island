@@ -540,7 +540,7 @@ export function pensionDeadlines(
       detail: `About ${euroText(t.room)} of the ${euroText(t.limit)} limit is still free${t.saving !== null ? `: a transfer to your fund would save about ${euroText(t.saving)} of IRPEF` : ''}.`,
       date: t.deadline,
       amount: t.room,
-      path: '/work?tab=pension',
+      path: '/work?tab=pension#work-pension',
     });
   for (const y of pension.years)
     if (y.noticeDue && !y.noticeSentAt && !y.running)
@@ -552,7 +552,7 @@ export function pensionDeadlines(
         detail: `${euroText(y.over)} was over the limit: send the fund the "comunicazione dei contributi non dedotti", or it is taxed again when you retire.`,
         date: y.noticeDue,
         amount: y.over,
-        path: '/work?tab=pension',
+        path: '/work?tab=pension#work-pension',
       });
   return out.filter((d) => d.date >= window.from && d.date <= window.to);
 }
