@@ -1,6 +1,7 @@
 import {
   italianAmount,
   readPayslipText,
+  readExtraMonth,
   readWelfareCredits,
 } from './payslip-reader.js';
 
@@ -45,6 +46,7 @@ describe('readPayslipText', () => {
       total_deductions: 650.05,
       net_pay: 1950.05,
       welfare_credits: null,
+      payslip_kind: null,
     });
   });
 
@@ -90,5 +92,20 @@ describe('readWelfareCredits', () => {
 
   it('is null on a payslip without welfare', () => {
     expect(readWelfareCredits('001 Retribuzione  2.450,00')).toBeNull();
+  });
+});
+
+describe('readExtraMonth', () => {
+  it('reads a tredicesima printed as Mens.supplementare 12', () => {
+    expect(
+      readExtraMonth('ARCODA  8306794997  Mens.supplementare 12/2025'),
+    ).toBe('thirteenth');
+    expect(readExtraMonth('MENS. SUPPLEMENTARE 6/2025')).toBe('fourteenth');
+  });
+
+  it('leaves a monthly payslip alone, even when it pays the 13th', () => {
+    expect(
+      readExtraMonth("DICEMBRE 2025\n250 13.ma mensilita'  2.248,10"),
+    ).toBeNull();
   });
 });

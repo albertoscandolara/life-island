@@ -9,7 +9,7 @@ import {
 /*
  * Each Certificazione Unica you approved next to the payslips of the same
  * workplace and year: the CU is what the employer declared, the payslips what
- * you have; a gap means a payslip is missing, or the December conguaglio.
+ * you have; a gap means a payslip is missing or read wrong.
  */
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -30,6 +30,22 @@ function monthsOfYear(year: number, workplace: CareerWorkplace | undefined) {
     months.push(period);
   }
   return months;
+}
+
+/**
+ * CU IRPEF minus the payslips'. A payslip can print the 5% tax on a
+ * productivity bonus in its tax total, while the CU keeps it apart (punto
+ * 576): when taking it out of the payslips' side closes the gap, it is.
+ */
+function taxGapOf(
+  cuWithheld: number,
+  payslips: number,
+  bonusTax: number | null,
+): number {
+  const gap = round2(cuWithheld - payslips);
+  if (!bonusTax) return gap;
+  const withoutBonus = round2(gap + bonusTax);
+  return Math.abs(withoutBonus) < Math.abs(gap) ? withoutBonus : gap;
 }
 
 export function buildCertificates(
@@ -65,7 +81,14 @@ export function buildCertificates(
           own.map((p) => (allTaxable ? p.reading.taxable : p.reading.gross)),
         )
       : null;
-    const payslipIncomeTax = sumOf(own.map((p) => p.reading.incomeTax));
+    // The year-end conguaglio is on December's payslip (a refund is negative);
+    // a 730 refund or charge in the summer is about last year, so not counted.
+    const payslipIncomeTax = sumOf([
+      ...own.map((p) => p.reading.incomeTax),
+      ...own
+        .filter((p) => p.reading.period!.endsWith('-12'))
+        .map((p) => p.reading.taxAdjustment),
+    ]);
     certificates.push({
       uploadId: doc.uploadId,
       title: doc.title,
@@ -94,7 +117,11 @@ export function buildCertificates(
           : null,
       taxGap:
         cu.irpefWithheld !== null && payslipIncomeTax !== null
-          ? round2(cu.irpefWithheld - payslipIncomeTax)
+          ? taxGapOf(
+              cu.irpefWithheld,
+              payslipIncomeTax,
+              cu.productivityBonusTax,
+            )
           : null,
       payslipIncomeTax,
     });

@@ -201,6 +201,24 @@ describe('inferPayslipKinds', () => {
       ]),
     ).toEqual(['regular', 'regular', 'thirteenth', 'regular']);
   });
+
+  it('tells a tredicesima of the same gross by its net, and keeps true copies', () => {
+    const withNet = (id: string, month: string, net: string) => ({
+      row: { uploadId: id, title: `Cedolino ${id}`, originalFilename: 'x.pdf' },
+      reading: readWorkDocument(
+        'PAYSLIP',
+        payslipFields(month, { net_pay: net }),
+      ),
+    });
+    expect(
+      kinds([
+        withNet('t', '12', '1.566,77'),
+        withNet('d', '12', '2.719,74'),
+        withNet('copy-a', '11', '1.740,00'),
+        withNet('copy-b', '11', '1.740,00'),
+      ]),
+    ).toEqual(['thirteenth', 'regular', 'regular', 'regular']);
+  });
 });
 
 describe('matching', () => {
