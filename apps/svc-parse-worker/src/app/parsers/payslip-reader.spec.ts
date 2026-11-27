@@ -2,6 +2,7 @@ import {
   italianAmount,
   readPayslipText,
   readExtraMonth,
+  readTfrMonth,
   readWelfareCredits,
 } from './payslip-reader.js';
 
@@ -47,6 +48,7 @@ describe('readPayslipText', () => {
       net_pay: 1950.05,
       welfare_credits: null,
       payslip_kind: null,
+      severance_accrued: null,
     });
   });
 
@@ -107,5 +109,21 @@ describe('readExtraMonth', () => {
     expect(
       readExtraMonth("DICEMBRE 2025\n250 13.ma mensilita'  2.248,10"),
     ).toBeNull();
+  });
+});
+
+describe('readTfrMonth', () => {
+  it('picks TFR MESE, not the 0.5% contribution next to it', () => {
+    const text = [
+      'RETRIBUZIONE UTILE TFR  CONTR. AGG. TFR  TFR MESE  TFR ANNUO PROGR.  F.DO TFR 31/12 AP',
+      'T',
+      '2.248,10  11,24  155,29  2.015,95  10.614,90  12.630,85',
+    ].join('\n');
+    expect(readTfrMonth(text)).toBe(155.29);
+    expect(readTfrMonth('2.649,07  13,25  182,98  1.694,19')).toBe(182.98);
+  });
+
+  it('is null when no three amounts add up that way', () => {
+    expect(readTfrMonth('TFR MESE 155,29')).toBeNull();
   });
 });

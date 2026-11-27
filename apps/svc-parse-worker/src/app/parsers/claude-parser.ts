@@ -44,7 +44,11 @@ import {
   type StepOutput,
   type TransactionContext,
 } from './document-parser.js';
-import { readExtraMonth, readWelfareCredits } from './payslip-reader.js';
+import {
+  readExtraMonth,
+  readTfrMonth,
+  readWelfareCredits,
+} from './payslip-reader.js';
 import { classifyProviderError } from './provider-errors.js';
 
 export const PROMPT_VERSION = 'categories-7';
@@ -606,6 +610,32 @@ function checkPayslipKind(input: ParseInput, fields: ExtractedFields) {
   fields.warnings.push(`Payslip kind set to ${read} from the payslip header`);
 }
 
+/**
+ * The month's TFR is easy to take from the wrong column of the TFR box
+ * (CONTR. AGG. TFR, the 0.5% contribution, sits next to it); the box's own
+ * arithmetic finds the right one, so it replaces any other reading.
+ */
+function checkTfrMonth(input: ParseInput, fields: ExtractedFields) {
+  const field = fields.fields[PAYSLIP_KEYS.severance];
+  if (!field || input.document.kind === 'image' || field.editedAt) return;
+  const read = readTfrMonth(input.document.text);
+  if (read === null) return;
+  const model = typeof field.value === 'number' ? field.value : null;
+  if (model !== null && Math.abs(model - read) < 0.01) return;
+  fields.fields[PAYSLIP_KEYS.severance] = {
+    ...field,
+    value: read,
+    status: 'found',
+    raw: model === null ? (field.raw ?? null) : String(model),
+    note: 'TFR MESE, from the TFR box of the payslip text',
+  };
+  fields.warnings.push(
+    model === null
+      ? `TFR of the month read from the TFR box: ${read}`
+      : `TFR of the month corrected from ${model} to ${read} (TFR MESE)`,
+  );
+}
+
 export class ClaudeParser implements DocumentAnalyzer {
   readonly name = 'claude';
 
@@ -805,6 +835,7 @@ export class ClaudeParser implements DocumentAnalyzer {
         );
       checkWelfareCredits(input, fields);
       checkPayslipKind(input, fields);
+      checkTfrMonth(input, fields);
       return {
         runs,
         // Invalid data still goes to review, flagged, instead of being lost.

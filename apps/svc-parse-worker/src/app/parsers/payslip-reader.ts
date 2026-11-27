@@ -52,6 +52,31 @@ export interface PayslipReading {
   net_pay: number | null;
   welfare_credits: number | null;
   payslip_kind: 'thirteenth' | 'fourteenth' | null;
+  severance_accrued: number | null;
+}
+
+/**
+ * The month's TFR (TFR MESE). The TFR box prints RETRIBUZIONE UTILE TFR,
+ * CONTR. AGG. TFR and TFR MESE side by side ("2.649,07  13,25  182,98"), and
+ * the three always add up: the month's TFR is the base over 13.5 less the
+ * contribution. That sum picks TFR MESE out, wherever the line breaks fall.
+ */
+export function readTfrMonth(text: string): number | null {
+  for (const line of text.split('\n')) {
+    const amounts = moneyIn(line);
+    for (let i = 0; i + 2 < amounts.length; i++) {
+      const [base, contribution, month] = amounts.slice(i, i + 3);
+      if (
+        base > 0 &&
+        contribution > 0 &&
+        contribution < base * 0.015 &&
+        month > 0 &&
+        Math.abs(base / 13.5 - contribution - month) < 0.05
+      )
+        return month;
+    }
+  }
+  return null;
 }
 
 /**
@@ -168,5 +193,6 @@ export function readPayslipText(text: string): PayslipReading {
     net_pay: totals?.[2] ?? null,
     welfare_credits: readWelfareCredits(text),
     payslip_kind: readExtraMonth(text),
+    severance_accrued: readTfrMonth(text),
   };
 }
