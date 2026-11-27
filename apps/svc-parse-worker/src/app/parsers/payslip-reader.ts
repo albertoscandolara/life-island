@@ -51,6 +51,26 @@ export interface PayslipReading {
   total_deductions: number | null;
   net_pay: number | null;
   welfare_credits: number | null;
+  payslip_kind: 'thirteenth' | 'fourteenth' | null;
+}
+
+/**
+ * An extra month printed in place of the month's name: "Mens.supplementare
+ * 12/2025" heads a tredicesima, in June or July a quattordicesima. A monthly
+ * payslip that also pays the tredicesima says "DICEMBRE 2025" instead.
+ */
+export function readExtraMonth(
+  text: string,
+): 'thirteenth' | 'fourteenth' | null {
+  const m =
+    /mens(?:ilit[aà])?\.?\s*supplementare\s+(\d{1,2})\s*\/\s*\d{4}/i.exec(text);
+  if (!m) return null;
+  const month = Number(m[1]);
+  return month === 12
+    ? 'thirteenth'
+    : month === 6 || month === 7
+      ? 'fourteenth'
+      : null;
 }
 
 /**
@@ -147,5 +167,6 @@ export function readPayslipText(text: string): PayslipReading {
     total_deductions: totals?.[1] ?? null,
     net_pay: totals?.[2] ?? null,
     welfare_credits: readWelfareCredits(text),
+    payslip_kind: readExtraMonth(text),
   };
 }

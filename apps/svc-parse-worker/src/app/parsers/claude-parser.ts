@@ -44,7 +44,7 @@ import {
   type StepOutput,
   type TransactionContext,
 } from './document-parser.js';
-import { readWelfareCredits } from './payslip-reader.js';
+import { readExtraMonth, readWelfareCredits } from './payslip-reader.js';
 import { classifyProviderError } from './provider-errors.js';
 
 export const PROMPT_VERSION = 'categories-7';
@@ -586,6 +586,26 @@ function checkWelfareCredits(input: ParseInput, fields: ExtractedFields) {
   );
 }
 
+/**
+ * A tredicesima printed as "Mens.supplementare 12/2025" in place of the
+ * month is easy to read as December's payslip; the header says it plainly.
+ */
+function checkPayslipKind(input: ParseInput, fields: ExtractedFields) {
+  const field = fields.fields[PAYSLIP_KEYS.kind];
+  if (!field || input.document.kind === 'image' || field.editedAt) return;
+  const read = readExtraMonth(input.document.text);
+  if (!read || field.value === read) return;
+  if (field.value && field.value !== 'regular') return;
+  fields.fields[PAYSLIP_KEYS.kind] = {
+    ...field,
+    value: read,
+    status: 'found',
+    raw: typeof field.value === 'string' ? field.value : (field.raw ?? null),
+    note: 'Printed as a mensilità supplementare in place of the month',
+  };
+  fields.warnings.push(`Payslip kind set to ${read} from the payslip header`);
+}
+
 export class ClaudeParser implements DocumentAnalyzer {
   readonly name = 'claude';
 
@@ -784,6 +804,7 @@ export class ClaudeParser implements DocumentAnalyzer {
           `Read in ${parts.length} parts; target details come from part ${parts.indexOf(valid ?? parts[0]) + 1}`,
         );
       checkWelfareCredits(input, fields);
+      checkPayslipKind(input, fields);
       return {
         runs,
         // Invalid data still goes to review, flagged, instead of being lost.

@@ -304,6 +304,8 @@ export interface CertificateReading {
   /** Pension fund contributions the employer deducted (punto 412) and did not (punto 413). */
   pensionFundDeducted: number | null;
   pensionFundNotDeducted: number | null;
+  /** The 5% substitute tax on a productivity bonus (punto 576): withheld, but not IRPEF. */
+  productivityBonusTax: number | null;
 }
 
 /**
@@ -725,6 +727,7 @@ export function readWorkDocument(
         netTax: num(K.netTax),
         pensionFundDeducted: num(K.pensionFundDeducted),
         pensionFundNotDeducted: num(K.pensionFundNotDeducted),
+        productivityBonusTax: num(K.productivityBonusTax),
       };
       reading.certificate = certificate;
       reading.date =
@@ -882,8 +885,34 @@ const FOURTEENTH = /quattordicesim|14\s*[ªa°^.]?\s*mens|mensilit[aà]\s*14/i;
  * - its title or file name says so ("13ma mensilità", "Tredicesima");
  * - a second regular payslip of the same employer and month with another
  *   gross is not a copy: the one furthest from your usual pay is the extra
- *   one, a tredicesima in December and an extra payslip in any other month.
+ *   one, a tredicesima in December and an extra payslip in any other month;
+ *   in December, one with the same gross but another net is a tredicesima
+ *   too (see `sameGrossThirteenth`).
  */
+/**
+ * A tredicesima is often exactly one monthly salary, so its gross is the
+ * same as December's. Two regular December payslips with the same gross but
+ * another net are then not copies: the tredicesima is the one without worked
+ * hours, else the one with the lower net (it has no tax deductions, and
+ * December's carries the year-end conguaglio).
+ */
+function sameGrossThirteenth<T extends { reading: WorkDocumentReading }>(
+  group: readonly T[],
+): T | null {
+  if (group.length !== 2 || !group[0].reading.period!.endsWith('-12'))
+    return null;
+  const [a, b] = group;
+  if (
+    a.reading.net === null ||
+    b.reading.net === null ||
+    Math.abs(a.reading.net - b.reading.net) < 1
+  )
+    return null;
+  const noHours = group.filter((d) => !d.reading.hoursWorked);
+  if (noHours.length === 1) return noHours[0];
+  return a.reading.net < b.reading.net ? a : b;
+}
+
 export function inferPayslipKinds<
   T extends {
     reading: WorkDocumentReading;
@@ -931,7 +960,11 @@ export function inferPayslipKinds<
   const extra = new Map<string, PayslipKind>();
   for (const [key, group] of groups) {
     const grosses = new Set(group.map((d) => Math.round(d.reading.gross!)));
-    if (grosses.size < 2) continue;
+    if (grosses.size < 2) {
+      const tredicesima = sameGrossThirteenth(group);
+      if (tredicesima) extra.set(tredicesima.row.uploadId, 'thirteenth');
+      continue;
+    }
     const [who, period] = [
       key.slice(0, key.lastIndexOf('|')),
       group[0].reading.period!,
