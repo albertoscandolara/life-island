@@ -28,7 +28,7 @@ import {
 } from '@life-island/design-system';
 import { AiTool } from '@life-island/settings-ui';
 import { WorkApi } from '../api/work-api';
-import { euro, parseAmount, periodText } from './labels';
+import { euro, parseAmount, periodText, signedEuro } from './labels';
 
 /** What an offer is worth, as you type it. */
 export interface OfferDraft {
@@ -264,10 +264,7 @@ export class ToolsTab {
     return current && offer ? pick(offer) - pick(current) : null;
   }
 
-  protected signedEuro(value: number | null): string {
-    if (value === null) return '–';
-    return `${value > 0 ? '+' : value < 0 ? '−' : ''}${euro(Math.abs(value))}`;
-  }
+  protected readonly signedEuro = signedEuro;
 
   /** Where the RAL falls on a range, from 0 (low) to 100 (high), for the marker. */
   protected markerAt(

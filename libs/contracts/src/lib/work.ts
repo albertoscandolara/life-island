@@ -588,6 +588,8 @@ export interface YearStatsDto {
   severance: number;
   /** Paid into a pension fund: yours, the employer's and the TFR sent there. */
   pensionFund: number;
+  /** The employer's own contribution to your pension fund: pay on top of the gross. */
+  employerPension: number;
   averageNet: number;
   /** Gross of the payslips that pay only an extra month (tredicesima, quattordicesima, bonus). */
   extraPay: number;

@@ -84,7 +84,6 @@ import {
   dateText,
   periodText,
   safeUrl,
-  scoreText,
   signed,
   typeLabel,
   valueText,
@@ -353,7 +352,6 @@ export class WorkPage {
   protected readonly duration = duration;
   protected readonly periodText = periodText;
   protected readonly dateText = dateText;
-  protected readonly scoreText = scoreText;
   protected readonly signed = signed;
   protected readonly fieldLabel = fieldLabel;
   protected readonly typeLabel = typeLabel;
@@ -402,44 +400,6 @@ export class WorkPage {
   );
   protected readonly stalePlatforms = computed(() =>
     this.platforms().filter((p) => p.stale),
-  );
-
-  protected readonly evaluations = computed(
-    () => this.overview()?.evaluations ?? null,
-  );
-
-  /**
-   * Pay and evaluations side by side, year by year: what the payslips say
-   * you earned and what the evaluations say about the same year.
-   */
-  protected readonly years = computed(() => {
-    const pay = this.stats()?.years ?? [];
-    const reviews = this.evaluations()?.years ?? [];
-    const all = [
-      ...new Set([...pay.map((y) => y.year), ...reviews.map((y) => y.year)]),
-    ].sort((a, b) => b - a);
-    return all.map((year) => {
-      const p = pay.find((y) => y.year === year) ?? null;
-      const r = reviews.find((y) => y.year === year) ?? null;
-      return {
-        year,
-        payslips: p?.payslips ?? 0,
-        gross: p?.gross ?? null,
-        net: p?.net ?? null,
-        evaluations: r?.evaluations ?? 0,
-        averageScore: r?.averageScore ?? null,
-        bonus: r?.bonus || null,
-        bonusShareOfGrossPct: r?.bonusShareOfGrossPct ?? null,
-        role: r?.role ?? null,
-      };
-    });
-  });
-
-  /** The latest year with both a bonus and payslips: how much of your pay the evaluations moved. */
-  protected readonly bonusShare = computed(
-    () =>
-      this.years().find((y) => y.bonus && y.bonusShareOfGrossPct !== null) ??
-      null,
   );
 
   /** Your payslips year by year, month by month, for the grid and the steps. */

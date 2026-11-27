@@ -20,8 +20,13 @@
     ariaLabel="Gross and net pay of each month"
   />
 </ui-card>
-} @if (stats().years.length) {
-<ui-card heading="Year by year" class="li-block">
+} @if (packages().length) {
+<ui-card heading="What each year really paid you" class="li-block">
+  <p class="li-muted li-intro">
+    Not only the salary: what each year paid you in all, with the welfare you
+    were credited, the severance (TFR) set aside and what the employer put in
+    your pension fund. Taxes are in "Where your gross goes".
+  </p>
   <div class="li-table-wrap">
     <table class="li-table li-table--nowrap">
       <thead>
@@ -29,47 +34,56 @@
           <th scope="col">Year</th>
           <th scope="col" class="li-num">Payslips</th>
           <th scope="col" class="li-num">Gross</th>
-          <th scope="col" class="li-num">Of which extra pay</th>
+          <th scope="col" class="li-num">Of which extra months</th>
           <th scope="col" class="li-num">Net</th>
-          <th scope="col" class="li-num">Income tax</th>
-          <th scope="col" class="li-num">Contributions</th>
           <th scope="col" class="li-num">Welfare</th>
-          <th scope="col" class="li-num">TFR accrued</th>
+          <th scope="col" class="li-num">TFR set aside</th>
           @if (hasPensionFund()) {
-          <th scope="col" class="li-num">Pension fund</th>
+          <th scope="col" class="li-num">Employer's pension</th>
           }
-          <th scope="col" class="li-num">Average net</th>
+          <th scope="col" class="li-num">Total pay</th>
+          <th scope="col" class="li-num">Bonus</th>
+          <th scope="col" class="li-num">Evaluation</th>
         </tr>
       </thead>
       <tbody>
-        @for (y of stats().years; track y.year) {
+        @for (y of packages(); track y.year) {
         <tr>
           <th scope="row">{{ y.year }}</th>
           <td class="li-num">{{ y.payslips }}</td>
           <td class="li-num">{{ euro(y.gross) }}</td>
           <td class="li-num">{{ y.extraPay ? euro(y.extraPay) : '–' }}</td>
           <td class="li-num">{{ euro(y.net) }}</td>
-          <td class="li-num">{{ euro(y.incomeTax) }}</td>
-          <td class="li-num">{{ euro(y.contributions) }}</td>
           <td class="li-num">{{ y.welfare ? euro(y.welfare) : '–' }}</td>
           <td class="li-num">{{ y.severance ? euro(y.severance) : '–' }}</td>
           @if (hasPensionFund()) {
           <td class="li-num">
-            {{ y.pensionFund ? euro(y.pensionFund) : '–' }}
+            {{ y.employerPension ? euro(y.employerPension) : '–' }}
           </td>
           }
-          <td class="li-num">{{ euro(y.averageNet) }}</td>
+          <td class="li-num"><strong>{{ euro(y.total) }}</strong></td>
+          <td class="li-num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
+          <td class="li-num">
+            @if (y.averageScore !== null) {
+            <button
+              type="button"
+              class="li-link"
+              (click)="showEvaluations.emit()"
+            >
+              {{ scoreText(y.averageScore) }}
+            </button>
+            } @else { – }
+          </td>
         </tr>
         }
       </tbody>
     </table>
   </div>
-  @if (hasPensionFund()) {
   <p class="note li-muted">
-    Pension fund: your contribution, the employer's and the TFR sent to the
-    fund, from the payslips. The Pension fund tab follows them against the
-    yearly deduction limit.
+    Total pay is the gross plus welfare, TFR and the employer's pension
+    contribution: what the job costs your employer for you, less their own
+    social contributions. The bonus is shown apart, as it is usually already in
+    the gross; the evaluation opens your performance reviews.
   </p>
-  }
 </ui-card>
 } }

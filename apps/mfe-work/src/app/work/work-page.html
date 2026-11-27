@@ -317,13 +317,21 @@
   </p>
   <work-payslip-archive [years]="payslipYears()" [(year)]="archiveYear" />
   <div id="work-audit" class="anchor">
-    <work-audit [audit]="data.audit" [netChanges]="data.netChanges" />
+    <work-audit
+      [audit]="data.audit"
+      [netChanges]="data.netChanges"
+      [ccnl]="data.insights.ccnl"
+    />
   </div>
 </section>
 } @case ('pay') {
 <section id="work-pay" class="li-group" aria-label="Pay and taxes">
   @if (stats(); as s) {
-  <work-payslips [stats]="s" />
+  <work-payslips
+    [stats]="s"
+    [packages]="data.insights.packages"
+    (showEvaluations)="jump('work-evaluations')"
+  />
   <div id="work-analysis" class="anchor">
     <work-pay-analysis [insights]="data.insights" [stats]="s" />
   </div>
@@ -626,59 +634,6 @@
     </section>
     }
   </ui-card>
-  @if (years().length) {
-  <ui-card heading="Pay and evaluations, year by year" class="li-block">
-    <div uiCardActions class="li-actions">
-      <button
-        uiButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        (click)="jump('work-evaluations')"
-      >
-        Performance reviews
-      </button>
-    </div>
-    <div class="li-table-wrap">
-      <table class="li-table li-table--nowrap">
-        <thead>
-          <tr>
-            <th scope="col">Year</th>
-            <th scope="col" class="li-num">Gross</th>
-            <th scope="col" class="li-num">Net</th>
-            <th scope="col" class="li-num">Evaluations</th>
-            <th scope="col" class="li-num">Average score</th>
-            <th scope="col" class="li-num">Bonus</th>
-            <th scope="col" class="li-num">Bonus share of gross</th>
-            <th scope="col">Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (y of years(); track y.year) {
-          <tr>
-            <th scope="row">{{ y.year }}</th>
-            <td class="li-num">{{ y.payslips ? euro(y.gross) : '–' }}</td>
-            <td class="li-num">{{ y.payslips ? euro(y.net) : '–' }}</td>
-            <td class="li-num">{{ y.evaluations || '–' }}</td>
-            <td class="li-num">{{ scoreText(y.averageScore) }}</td>
-            <td class="li-num">{{ y.bonus ? euro(y.bonus) : '–' }}</td>
-            <td class="li-num">
-              {{ y.bonusShareOfGrossPct === null ? '–' : y.bonusShareOfGrossPct
-              + '%' }}
-            </td>
-            <td>{{ y.role ?? '–' }}</td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <p class="li-muted note">
-      Gross and net come from your payslips; scores and bonus from your
-      evaluations. A year with payslips but no evaluation, or the other way
-      round, shows a dash.
-    </p>
-  </ui-card>
-  }
   <div id="work-evaluations" class="anchor">
     <work-evaluations
       [data]="data.evaluations"

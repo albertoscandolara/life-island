@@ -13,6 +13,7 @@ import {
   buildCcnlComparison,
   buildGoals,
   buildInsights,
+  buildPackages,
   buildRealPay,
   buildReviewsVsPay,
   buildSalaryParts,
@@ -144,6 +145,35 @@ describe('buildRealPay', () => {
 
   it('is empty with no monthly salary', () => {
     expect(buildRealPay([]).years).toEqual([]);
+  });
+});
+
+describe('buildPackages', () => {
+  it("adds the welfare, TFR and the employer's pension to the gross, with the evaluation", () => {
+    const all = [
+      payslip('2025-06', {
+        welfare_credits: 300,
+        severance_accrued: 160,
+        pension_fund_employer: 40,
+      }),
+      payslip('2025-07', { pension_fund_employer: 40 }),
+      evaluation,
+    ];
+    const stats = buildStats(
+      [workplace],
+      all,
+      buildTimeline([workplace], all, []),
+      '2026-11-09',
+    );
+    const evaluations = buildEvaluationStats(all, [workplace], stats.years);
+    const [y] = buildPackages(stats, evaluations);
+    expect(y.year).toBe(2025);
+    expect(y.employerPension).toBe(80);
+    expect(y.net).toBe(3280);
+    expect(y.averageScore).toBe(84);
+    expect(y.total).toBe(
+      Math.round((y.gross + y.welfare + y.severance + 80) * 100) / 100,
+    );
   });
 });
 

@@ -179,6 +179,12 @@ export function scoreText(
   return max ? `${text} / ${max.toLocaleString('it-IT')}` : text;
 }
 
+/** An amount with its sign: "+120,00 €", "−35,50 €"; a dash for none. */
+export function signedEuro(value: number | null): string {
+  if (value === null) return '–';
+  return `${value > 0 ? '+' : value < 0 ? '−' : ''}${euro(Math.abs(value))}`;
+}
+
 /** A score change, signed: "+4", "−2,5". */
 export function signed(value: number | null): string {
   if (value === null) return '–';

@@ -3,11 +3,12 @@ import {
   Component,
   computed,
   input,
+  output,
 } from '@angular/core';
-import type { CareerStatsDto } from '@life-island/contracts';
+import type { CareerStatsDto, PackageYearDto } from '@life-island/contracts';
 import { UiCard, UiEmptyState } from '@life-island/design-system';
 import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
-import { euro, euroShort, periodText, shortPeriod } from './labels';
+import { euro, euroShort, periodText, scoreText, shortPeriod } from './labels';
 
 /**
  * Pay: what your payslips paid month by month and year by year. The
@@ -22,15 +23,20 @@ import { euro, euroShort, periodText, shortPeriod } from './labels';
 })
 export class PayslipsTab {
   readonly stats = input.required<CareerStatsDto>();
+  /** Each year in all: pay, welfare, TFR, pension and the evaluation. */
+  readonly packages = input.required<PackageYearDto[]>();
+  /** The evaluation of a year was clicked: open the performance reviews. */
+  readonly showEvaluations = output<void>();
 
   protected readonly euro = euro;
   protected readonly euroShort = euroShort;
   protected readonly periodText = periodText;
   protected readonly shortPeriod = shortPeriod;
+  protected readonly scoreText = scoreText;
 
   /** Whether any year's payslips pay into a pension fund. */
   protected readonly hasPensionFund = computed(() =>
-    this.stats().years.some((y) => y.pensionFund > 0),
+    this.packages().some((y) => y.employerPension > 0),
   );
   /** The last 24 months of pay: gross and net, side by side. */
   protected readonly payChart = computed(() => {
