@@ -207,12 +207,8 @@
           "tableFrom": "courses",
           "tableTo": "training_platforms",
           "schemaTo": "studies",
-          "columnsFrom": [
-            "platform_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -945,12 +941,8 @@
           "tableFrom": "study_sessions",
           "tableTo": "courses",
           "schemaTo": "studies",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }

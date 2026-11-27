@@ -55,7 +55,14 @@ export interface UiTrailStop {
             <span class="stop__here">{{ hereLabel() }}</span>
           }
           <span class="visually-hidden">
-            · {{ stop.state === 'done' ? 'done' : stop.state === 'current' ? hereLabel() : 'ahead' }}
+            ·
+            {{
+              stop.state === 'done'
+                ? 'done'
+                : stop.state === 'current'
+                  ? hereLabel()
+                  : 'ahead'
+            }}
           </span>
         </button>
       </li>
