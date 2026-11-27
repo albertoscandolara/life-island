@@ -691,10 +691,7 @@ export class StudiesService {
     request: StepProgressRequest,
     today = localToday(),
   ): Promise<void> {
-    const catalogue = await this.scout.catalogue();
-    const step = pathStep(stepId, catalogue)
-      ? pathOfStep(stepId, catalogue)
-      : undefined;
+    const step = stepPath(stepId, await this.scout.catalogue());
     if (!step) throw new NotFoundException('Step not found');
     const [current] = await this.db
       .select()
@@ -774,6 +771,19 @@ export class StudiesService {
   }
 }
 
+/**
+ * The path a step belongs to: one of yours, else a curated one (a session
+ * or a status on its step adds it to yours).
+ */
+function stepPath(
+  stepId: string,
+  catalogue: readonly LearningPath[],
+): LearningPath | undefined {
+  for (const paths of [catalogue, LEARNING_PATHS])
+    if (pathStep(stepId, paths)) return pathOfStep(stepId, paths);
+  return undefined;
+}
+
 /** The step and its path, or a 400 for an id not in the catalog. */
 function checkStep(
   stepId: string,
@@ -783,9 +793,7 @@ function checkStep(
   pathId: string;
   topic: StudyTopic;
 } {
-  const path = pathStep(stepId, catalogue)
-    ? pathOfStep(stepId, catalogue)
-    : undefined;
+  const path = stepPath(stepId, catalogue);
   if (!path) throw new BadRequestException(`Unknown path step ${stepId}`);
   return { stepId, pathId: path.id, topic: path.topic };
 }
