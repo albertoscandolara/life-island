@@ -1,5 +1,6 @@
 import type {
   LearningPath,
+  PathLevel,
   PathOutlineRequest,
   PathResource,
   StepKind,
@@ -27,6 +28,8 @@ export interface StageDraft {
   id: string | null;
   title: string;
   goal: string;
+  level: PathLevel | null;
+  checkpoint: string;
   steps: StepDraft[];
 }
 
@@ -55,7 +58,14 @@ export function blankStep(): StepDraft {
 }
 
 export function blankStage(): StageDraft {
-  return { id: null, title: '', goal: '', steps: [blankStep()] };
+  return {
+    id: null,
+    title: '',
+    goal: '',
+    level: null,
+    checkpoint: '',
+    steps: [blankStep()],
+  };
 }
 
 export function blankDraft(): PathDraft {
@@ -110,6 +120,8 @@ export function pathDraft(path: LearningPath): PathDraft {
       id: stage.id,
       title: stage.title,
       goal: stage.goal,
+      level: stage.level ?? null,
+      checkpoint: stage.checkpoint ?? '',
       steps: stage.steps.map((step) => ({
         id: step.id,
         title: step.title,
@@ -118,6 +130,35 @@ export function pathDraft(path: LearningPath): PathDraft {
         outcome: step.outcome,
         detail: step.detail,
         resources: resourceLines(step.resources),
+      })),
+    })),
+  };
+}
+
+/** A drafted outline (the path builder's) as the editor opens it. */
+export function outlineDraft(outline: PathOutlineRequest): PathDraft {
+  return {
+    name: outline.name,
+    emblem: outline.emblem,
+    topic: outline.topic,
+    summary: outline.summary ?? '',
+    why: outline.why ?? '',
+    capstone: outline.capstone ?? '',
+    certifications: (outline.certifications ?? []).join('\n'),
+    stages: outline.stages.map((stage) => ({
+      id: null,
+      title: stage.title,
+      goal: stage.goal ?? '',
+      level: stage.level ?? null,
+      checkpoint: stage.checkpoint ?? '',
+      steps: stage.steps.map((step) => ({
+        id: null,
+        title: step.title,
+        kind: step.kind,
+        hours: step.hours,
+        outcome: step.outcome ?? '',
+        detail: step.detail ?? '',
+        resources: resourceLines(step.resources ?? []),
       })),
     })),
   };
@@ -141,6 +182,8 @@ export function draftOutline(draft: PathDraft): PathOutlineRequest {
         id: stage.id,
         title: stage.title.trim(),
         goal: stage.goal.trim(),
+        level: stage.level,
+        checkpoint: stage.checkpoint.trim() || null,
         steps: stage.steps
           .filter((step) => step.title.trim())
           .map((step) => ({

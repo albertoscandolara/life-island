@@ -27,6 +27,7 @@ import {
   STUDY_SCOUT_SUBJECT_SETTING,
   STUDY_SCOUT_TOOL,
 } from './studies-scout.js';
+import { STUDY_PATH_BUILDER_TOOL } from './studies-builder.js';
 import {
   FITNESS_WEEKLY_MINUTES_DEFAULT,
   FITNESS_WEEKLY_MINUTES_SETTING,
@@ -554,6 +555,42 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
         maxTokens: 16000,
         tools: [],
         estimate: { inputTokens: 8000, outputTokens: 5000 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: STUDY_PATH_BUILDER_TOOL,
+    module: 'studies',
+    name: 'Path builder',
+    description:
+      'Drafts a learning path for any topic you name: it searches the web for the best current material and lays the path out in four levels (Foundations, Working, Professional, Expert), each stage with its steps, resources it actually saw and a checkpoint that proves the level. The draft opens in the path editor; nothing is saved until you add it.',
+    unit: 'path',
+    trigger: 'on-demand',
+    where: { app: 'island', path: '/studies', label: 'Studies · Add a topic' },
+    whenOff: 'Start from a curated path or write your own in the path editor.',
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'research',
+        label: 'Search the web',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        maxTokens: 16000,
+        tools: ['web_search'],
+        estimate: { inputTokens: 30000, outputTokens: 5000, webSearches: 8 },
+        always: true,
+      },
+      {
+        id: 'format',
+        label: 'Lay out the path',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 16000,
+        tools: [],
+        estimate: { inputTokens: 8000, outputTokens: 6000 },
         always: true,
       },
     ],

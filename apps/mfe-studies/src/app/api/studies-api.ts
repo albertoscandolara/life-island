@@ -5,6 +5,7 @@ import type {
   OutlineDecisionRequest,
   ScoutResourceRequest,
   CourseRequest,
+  PathBuilderRequest,
   PathCreateRequest,
   PathOutlineRequest,
   PathProgressRequest,
@@ -87,6 +88,16 @@ export class StudiesApi {
 
   addPath(request: PathCreateRequest): Observable<{ id: string }> {
     return this.http.post<{ id: string }>(`${STUDIES_API}/paths`, request);
+  }
+
+  /** The path builder (AI tool): a draft for the editor, not saved. */
+  draftPath(
+    request: PathBuilderRequest,
+  ): Observable<{ outline: PathOutlineRequest; model: string }> {
+    return this.http.post<{ outline: PathOutlineRequest; model: string }>(
+      `${STUDIES_API}/paths/draft`,
+      request,
+    );
   }
 
   editPath(pathId: string, outline: PathOutlineRequest): Observable<void> {

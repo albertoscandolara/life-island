@@ -21,6 +21,7 @@ import {
   type CertificationRequest,
   type CourseDto,
   type CourseRequest,
+  type PathBuilderRequest,
   type PathCreateRequest,
   type PathOutlineRequest,
   type PathProgressRequest,
@@ -70,6 +71,7 @@ import {
 } from './progress.js';
 import { pathLink, studyAttentionItems } from './attention.js';
 import { outlinePath, pathTemplates } from './paths.js';
+import { PathBuilder } from './path-builder.js';
 import { ResourceScout } from './resource-scout.js';
 import { StudyCoach } from './study-coach.js';
 
@@ -98,6 +100,7 @@ export class StudiesService {
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
     @Inject(StudyCoach) private readonly coach: StudyCoach,
     @Inject(ResourceScout) private readonly scout: ResourceScout,
+    @Inject(PathBuilder) private readonly builder: PathBuilder,
   ) {}
 
   private get db() {
@@ -140,6 +143,7 @@ export class StudiesService {
       settings,
       aiCoach,
       catalogue,
+      aiPathBuilder,
     ] = await Promise.all([
       this.db.select().from(trainingPlatforms).orderBy(trainingPlatforms.name),
       this.db.select().from(courses).orderBy(desc(courses.updatedAt)),
@@ -173,6 +177,7 @@ export class StudiesService {
       this.settings(),
       this.coach.usesAi(),
       this.scout.catalogue(),
+      this.builder.usesAi(),
     ]);
 
     const platformName = new Map(platformRows.map((p) => [p.id, p.name]));
@@ -243,6 +248,7 @@ export class StudiesService {
       reminders,
       plans: planRows.map(planDto),
       aiCoach,
+      aiPathBuilder,
       reminderDays: settings.days,
       catalogue,
       templates: pathTemplates(catalogue),
@@ -619,6 +625,14 @@ export class StudiesService {
         .onConflictDoNothing();
     });
     return { id };
+  }
+
+  /** The path builder's draft for a topic: shown in the editor, not saved. */
+  draftPath(
+    request: PathBuilderRequest,
+    today = localToday(),
+  ): Promise<{ outline: PathOutlineRequest; model: string }> {
+    return this.builder.draft(request, today);
   }
 
   /**

@@ -8,6 +8,10 @@ import {
   signal,
 } from '@angular/core';
 import {
+  PATH_LEVEL_HINTS,
+  PATH_LEVEL_LABELS,
+  PATH_START_LABELS,
+  PATH_STARTS,
   SCOUT_RESOURCE_KIND_LABELS,
   STEP_KIND_LABELS,
   STEP_PACE_LABELS,
@@ -15,6 +19,8 @@ import {
   STEP_STATUSES,
   STUDY_TOPIC_LABELS,
   type LearningPath,
+  type PathOutlineRequest,
+  type PathStart,
   type PathStatus,
   type ScoutResourceDto,
   type StepProgressDto,
@@ -23,6 +29,8 @@ import {
 } from '@life-island/contracts';
 import {
   UiAiBadge,
+  UiAiPanel,
+  UiAiStatus,
   UiBadge,
   UiButton,
   UiCard,
@@ -36,6 +44,7 @@ import {
   type UiTrailState,
 } from '@life-island/design-system';
 import type { Observable } from 'rxjs';
+import { AiTool } from '@life-island/settings-ui';
 import { StudiesApi } from '../api/studies-api';
 import { PathEditor } from './path-editor';
 import { ScoutPanel } from './scout-panel';
@@ -48,6 +57,12 @@ import {
   today,
 } from './labels';
 
+interface BuilderAsk {
+  subject: string;
+  goal: string;
+  start: PathStart;
+}
+
 /**
  * Your learning paths: the rail of the ones you added (and Add a topic), then
  * the one you picked as a trail of stages, "You are here" on the stage with
@@ -57,9 +72,12 @@ import {
   selector: 'studies-paths',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AiTool,
     PathEditor,
     ScoutPanel,
     UiAiBadge,
+    UiAiPanel,
+    UiAiStatus,
     UiBadge,
     UiButton,
     UiCard,
@@ -102,6 +120,19 @@ export class PathsTab {
   /** The path the editor changes; null writes a new one. */
   protected readonly editing = signal<LearningPath | null>(null);
   protected readonly removeOpen = signal(false);
+  protected readonly levelLabels = PATH_LEVEL_LABELS;
+  protected readonly levelHints = PATH_LEVEL_HINTS;
+  protected readonly starts = PATH_STARTS;
+  protected readonly startLabels = PATH_START_LABELS;
+  /** The path builder's form, and the draft it wrote for the editor. */
+  protected readonly ask = signal<BuilderAsk>({
+    subject: '',
+    goal: '',
+    start: 'some',
+  });
+  protected readonly drafting = signal(false);
+  protected readonly draftError = signal<string | null>(null);
+  protected readonly drafted = signal<PathOutlineRequest | null>(null);
   /** Stages you opened or folded yourself, by `<path>/<stage>`. */
   private readonly folds = signal(new Map<string, boolean>());
 
@@ -165,7 +196,12 @@ export class PathsTab {
     (this.selected()?.stages ?? []).map((stage) => ({
       id: stage.id,
       label: stage.title,
-      detail: `${this.stageDone(stage.steps)} of ${stage.steps.length} steps`,
+      detail: [
+        stage.level ? PATH_LEVEL_LABELS[stage.level] : null,
+        `${this.stageDone(stage.steps)} of ${stage.steps.length} steps`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       state: this.stageStates().get(stage.id) ?? 'ahead',
     })),
   );
@@ -246,10 +282,50 @@ export class PathsTab {
   protected writeOwn(): void {
     this.addOpen.set(false);
     this.editing.set(null);
+    this.drafted.set(null);
     this.editorOpen.set(true);
   }
 
+  /** The path builder drafts the path; it opens in the editor, not saved. */
+  protected draftPath(): void {
+    const ask = this.ask();
+    if (ask.subject.trim().length < 2) {
+      this.draftError.set(
+        'Name the topic first, e.g. "Rust for web services".',
+      );
+      return;
+    }
+    this.drafting.set(true);
+    this.draftError.set(null);
+    this.api
+      .draftPath({
+        subject: ask.subject.trim(),
+        goal: ask.goal.trim() || null,
+        start: ask.start,
+      })
+      .subscribe({
+        next: ({ outline }) => {
+          this.drafting.set(false);
+          this.addOpen.set(false);
+          this.editing.set(null);
+          this.drafted.set(outline);
+          this.editorOpen.set(true);
+        },
+        error: (error: unknown) => {
+          this.drafting.set(false);
+          this.draftError.set(
+            errorText(error, 'The path builder could not draft the path.'),
+          );
+        },
+      });
+  }
+
+  protected setAsk(patch: Partial<BuilderAsk>): void {
+    this.ask.update((a) => ({ ...a, ...patch }));
+  }
+
   protected edit(path: LearningPath): void {
+    this.drafted.set(null);
     this.editing.set(path);
     this.editorOpen.set(true);
   }

@@ -4,6 +4,7 @@ import {
   draftOutline,
   draftProblem,
   moved,
+  outlineDraft,
   parseResources,
   pathDraft,
   resourceLines,
@@ -53,5 +54,34 @@ describe('path outline drafts', () => {
   it('moves an item within its list, and no further', () => {
     expect(moved(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c']);
     expect(moved(['a', 'b', 'c'], 0, -1)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('a drafted outline', () => {
+  it('opens in the editor with its levels and checkpoints, as new steps', () => {
+    const draft = outlineDraft({
+      name: 'Rust',
+      emblem: '🦀',
+      topic: 'frameworks',
+      stages: [
+        {
+          title: 'Ownership',
+          level: 'foundations',
+          checkpoint: 'A CLI tool',
+          steps: [
+            {
+              title: 'The book',
+              kind: 'learn',
+              hours: 10,
+              resources: [{ label: 'The Rust book', url: null, free: true }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(draft.stages[0].level).toBe('foundations');
+    expect(draft.stages[0].checkpoint).toBe('A CLI tool');
+    expect(draft.stages[0].steps[0].id).toBeNull();
+    expect(draftOutline(draft).stages[0].level).toBe('foundations');
   });
 });
