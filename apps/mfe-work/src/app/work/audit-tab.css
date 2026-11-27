@@ -91,3 +91,10 @@
     display: none;
   }
 }
+
+.finding__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}

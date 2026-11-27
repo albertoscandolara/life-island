@@ -27,13 +27,12 @@
       </div>
       <p class="finding__detail">{{ f.detail }}</p>
       @if (f.uploadId) {
-      <a
-        class="li-small"
-        [href]="previewUrl(f.uploadId)"
-        target="_blank"
-        rel="noopener"
-        >Open the payslip of {{ periodText(f.period) }}</a
-      >
+      <p class="finding__links li-small">
+        <a [href]="previewUrl(f.uploadId)" target="_blank" rel="noopener"
+          >Open the payslip of {{ periodText(f.period) }}</a
+        >
+        <a [href]="reviewUrl(f.uploadId)">Fix it or parse it again</a>
+      </p>
       }
     </li>
     }
