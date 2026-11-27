@@ -6,6 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   DREAM_AREA_EMBLEMS,
@@ -13,6 +14,7 @@ import {
   DREAM_CONTEXT_AREAS,
   DREAM_CONTEXT_SOURCES,
   DREAM_FEELINGS,
+  DREAM_HARDNESS,
   DREAM_NEXT_PACE_LABELS,
   DREAM_NEXT_PACES,
   DREAM_PACE_LABELS,
@@ -23,6 +25,7 @@ import {
   type DreamContextArea,
   type DreamContextDto,
   type DreamDto,
+  type DreamMilestoneDto,
   type DreamNextPace,
   type DreamsOverviewDto,
   type DreamStepDto,
@@ -38,6 +41,8 @@ import {
   UiDialog,
   UiEmptyState,
   UiIcon,
+  UiInfoGuide,
+  UiInfoTopic,
   UiPageHeader,
 } from '@life-island/design-system';
 import {
@@ -45,11 +50,13 @@ import {
   LiTabs,
   RecordEditor,
   dateText,
+  daysText,
   errorText,
   euro,
   liOptions,
   type LiField,
   type LiTab,
+  LiDelta,
   LiNeedsYou,
   urlTab,
 } from '@life-island/records-ui';
@@ -58,18 +65,21 @@ import { DreamsApi } from '../api/dreams-api';
 import { DreamSky } from './dream-sky';
 import { DreamHabits } from '../habits/dream-habits';
 import { WeeklyReview } from '../habits/weekly-review';
+import { DreamsOverview, type OpenDream } from '../overview/dreams-overview';
+import { dreamsTiles } from '../overview/overview';
 
-type DreamTab = 'dream' | 'questions' | 'steps' | 'check-ins' | 'safety';
+/** A dream's tabs; its path and steps come first, because they move it. */
+type DreamTab = 'steps' | 'dream' | 'questions' | 'check-ins' | 'safety';
 const TABS: readonly DreamTab[] = [
+  'steps',
   'dream',
   'questions',
-  'steps',
   'check-ins',
   'safety',
 ];
-/** The page's own views: your dreams, the habits you repeat, and your week. */
-type PageView = 'dreams' | 'habits' | 'week';
-const VIEWS: readonly PageView[] = ['dreams', 'habits', 'week'];
+/** The page's views: what moves your dreams now, each dream, habits, your week. */
+type PageView = 'overview' | 'dreams' | 'habits' | 'week';
+const VIEWS: readonly PageView[] = ['overview', 'dreams', 'habits', 'week'];
 const SERVICE = 'svc-dreams';
 
 const DREAM_FIELDS: readonly LiField[] = [
@@ -143,6 +153,26 @@ const DREAM_FIELDS: readonly LiField[] = [
   },
 ];
 
+const MILESTONE_FIELDS: readonly LiField[] = [
+  {
+    key: 'title',
+    label: 'Milestone',
+    type: 'text',
+    required: true,
+    wide: true,
+    placeholder: 'I know three companies I would like to work for',
+    hint: 'A point on the way you will recognise when you are there',
+  },
+  {
+    key: 'why',
+    label: 'Why it matters on the way',
+    type: 'textarea',
+    wide: true,
+  },
+  { key: 'position', label: 'Order', type: 'number', min: 0, max: 20 },
+  { key: 'reachedOn', label: 'Reached on', type: 'date' },
+];
+
 const STATUS_FIELD: LiField = {
   key: 'status',
   label: 'Status',
@@ -192,14 +222,25 @@ const STEP_FIELDS: readonly LiField[] = [
 ];
 
 interface CheckInDraft {
+  dreamId: string;
   step: DreamStepDto | null;
   outcome: 'done' | 'skipped' | null;
 }
 
+/** The plan of one step: a day, a cue, an if-then and how hard it looks. */
+interface PlanDraft {
+  step: DreamStepDto;
+  dueDate: string;
+  cue: string;
+  ifThen: string;
+  expectedHard: number | null;
+}
+
 /**
- * Dreams (Ovi): something you would love to reach, and a careful way
- * towards it. Write it, answer a few questions, take one small reversible
- * step at a time, and say how each felt so the next ones keep your pace.
+ * Dreams (Ovi): something you would love to reach, and a path towards it.
+ * By priority: Needs you, the tiles, then Overview (the one thing that moves
+ * each dream now), each dream (its path, steps, questions, check-ins and
+ * safety net), habits and your week. How it works is in the Guide.
  */
 @Component({
   selector: 'dreams-page',
@@ -208,7 +249,9 @@ interface CheckInDraft {
     LiNeedsYou,
     AiTool,
     DreamHabits,
+    DreamsOverview,
     DreamSky,
+    LiDelta,
     LiRecordDialog,
     LiTabs,
     NgTemplateOutlet,
@@ -220,6 +263,8 @@ interface CheckInDraft {
     UiDialog,
     UiEmptyState,
     UiIcon,
+    UiInfoGuide,
+    UiInfoTopic,
     UiPageHeader,
     WeeklyReview,
   ],
@@ -237,8 +282,10 @@ export class DreamsPage {
   protected readonly selectedId = signal<string | null>(
     this.route.snapshot.queryParamMap.get('dream'),
   );
-  protected readonly tab = urlTab(TABS, 'dream');
-  protected readonly view = urlTab(VIEWS, 'dreams', 'view');
+  protected readonly tab = urlTab(TABS, 'steps');
+  protected readonly view = urlTab(VIEWS, 'overview', 'view');
+  protected readonly guideOpen = signal(false);
+  protected readonly guideTopic = signal('');
   protected readonly showClosed = signal(false);
   protected readonly showHistory = signal(false);
 
@@ -253,11 +300,13 @@ export class DreamsPage {
   protected readonly nextPaceLabels = DREAM_NEXT_PACE_LABELS;
   protected readonly nextPaces = DREAM_NEXT_PACES;
   protected readonly feelings = DREAM_FEELINGS;
+  protected readonly hardness = DREAM_HARDNESS;
   protected readonly contextAreas = DREAM_CONTEXT_AREAS;
   protected readonly contextSources = DREAM_CONTEXT_SOURCES;
   protected readonly newDreamFields = DREAM_FIELDS;
   protected readonly editDreamFields = [...DREAM_FIELDS, STATUS_FIELD];
   protected readonly stepFields = STEP_FIELDS;
+  protected readonly milestoneFields = MILESTONE_FIELDS;
 
   protected readonly dreamEditor = new RecordEditor(
     this.api,
@@ -271,6 +320,13 @@ export class DreamsPage {
     () => this.load(),
     SERVICE,
     ['dreamId', 'status'],
+  );
+  protected readonly milestoneEditor = new RecordEditor(
+    this.api,
+    'milestones',
+    () => this.load(),
+    SERVICE,
+    ['dreamId'],
   );
 
   // A new dream
@@ -293,8 +349,19 @@ export class DreamsPage {
   protected readonly feeling = signal<number | null>(null);
   protected readonly checkInNote = signal('');
   protected readonly nextPace = signal<DreamNextPace>('same');
+  protected readonly actualHard = signal<number | null>(null);
+  protected readonly learned = signal('');
   protected readonly savingCheckIn = signal(false);
   protected readonly checkInOpen = signal(false);
+
+  // Plan
+  protected readonly planDraft = signal<PlanDraft | null>(null);
+  protected readonly planOpen = signal(false);
+  protected readonly savingPlan = signal(false);
+
+  /** A dialog a link asked for (`?plan=<step>`, `?checkin=<step>`), opened once the data is in. */
+  private pendingDialog: { kind: 'plan' | 'checkin'; stepId: string } | null =
+    null;
 
   // Safety net
   protected readonly context = signal<DreamContextDto | null>(null);
@@ -337,21 +404,32 @@ export class DreamsPage {
     (this.dream()?.steps ?? []).filter((s) => s.awaitingCheckIn),
   );
 
+  protected readonly tiles = computed(() => {
+    const d = this.data();
+    return d ? dreamsTiles(d) : null;
+  });
+
   protected readonly tabs = computed<LiTab[]>(() => {
     const d = this.dream();
     return [
+      {
+        id: 'steps',
+        label: 'Path and steps',
+        icon: 'layers',
+        count: d
+          ? d.nextStep
+            ? d.nextStep.dueDate
+              ? 0
+              : 1
+            : this.suggested().length
+          : 0,
+      },
       { id: 'dream', label: 'The dream', icon: 'eye' },
       {
         id: 'questions',
         label: 'Questions',
         icon: 'info',
         count: d?.unansweredQuestions ?? 0,
-      },
-      {
-        id: 'steps',
-        label: 'Small steps',
-        icon: 'layers',
-        count: d ? (d.nextStep ? 0 : this.suggested().length) : 0,
       },
       {
         id: 'check-ins',
@@ -373,7 +451,8 @@ export class DreamsPage {
       0,
     );
     return [
-      { id: 'dreams', label: 'Dreams', icon: 'flame', count: waiting },
+      { id: 'overview', label: 'Overview', icon: 'home' },
+      { id: 'dreams', label: 'Your dreams', icon: 'flame', count: waiting },
       { id: 'habits', label: 'Habits', icon: 'check', count: habitsLeft },
       {
         id: 'week',
@@ -410,6 +489,89 @@ export class DreamsPage {
 
   constructor() {
     this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
+      // An old link (`?dream=…&tab=…`) means a dream: open it.
+      if (!query.get('view') && (query.get('dream') || query.get('tab')))
+        this.view.set('dreams');
+      const dream = query.get('dream');
+      if (dream) this.selectedId.set(dream);
+      // `?guide=steps` opens the guide, from a link anywhere on the island.
+      const topic = query.get('guide');
+      if (topic) {
+        this.guideTopic.set(topic);
+        this.guideOpen.set(true);
+      }
+      const plan = query.get('plan');
+      const checkin = query.get('checkin');
+      if (plan || checkin) {
+        this.pendingDialog = plan
+          ? { kind: 'plan', stepId: plan }
+          : { kind: 'checkin', stepId: checkin! };
+        this.openPending();
+      }
+    });
+  }
+
+  protected showGuide(topic: string): void {
+    this.guideTopic.set(topic);
+    this.guideOpen.set(true);
+  }
+
+  /** A closed guide leaves the URL, so a reload does not open it again. */
+  protected onGuideClosed(): void {
+    this.dropParams('guide');
+  }
+
+  private dropParams(...names: string[]): void {
+    const query = this.route.snapshot.queryParamMap;
+    if (!names.some((n) => query.get(n))) return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: Object.fromEntries(names.map((n) => [n, null])),
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Opens the plan or check-in a link asked for, once the step is loaded. */
+  private openPending(): void {
+    const pending = this.pendingDialog;
+    const data = this.data();
+    if (!pending || !data) return;
+    this.pendingDialog = null;
+    const step = data.dreams
+      .flatMap((d) => d.steps)
+      .find((s) => s.id === pending.stepId);
+    this.dropParams('plan', 'checkin');
+    if (!step) return;
+    if (pending.kind === 'plan') this.openPlan(step);
+    else if (step.awaitingCheckIn) this.openCheckIn(step, null);
+  }
+
+  // --- the overview -------------------------------------------------------
+
+  /** Opens a dream on one of its tabs. */
+  protected openDream({ dream, tab }: OpenDream): void {
+    this.selectedId.set(dream.id);
+    this.suggestStatus.set('idle');
+    // One navigation: the tab follows the URL.
+    this.view.set('dreams', {
+      dream: dream.id,
+      tab: tab === 'steps' ? null : tab,
+    });
+    if (tab === 'safety') this.loadContext();
+  }
+
+  /** Overview leaves the dream out of the URL, or an old-link rule would reopen it. */
+  protected setView(view: string): void {
+    this.view.set(view, view === 'overview' ? { dream: null, tab: null } : {});
+  }
+
+  protected openTile(view: PageView, dreamId?: string): void {
+    if (dreamId) {
+      this.selectedId.set(dreamId);
+      this.view.set(view, { dream: dreamId, tab: null });
+    } else this.setView(view);
   }
 
   private syncUrl(): void {
@@ -438,6 +600,7 @@ export class DreamsPage {
       next: (data) => {
         this.data.set(data);
         this.error.set(null);
+        this.openPending();
         if (this.tab() === 'safety' && this.contextFor() !== this.dream()?.id)
           this.loadContext();
       },
@@ -478,7 +641,7 @@ export class DreamsPage {
         this.creating.set(false);
         this.adding.set(false);
         this.selectedId.set(id);
-        this.tab.set('questions', { dream: id });
+        this.view.set('dreams', { dream: id, tab: 'questions' });
         this.load();
         this.ask(id);
       },
@@ -591,10 +754,13 @@ export class DreamsPage {
           ? Math.max(5, Math.round(step.minutes / 3))
           : null,
         smaller: null,
-        status: 'chosen',
+        expectedHard: step.expectedHard
+          ? Math.max(1, step.expectedHard - 1)
+          : null,
       })
       .subscribe({
-        next: () => this.setStep(step, 'chosen'),
+        next: () =>
+          step.status === 'chosen' ? this.load() : this.setStep(step, 'chosen'),
         error: this.fail('Could not save it.'),
       });
   }
@@ -633,27 +799,32 @@ export class DreamsPage {
     step: DreamStepDto | null,
     outcome: 'done' | 'skipped' | null,
   ): void {
-    this.checkIn.set({ step, outcome });
+    const dreamId = step?.dreamId ?? this.dream()?.id;
+    if (!dreamId) return;
+    this.checkIn.set({ dreamId, step, outcome });
     this.feeling.set(null);
+    this.actualHard.set(null);
+    this.learned.set('');
     this.checkInNote.set('');
     this.nextPace.set(outcome === 'skipped' ? 'smaller' : 'same');
     this.checkInOpen.set(true);
   }
 
   protected saveCheckIn(): void {
-    const d = this.dream();
     const draft = this.checkIn();
     const feeling = this.feeling();
-    if (!d || !draft || feeling === null) return;
+    if (!draft || feeling === null) return;
     this.savingCheckIn.set(true);
     this.api
       .checkIn({
-        dreamId: d.id,
+        dreamId: draft.dreamId,
         stepId: draft.step?.id ?? null,
         outcome: draft.outcome,
         feeling,
         note: this.checkInNote(),
         nextPace: this.nextPace(),
+        actualHard: draft.step ? this.actualHard() : null,
+        learned: this.learned(),
       })
       .subscribe({
         next: () => {
@@ -673,6 +844,102 @@ export class DreamsPage {
       next: () => this.load(),
       error: this.fail('Could not remove it.'),
     });
+  }
+
+  protected hardText(value: number | null): string {
+    return DREAM_HARDNESS.find((h) => h.value === value)?.label ?? '';
+  }
+
+  // --- the plan of a step -------------------------------------------------
+
+  protected openPlan(step: DreamStepDto): void {
+    this.planDraft.set({
+      step,
+      dueDate: step.dueDate ?? '',
+      cue: step.cue ?? '',
+      ifThen: step.ifThen ?? '',
+      expectedHard: step.expectedHard,
+    });
+    this.planOpen.set(true);
+  }
+
+  protected editPlan(patch: Partial<Omit<PlanDraft, 'step'>>): void {
+    this.planDraft.update((p) => (p ? { ...p, ...patch } : p));
+  }
+
+  /** Saves the plan; a suggested step becomes your next step. */
+  protected savePlan(): void {
+    const plan = this.planDraft();
+    if (!plan || !plan.dueDate) return;
+    this.savingPlan.set(true);
+    this.api
+      .update('steps', plan.step.id, {
+        dueDate: plan.dueDate,
+        cue: plan.cue.trim() || null,
+        ifThen: plan.ifThen.trim() || null,
+        expectedHard: plan.expectedHard,
+      })
+      .subscribe({
+        next: () => {
+          this.savingPlan.set(false);
+          this.planOpen.set(false);
+          if (plan.step.status === 'suggested')
+            this.setStep(plan.step, 'chosen');
+          else this.load();
+        },
+        error: (error: unknown) => {
+          this.savingPlan.set(false);
+          this.fail('Could not save the plan.')(error);
+        },
+      });
+  }
+
+  /** "Saturday 30 Nov, in 2 days · after breakfast", or null. */
+  protected planText(step: DreamStepDto): string | null {
+    if (!step.dueDate && !step.cue) return null;
+    const parts: string[] = [];
+    if (step.dueDate) {
+      const today = this.data()?.today ?? step.dueDate;
+      const days = Math.round(
+        (Date.parse(step.dueDate) - Date.parse(today)) / 86_400_000,
+      );
+      parts.push(`${dateText(step.dueDate)}, ${daysText(days)}`);
+    }
+    if (step.cue) parts.push(step.cue);
+    return parts.join(' · ');
+  }
+
+  protected late(step: DreamStepDto): boolean {
+    const today = this.data()?.today;
+    return !!step.dueDate && !!today && step.dueDate < today;
+  }
+
+  // --- the path -----------------------------------------------------------
+
+  protected milestoneOf(step: DreamStepDto): DreamMilestoneDto | null {
+    return (
+      this.dream()?.milestones.find((m) => m.id === step.milestoneId) ?? null
+    );
+  }
+
+  protected reach(m: DreamMilestoneDto, reached: boolean): void {
+    this.api
+      .update('milestones', m.id, {
+        reachedOn: reached ? (this.data()?.today ?? null) : null,
+      })
+      .subscribe({
+        next: () => this.load(),
+        error: this.fail('Could not save it.'),
+      });
+  }
+
+  protected addMilestone(): void {
+    const d = this.dream();
+    if (d)
+      this.milestoneEditor.add({
+        dreamId: d.id,
+        position: d.milestones.length,
+      });
   }
 
   protected feelingOf(value: number) {

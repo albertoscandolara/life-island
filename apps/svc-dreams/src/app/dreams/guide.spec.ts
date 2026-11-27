@@ -2,9 +2,12 @@ import { dreamReach, type DreamStepsOutput } from '@life-island/contracts';
 import {
   clampSteps,
   ladderFor,
+  milestoneOf,
+  OFFLINE_PATH,
   offlineQuestions,
   offlineSteps,
   stepsDossier,
+  tooMuchThinking,
 } from './guide.js';
 import { moneySafetyNet, monthsText } from './context.js';
 
@@ -91,8 +94,8 @@ describe('offline steps', () => {
     const out = offlineSteps(
       dream,
       [
-        { title: first!.title, status: 'done' },
-        { title: second!.title, status: 'skipped' },
+        { title: first!.title, status: 'done', kind: first!.kind },
+        { title: second!.title, status: 'skipped', kind: second!.kind },
       ],
       dreamReach('gentle', []),
       null,
@@ -184,10 +187,14 @@ describe('what Claude reads and writes', () => {
           stretch: 'brave',
           undo: 'u',
           smaller: 's',
+          milestone: 1,
+          cue: '',
+          ifThen: '',
         },
       ],
       notYet: [],
       care: null,
+      milestones: [],
     };
     const [step] = clampSteps(output, dreamReach('gentle', [])).steps;
     expect(step).toMatchObject({ stretch: 'tiny', minutes: 60, costEuro: 0 });
@@ -215,5 +222,48 @@ describe('safety net', () => {
   it('writes months as years and months', () => {
     expect(monthsText(38)).toBe('3 years and 2 months');
     expect(monthsText(1)).toBe('1 month');
+  });
+});
+
+describe('the path and the push', () => {
+  it('gives a new dream a path, and every step a purpose, a cue and an if-then', () => {
+    const out = offlineSteps(dream, [], dreamReach('steady', []), null);
+    expect(out.milestones.map((m) => m.title)).toEqual(
+      OFFLINE_PATH.map((m) => m.title),
+    );
+    for (const s of out.steps) {
+      expect(s.milestone).toBe(milestoneOf(s.kind));
+      expect(s.cue).toBeTruthy();
+      expect(s.ifThen).toMatch(/^If I notice I am putting it off, then /);
+    }
+    // A dream that has a path keeps it.
+    expect(
+      offlineSteps(dream, [], dreamReach('steady', []), null, true).milestones,
+    ).toEqual([]);
+  });
+
+  it('looks outside after two thinking steps in a row', () => {
+    const thinking = [
+      { title: 'a', status: 'done' as const, kind: 'reflect' as const },
+      { title: 'b', status: 'done' as const, kind: 'reflect' as const },
+    ];
+    expect(tooMuchThinking(thinking)).toBe(true);
+    const out = offlineSteps(dream, thinking, dreamReach('steady', []), null);
+    expect(out.steps.length).toBeGreaterThan(0);
+    expect(out.steps.some((s) => s.kind === 'reflect')).toBe(false);
+    expect(out.reflection).toContain('doing is what changes things');
+  });
+
+  it('stretches further after two good steps, unasked, and never past brave', () => {
+    const good = { feeling: 4, nextPace: 'same' as const };
+    expect(dreamReach('gentle', [good, good]).maxStretch).toBe('small');
+    expect(dreamReach('bolder', [good, good]).maxStretch).toBe('brave');
+    // One good step is not yet a pattern.
+    expect(dreamReach('gentle', [good]).maxStretch).toBe('tiny');
+    // Asking for smaller always wins.
+    expect(
+      dreamReach('gentle', [{ feeling: 5, nextPace: 'smaller' }, good])
+        .maxStretch,
+    ).toBe('tiny');
   });
 });

@@ -21,6 +21,7 @@ import {
   type DreamCheckInRequest,
   type DreamContextDto,
   type DreamDto,
+  type DreamMilestoneDto,
   type DreamQuestionDto,
   type DreamsOverviewDto,
   type DreamStepDto,
@@ -37,6 +38,7 @@ import { CONFIG, SERVICE_DB, type ServiceConfig } from '../config.js';
 import {
   dreamCheckIns,
   dreamGuidance,
+  dreamMilestones,
   dreamQuestions,
   dreams,
   dreamSteps,
@@ -45,6 +47,7 @@ import {
   weeklyReviews,
   type DreamCheckInRow,
   type DreamGuidanceRow,
+  type DreamMilestoneRow,
   type DreamQuestionRow,
   type DreamRow,
   type DreamStepRow,
@@ -138,34 +141,45 @@ export class DreamsService implements OnApplicationBootstrap {
   /** Every dream with its questions, steps, check-ins and latest guidance. */
   private async states(only?: string, day = today()): Promise<DreamState[]> {
     const byDream = only ? eq(dreams.id, only) : undefined;
-    const [dreamRows, questionRows, stepRows, checkInRows, guidanceRows] =
-      await Promise.all([
-        this.db
-          .select()
-          .from(dreams)
-          .where(byDream)
-          .orderBy(desc(dreams.updatedAt)),
-        this.db
-          .select()
-          .from(dreamQuestions)
-          .where(only ? eq(dreamQuestions.dreamId, only) : undefined)
-          .orderBy(asc(dreamQuestions.position), asc(dreamQuestions.createdAt)),
-        this.db
-          .select()
-          .from(dreamSteps)
-          .where(only ? eq(dreamSteps.dreamId, only) : undefined)
-          .orderBy(asc(dreamSteps.createdAt)),
-        this.db
-          .select()
-          .from(dreamCheckIns)
-          .where(only ? eq(dreamCheckIns.dreamId, only) : undefined)
-          .orderBy(desc(dreamCheckIns.createdAt)),
-        this.db
-          .select()
-          .from(dreamGuidance)
-          .where(only ? eq(dreamGuidance.dreamId, only) : undefined)
-          .orderBy(desc(dreamGuidance.createdAt)),
-      ]);
+    const [
+      dreamRows,
+      questionRows,
+      stepRows,
+      checkInRows,
+      guidanceRows,
+      milestoneRows,
+    ] = await Promise.all([
+      this.db
+        .select()
+        .from(dreams)
+        .where(byDream)
+        .orderBy(desc(dreams.updatedAt)),
+      this.db
+        .select()
+        .from(dreamQuestions)
+        .where(only ? eq(dreamQuestions.dreamId, only) : undefined)
+        .orderBy(asc(dreamQuestions.position), asc(dreamQuestions.createdAt)),
+      this.db
+        .select()
+        .from(dreamSteps)
+        .where(only ? eq(dreamSteps.dreamId, only) : undefined)
+        .orderBy(asc(dreamSteps.createdAt)),
+      this.db
+        .select()
+        .from(dreamCheckIns)
+        .where(only ? eq(dreamCheckIns.dreamId, only) : undefined)
+        .orderBy(desc(dreamCheckIns.createdAt)),
+      this.db
+        .select()
+        .from(dreamGuidance)
+        .where(only ? eq(dreamGuidance.dreamId, only) : undefined)
+        .orderBy(desc(dreamGuidance.createdAt)),
+      this.db
+        .select()
+        .from(dreamMilestones)
+        .where(only ? eq(dreamMilestones.dreamId, only) : undefined)
+        .orderBy(asc(dreamMilestones.position), asc(dreamMilestones.createdAt)),
+    ]);
     return dreamRows.map((dream) => ({
       dream,
       dto: toDreamDto(
@@ -175,6 +189,7 @@ export class DreamsService implements OnApplicationBootstrap {
         checkInRows.filter((c) => c.dreamId === dream.id),
         guidanceRows.find((g) => g.dreamId === dream.id) ?? null,
         day,
+        milestoneRows.filter((m) => m.dreamId === dream.id),
       ),
     }));
   }
@@ -268,7 +283,7 @@ export class DreamsService implements OnApplicationBootstrap {
             : 'The date you hoped for. Moving it is fine.',
           date: dto.targetDate!,
           amount: null,
-          path: `/dreams?dream=${dto.id}`,
+          path: `/dreams?view=dreams&dream=${dto.id}`,
         });
       for (const s of dto.steps)
         if (s.status === 'chosen' && inDeadlineWindow(s.dueDate, window))
@@ -280,15 +295,16 @@ export class DreamsService implements OnApplicationBootstrap {
             detail: `A small step towards “${dto.title}”. Moving the date is fine.`,
             date: s.dueDate!,
             amount: null,
-            path: '/dreams',
+            path: `/dreams?view=dreams&dream=${dto.id}&tab=steps`,
           });
     }
     return out;
   }
 
   /**
-   * The island badge: steps waiting for their check-in, and dreams whose
-   * chosen step has waited two weeks. Dreams never count as late.
+   * The island badge: steps waiting for their check-in, a next step with no
+   * day yet, and dreams whose chosen step has waited two weeks. Dreams never
+   * count as late.
    */
   async attention(day = today()): Promise<LifeAttentionDto> {
     const all = await this.states(undefined, day);
@@ -301,9 +317,23 @@ export class DreamsService implements OnApplicationBootstrap {
           title: `How did “${s.title}” go?`,
           detail: `A step towards “${dto.title}”: a short check-in tells the next step.`,
           since: s.doneOn,
-          path: `/dreams?dream=${dto.id}&tab=check-ins`,
+          path: `/dreams?view=dreams&dream=${dto.id}&tab=check-ins&checkin=${s.id}`,
           action: 'Check in',
         })),
+      // A chosen step with no day is a wish; a day makes it a plan.
+      ...(!dto.stuck && dto.nextStep && !dto.nextStep.dueDate
+        ? [
+            {
+              id: `plan:${dto.nextStep.id}`,
+              kind: 'plan',
+              title: `Pick a day for “${dto.nextStep.title}”`,
+              detail: `The next step towards “${dto.title}”. A day and a place make it far more likely to happen.`,
+              since: null,
+              path: `/dreams?view=dreams&dream=${dto.id}&tab=steps&plan=${dto.nextStep.id}`,
+              action: 'Plan it',
+            },
+          ]
+        : []),
       ...(dto.stuck && dto.nextStep
         ? [
             {
@@ -312,7 +342,7 @@ export class DreamsService implements OnApplicationBootstrap {
               title: `Get “${dto.title}” moving again`,
               detail: `No step done for ${dto.idleDays} days. Next: ${dto.nextStep.title}. A smaller step, or a rest, is fine too.`,
               since: null,
-              path: `/dreams?dream=${dto.id}&tab=steps`,
+              path: `/dreams?view=dreams&dream=${dto.id}&tab=steps`,
               action: 'Pick a smaller step',
             },
           ]
@@ -436,6 +466,7 @@ export class DreamsService implements OnApplicationBootstrap {
     let model: string | null = null;
     // Earlier suggestions are replaced, so they do not count as steps taken.
     const kept = dto.steps.filter((s) => s.status !== 'suggested');
+    const hasPath = dto.milestones.length > 0;
     if (await this.stepsAi.active()) {
       const answer = await this.stepsAi.ask({
         step: STEPS_STEP,
@@ -450,21 +481,49 @@ export class DreamsService implements OnApplicationBootstrap {
           context,
           request.note?.trim() || null,
           dreamHabits.filter((h) => h.active),
+          dto.milestones,
         ),
       });
       output = clampSteps(answer.output, reach);
       source = 'claude';
       model = answer.model;
-    } else output = offlineSteps(dto, kept, reach, context?.safetyNet ?? null);
+    } else
+      output = offlineSteps(
+        dto,
+        kept,
+        reach,
+        context?.safetyNet ?? null,
+        hasPath,
+      );
     await this.db.transaction(async (tx) => {
       await tx
         .delete(dreamSteps)
         .where(
           and(eq(dreamSteps.dreamId, id), eq(dreamSteps.status, 'suggested')),
         );
+      // The path comes with the first suggestions; later ones keep it.
+      let path = dto.milestones.map((m) => m.id);
+      if (!hasPath && output.milestones.length) {
+        const added = await tx
+          .insert(dreamMilestones)
+          .values(
+            output.milestones.map((m, position) => ({
+              dreamId: id,
+              title: m.title,
+              why: m.why || null,
+              position,
+              source,
+            })),
+          )
+          .returning({ id: dreamMilestones.id });
+        path = added.map((m) => m.id);
+      }
       if (output.steps.length)
         await tx.insert(dreamSteps).values(
           output.steps.map((s) => ({
+            milestoneId: path[Math.round(s.milestone) - 1] ?? null,
+            cue: s.cue.trim() || null,
+            ifThen: s.ifThen.trim() || null,
             dreamId: id,
             title: s.title,
             kind: s.kind,
@@ -534,6 +593,8 @@ export class DreamsService implements OnApplicationBootstrap {
       feeling: request.feeling,
       note: request.note ?? null,
       nextPace: request.nextPace ?? 'same',
+      actualHard: request.stepId ? (request.actualHard ?? null) : null,
+      learned: request.learned ?? null,
     });
     await this.db
       .update(dreams)
@@ -586,6 +647,7 @@ export function toDreamDto(
   checkIns: readonly DreamCheckInRow[],
   guidance: DreamGuidanceRow | null,
   day: string,
+  milestones: readonly DreamMilestoneRow[] = [],
 ): DreamDto {
   const { updatedAt: _, opening, ...fields } = dream;
   const checked = new Set(checkIns.map((c) => c.stepId).filter(Boolean));
@@ -604,11 +666,27 @@ export function toDreamDto(
         (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') ||
         a.createdAt.localeCompare(b.createdAt),
     );
-  const titles = new Map(steps.map((s) => [s.id, s.title]));
-  const checkInDtos: DreamCheckInDto[] = checkIns.map((c) => ({
-    ...c,
-    createdAt: iso(c.createdAt),
-    stepTitle: c.stepId ? (titles.get(c.stepId) ?? null) : null,
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  const checkInDtos: DreamCheckInDto[] = checkIns.map((c) => {
+    const step = c.stepId ? byId.get(c.stepId) : undefined;
+    return {
+      ...c,
+      createdAt: iso(c.createdAt),
+      stepTitle: step?.title ?? null,
+      expectedHard: step?.expectedHard ?? null,
+    };
+  });
+  const currentId = milestones.find((m) => !m.reachedOn)?.id ?? null;
+  const milestoneDtos: DreamMilestoneDto[] = milestones.map((m) => ({
+    ...m,
+    createdAt: iso(m.createdAt),
+    current: m.id === currentId,
+    doneSteps: steps.filter(
+      (s) => s.milestoneId === m.id && s.status === 'done',
+    ).length,
+    openSteps: steps.filter(
+      (s) => s.milestoneId === m.id && s.status === 'chosen',
+    ).length,
   }));
   const questionDtos: DreamQuestionDto[] = questions.map((q) => ({
     id: q.id,
@@ -624,6 +702,7 @@ export function toDreamDto(
     createdAt: iso(dream.createdAt),
     opening,
     questions: questionDtos,
+    milestones: milestoneDtos,
     steps: stepDtos,
     checkIns: checkInDtos,
     guidance: guidance

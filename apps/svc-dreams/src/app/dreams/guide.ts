@@ -16,6 +16,7 @@ import {
   type DreamStepKind,
   type DreamStepsOutput,
   type DreamStretch,
+  type DreamMilestoneDto,
   type HabitDto,
 } from '@life-island/contracts';
 import { contextLines } from './context.js';
@@ -60,6 +61,11 @@ const COMMON_QUESTIONS = {
     question:
       'What can you not put at risk while you try: income, time, people, health?',
     why: 'Every step stays inside these limits.',
+  },
+  obstacle: {
+    question:
+      'What inside you is most likely to stop you: a thought, a habit, a feeling? When does it usually show up?',
+    why: 'Naming the inner obstacle lets every step carry a plan for the moment it shows up.',
   },
   time: {
     question:
@@ -138,6 +144,7 @@ export function offlineQuestions(dream: DreamFields): DreamQuestionsOutput {
   const questions = [...(AREA_QUESTIONS[dream.area] ?? [])];
   questions.push(COMMON_QUESTIONS.picture);
   if (!dream.fears) questions.push(COMMON_QUESTIONS.fear);
+  questions.push(COMMON_QUESTIONS.obstacle);
   if (!dream.mustKeep) questions.push(COMMON_QUESTIONS.mustKeep);
   questions.push(COMMON_QUESTIONS.time);
   return {
@@ -541,6 +548,76 @@ const LADDERS: Partial<Record<DreamArea, LadderStep[]>> & {
   ],
 };
 
+/**
+ * Life Island's own path to a dream, the same five milestones for every
+ * area: each kind of step moves you towards one of them.
+ */
+export const OFFLINE_PATH: readonly {
+  kind: DreamStepKind;
+  title: string;
+  why: string;
+}[] = [
+  {
+    kind: 'reflect',
+    title: 'Clear on what I want, and why',
+    why: 'A dream tied to what matters to you survives the days motivation is low.',
+  },
+  {
+    kind: 'explore',
+    title: 'I know what is out there',
+    why: 'Real options and real people replace the vague picture that fear feeds on.',
+  },
+  {
+    kind: 'prepare',
+    title: 'Ready to try',
+    why: 'Time, money and a safety net in place make the first try safe.',
+  },
+  {
+    kind: 'try',
+    title: 'Tried it for real',
+    why: 'One real try teaches more than months of thinking, and shows you can.',
+  },
+  {
+    kind: 'decide',
+    title: 'Decided, and on my way',
+    why: 'With what you learnt, you choose the next big move, or a different dream.',
+  },
+];
+
+/** The milestone (1 to 5 on OFFLINE_PATH) a kind of step moves you towards. */
+export function milestoneOf(kind: DreamStepKind): number {
+  return OFFLINE_PATH.findIndex((m) => m.kind === kind) + 1;
+}
+
+const CUES: Record<DreamStepKind, string> = {
+  reflect:
+    'An evening this week, 20 minutes after dinner, phone in another room',
+  explore: 'Saturday morning, after breakfast, at your desk',
+  prepare: 'Sunday afternoon, before the week starts',
+  try: 'A day this week you are rested; put it in the Agenda now',
+  decide:
+    'A quiet hour at the weekend, with your notes from the steps behind you',
+};
+
+/** An if-then plan for the obstacle most people meet: putting it off. */
+export function ifThenFor(rung: Pick<LadderStep, 'smaller'>): string {
+  return `If I notice I am putting it off, then I do only the smaller version: ${rung.smaller.replace(/\.$/, '').toLowerCase()}.`;
+}
+
+/**
+ * Thinking feels safe, so a comfort zone fills with it. After two thinking
+ * steps in a row, the next ones have to look outside: explore, prepare, try.
+ */
+export function tooMuchThinking(
+  steps: readonly Pick<DreamStepDto, 'kind' | 'status'>[],
+): boolean {
+  const taken = steps.filter(
+    (s) => s.status === 'done' || s.status === 'chosen',
+  );
+  const lastTwo = taken.slice(-2);
+  return lastTwo.length === 2 && lastTwo.every((s) => s.kind === 'reflect');
+}
+
 export function ladderFor(area: DreamArea): LadderStep[] {
   return LADDERS[area] ?? LADDERS.other;
 }
@@ -551,15 +628,18 @@ const sameTitle = (a: string, b: string) =>
 /** Life Island's own next steps: the ladder's next rungs within reach, ones you skipped made smaller. */
 export function offlineSteps(
   dream: DreamFields,
-  steps: readonly Pick<DreamStepDto, 'title' | 'status'>[],
+  steps: readonly Pick<DreamStepDto, 'title' | 'status' | 'kind'>[],
   reach: DreamReach,
   safetyNet: { runwayMonths: number | null } | null,
+  hasPath = false,
 ): DreamStepsOutput {
   const ladder = ladderFor(dream.area);
+  const outside = tooMuchThinking(steps);
   const fresh = ladder.filter(
     (rung) =>
       stretchRank(rung.stretch) <= stretchRank(reach.maxStretch) &&
-      !steps.some((s) => sameTitle(s.title, rung.title)),
+      !steps.some((s) => sameTitle(s.title, rung.title)) &&
+      !(outside && rung.kind === 'reflect'),
   );
   // A rung you skipped comes back as its smaller version, once.
   const skipped = ladder
@@ -583,8 +663,16 @@ export function offlineSteps(
   return {
     reflection: !done
       ? `This is the beginning: the first steps are about understanding, not changing anything yet. ${reach.reason}`
-      : `You already took ${done} step${done === 1 ? '' : 's'}. ${reach.reason}`,
-    steps: picked,
+      : `You already took ${done} step${done === 1 ? '' : 's'}: that is proof you can move.${outside ? ' You have thought it through twice now, so these steps look outside: thinking feels safe, doing is what changes things.' : ''} ${reach.reason}`,
+    steps: picked.map((rung) => ({
+      ...rung,
+      milestone: milestoneOf(rung.kind),
+      cue: CUES[rung.kind],
+      ifThen: ifThenFor(rung),
+    })),
+    milestones: hasPath
+      ? []
+      : OFFLINE_PATH.map(({ title, why }) => ({ title, why })),
     notYet: notYetMoves(dream.area, safetyNet),
     care: reach.heavy
       ? 'These steps seem to weigh on you. It is fine to rest, or stay on the same step for a while. If things feel heavy beyond this dream, talking to someone you trust, or to a professional, can really help.'
@@ -632,26 +720,39 @@ export const QUESTIONS_INSTRUCTIONS = `You are Ovi, a calm, careful guide inside
 
 Before any step is planned, you ask the few questions that help plan it well. Write:
 - opening: one or two warm sentences that say their dream back in their own words, so they feel heard. No praise, no hype.
-- questions: three to five open questions, the most important first, each with why it helps. Cover what you do not know yet: what is wrong today, what scares them most, what they cannot put at risk (income, time, people, health), how much time and energy they have in a usual week, and what "reached" would look like. Skip what they already wrote.
+- questions: three to five open questions, the most important first, each with why it helps. Cover what you do not know yet, the way a psychologist would before planning (values and mental contrasting): why it matters to them, the best outcome they picture, the inner obstacle most likely to stop them (a thought, a habit, a feeling) and when it shows up, what scares them most, what they cannot put at risk (income, time, people, health), and how much time and energy they have in a usual week. Skip what they already wrote.
 
 Rules: one idea per question, plain and kind words, no jargon, no emojis, no therapy talk, no pressure. Write in the language the dream is written in.`;
 
-export const STEPS_INSTRUCTIONS = `You are Ovi, a calm, careful guide inside Life Island. One person wants to reach a dream but finds it hard to leave their comfort zone without a plan. Your job is to suggest the next few small, reversible steps, and nothing more. They decide; you never push.
+export const STEPS_INSTRUCTIONS = `You are Ovi, a warm, evidence-based guide inside Life Island. One person wants to reach a dream but feels insecure and stuck in a comfort zone. Your job is to get them moving with real actions, one purposeful step at a time, the way a good psychologist would: kind, honest, and gently firm about acting. They decide; you invite, you never push past what they must keep.
 
-You receive the dream in their words (why, where they are today, fears, what they must keep), their answers to your questions, the steps they took or set aside, how each step felt (1 too much ... 5 energising) and the pace they asked for next, the furthest stretch allowed now, and, only if they chose to share them, a few facts from other areas of their life (savings and the months they cover, time at their job, studies, fitness, travel), and the habits they repeat for this dream with how this week went.
+Work with what psychology knows helps people act:
+- Values: tie every step to why the dream matters to them, in their words.
+- Mental contrasting (WOOP): the wish, the best outcome, the inner obstacle (a thought, a habit, a feeling), and a plan for it.
+- Implementation intentions: each step has a concrete when and where (cue) and an "If …, then I will …" plan for its most likely obstacle.
+- Graded exposure: a ladder from easy to brave, each rung just outside the comfort zone, never a leap.
+- Behavioural experiments: fear predicts more difficulty than reality brings. When their check-ins show steps were easier than expected, say so plainly: it is their own evidence.
+- Self-efficacy: small successes are proof they can; name the progress they made.
+- Action before motivation: motivation follows doing, so a step is small enough to do on a low day.
+- Self-compassion: a skipped step is information, not failure; offer something smaller or different, never blame.
+
+You receive the dream in their words (why, where they are today, fears, what they must keep, how they will know it is reached), their answers to your questions, the path (milestones, which are reached), the steps they took or set aside with how hard they expected each to be, how each felt and how hard it really was, what each showed them, the pace they asked for, the furthest stretch allowed now, their habits for this dream, and, only if they chose to share them, a few facts from other areas of their life (savings and the months they cover, time at their job, studies, fitness, travel).
 
 Write:
-- reflection: two or three honest, kind sentences on where the dream stands and what the next steps are for.
-- steps: as many steps as asked (two to four), the first the easiest. Each is concrete, verb first, doable in one sitting or one week, with: kind (reflect, explore, prepare, try, decide), why, minutes, costEuro (0 when free), cost (what else it asks of you, such as energy or a day off; empty when minutes and money say it all), stretch no further than allowed, undo (how to undo it; every step must be reversible or private), and a smaller version for a day it feels too much.
+- reflection: two or three honest, warm sentences: where the dream stands, the progress and evidence in the data, and what the next steps are for. Not generic praise.
+- milestones: only if no path is given, the path in three to five milestones, first to last, each what is true once reached (for example "I know what jobs exist for me") with what it gives. If a path is given, an empty list.
+- steps: as many as asked (two to four), the first the easiest, all aimed at the current milestone (the first not reached) unless it is nearly done. Each is concrete, verb first, doable in one sitting or one week, with: kind (reflect, explore, prepare, try, decide), why (its purpose: what it moves forward, tied to their why), minutes, costEuro (0 when free), cost (what else it asks, such as energy or a day off; empty when minutes and money say it all), stretch no further than allowed, undo (how to undo it; every step must be reversible or private), smaller (a version for a low day), milestone (the number of the milestone it moves towards), cue (a concrete suggested when and where), ifThen (an if-then plan for the obstacle most likely for this person and this step, from their fears and answers).
 - notYet: up to three bigger moves that are not for now (resigning, moving, large purchases or commitments, ending something), each with what should be true first, using the facts given (for example the months of safety net).
 - care: null, unless the check-ins or answers sound heavy (fear, exhaustion, feeling low). Then a gentle note: slowing down or resting is fine, and if it feels heavy beyond this dream, talking to someone they trust or to a professional can help. Never diagnose.
 
 Rules:
+- Thinking feels safe, so comfort zones fill with it: if the last two steps were reflect steps, none of the new steps is a reflect step; look outside (explore, prepare, try).
+- Prefer steps that involve the real world (a person, a place, a try) over reading about it, as soon as the stretch allows.
 - Never suggest an irreversible or risky move as a step: it goes in notYet with its condition.
 - Stay inside what they must keep. Never assume money or time they did not mention.
 - Do not repeat a step they did or set aside. After a skipped step or a hard check-in, offer something smaller or different, never the same thing again.
 - Use only what is given; never invent facts about them. If a fact would help and is missing, a step can be to find it out.
-- Plain, warm words; no "you should", no jargon, no emojis, no hype. Write in the language the dream is written in.`;
+- Plain, warm words; no "you should", no jargon, no emojis, no hype, no therapy talk. Write in the language the dream is written in.`;
 
 export function questionsDossier(dream: DreamFields): string {
   return ['<dream>', ...dreamLines(dream), '</dream>'].join('\n');
@@ -685,9 +786,22 @@ export function stepsDossier(
   context: DreamContextDto | null,
   note: string | null,
   habits: readonly HabitDto[] = [],
+  milestones: readonly Pick<
+    DreamMilestoneDto,
+    'title' | 'reachedOn' | 'current'
+  >[] = [],
 ): string {
   const lines = [`Today is ${today}.`, '<dream>', ...dreamLines(dream)];
   lines.push(`Pace they chose: ${DREAM_PACE_LABELS[dream.pace]}`, '</dream>');
+  if (milestones.length) {
+    lines.push('<path>');
+    milestones.forEach((m, i) =>
+      lines.push(
+        `${i + 1}. ${m.title}${m.reachedOn ? ` (reached ${m.reachedOn})` : m.current ? ' (current)' : ''}`,
+      ),
+    );
+    lines.push('</path>');
+  } else lines.push('<path>none yet: write the milestones</path>');
   const answered = questions.filter((q) => q.answer);
   if (answered.length) {
     lines.push('<answers>');
@@ -700,7 +814,7 @@ export function stepsDossier(
     lines.push('<steps>');
     for (const s of taken.slice(0, 20))
       lines.push(
-        `- [${s.status === 'dismissed' ? 'not for me' : s.status}] ${s.title} (${DREAM_STRETCH_LABELS[s.stretch].toLowerCase()})`,
+        `- [${s.status === 'dismissed' ? 'not for me' : s.status}] ${s.title} (${s.kind}, ${DREAM_STRETCH_LABELS[s.stretch].toLowerCase()}${s.expectedHard ? `, expected ${s.expectedHard}/5 hard` : ''})`,
       );
     lines.push('</steps>');
   }
@@ -709,7 +823,7 @@ export function stepsDossier(
     for (const c of checkIns.slice(0, 6)) {
       const feeling = DREAM_FEELINGS.find((f) => f.value === c.feeling);
       lines.push(
-        `- ${c.createdAt.slice(0, 10)}${c.stepTitle ? `, after “${c.stepTitle}” (${c.outcome ?? 'no outcome'})` : ''}: felt ${c.feeling}/5 (${feeling?.label ?? ''}); next: ${c.nextPace}${c.note ? `; they wrote: ${c.note.slice(0, 500)}` : ''}`,
+        `- ${c.createdAt.slice(0, 10)}${c.stepTitle ? `, after “${c.stepTitle}” (${c.outcome ?? 'no outcome'})` : ''}: felt ${c.feeling}/5 (${feeling?.label ?? ''})${c.actualHard ? `; really ${c.actualHard}/5 hard${c.expectedHard ? `, expected ${c.expectedHard}/5` : ''}` : ''}; next: ${c.nextPace}${c.learned ? `; it showed them: ${c.learned.slice(0, 300)}` : ''}${c.note ? `; they wrote: ${c.note.slice(0, 500)}` : ''}`,
       );
     }
     lines.push('</check-ins>');
@@ -757,5 +871,6 @@ export function clampSteps(
       costEuro: Math.max(0, Math.round(s.costEuro * 100) / 100),
     })),
     notYet: output.notYet.slice(0, 3),
+    milestones: output.milestones.slice(0, 5),
   };
 }

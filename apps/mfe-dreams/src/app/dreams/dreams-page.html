@@ -1,10 +1,196 @@
 <ui-page-header
   emblem="🌄"
   heading="Dreams"
-  subtitle="Something you would love to reach, and a careful way towards it: a few questions first, then one small step at a time, each one you can undo, at the pace you set. The habits you repeat for it, and a few lines about your week."
-/>
+  subtitle="Something you would love to reach, a path towards it, and the next small step you can take this week."
+>
+  <ui-info-guide
+    uiPageActions
+    heading="Dreams, in plain words"
+    [(open)]="guideOpen"
+    [(topic)]="guideTopic"
+    (closed)="onGuideClosed()"
+  >
+    <ui-info-topic
+      key="how"
+      label="How it works"
+      intro="A dream is something you would love to reach. Ovi turns it into a path of a few milestones, and the path into small steps you take one at a time."
+    >
+      <ol>
+        <li>
+          <strong>Write it</strong> as you would tell a friend: why it matters,
+          where you are today, what scares you, what you cannot put at risk.
+        </li>
+        <li>
+          <strong>Answer a few questions.</strong> Ovi asks what it still needs
+          to know, including the one thing inside you most likely to stop you.
+        </li>
+        <li>
+          <strong>Get a path.</strong> With the first steps comes a path of up
+          to five milestones: clear on what you want, know what is out there,
+          ready to try, tried it for real, decided. Each step names the
+          milestone it serves, so you always know what it is for. Change the
+          milestones as you like; tell Ovi when you are there.
+        </li>
+        <li>
+          <strong>Pick one step and plan it:</strong> a day, a moment, and what
+          you do if you start putting it off.
+        </li>
+        <li>
+          <strong>Check in</strong> after it: how it felt, how hard it really
+          was, what it showed you. The next steps follow.
+        </li>
+      </ol>
+      <p>
+        Overview shows the one thing that moves each dream now. Ovi suggests;
+        you decide, always. Nothing happens until you pick a step.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="steps"
+      label="Why small steps"
+      intro="A comfort zone grows from the edge, not by jumping out of it. Each step is a little beyond what feels easy, never a leap."
+    >
+      <p>
+        Psychologists call it <strong>graded exposure</strong>: you face what
+        you avoid in steps small enough to take, and each one makes the next
+        feel smaller. That is why every step says how far out of the comfort
+        zone it goes (tiny, small, brave), what it costs, and how to undo it.
+      </p>
+      <ul>
+        <li>
+          <strong>Your reach</strong> starts from the pace you chose: gentle
+          (tiny steps), steady (up to small) or bolder (up to brave).
+        </li>
+        <li>
+          <strong>Two good steps in a row stretch you a little further</strong>,
+          without asking: that is how confidence grows. Ask for smaller at any
+          check-in and it always wins.
+        </li>
+        <li>
+          <strong>Two heavy check-ins in a row</strong> make the next round tiny
+          and short.
+        </li>
+        <li>
+          <strong>Doing beats thinking.</strong> After two reflection steps in a
+          row, the next ones take you outside: a message, a call, a visit, a
+          try. Motivation usually comes after the action, not before.
+        </li>
+        <li>
+          <strong>Too big? Take the smaller one.</strong> Every step has a
+          smaller version; a small step taken beats a big one waiting.
+        </li>
+      </ul>
+    </ui-info-topic>
+    <ui-info-topic
+      key="plans"
+      label="Plans that happen"
+      intro="A step with a day, a moment and a plan for the hard part is two to three times more likely to happen than a good intention."
+    >
+      <p>
+        These are <strong>implementation intentions</strong>, one of the best
+        studied tools in psychology. When you plan a step you write:
+      </p>
+      <ul>
+        <li><strong>When:</strong> the day, which goes in the Agenda.</li>
+        <li>
+          <strong>The moment:</strong> a cue you already live, “after breakfast
+          on Saturday”, “on the train home”.
+        </li>
+        <li>
+          <strong>If it gets hard:</strong> “If I notice I am putting it off,
+          then I do only the smaller version”. Deciding in advance what you do
+          at the hard moment means you do not have to be brave then.
+        </li>
+      </ul>
+      <p>
+        Ovi's questions also follow <strong>WOOP</strong>: the wish, the best
+        outcome, the inner obstacle (a fear, a habit, a thought), and the plan
+        for it. A chosen step with no day shows in Needs you until it has one.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="fear"
+      label="Fear and proof"
+      intro="Fear is a forecast, and forecasts can be checked. Each step is a small experiment."
+    >
+      <p>
+        When you plan a step, say how hard you expect it to be; when you check
+        in, how hard it really was. Most steps turn out easier than feared, and
+        seeing it in your own numbers (Overview, “What you feared, and how it
+        went”) weakens the next fear. Psychologists call these
+        <strong>behavioural experiments</strong>.
+      </p>
+      <p>
+        After each step, write one line on what it showed you: “I can ask a
+        stranger a question”. They collect in <strong>Proof you can</strong>.
+        Confidence (self-efficacy) is built from things you did, not from things
+        you were told: read them again on the days you doubt yourself.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="heavy"
+      label="When it feels heavy"
+      intro="Some weeks a dream feels far, or a step brings up more than expected. That is part of it, not a failure."
+    >
+      <ul>
+        <li>
+          <strong>Be kind to yourself.</strong> A skipped step is information,
+          not a verdict: it comes back smaller.
+        </li>
+        <li>
+          <strong>Resting is allowed.</strong> Rest a dream from its page;
+          nothing is lost and no date is late. After two weeks without a step,
+          Ovi only suggests a smaller one, or a rest.
+        </li>
+        <li>
+          <strong>Letting go is allowed too.</strong> A dream that no longer
+          fits can make room for one that does.
+        </li>
+      </ul>
+      <p>
+        Life Island helps you plan small steps; it is not a coach or a
+        therapist. If things feel heavy for a while, talking to someone you
+        trust, or to a professional, can really help.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="ai"
+      label="What Ovi reads"
+      intro="Two AI tools, each with its switch in Settings → AI tools."
+    >
+      <p>
+        <strong>Questions</strong> reads the dream as you wrote it and asks what
+        it still needs to know. Nothing from the other areas is sent.
+      </p>
+      <p>
+        <strong>Small steps</strong> reads the dream, your answers, the path,
+        the steps you took with how hard you expected and found them, your
+        check-ins, and only the areas you tick in Safety net (the facts shown
+        there, never names of companies, people or places).
+      </p>
+      <p>
+        Without a Claude API key, or with a tool off, the questions come from
+        Life Island's own list for each area of life, and the steps from its own
+        ladder (think, explore, prepare, try, decide), each with its cue and its
+        if-then.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="habits"
+      label="Habits and your week"
+      intro="A habit is something you repeat for a dream; your week is a few lines on Sunday."
+    >
+      <p>
+        Tick a habit on the days you do it and give it a number of times a week:
+        the tile shows how many are on target. Your week asks what went well,
+        what got in the way and what you will focus on: a short look back is
+        what keeps a dream from drifting.
+      </p>
+    </ui-info-topic>
+  </ui-info-guide>
+</ui-page-header>
 
-<li-needs-you module="dreams" />
+<li-needs-you module="dreams" (handled)="load()" />
 
 @if (error(); as message) {
 <ui-alert tone="danger" class="li-block">
@@ -21,15 +207,100 @@
 </ui-alert>
 } @if (!data() && !error()) {
 <p class="li-muted">Loading your dreams…</p>
-} @if (data(); as all) { @if (all.dreams.length || all.habits.length ||
-all.reviews.length) {
+} @if (data(); as all) { @if (tiles(); as t) { @if (all.dreams.length) {
+<!-- Where you stand: each tile opens what is behind it. -->
+<section class="li-tiles" aria-label="Your dreams in numbers">
+  @if (t.next; as n) {
+  <button
+    type="button"
+    class="li-tile li-tile--lead tile"
+    (click)="
+      n.step.dueDate
+        ? openDream({ dream: n.dream, tab: 'steps' })
+        : openPlan(n.step)
+    "
+  >
+    <span class="li-tile__label">Next step</span>
+    <strong class="tile__step">{{ n.step.title }}</strong>
+    <span class="li-tile__hint" [class.li-warn]="late(n.step)">
+      {{ n.step.dueDate ? planText(n.step) : 'No day yet: plan it' }}
+    </span>
+  </button>
+  } @else {
+  <button
+    type="button"
+    class="li-tile li-tile--lead tile"
+    (click)="setView('overview')"
+  >
+    <span class="li-tile__label">Next step</span>
+    <strong class="tile__step">Pick one</strong>
+    <span class="li-tile__hint"
+      >{{ t.waiting }} dream{{ t.waiting === 1 ? '' : 's' }} waiting for a
+      step</span
+    >
+  </button>
+  }
+  <button type="button" class="li-tile tile" (click)="setView('dreams')">
+    <span class="li-tile__label">Steps taken this month</span>
+    <strong class="li-tile__value">{{ t.steps.thisMonth }}</strong>
+    <span class="li-tile__hint">{{ t.steps.total }} since you started</span>
+    <li-delta
+      [now]="t.steps.thisMonth"
+      [before]="t.steps.lastMonth"
+      unit="number"
+      against="last month"
+    />
+  </button>
+  <button type="button" class="li-tile tile" (click)="showGuide('fear')">
+    <span class="li-tile__label">Easier than you feared</span>
+    @if (t.fear.compared) {
+    <strong class="li-tile__value"
+      >{{ t.fear.easier }}
+      <span class="tile__of">of {{ t.fear.compared }}</span></strong
+    >
+    <span class="li-tile__hint"
+      >{{ t.fear.same }} as hard as you thought · the rest harder</span
+    >
+    } @else {
+    <strong class="li-tile__value">–</strong>
+    <span class="li-tile__hint"
+      >Say how hard a step looks when you plan it</span
+    >
+    }
+  </button>
+  <button type="button" class="li-tile tile" (click)="setView('habits')">
+    <span class="li-tile__label">Habits on target</span>
+    <strong class="li-tile__value"
+      >{{ t.habits.onTarget }}
+      <span class="tile__of">of {{ t.habits.active }}</span></strong
+    >
+    <span class="li-tile__hint">
+      @if (t.habits.active) { This week, against each habit's times a week }
+      @else { A habit repeats something a dream needs }
+    </span>
+  </button>
+</section>
+} }
+
 <li-tabs
   [tabs]="views()"
   [active]="view()"
-  (activeChange)="view.set($event)"
-  label="Dreams, habits and your week"
+  (activeChange)="setView($event)"
+  label="Dreams"
 />
-} @switch (view()) { @case ('habits') {
+
+@switch (view()) { @case ('overview') { @if (!all.dreams.length) {
+<ng-container *ngTemplateOutlet="welcome"></ng-container>
+} @else {
+<dreams-overview
+  [data]="all"
+  (checkIn)="openCheckIn($event.step, $event.outcome)"
+  (plan)="openPlan($event)"
+  (smaller)="takeSmaller($event)"
+  (openDream)="openDream($event)"
+  (addDream)="addDream()"
+/>
+} } @case ('habits') {
 <dreams-habits [data]="all" (changed)="load()" (failed)="error.set($event)" />
 } @case ('week') {
 <dreams-weekly-review
@@ -38,29 +309,7 @@ all.reviews.length) {
   (failed)="error.set($event)"
 />
 } @default { @if (!all.dreams.length) {
-<section class="sky sky--welcome li-block" aria-labelledby="welcome-title">
-  <dreams-sky [done]="0" [next]="false" seed="welcome" />
-  <div class="sky__text">
-    <h2 class="sky__title" id="welcome-title">What would you love to reach?</h2>
-    <p class="sky__lead">
-      A new job, a trip, a body that feels strong, something you want to create.
-      Write it in your own words: nothing changes in your life until you decide.
-    </p>
-    <ol class="moves">
-      <li><strong>Write it</strong> as you would tell a friend.</li>
-      <li>
-        <strong>Answer a few questions</strong> about today and your fears.
-      </li>
-      <li><strong>Pick one small step</strong> you can undo.</li>
-      <li>
-        <strong>Say how it felt</strong>; the next steps follow your pace.
-      </li>
-    </ol>
-    <button uiButton type="button" (click)="addDream()">
-      <ui-icon name="plus" [size]="16" /> Write a dream
-    </button>
-  </div>
-</section>
+<ng-container *ngTemplateOutlet="welcome"></ng-container>
 } @else {
 <div class="picker li-block" role="list" aria-label="Your dreams">
   @for (x of openDreams(); track x.id) {
@@ -205,8 +454,7 @@ all.reviews.length) {
 </div>
 <ui-card heading="Pace and status" class="li-block">
   <p class="li-intro li-muted">
-    {{ paceLabels[d.pace] }}. {{ d.reach.reason }} You can change the pace in
-    Edit, or rest the dream: nothing is lost.
+    {{ paceLabels[d.pace] }}. {{ d.reach.reason }}
   </p>
   <div class="li-actions">
     @if (d.status !== 'paused') {
@@ -254,14 +502,6 @@ all.reviews.length) {
   [offline]="!all.aiQuestions"
 >
   <li-ai-tool uiAiPanelActions toolId="dreams.questions" />
-  <p class="li-muted li-intro">
-    @if (all.aiQuestions) { Claude reads the dream as you wrote it (why, today,
-    fears, what you cannot risk) and asks what it still needs to know. Nothing
-    from the other areas is sent here. } @else { Without a Claude API key, or
-    with the tool off in Settings → AI tools, the questions come from Life
-    Island's own list for this area of life. } Answer only what you feel like:
-    every answer makes the steps fit you better.
-  </p>
   @if (d.opening) {
   <p class="opening">{{ d.opening }}</p>
   } @if (!d.questions.length) {
@@ -337,23 +577,136 @@ all.reviews.length) {
     Check in
   </button>
 </ui-alert>
-} @if (chosen().length) {
+}
+
+<ui-card heading="The path" class="li-block" id="dream-path">
+  <button
+    uiCardActions
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="addMilestone()"
+  >
+    <ui-icon name="plus" [size]="16" /> Milestone
+  </button>
+  @if (!d.milestones.length) {
+  <p class="li-muted li-small">
+    Ask for small steps below: the first ones come with a path of a few
+    milestones to the dream, and you can change them.
+  </p>
+  } @else {
+  <ol class="path">
+    @for (m of d.milestones; track m.id; let i = $index) {
+    <li
+      class="path__stop"
+      [class.path__stop--reached]="m.reachedOn"
+      [class.path__stop--current]="m.current"
+      [attr.aria-current]="m.current ? 'step' : null"
+    >
+      <span class="path__mark" aria-hidden="true"
+        >{{ m.reachedOn ? '✓' : i + 1 }}</span
+      >
+      <div class="path__body">
+        <span class="path__title">
+          <strong>{{ m.title }}</strong>
+          @if (m.current) {
+          <span class="path__now">You are here</span>
+          }
+        </span>
+        @if (m.why) {
+        <span class="li-small li-muted">{{ m.why }}</span>
+        }
+        <span class="li-small li-muted">
+          @if (m.reachedOn) { Reached {{ dateText(m.reachedOn) }} } @else { {{
+          m.doneSteps }} step{{ m.doneSteps === 1 ? '' : 's' }} done@if
+          (m.openSteps) { · {{ m.openSteps }} to go } }
+        </span>
+      </div>
+      <div class="path__actions">
+        @if (m.current) {
+        <button
+          uiButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="reach(m, true)"
+        >
+          We're there
+        </button>
+        } @else if (m.reachedOn) {
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="reach(m, false)"
+        >
+          Not yet
+        </button>
+        }
+        <button
+          uiButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Edit ' + m.title"
+          (click)="milestoneEditor.edit(m)"
+        >
+          <ui-icon name="edit" [size]="14" />
+        </button>
+      </div>
+    </li>
+    }
+  </ol>
+  }
+</ui-card>
+
+@if (chosen().length) {
 <h3 class="li-sub">Your next step{{ chosen().length > 1 ? 's' : '' }}</h3>
 <div class="steps li-block">
-  @for (s of chosen(); track s.id) {
+  @for (s of chosen(); track s.id; let first = $first) {
   <article class="step step--chosen">
     <ng-container
       *ngTemplateOutlet="stepBody; context: { $implicit: s }"
     ></ng-container>
     <div class="li-actions">
-      <button uiButton size="sm" type="button" (click)="openCheckIn(s, 'done')">
-        <ui-icon name="check" [size]="14" /> I did it
-      </button>
+      @if (s.dueDate) {
       <button
         uiButton
-        variant="secondary"
         size="sm"
+        [variant]="first ? 'primary' : 'secondary'"
         type="button"
+        (click)="openCheckIn(s, 'done')"
+      >
+        <ui-icon name="check" [size]="14" /> I did it
+      </button>
+      <button type="button" class="li-link li-small" (click)="openPlan(s)">
+        Change the plan
+      </button>
+      } @else {
+      <button
+        uiButton
+        size="sm"
+        [variant]="first ? 'primary' : 'secondary'"
+        type="button"
+        (click)="openPlan(s)"
+      >
+        <ui-icon name="calendar" [size]="14" /> Plan it
+      </button>
+      <button
+        type="button"
+        class="li-link li-small"
+        (click)="openCheckIn(s, 'done')"
+      >
+        Already done
+      </button>
+      } @if (s.smaller) {
+      <button type="button" class="li-link li-small" (click)="takeSmaller(s)">
+        Too big? Take the smaller one
+      </button>
+      }
+      <button
+        type="button"
+        class="li-link li-small"
         (click)="openCheckIn(s, 'skipped')"
       >
         Not this time
@@ -394,14 +747,6 @@ all.reviews.length) {
       d.reach.count }} ideas at a time. {{ d.reach.reason }}</span
     >
   </p>
-  <p class="li-muted li-intro">
-    @if (all.aiSteps) { Claude reads the dream, your answers, the steps you took
-    and how they felt, and only the areas you share in Safety net. } @else {
-    Without a Claude API key, or with the tool off in Settings → AI tools, the
-    ideas come from Life Island's own ladder: think, explore, prepare, try. }
-    Every idea says what it costs you and how to undo it. Nothing happens until
-    you pick one.
-  </p>
   <form class="ask" (submit)="$event.preventDefault(); suggest()">
     <textarea
       class="ui-input"
@@ -428,6 +773,13 @@ all.reviews.length) {
       <button type="button" class="li-link li-small" (click)="addStep()">
         + Write my own step
       </button>
+      <button
+        type="button"
+        class="li-link li-small"
+        (click)="showGuide('steps')"
+      >
+        Why small steps
+      </button>
     </div>
   </form>
 </ui-ai-panel>
@@ -453,7 +805,7 @@ all.reviews.length) {
         *ngTemplateOutlet="stepBody; context: { $implicit: s }"
       ></ng-container>
       <div class="li-actions">
-        <button uiButton size="sm" type="button" (click)="setStep(s, 'chosen')">
+        <button uiButton size="sm" type="button" (click)="openPlan(s)">
           I'll do this one
         </button>
         @if (s.smaller) {
@@ -523,11 +875,6 @@ all.reviews.length) {
 </ul>
 } } } @case ('check-ins') {
 <ui-card heading="How is it going?" class="li-block">
-  <p class="li-intro li-muted">
-    After a step, or any day, say how the dream feels. Ovi reads the last few:
-    two heavy ones in a row make the next steps tiny, and an easy one lets them
-    grow a little, only if you ask.
-  </p>
   <div class="li-actions">
     @for (s of awaiting(); track s.id) {
     <button uiButton size="sm" type="button" (click)="openCheckIn(s, null)">
@@ -571,6 +918,13 @@ all.reviews.length) {
         >{{ c.outcome === 'skipped' ? 'Set aside' : 'After' }} “{{ c.stepTitle
         }}”</span
       >
+      } @if (c.expectedHard && c.actualHard) {
+      <span class="li-small li-muted"
+        >Feared {{ hardText(c.expectedHard) }} · was {{ hardText(c.actualHard)
+        }}</span
+      >
+      } @if (c.learned) {
+      <p class="moment__note">“{{ c.learned }}”</p>
       } @if (c.note) {
       <p class="moment__note">{{ c.note }}</p>
       }
@@ -591,9 +945,8 @@ all.reviews.length) {
 } } @case ('safety') {
 <ui-card heading="What the dream may read" class="li-block">
   <p class="li-intro li-muted">
-    A dream touches the rest of your life. Tick the areas whose summary Ovi may
-    read: the facts below are exactly what is sent with your steps request, and
-    only then. Names of companies, people and places never are.
+    Tick the areas Ovi may read with your steps request: exactly the facts
+    below.
   </p>
   <div class="li-chips" role="group" aria-label="Shared areas">
     @for (a of contextAreas; track a) {
@@ -658,14 +1011,35 @@ all.reviews.length) {
   </article>
   }
 </div>
-} } } } } } }
+} } } } } } } }
 
-<p class="promise">
-  🌙 Ovi suggests; you decide, always. Life Island helps you plan small steps;
-  it is not a coach or a therapist. If things feel heavy, talking to someone you
-  trust, or to a professional, can really help.
-</p>
-}
+<ng-template #welcome>
+  <section class="sky sky--welcome li-block" aria-labelledby="welcome-title">
+    <dreams-sky [done]="0" [next]="false" seed="welcome" />
+    <div class="sky__text">
+      <h2 class="sky__title" id="welcome-title">
+        What would you love to reach?
+      </h2>
+      <p class="sky__lead">
+        A new job, a trip, a body that feels strong, something you want to
+        create. Write it in your own words: Ovi asks a few questions, draws a
+        path, and gives you a first step small enough to take this week.
+      </p>
+      <div class="li-actions">
+        <button uiButton type="button" (click)="addDream()">
+          <ui-icon name="plus" [size]="16" /> Write a dream
+        </button>
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="showGuide('how')"
+        >
+          How it works
+        </button>
+      </div>
+    </div>
+  </section>
+</ng-template>
 
 <ng-template #stepBody let-s>
   @let st = asStep(s);
@@ -686,6 +1060,27 @@ all.reviews.length) {
   <p class="step__why">{{ st.why }}</p>
   }
   <dl class="step__facts">
+    @if (milestoneOf(st); as m) {
+    <div>
+      <dt>Towards</dt>
+      <dd>{{ m.title }}</dd>
+    </div>
+    } @if (st.status === 'chosen') {
+    <div>
+      <dt>When</dt>
+      <dd [class.li-warn]="late(st)">{{ planText(st) ?? 'No day yet' }}</dd>
+    </div>
+    } @if (st.ifThen) {
+    <div>
+      <dt>If it gets hard</dt>
+      <dd>{{ st.ifThen }}</dd>
+    </div>
+    } @if (st.expectedHard) {
+    <div>
+      <dt>You expect</dt>
+      <dd>{{ hardText(st.expectedHard) }}</dd>
+    </div>
+    }
     <div>
       <dt>Costs</dt>
       <dd>{{ costText(st) }}@if (st.cost) { · {{ st.cost }} }</dd>
@@ -699,11 +1094,6 @@ all.reviews.length) {
     <div>
       <dt>Too much?</dt>
       <dd>{{ st.smaller }}</dd>
-    </div>
-    } @if (st.dueDate) {
-    <div>
-      <dt>By</dt>
-      <dd>{{ dateText(st.dueDate) }}</dd>
     </div>
     }
   </dl>
@@ -732,8 +1122,41 @@ all.reviews.length) {
     </button>
     }
   </fieldset>
+  @if (checkIn()?.step && checkIn()?.outcome !== 'skipped') {
+  <fieldset class="paces">
+    <legend>
+      How hard was it really?@if (checkIn()?.step?.expectedHard; as e) {
+      <span class="li-muted li-small">You expected: {{ hardText(e) }}</span>
+      }
+    </legend>
+    <div class="li-chips">
+      @for (h of hardness; track h.value) {
+      <button
+        type="button"
+        class="li-chip"
+        [class.li-chip--on]="actualHard() === h.value"
+        [attr.aria-pressed]="actualHard() === h.value"
+        (click)="actualHard.set(actualHard() === h.value ? null : h.value)"
+      >
+        {{ h.label }}
+      </button>
+      }
+    </div>
+  </fieldset>
+  }
   <label class="field">
-    <span>Anything you noticed (optional)</span>
+    <span>What it showed you about yourself (optional)</span>
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="600"
+      placeholder="I can ask a stranger a question"
+      [value]="learned()"
+      (input)="learned.set($any($event.target).value)"
+    ></textarea>
+  </label>
+  <label class="field">
+    <span>Anything else you noticed (optional)</span>
     <textarea
       class="ui-input"
       rows="3"
@@ -783,7 +1206,7 @@ all.reviews.length) {
   heading="A new dream"
   [fields]="newDreamFields"
   [(open)]="adding"
-  [value]="{ area: 'work', pace: 'gentle' }"
+  [value]="{ area: 'work', pace: 'steady' }"
   [saving]="creating()"
   [error]="createError()"
   (save)="createDream($event)"
@@ -810,3 +1233,93 @@ all.reviews.length) {
   (save)="stepEditor.save($event)"
   (remove)="stepEditor.remove()"
 />
+
+<li-record-dialog
+  heading="Milestone"
+  [fields]="milestoneFields"
+  [(open)]="milestoneEditor.open"
+  [value]="milestoneEditor.value()"
+  [saving]="milestoneEditor.saving()"
+  [error]="milestoneEditor.error()"
+  (save)="milestoneEditor.save($event)"
+  (remove)="milestoneEditor.remove()"
+  intro="Deleting a milestone keeps its steps."
+/>
+
+<ui-dialog [(open)]="planOpen" heading="Plan it" size="sm">
+  @if (planDraft(); as p) {
+  <p class="li-muted">“{{ p.step.title }}”</p>
+  <label class="field">
+    <span>When</span>
+    <input
+      class="ui-input"
+      type="date"
+      required
+      [min]="data()?.today ?? ''"
+      [value]="p.dueDate"
+      (input)="editPlan({ dueDate: $any($event.target).value })"
+    />
+  </label>
+  <label class="field">
+    <span>At what moment</span>
+    <input
+      class="ui-input"
+      type="text"
+      maxlength="200"
+      placeholder="After breakfast, at the kitchen table"
+      [value]="p.cue"
+      (input)="editPlan({ cue: $any($event.target).value })"
+    />
+  </label>
+  <label class="field">
+    <span>If it gets hard, then I…</span>
+    <textarea
+      class="ui-input"
+      rows="2"
+      maxlength="300"
+      placeholder="If I notice I am putting it off, then I do only the first five minutes"
+      [value]="p.ifThen"
+      (input)="editPlan({ ifThen: $any($event.target).value })"
+    ></textarea>
+  </label>
+  <fieldset class="paces">
+    <legend>How hard do you expect it to be?</legend>
+    <div class="li-chips">
+      @for (h of hardness; track h.value) {
+      <button
+        type="button"
+        class="li-chip"
+        [class.li-chip--on]="p.expectedHard === h.value"
+        [attr.aria-pressed]="p.expectedHard === h.value"
+        (click)="
+          editPlan({
+            expectedHard: p.expectedHard === h.value ? null : h.value,
+          })
+        "
+      >
+        {{ h.label }}
+      </button>
+      }
+    </div>
+  </fieldset>
+  }
+  <div uiDialogFooter class="li-actions">
+    <button
+      uiButton
+      variant="ghost"
+      type="button"
+      (click)="planOpen.set(false)"
+    >
+      Cancel
+    </button>
+    <button
+      uiButton
+      type="button"
+      [disabled]="!planDraft()?.dueDate"
+      [loading]="savingPlan()"
+      (click)="savePlan()"
+    >
+      Save the plan
+    </button>
+  </div>
+</ui-dialog>

@@ -8,10 +8,8 @@
 -- started since, it only says so, and the next `npm run db:upgrade` (or
 -- svc-dreams itself, on your machine) does the move.
 --
--- Nothing is deleted: the goals schema stays as it was, so you can check the
--- move, and only its role can no longer sign in (svc-goals is gone). Drop
--- both by hand when you are happy: `drop schema goals cascade; drop role
--- goals_svc;`.
+-- Nothing is deleted here: 018-drop-goals.sql removes the goals schema and
+-- role once this move is recorded.
 
 do $$
 declare
