@@ -204,6 +204,32 @@
   border-top: 3px solid var(--tone-progress);
 }
 
+/* Welfare credited with the payslip: tax free and outside the net, in the
+   info tone so it never reads as pay. */
+.slip__welfare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--tone-info);
+  border-radius: var(--radius-sm);
+  background: var(--tone-info-soft);
+  font-size: var(--text-xs);
+}
+
+.slip__welfare strong,
+.summary__welfare strong {
+  color: var(--tone-info);
+}
+
+.slip__welfare-why {
+  display: block;
+  color: var(--text-secondary);
+}
+
 /* ---- the year's Certificazione Unica ---------------------------------- */
 .cu {
   margin-top: var(--space-5);
