@@ -6,11 +6,13 @@ import {
   input,
   signal,
 } from '@angular/core';
-import type {
-  AuditSeverity,
-  NetChangeDto,
-  PayslipAuditDto,
+import {
+  documentReviewUrl,
+  type AuditSeverity,
+  type NetChangeDto,
+  type PayslipAuditDto,
 } from '@life-island/contracts';
+import { DOCUMENTS_APP_URL } from '@life-island/settings-ui';
 import {
   UiBadge,
   UiCard,
@@ -45,6 +47,7 @@ const SEVERITY_TONES: Record<AuditSeverity, UiTone> = {
 })
 export class AuditTab {
   private readonly api = inject(WorkApi);
+  private readonly documentsUrl = inject(DOCUMENTS_APP_URL);
 
   readonly audit = input.required<PayslipAuditDto>();
   readonly netChanges = input<NetChangeDto[]>([]);
@@ -66,6 +69,11 @@ export class AuditTab {
 
   protected previewUrl(uploadId: string): string {
     return this.api.previewUrl(uploadId);
+  }
+
+  /** The payslip in the documents app, to fix what was read or parse it again. */
+  protected reviewUrl(uploadId: string): string {
+    return documentReviewUrl(this.documentsUrl, uploadId);
   }
 
   protected signedEuro(value: number): string {

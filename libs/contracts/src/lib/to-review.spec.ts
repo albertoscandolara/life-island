@@ -1,4 +1,4 @@
-import { proofUploadUrl } from './agenda.js';
+import { documentReviewUrl, proofUploadUrl } from './agenda.js';
 import { documentToReview, toReviewPath } from './life-schemas.js';
 
 describe('the "To review" tab and the proof of a date', () => {
@@ -31,5 +31,13 @@ describe('the "To review" tab and the proof of a date', () => {
       for: 'Insurance · Panda',
       proof: 'the new insurance certificate',
     });
+  });
+});
+
+describe('documentReviewUrl', () => {
+  it('opens one document in the review inbox, whatever its status', () => {
+    expect(documentReviewUrl('http://localhost:4300', 'u-1')).toBe(
+      'http://localhost:4300/review?upload=u-1&status=all',
+    );
   });
 });

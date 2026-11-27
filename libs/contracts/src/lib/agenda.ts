@@ -75,6 +75,19 @@ export function proofUploadUrl(
   return `${base}upload?${query}`;
 }
 
+/**
+ * One document in the documents app's review inbox, whatever its status:
+ * where you check what the AI read, fix it, or parse it again.
+ */
+export function documentReviewUrl(
+  documentsUrl: string,
+  uploadId: string,
+): string {
+  const base = documentsUrl.endsWith('/') ? documentsUrl : `${documentsUrl}/`;
+  const query = new URLSearchParams({ upload: uploadId, status: 'all' });
+  return `${base}review?${query}`;
+}
+
 /** `GET /deadlines?from&to` on every area that has dates. */
 export const deadlinesQuerySchema = z.object({
   from: lifeDate.optional(),
