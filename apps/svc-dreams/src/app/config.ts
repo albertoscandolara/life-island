@@ -48,5 +48,4 @@ export const LOCAL_DREAMS_SOURCES: Readonly<Record<string, string>> = {
   studies: 'http://localhost:3010',
   fitness: 'http://localhost:3018',
   travel: 'http://localhost:3017',
-  goals: 'http://localhost:3013',
 };

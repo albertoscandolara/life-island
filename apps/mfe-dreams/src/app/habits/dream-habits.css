@@ -1,0 +1,52 @@
+:host {
+  display: block;
+}
+
+.habits .day {
+  text-align: center;
+}
+
+.day--today {
+  color: var(--accent);
+}
+
+.off {
+  opacity: 0.55;
+}
+
+.tick {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--accent-contrast);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.tick:hover {
+  border-color: var(--accent);
+}
+
+.tick--on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.calendars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-5);
+}
+
+.calendar {
+  min-width: 0;
+}
+
+.calendar__title,
+.calendar__sum {
+  margin: 0 0 var(--space-1);
+}

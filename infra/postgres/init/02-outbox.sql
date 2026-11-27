@@ -39,7 +39,6 @@ call pg_temp.create_outbox_tables('auth', 'auth_svc');
 call pg_temp.create_outbox_tables('travel', 'travel_svc');
 call pg_temp.create_outbox_tables('subscriptions', 'subscriptions_svc');
 call pg_temp.create_outbox_tables('health', 'health_svc');
-call pg_temp.create_outbox_tables('goals', 'goals_svc');
 call pg_temp.create_outbox_tables('money', 'money_svc');
 call pg_temp.create_outbox_tables('agenda', 'agenda_svc');
 commit;

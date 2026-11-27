@@ -1,0 +1,123 @@
+<ui-card heading="Habits" class="li-block">
+  <div uiCardActions class="li-actions">
+    <button uiButton size="sm" type="button" (click)="add()">
+      <ui-icon name="plus" [size]="16" /> Add a habit
+    </button>
+  </div>
+  <p class="li-intro li-muted">
+    Small things you repeat a few days a week, for a dream or just for you. Tick
+    a day when you did it; the week counts from Monday, and a streak is the
+    weeks in a row you reached your target.
+  </p>
+  @if (!habits().length) {
+  <ui-empty-state icon="check" heading="No habit yet">
+    Walk, read, stretch, call your parents, practise ten minutes: something
+    small that moves a dream on its own, a few days at a time.
+  </ui-empty-state>
+  } @else {
+  <div class="li-table-wrap">
+    <table class="li-table habits">
+      <thead>
+        <tr>
+          <th scope="col">Habit</th>
+          @for (day of days(); track day) {
+          <th scope="col" class="day" [class.day--today]="day === data().today">
+            {{ dayText(day).split(' ')[0] }}<br /><span class="li-muted"
+              >{{ day.slice(8) }}</span
+            >
+          </th>
+          }
+          <th scope="col" class="li-num">This week</th>
+          <th scope="col" class="li-num">Streak</th>
+          <th scope="col"><span class="ui-visually-hidden">Edit</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (h of habits(); track h.id) {
+        <tr [class.off]="!h.active">
+          <th scope="row">
+            {{ h.title }} @if (dreamTitle(h.dreamId); as dream) {
+            <span class="li-muted li-small"><br />for {{ dream }}</span> }
+          </th>
+          @for (day of days(); track day) {
+          <td class="day">
+            <button
+              type="button"
+              class="tick"
+              [class.tick--on]="isTicked(h, day)"
+              [attr.aria-pressed]="isTicked(h, day)"
+              [attr.aria-label]="h.title + ', ' + dayText(day)"
+              (click)="toggle(h, day)"
+            >
+              @if (isTicked(h, day)) {
+              <ui-icon name="check" [size]="16" /> }
+            </button>
+          </td>
+          }
+          <td class="li-num" [class.li-good]="thisWeek(h) >= h.perWeek">
+            {{ thisWeek(h) }} / {{ h.perWeek }}
+          </td>
+          <td class="li-num">{{ h.streak ? '🔥 ' + h.streak : '—' }}</td>
+          <td>
+            <button
+              uiButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              [attr.aria-label]="'Edit ' + h.title"
+              (click)="editor.edit(h)"
+            >
+              <ui-icon name="edit" [size]="16" />
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</ui-card>
+
+@if (calendars().length) {
+<ui-card heading="Did you keep it up?" class="li-block">
+  <p class="li-intro li-muted">
+    The last thirteen weeks, a square a day you ticked. Missed one? Tick it in
+    the grid above while it is still this week.
+  </p>
+  <div class="calendars">
+    @for (c of calendars(); track c.habit.id; let i = $index) {
+    <section class="calendar" [attr.aria-label]="c.habit.title">
+      <h3 class="li-sub calendar__title">{{ c.habit.title }}</h3>
+      <p class="li-small li-muted calendar__sum">
+        {{ c.days }} days ·
+        <span [class.li-good]="c.weeks >= 10"
+          >{{ c.weeks }} of 13 weeks at {{ c.habit.perWeek }} a week</span
+        >
+      </p>
+      <ui-calendar-heatmap
+        [from]="c.from"
+        [to]="c.to"
+        [values]="c.values"
+        [color]="'var(--viz-' + ((i % 6) + 1) + ')'"
+        [format]="ticked"
+        [title]="dayText"
+        [maxCell]="14"
+        [ariaLabel]="c.habit.title + ': the days ticked in the last 13 weeks'"
+      />
+    </section>
+    }
+  </div>
+</ui-card>
+}
+
+<li-record-dialog
+  heading="Habit"
+  [fields]="fields()"
+  [(open)]="editor.open"
+  [value]="editor.value()"
+  [saving]="editor.saving()"
+  [error]="editor.error()"
+  (save)="editor.save($event)"
+  (remove)="editor.remove()"
+  intro="Deleting a habit deletes the days you ticked too."
+/>

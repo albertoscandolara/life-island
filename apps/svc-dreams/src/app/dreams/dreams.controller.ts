@@ -18,6 +18,8 @@ import {
   dreamCheckInRequestSchema,
   dreamSuggestRequestSchema,
   DREAM_STEP_STATUSES,
+  habitCheckRequestSchema,
+  weeklyReviewRequestSchema,
   type DeadlineDto,
   type DreamContextDto,
   type DreamDto,
@@ -35,7 +37,7 @@ const stepStatusRequestSchema = z.object({
 export class DreamsController {
   constructor(@Inject(DreamsService) private readonly dreams: DreamsService) {}
 
-  /** Every dream with its questions, steps, check-ins, guidance and pace. */
+  /** Every dream with its questions, steps, check-ins, guidance and pace; habits and weekly reviews. */
   @Get('overview')
   overview(): Promise<DreamsOverviewDto> {
     return this.dreams.overview();
@@ -103,6 +105,28 @@ export class DreamsController {
   @HttpCode(204)
   checkIn(@Body() body: unknown): Promise<void> {
     return this.dreams.checkIn(parseOrThrow(dreamCheckInRequestSchema, body));
+  }
+
+  /** Ticks (or unticks) a habit for a day. */
+  @Put('habits/:id/checks')
+  @HttpCode(204)
+  checkHabit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.dreams.checkHabit(
+      id,
+      parseOrThrow(habitCheckRequestSchema, body),
+    );
+  }
+
+  /** The review of one week; writing it again replaces it. */
+  @Put('weekly-reviews')
+  @HttpCode(204)
+  saveWeeklyReview(@Body() body: unknown): Promise<void> {
+    return this.dreams.saveWeeklyReview(
+      parseOrThrow(weeklyReviewRequestSchema, body),
+    );
   }
 
   @Delete('check-ins/:id')

@@ -25,7 +25,6 @@ services:
       DB_PASSWORD_STUDIES: ${DB_PASSWORD_STUDIES:-}
       DB_PASSWORD_AGENDA: ${DB_PASSWORD_AGENDA:-}
       DB_PASSWORD_MONEY: ${DB_PASSWORD_MONEY:-}
-      DB_PASSWORD_GOALS: ${DB_PASSWORD_GOALS:-}
       DB_PASSWORD_HEALTH: ${DB_PASSWORD_HEALTH:-}
       DB_PASSWORD_SUBSCRIPTIONS: ${DB_PASSWORD_SUBSCRIPTIONS:-}
       DB_PASSWORD_TRAVEL: ${DB_PASSWORD_TRAVEL:-}
@@ -186,7 +185,6 @@ services:
       TRAVEL_DATABASE_URL: postgres://travel_svc:${DB_PASSWORD_TRAVEL:-dev_travel}@postgres:5432/life_island
       SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:${DB_PASSWORD_SUBSCRIPTIONS:-dev_subscriptions}@postgres:5432/life_island
       HEALTH_DATABASE_URL: postgres://health_svc:${DB_PASSWORD_HEALTH:-dev_health}@postgres:5432/life_island
-      GOALS_DATABASE_URL: postgres://goals_svc:${DB_PASSWORD_GOALS:-dev_goals}@postgres:5432/life_island
       MONEY_DATABASE_URL: postgres://money_svc:${DB_PASSWORD_MONEY:-dev_money}@postgres:5432/life_island
       AGENDA_DATABASE_URL: postgres://agenda_svc:${DB_PASSWORD_AGENDA:-dev_agenda}@postgres:5432/life_island
       AUTH_DATABASE_URL: postgres://auth_svc:${DB_PASSWORD_AUTH:-dev_auth}@postgres:5432/life_island
@@ -360,7 +358,7 @@ services:
       # The dream guide uses the Claude API when the key is set; without, its own rules.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # The areas a dream may read for its safety net (only those you tick on the dream).
-      DREAMS_SOURCES: money=http://svc-money:3000,work=http://svc-work:3000,studies=http://svc-studies:3000,fitness=http://svc-fitness:3000,travel=http://svc-travel:3000,goals=http://svc-goals:3000
+      DREAMS_SOURCES: money=http://svc-money:3000,work=http://svc-work:3000,studies=http://svc-studies:3000,fitness=http://svc-fitness:3000,travel=http://svc-travel:3000
     depends_on: *service-deps
 
   svc-travel:
@@ -399,18 +397,6 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on: *service-deps
 
-  svc-goals:
-    restart: ${RESTART_POLICY:-no}
-    profiles: [apps]
-    build:
-      <<: *service-build
-      args: { SERVICE: svc-goals }
-    environment:
-      <<: *service-env
-      # The goals coach uses the Claude API when the key is set; without, its own rules.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    depends_on: *service-deps
-
   svc-money:
     restart: ${RESTART_POLICY:-no}
     profiles: [apps]
@@ -440,7 +426,7 @@ services:
       SMTP_URL: ${SMTP_URL_CONTAINERS:-smtp://mailpit:1025}
       MAIL_FROM: ${MAIL_FROM:-Life Island <island@localhost>}
       APP_URL: ${APP_URL:-http://localhost:8080}
-      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,work=http://svc-work:3000,money=http://svc-money:3000,goals=http://svc-goals:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000,dreams=http://svc-dreams:3000,taxes=http://svc-tax730:3000,groceries=http://svc-groceries:3000
+      AGENDA_SOURCES: people=http://svc-people:3000,cars=http://svc-cars:3000,home=http://svc-home:3000,studies=http://svc-studies:3000,work=http://svc-work:3000,money=http://svc-money:3000,health=http://svc-health:3000,subscriptions=http://svc-subscriptions:3000,travel=http://svc-travel:3000,fitness=http://svc-fitness:3000,dreams=http://svc-dreams:3000,taxes=http://svc-tax730:3000,groceries=http://svc-groceries:3000
     depends_on: *service-deps
 
   svc-work:

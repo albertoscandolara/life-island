@@ -1,9 +1,11 @@
 import {
+  boolean,
   date,
   integer,
   jsonb,
   numeric,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -35,6 +37,9 @@ export const dreams = dreamsSchema.table('dreams', {
   today: text('today'),
   fears: text('fears'),
   mustKeep: text('must_keep'),
+  /** How you will know it is reached. */
+  measure: text('measure'),
+  targetDate: date('target_date'),
   pace: text('pace').$type<DreamPace>().notNull().default('gentle'),
   status: text('status').$type<DreamStatus>().notNull().default('dreaming'),
   contextAreas: jsonb('context_areas')
@@ -84,7 +89,7 @@ export const dreamSteps = dreamsSchema.table('dream_steps', {
   dueDate: date('due_date'),
   doneOn: date('done_on'),
   source: text('source')
-    .$type<'claude' | 'offline' | 'you'>()
+    .$type<'claude' | 'offline' | 'you' | 'goals'>()
     .notNull()
     .default('you'),
   createdAt: createdAt(),
@@ -122,6 +127,43 @@ export const dreamGuidance = dreamsSchema.table('dream_guidance', {
   createdAt: createdAt(),
 });
 export type DreamGuidanceRow = typeof dreamGuidance.$inferSelect;
+
+/** Something you repeat a few days a week, for a dream or for its own sake. */
+export const habits = dreamsSchema.table('habits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  dreamId: uuid('dream_id').references(() => dreams.id, {
+    onDelete: 'set null',
+  }),
+  perWeek: integer('per_week').notNull().default(7),
+  active: boolean('active').notNull().default(true),
+  createdAt: createdAt(),
+});
+export type HabitRow = typeof habits.$inferSelect;
+
+/** A day a habit was done. */
+export const habitChecks = dreamsSchema.table(
+  'habit_checks',
+  {
+    habitId: uuid('habit_id')
+      .notNull()
+      .references(() => habits.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.habitId, t.date] })],
+);
+
+/** The few lines you write at the end of a week, about every dream at once. */
+export const weeklyReviews = dreamsSchema.table('weekly_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  weekStart: date('week_start').notNull().unique(),
+  mood: integer('mood'),
+  wins: text('wins'),
+  stuck: text('stuck'),
+  next: text('next'),
+  createdAt: createdAt(),
+});
+export type WeeklyReviewRow = typeof weeklyReviews.$inferSelect;
 
 /** svc-dreams' copy of the settings it reads, kept by its settings.changed@1 consumer. */
 export const settingsReplica = dreamsSchema.table('settings_replica', {

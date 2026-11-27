@@ -6,6 +6,7 @@ import type {
   DreamsOverviewDto,
   DreamStepStatus,
   DreamSuggestRequest,
+  WeeklyReviewRequest,
 } from '@life-island/contracts';
 import { RecordsApi } from '@life-island/records-ui';
 import type { Observable } from 'rxjs';
@@ -59,5 +60,16 @@ export class DreamsApi extends RecordsApi {
 
   removeCheckIn(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/check-ins/${id}`);
+  }
+
+  checkHabit(id: string, date: string, done: boolean): Observable<void> {
+    return this.http.put<void>(`${this.base}/habits/${id}/checks`, {
+      date,
+      done,
+    });
+  }
+
+  saveWeeklyReview(request: WeeklyReviewRequest): Observable<void> {
+    return this.http.put<void>(`${this.base}/weekly-reviews`, request);
   }
 }

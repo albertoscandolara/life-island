@@ -69,13 +69,6 @@
     },
     "changeOrigin": true
   },
-  "/api/goals": {
-    "target": "http://localhost:3013",
-    "pathRewrite": {
-      "^/api/goals": ""
-    },
-    "changeOrigin": true
-  },
   "/api/health": {
     "target": "http://localhost:3014",
     "pathRewrite": {

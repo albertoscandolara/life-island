@@ -11,7 +11,9 @@ import {
   dreamQuestionsOutputSchema,
   dreamStepsOutputSchema,
   inDeadlineWindow,
+  isoAddDays,
   isoToday,
+  isoWeekStart,
   type DeadlineDto,
   type DeadlinesQuery,
   type DreamAnswerRequest,
@@ -24,9 +26,13 @@ import {
   type DreamStepDto,
   type DreamStepStatus,
   type DreamSuggestRequest,
+  type HabitCheckRequest,
+  type HabitDto,
   type LifeAttentionDto,
+  type WeeklyReviewDto,
+  type WeeklyReviewRequest,
 } from '@life-island/contracts';
-import { and, asc, desc, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, notInArray } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type ServiceConfig } from '../config.js';
 import {
   dreamCheckIns,
@@ -34,6 +40,9 @@ import {
   dreamQuestions,
   dreams,
   dreamSteps,
+  habitChecks,
+  habits,
+  weeklyReviews,
   type DreamCheckInRow,
   type DreamGuidanceRow,
   type DreamQuestionRow,
@@ -41,6 +50,7 @@ import {
   type DreamStepRow,
 } from '../db/schema.js';
 import { readDreamContext } from './context.js';
+import { dreamPulse, withChecks } from './habits.js';
 import {
   clampSteps,
   offlineQuestions,
@@ -126,7 +136,7 @@ export class DreamsService implements OnApplicationBootstrap {
   }
 
   /** Every dream with its questions, steps, check-ins and latest guidance. */
-  private async states(only?: string): Promise<DreamState[]> {
+  private async states(only?: string, day = today()): Promise<DreamState[]> {
     const byDream = only ? eq(dreams.id, only) : undefined;
     const [dreamRows, questionRows, stepRows, checkInRows, guidanceRows] =
       await Promise.all([
@@ -164,22 +174,57 @@ export class DreamsService implements OnApplicationBootstrap {
         stepRows.filter((s) => s.dreamId === dream.id),
         checkInRows.filter((c) => c.dreamId === dream.id),
         guidanceRows.find((g) => g.dreamId === dream.id) ?? null,
+        day,
       ),
     }));
   }
 
-  private async state(id: string): Promise<DreamState> {
-    const [found] = await this.states(id);
+  private async state(id: string, day = today()): Promise<DreamState> {
+    const [found] = await this.states(id, day);
     if (!found) throw new NotFoundException('There is no such dream');
     return found;
   }
 
+  /** Every habit with this week and its streak. */
+  private async habits(day: string, dreamId?: string): Promise<HabitDto[]> {
+    const [habitRows, checkRows] = await Promise.all([
+      this.db
+        .select()
+        .from(habits)
+        .where(dreamId ? eq(habits.dreamId, dreamId) : undefined)
+        .orderBy(asc(habits.createdAt)),
+      this.db
+        .select()
+        .from(habitChecks)
+        .where(gte(habitChecks.date, isoAddDays(day, -7 * 26))),
+    ]);
+    return habitRows.map((h) =>
+      withChecks(
+        { ...h, createdAt: iso(h.createdAt) },
+        checkRows.filter((c) => c.habitId === h.id).map((c) => c.date),
+        day,
+      ),
+    );
+  }
+
+  private async reviews(): Promise<WeeklyReviewDto[]> {
+    const rows = await this.db
+      .select()
+      .from(weeklyReviews)
+      .orderBy(desc(weeklyReviews.weekStart))
+      .limit(12);
+    return rows.map((r) => ({ ...r, createdAt: iso(r.createdAt) }));
+  }
+
   async overview(day = today()): Promise<DreamsOverviewDto> {
-    const [all, aiQuestions, aiSteps] = await Promise.all([
-      this.states(),
+    const [all, habitDtos, reviews, aiQuestions, aiSteps] = await Promise.all([
+      this.states(undefined, day),
+      this.habits(day),
+      this.reviews(),
       this.questionsAi.active(),
       this.stepsAi.active(),
     ]);
+    const weekStart = isoWeekStart(day);
     const order = {
       moving: 0,
       dreaming: 1,
@@ -189,22 +234,42 @@ export class DreamsService implements OnApplicationBootstrap {
     };
     return {
       today: day,
+      weekStart,
       dreams: all
         .map((s) => s.dto)
         .sort((a, b) => order[a.status] - order[b.status]),
+      habits: habitDtos,
+      reviews,
+      reviewedThisWeek: reviews.some((r) => r.weekStart === weekStart),
       aiQuestions,
       aiSteps,
     };
   }
 
-  /** The dates you gave chosen steps, for the Agenda. */
+  /** The dates you gave chosen steps, and the target dates of open dreams, for the Agenda. */
   async deadlines(
     query: DeadlinesQuery,
     day = today(),
   ): Promise<DeadlineDto[]> {
     const window = deadlineWindow(query, day);
     const out: DeadlineDto[] = [];
-    for (const { dto } of await this.states())
+    for (const { dto } of await this.states(undefined, day)) {
+      if (
+        (dto.status === 'moving' || dto.status === 'dreaming') &&
+        inDeadlineWindow(dto.targetDate, window)
+      )
+        out.push({
+          id: `dream:${dto.id}:${dto.targetDate}`,
+          module: 'dreams',
+          kind: 'dream',
+          title: `Dream: ${dto.title}`,
+          detail: dto.doneSteps
+            ? `The date you hoped for. ${dto.doneSteps} step${dto.doneSteps === 1 ? '' : 's'} taken so far; moving it is fine.`
+            : 'The date you hoped for. Moving it is fine.',
+          date: dto.targetDate!,
+          amount: null,
+          path: `/dreams?dream=${dto.id}`,
+        });
       for (const s of dto.steps)
         if (s.status === 'chosen' && inDeadlineWindow(s.dueDate, window))
           out.push({
@@ -217,14 +282,18 @@ export class DreamsService implements OnApplicationBootstrap {
             amount: null,
             path: '/dreams',
           });
+    }
     return out;
   }
 
-  /** The island badge: only steps waiting for their check-in. Dreams never count as late. */
-  async attention(): Promise<LifeAttentionDto> {
-    const all = await this.states();
-    const items = all.flatMap(({ dto }) =>
-      dto.steps
+  /**
+   * The island badge: steps waiting for their check-in, and dreams whose
+   * chosen step has waited two weeks. Dreams never count as late.
+   */
+  async attention(day = today()): Promise<LifeAttentionDto> {
+    const all = await this.states(undefined, day);
+    const items = all.flatMap(({ dto }) => [
+      ...dto.steps
         .filter((s) => s.awaitingCheckIn)
         .map((s) => ({
           id: `check-in:${s.id}`,
@@ -232,11 +301,49 @@ export class DreamsService implements OnApplicationBootstrap {
           title: `How did “${s.title}” go?`,
           detail: `A step towards “${dto.title}”: a short check-in tells the next step.`,
           since: s.doneOn,
-          path: '/dreams?tab=check-ins',
+          path: `/dreams?dream=${dto.id}&tab=check-ins`,
           action: 'Check in',
         })),
-    );
+      ...(dto.stuck && dto.nextStep
+        ? [
+            {
+              id: `stuck:${dto.id}`,
+              kind: 'stuck',
+              title: `Get “${dto.title}” moving again`,
+              detail: `No step done for ${dto.idleDays} days. Next: ${dto.nextStep.title}. A smaller step, or a rest, is fine too.`,
+              since: null,
+              path: `/dreams?dream=${dto.id}&tab=steps`,
+              action: 'Pick a smaller step',
+            },
+          ]
+        : []),
+    ]);
     return { expired: 0, expiring: 0, toReview: items.length, items };
+  }
+
+  /** Ticks (or unticks) a habit for a day. */
+  async checkHabit(id: string, request: HabitCheckRequest): Promise<void> {
+    await requireRow(this.db, habits, id, 'Habit');
+    if (request.done)
+      await this.db
+        .insert(habitChecks)
+        .values({ habitId: id, date: request.date })
+        .onConflictDoNothing();
+    else
+      await this.db
+        .delete(habitChecks)
+        .where(
+          and(eq(habitChecks.habitId, id), eq(habitChecks.date, request.date)),
+        );
+  }
+
+  /** Writes the review of a week, replacing what was there. */
+  async saveWeeklyReview(request: WeeklyReviewRequest): Promise<void> {
+    const values = { ...request, weekStart: isoWeekStart(request.weekStart) };
+    await this.db
+      .insert(weeklyReviews)
+      .values(values)
+      .onConflictDoUpdate({ target: weeklyReviews.weekStart, set: values });
   }
 
   /** What the areas a dream shares say now, as Claude would read it. */
@@ -316,11 +423,14 @@ export class DreamsService implements OnApplicationBootstrap {
     request: DreamSuggestRequest,
     day = today(),
   ): Promise<DreamDto> {
-    const { dream, dto } = await this.state(id);
+    const { dream, dto } = await this.state(id, day);
     const reach = dto.reach;
-    const context = dream.contextAreas.length
-      ? await readDreamContext(dream.contextAreas, this.config.sources, day)
-      : null;
+    const [context, dreamHabits] = await Promise.all([
+      dream.contextAreas.length
+        ? readDreamContext(dream.contextAreas, this.config.sources, day)
+        : null,
+      this.habits(day, id),
+    ]);
     let output;
     let source: 'claude' | 'offline' = 'offline';
     let model: string | null = null;
@@ -339,6 +449,7 @@ export class DreamsService implements OnApplicationBootstrap {
           reach,
           context,
           request.note?.trim() || null,
+          dreamHabits.filter((h) => h.active),
         ),
       });
       output = clampSteps(answer.output, reach);
@@ -474,6 +585,7 @@ export function toDreamDto(
   steps: readonly DreamStepRow[],
   checkIns: readonly DreamCheckInRow[],
   guidance: DreamGuidanceRow | null,
+  day: string,
 ): DreamDto {
   const { updatedAt: _, opening, ...fields } = dream;
   const checked = new Set(checkIns.map((c) => c.stepId).filter(Boolean));
@@ -482,7 +594,9 @@ export function toDreamDto(
       ...s,
       createdAt: iso(s.createdAt),
       awaitingCheckIn:
-        (s.status === 'done' || s.status === 'skipped') && !checked.has(s.id),
+        (s.status === 'done' || s.status === 'skipped') &&
+        s.source !== 'goals' &&
+        !checked.has(s.id),
     }))
     .sort(
       (a, b) =>
@@ -526,5 +640,6 @@ export function toDreamDto(
     doneSteps: stepDtos.filter((s) => s.status === 'done').length,
     unansweredQuestions: questionDtos.filter((q) => !q.answer).length,
     reach: reachOf(dream, checkInDtos),
+    ...dreamPulse({ ...dream, createdAt: iso(dream.createdAt) }, stepDtos, day),
   };
 }

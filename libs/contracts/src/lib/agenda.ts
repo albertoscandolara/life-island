@@ -124,7 +124,6 @@ export const DEADLINE_SOURCES = [
   { module: 'studies', name: 'Studies', emblem: '📚', path: '/studies' },
   { module: 'work', name: 'Work', emblem: '💼', path: '/work' },
   { module: 'money', name: 'Money', emblem: '💶', path: '/money' },
-  { module: 'goals', name: 'Goals & habits', emblem: '🎯', path: '/goals' },
   { module: 'health', name: 'Health', emblem: '🩺', path: '/health' },
   {
     module: 'subscriptions',

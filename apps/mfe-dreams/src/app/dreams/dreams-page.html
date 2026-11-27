@@ -1,7 +1,7 @@
 <ui-page-header
   emblem="🌄"
   heading="Dreams"
-  subtitle="Something you would love to reach, and a careful way towards it: a few questions first, then one small step at a time, each one you can undo, at the pace you set."
+  subtitle="Something you would love to reach, and a careful way towards it: a few questions first, then one small step at a time, each one you can undo, at the pace you set. The habits you repeat for it, and a few lines about your week."
 />
 
 <li-needs-you module="dreams" />
@@ -21,7 +21,23 @@
 </ui-alert>
 } @if (!data() && !error()) {
 <p class="li-muted">Loading your dreams…</p>
-} @if (data(); as all) { @if (!all.dreams.length) {
+} @if (data(); as all) { @if (all.dreams.length || all.habits.length ||
+all.reviews.length) {
+<li-tabs
+  [tabs]="views()"
+  [active]="view()"
+  (activeChange)="view.set($event)"
+  label="Dreams, habits and your week"
+/>
+} @switch (view()) { @case ('habits') {
+<dreams-habits [data]="all" (changed)="load()" (failed)="error.set($event)" />
+} @case ('week') {
+<dreams-weekly-review
+  [data]="all"
+  (changed)="load()"
+  (failed)="error.set($event)"
+/>
+} @default { @if (!all.dreams.length) {
 <section class="sky sky--welcome li-block" aria-labelledby="welcome-title">
   <dreams-sky [done]="0" [next]="false" seed="welcome" />
   <div class="sky__text">
@@ -105,7 +121,8 @@
   <div class="sky__text">
     <span class="sky__area"
       >{{ areaEmblems[d.area] }} {{ areaLabels[d.area] }} · {{
-      statusLabels[d.status] }}</span
+      statusLabels[d.status] }}@if (d.targetDate) { · hoping for {{
+      dateText(d.targetDate) }} }</span
     >
     <h2 class="sky__title">{{ d.title }}</h2>
     @if (d.story || d.why) {
@@ -168,7 +185,8 @@
   key: 'why', label: 'Why it matters to me', value: d.why }, { key: 'today',
   label: 'Where I am today', value: d.today }, { key: 'fears', label: 'What
   scares me', value: d.fears }, { key: 'mustKeep', label: 'What I cannot put at
-  risk', value: d.mustKeep } ]; track f.key) {
+  risk', value: d.mustKeep }, { key: 'measure', label: 'I will know it is
+  reached when', value: d.measure } ]; track f.key) {
   <article class="word" [class.word--empty]="!f.value">
     <h3 class="word__label">{{ f.label }}</h3>
     @if (f.value) {
@@ -640,7 +658,7 @@
   </article>
   }
 </div>
-} } } } }
+} } } } } } }
 
 <p class="promise">
   🌙 Ovi suggests; you decide, always. Life Island helps you plan small steps;

@@ -4,17 +4,19 @@ import {
   DREAM_DEFAULT_CONTEXT,
   dreamRequestSchema,
   dreamStepRequestSchema,
+  habitRequestSchema,
   isoToday,
   type DreamRequest,
   type DreamStepRequest,
+  type HabitRequest,
 } from '@life-island/contracts';
-import { dreams, dreamSteps } from '../db/schema.js';
+import { dreams, dreamSteps, habits } from '../db/schema.js';
 
 export const RECORDS = Symbol('DreamsRecords');
 
 const today = () => isoToday(process.env['SETTINGS_TIMEZONE'] || 'Europe/Rome');
 
-/** Dreams' plain records: the dreams and the steps you write or edit yourself. */
+/** Dreams' plain records: the dreams, the steps you write or edit yourself, and habits. */
 export function collections(db: NodePgDatabase): RecordCollection[] {
   return [
     {
@@ -39,6 +41,14 @@ export function collections(db: NodePgDatabase): RecordCollection[] {
         request.status === undefined
           ? request
           : { ...request, doneOn: request.status === 'done' ? today() : null },
+    },
+    {
+      name: 'habits',
+      label: 'Habit',
+      table: habits,
+      request: habitRequestSchema,
+      check: (request: Partial<HabitRequest>) =>
+        requireRow(db, dreams, request.dreamId, 'Dream'),
     },
   ];
 }

@@ -129,10 +129,6 @@
 		import protected
 		reverse_proxy svc-health:3000
 	}
-	handle_path /api/goals/* {
-		import protected
-		reverse_proxy svc-goals:3000
-	}
 	handle_path /api/money/* {
 		import protected
 		reverse_proxy svc-money:3000

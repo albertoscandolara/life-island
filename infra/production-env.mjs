@@ -22,7 +22,6 @@ const ROLES = [
   'studies',
   'agenda',
   'money',
-  'goals',
   'health',
   'subscriptions',
   'travel',

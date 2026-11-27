@@ -14,7 +14,6 @@ export interface IslandModule {
     | 'iggy'
     | 'compy'
     | 'spino'
-    | 'rex'
     | 'maia'
     | 'allo'
     | 'diplo'
@@ -47,7 +46,6 @@ export interface IslandModule {
     | 'garage'
     | 'clock'
     | 'coins'
-    | 'flag'
     | 'antenna'
     | 'boat'
     | 'track'
@@ -195,18 +193,7 @@ export const ISLAND_MODULES: readonly IslandModule[] = [
     attentionUrl: '/api/fitness/attention',
     landmark: 'track',
   },
-  {
-    id: 'goals',
-    character: 'rex',
-    emblem: '🎯',
-    name: 'Goals & habits',
-    islandName: 'Goals',
-    mission:
-      'Where you want to go and the next step to get there, daily habits with streaks, a weekly review, and a coach for when you are stuck.',
-    path: '/goals',
-    attentionUrl: '/api/goals/attention',
-    landmark: 'flag',
-  },
+
   {
     id: 'dreams',
     character: 'ovi',
