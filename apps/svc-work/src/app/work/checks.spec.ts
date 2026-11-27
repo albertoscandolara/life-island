@@ -182,6 +182,47 @@ describe('buildAudit', () => {
   });
 });
 
+describe('TFR check', () => {
+  const months = [
+    '01',
+    '02',
+    '03',
+    '04',
+    '05',
+    '06',
+    '07',
+    '08',
+    '09',
+    '10',
+    '11',
+    '12',
+  ];
+  // 2250 / 13.5 less 0.5% = 155.42 a month.
+  const year = (severance: (m: string) => number) =>
+    months.map((m) =>
+      payslip(`2025-${m}`, { severance_accrued: severance(m) }),
+    );
+  const tfr = (docs: ApprovedWorkDocument[]) =>
+    buildAudit([workplace], docs, '2026-03-01').findings.filter(
+      (f) => f.kind === 'tfr_quota',
+    );
+
+  it('expects pay over 13.5 less the 0.5% to INPS', () => {
+    expect(tfr(year(() => 155.42))).toEqual([]);
+    expect(tfr(year(() => 120))).toHaveLength(1);
+  });
+
+  it('names the months whose TFR was read as the 0.5% contribution', () => {
+    const [finding] = tfr(
+      year((m) => (m === '11' || m === '12' ? 11.25 : 155.42)),
+    );
+    expect(finding.title).toBe(
+      'TFR 2025: 2 payslips read the 0.5% contribution as the TFR',
+    );
+    expect(finding.detail).toContain('11/2025, 12/2025');
+  });
+});
+
 describe('buildNetChanges', () => {
   it('explains a net change by its parts, which add up', () => {
     const [change] = buildNetChanges([
