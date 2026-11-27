@@ -103,22 +103,6 @@
   --accent-2: var(--sun-600);
 }
 
-[data-character='rex'] {
-  /* goals and habits: steps, streaks, weekly reviews */
-  --accent: color-mix(in srgb, var(--lava-500) 55%, var(--sun-600));
-  --accent-hover: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--lava-500) 55%, var(--sun-600)) 82%,
-    var(--ink-900)
-  );
-  --accent-soft: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--lava-500) 55%, var(--sun-600)) 10%,
-    var(--ink-0)
-  );
-  --accent-2: var(--lagoon-600);
-}
-
 [data-character='maia'] {
   /* health: visits, medicines, test results, checkups */
   --accent: color-mix(in srgb, var(--coral-400) 70%, var(--lava-600));
@@ -270,15 +254,6 @@
   --accent-hover: color-mix(
     in srgb,
     color-mix(in srgb, var(--jungle-500) 60%, var(--ink-0)) 82%,
-    var(--ink-0)
-  );
-}
-
-:root[data-theme='dark'] [data-character='rex'] {
-  --accent: color-mix(in srgb, var(--lava-400) 55%, var(--sun-400));
-  --accent-hover: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--lava-400) 55%, var(--sun-400)) 82%,
     var(--ink-0)
   );
 }

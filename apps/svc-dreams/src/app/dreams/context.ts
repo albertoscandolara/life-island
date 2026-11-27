@@ -8,7 +8,6 @@ import {
   type DreamContextFactDto,
   type DreamSafetyNetDto,
   type FitnessOverviewDto,
-  type GoalsOverviewDto,
   type MoneyOverviewDto,
   type StudiesOverviewDto,
   type TravelOverviewDto,
@@ -200,23 +199,6 @@ export function travelFacts(travel: TravelOverviewDto): DreamContextFactDto[] {
   return facts;
 }
 
-export function goalsFacts(goals: GoalsOverviewDto): DreamContextFactDto[] {
-  const active = goals.goals.filter((g) => g.status === 'active');
-  const facts: DreamContextFactDto[] = [
-    {
-      label: 'Active goals',
-      value: `${active.length}, ${active.filter((g) => g.stuck).length} of them stuck`,
-    },
-  ];
-  for (const g of active.slice(0, 4))
-    facts.push({
-      label: g.title.slice(0, 80),
-      value:
-        g.progress === null ? 'no steps yet' : `${g.progress}% of its steps`,
-    });
-  return facts;
-}
-
 async function readOverview<T>(
   base: string,
   fetcher: typeof fetch,
@@ -278,9 +260,6 @@ export async function readDreamContext(
               break;
             case 'travel':
               out.facts = travelFacts(await readOverview(base, fetcher));
-              break;
-            case 'goals':
-              out.facts = goalsFacts(await readOverview(base, fetcher));
               break;
           }
           out.reachable = true;

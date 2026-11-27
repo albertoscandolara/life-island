@@ -137,7 +137,7 @@ Restore, from the repository folder (`C` is the long Compose command above):
 C="docker compose --project-directory . -f infra/docker-compose.yml --profile apps"
 $C exec backup island-backup list
 # The database: services stopped, so nothing writes meanwhile.
-$C stop $(echo svc-ingestion svc-review svc-groceries svc-tax730 svc-home svc-people svc-cars svc-work svc-settings svc-studies svc-agenda svc-money svc-goals svc-health svc-subscriptions svc-travel svc-fitness svc-dreams svc-auth svc-parse-worker)
+$C stop $(echo svc-ingestion svc-review svc-groceries svc-tax730 svc-home svc-people svc-cars svc-work svc-settings svc-studies svc-agenda svc-money svc-health svc-subscriptions svc-travel svc-fitness svc-dreams svc-auth svc-parse-worker)
 $C exec backup island-backup restore-db 2026-11-20_0330
 # The files: storage stopped, its volume mounted writable for the restore.
 $C stop storage

@@ -111,10 +111,8 @@ const islandRoutes: Route[] = [
     path: 'money',
     loadChildren: remote('mfe-money', './routes', 'MONEY_ROUTES'),
   },
-  {
-    path: 'goals',
-    loadChildren: remote('mfe-goals', './routes', 'GOALS_ROUTES'),
-  },
+  // Goals & habits moved into Dreams: an old link lands there.
+  { path: 'goals', redirectTo: 'dreams' },
   {
     path: 'health',
     loadChildren: remote('mfe-health', './routes', 'HEALTH_ROUTES'),

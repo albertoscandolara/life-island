@@ -16,6 +16,8 @@ const dream = {
   today: 'Bored and underpaid',
   fears: null,
   mustKeep: 'My salary, every month',
+  measure: null,
+  targetDate: null,
   pace: 'gentle' as const,
   status: 'dreaming' as const,
 };

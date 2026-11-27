@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  lifeDate,
   lifeName,
   lifeNote,
   lifeOptionalDate,
@@ -16,6 +17,11 @@ import {
  * about any area of life, so it can read, only when you tick them, a short
  * summary of the other areas of the island (your savings for a safety net,
  * your time at work, the studies you follow).
+ *
+ * Dreams also holds what Goals & habits used to (merged in November 2026):
+ * a dream can say how you will know it is reached and by when, the habits
+ * you repeat for it (a few days a week, with streaks), and a short weekly
+ * review that covers every dream.
  */
 
 export const DREAM_AREAS = [
@@ -144,7 +150,6 @@ export const DREAM_CONTEXT_AREAS = [
   'studies',
   'fitness',
   'travel',
-  'goals',
 ] as const;
 export type DreamContextArea = (typeof DREAM_CONTEXT_AREAS)[number];
 export const DREAM_CONTEXT_SOURCES: Record<
@@ -179,11 +184,6 @@ export const DREAM_CONTEXT_SOURCES: Record<
     emblem: '✈️',
     reads: 'the trips ahead and what travel cost you this year',
   },
-  goals: {
-    name: 'Goals & habits',
-    emblem: '🎯',
-    reads: 'your active goals and how they move',
-  },
 };
 
 /** The areas a new dream offers to read, by its area of life. */
@@ -196,7 +196,7 @@ export const DREAM_DEFAULT_CONTEXT: Record<DreamArea, DreamContextArea[]> = {
   home: ['money'],
   relationships: [],
   creativity: ['studies'],
-  wellbeing: ['fitness', 'goals'],
+  wellbeing: ['fitness'],
   other: [],
 };
 
@@ -217,12 +217,46 @@ export const dreamRequestSchema = z.object({
   fears: lifeNote(1500),
   /** What you cannot put at risk: income, time, people. */
   mustKeep: lifeNote(1000),
+  /** How you will know it is reached. */
+  measure: lifeNote(300),
+  /** When you would like to reach it; a wish, never a deadline that turns red. */
+  targetDate: lifeOptionalDate,
   pace: z.enum(DREAM_PACES).optional(),
   status: z.enum(DREAM_STATUSES).optional(),
   /** The other areas this dream may read. */
   contextAreas: z.array(z.enum(DREAM_CONTEXT_AREAS)).max(6).optional(),
 });
 export type DreamRequest = z.input<typeof dreamRequestSchema>;
+
+/** Something you repeat a few days a week, for a dream or for its own sake. */
+export const habitRequestSchema = z.object({
+  title: lifeName(120),
+  dreamId: z.uuid().nullable().optional(),
+  /** How many days a week you aim for (7 is every day). */
+  perWeek: z.number().int().min(1).max(7).optional(),
+  active: z.boolean().optional(),
+});
+export type HabitRequest = z.input<typeof habitRequestSchema>;
+
+/** How far back a habit's checked days go: 13 weeks, for its calendar. */
+export const HABIT_HISTORY_DAYS = 91;
+
+export const habitCheckRequestSchema = z.object({
+  date: lifeDate,
+  done: z.boolean(),
+});
+export type HabitCheckRequest = z.infer<typeof habitCheckRequestSchema>;
+
+/** The few lines you write at the end of a week, about every dream at once. */
+export const weeklyReviewRequestSchema = z.object({
+  weekStart: lifeDate,
+  /** 1 (rough) to 5 (great). */
+  mood: z.number().int().min(1).max(5).nullable().optional(),
+  wins: lifeNote(2000),
+  stuck: lifeNote(2000),
+  next: lifeNote(2000),
+});
+export type WeeklyReviewRequest = z.input<typeof weeklyReviewRequestSchema>;
 
 export const dreamStepRequestSchema = z.object({
   dreamId: z.uuid(),
@@ -366,9 +400,10 @@ export type DreamStepDto = LifeRecord<{
   status: DreamStepStatus;
   dueDate: string | null;
   doneOn: string | null;
-  source: 'claude' | 'offline' | 'you';
+  /** 'goals': a step done in Goals & habits before the merge. */
+  source: 'claude' | 'offline' | 'you' | 'goals';
 }> & {
-  /** Done or skipped, with no check-in yet. */
+  /** Done or skipped, with no check-in yet (never a step done back in Goals). */
   awaitingCheckIn: boolean;
 };
 
@@ -399,6 +434,8 @@ export type DreamDto = LifeRecord<{
   today: string | null;
   fears: string | null;
   mustKeep: string | null;
+  measure: string | null;
+  targetDate: string | null;
   pace: DreamPace;
   status: DreamStatus;
   contextAreas: DreamContextArea[];
@@ -416,7 +453,37 @@ export type DreamDto = LifeRecord<{
   unansweredQuestions: number;
   /** How far the next steps may reach, from the pace and the latest check-ins. */
   reach: DreamReach;
+  /** Days since a step was last done (or since the dream was written). */
+  idleDays: number;
+  /** Taking steps, with a chosen step and nothing done for DREAM_STUCK_DAYS days. */
+  stuck: boolean;
+  /** Days to the target date; null without one. */
+  daysLeft: number | null;
 };
+
+/** A dream taking steps with nothing done for this many days is stuck. */
+export const DREAM_STUCK_DAYS = 14;
+
+export type HabitDto = LifeRecord<{
+  title: string;
+  dreamId: string | null;
+  perWeek: number;
+  active: boolean;
+}> & {
+  /** The days checked in the last HABIT_HISTORY_DAYS days (13 weeks). */
+  checked: string[];
+  thisWeek: number;
+  /** Weeks in a row at target, this one included once it is reached. */
+  streak: number;
+};
+
+export type WeeklyReviewDto = LifeRecord<{
+  weekStart: string;
+  mood: number | null;
+  wins: string | null;
+  stuck: string | null;
+  next: string | null;
+}>;
 
 export interface DreamReach {
   /** The furthest stretch the next steps may have. */
@@ -461,7 +528,14 @@ export interface DreamContextDto {
 
 export interface DreamsOverviewDto {
   today: string;
+  /** The Monday of this week. */
+  weekStart: string;
   dreams: DreamDto[];
+  habits: HabitDto[];
+  /** Newest first, the last 12 weeks written. */
+  reviews: WeeklyReviewDto[];
+  /** Whether this week's review is written. */
+  reviewedThisWeek: boolean;
   /** Whether each tool calls Claude now (a key and its Settings switch). */
   aiQuestions: boolean;
   aiSteps: boolean;

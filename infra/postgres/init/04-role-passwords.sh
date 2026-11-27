@@ -11,7 +11,7 @@ set -eu
 
 changed=0
 for name in ingestion review grocery tax730 home people cars work settings studies \
-  agenda money goals health subscriptions travel fitness dreams auth; do
+  agenda money health subscriptions travel fitness dreams auth; do
   var="DB_PASSWORD_$(echo "$name" | tr '[:lower:]' '[:upper:]')"
   value=$(printenv "$var" || true)
   [ -n "$value" ] || continue

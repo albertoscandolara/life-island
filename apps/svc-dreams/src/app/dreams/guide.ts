@@ -16,6 +16,7 @@ import {
   type DreamStepKind,
   type DreamStepsOutput,
   type DreamStretch,
+  type HabitDto,
 } from '@life-island/contracts';
 import { contextLines } from './context.js';
 
@@ -34,6 +35,8 @@ type DreamFields = Pick<
   | 'today'
   | 'fears'
   | 'mustKeep'
+  | 'measure'
+  | 'targetDate'
   | 'pace'
   | 'status'
 >;
@@ -635,7 +638,7 @@ Rules: one idea per question, plain and kind words, no jargon, no emojis, no the
 
 export const STEPS_INSTRUCTIONS = `You are Ovi, a calm, careful guide inside Life Island. One person wants to reach a dream but finds it hard to leave their comfort zone without a plan. Your job is to suggest the next few small, reversible steps, and nothing more. They decide; you never push.
 
-You receive the dream in their words (why, where they are today, fears, what they must keep), their answers to your questions, the steps they took or set aside, how each step felt (1 too much ... 5 energising) and the pace they asked for next, the furthest stretch allowed now, and, only if they chose to share them, a few facts from other areas of their life (savings and the months they cover, time at their job, studies, fitness, travel, goals).
+You receive the dream in their words (why, where they are today, fears, what they must keep), their answers to your questions, the steps they took or set aside, how each step felt (1 too much ... 5 energising) and the pace they asked for next, the furthest stretch allowed now, and, only if they chose to share them, a few facts from other areas of their life (savings and the months they cover, time at their job, studies, fitness, travel), and the habits they repeat for this dream with how this week went.
 
 Write:
 - reflection: two or three honest, kind sentences on where the dream stands and what the next steps are for.
@@ -667,6 +670,8 @@ function dreamLines(dream: DreamFields): string[] {
   add('Where they are today', dream.today);
   add('What scares them', dream.fears);
   add('What they cannot put at risk', dream.mustKeep);
+  add('They will know it is reached when', dream.measure);
+  add('They hope to reach it by', dream.targetDate);
   return lines;
 }
 
@@ -679,6 +684,7 @@ export function stepsDossier(
   reach: DreamReach,
   context: DreamContextDto | null,
   note: string | null,
+  habits: readonly HabitDto[] = [],
 ): string {
   const lines = [`Today is ${today}.`, '<dream>', ...dreamLines(dream)];
   lines.push(`Pace they chose: ${DREAM_PACE_LABELS[dream.pace]}`, '</dream>');
@@ -707,6 +713,14 @@ export function stepsDossier(
       );
     }
     lines.push('</check-ins>');
+  }
+  if (habits.length) {
+    lines.push('<habits for this dream>');
+    for (const h of habits.slice(0, 8))
+      lines.push(
+        `- ${h.title}: ${h.thisWeek} of ${h.perWeek} days this week, ${h.streak} week${h.streak === 1 ? '' : 's'} in a row at target`,
+      );
+    lines.push('</habits>');
   }
   const facts = context ? contextLines(context) : [];
   if (facts.length)

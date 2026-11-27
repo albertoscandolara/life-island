@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /*
- * Field schemas the record-keeping modules share (Agenda, Money, Goals,
+ * Field schemas the record-keeping modules share (Agenda, Money, Dreams,
  * Health, Subscriptions, Travel, Fitness), so a date, an amount or a
  * note is checked the same way in every one of them.
  */

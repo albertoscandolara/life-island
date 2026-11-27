@@ -89,7 +89,6 @@ jobs:
       TRAVEL_DATABASE_URL: postgres://travel_svc:dev_travel@localhost:5432/life_island
       SUBSCRIPTIONS_DATABASE_URL: postgres://subscriptions_svc:dev_subscriptions@localhost:5432/life_island
       HEALTH_DATABASE_URL: postgres://health_svc:dev_health@localhost:5432/life_island
-      GOALS_DATABASE_URL: postgres://goals_svc:dev_goals@localhost:5432/life_island
       MONEY_DATABASE_URL: postgres://money_svc:dev_money@localhost:5432/life_island
       AGENDA_DATABASE_URL: postgres://agenda_svc:dev_agenda@localhost:5432/life_island
       NATS_URL: nats://localhost:4222

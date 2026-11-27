@@ -203,5 +203,88 @@ describe.skipIf(!configured)(
       });
       expect(wrong.status).toBe(404);
     });
+
+    it('keeps habits with their ticks and streak, and one review a week', async () => {
+      const dream = await json<{ id: string }>('POST', '/dreams', {
+        title: 'Run a 10 km race',
+        area: 'fitness',
+        measure: 'Under an hour',
+        targetDate: isoAddDays(today(), 20),
+      });
+      dreamIds.push(dream.body.id);
+      const habit = await json<{ id: string }>('POST', '/habits', {
+        title: 'Run',
+        dreamId: dream.body.id,
+        perWeek: 1,
+      });
+      expect(habit.status).toBe(201);
+      const day = today();
+      expect(
+        (
+          await json('PUT', `/habits/${habit.body.id}/checks`, {
+            date: day,
+            done: true,
+          })
+        ).status,
+      ).toBe(204);
+      // Ticking twice is the same tick.
+      await json('PUT', `/habits/${habit.body.id}/checks`, {
+        date: day,
+        done: true,
+      });
+      let overview = await json<DreamsOverviewDto>('GET', '/overview');
+      const ran = overview.body.habits.find((h) => h.id === habit.body.id)!;
+      expect(ran).toMatchObject({
+        dreamId: dream.body.id,
+        thisWeek: 1,
+        streak: 1,
+        checked: [day],
+      });
+      expect(
+        overview.body.dreams.find((d) => d.id === dream.body.id),
+      ).toMatchObject({ measure: 'Under an hour', daysLeft: 20, stuck: false });
+
+      // The hoped-for date goes to the Agenda.
+      const deadlines = await json<DeadlineDto[]>('GET', '/deadlines');
+      expect(
+        deadlines.body.some((d) => d.id.startsWith(`dream:${dream.body.id}:`)),
+      ).toBe(true);
+
+      await json('PUT', `/habits/${habit.body.id}/checks`, {
+        date: day,
+        done: false,
+      });
+      // A week long past, so a review of yours is never touched.
+      const review = {
+        weekStart: '2001-01-03',
+        mood: 4,
+        wins: 'Ran once',
+        stuck: null,
+        next: 'Run twice',
+      };
+      expect((await json('PUT', '/weekly-reviews', review)).status).toBe(204);
+      expect(
+        (await json('PUT', '/weekly-reviews', { ...review, mood: 5 })).status,
+      ).toBe(204);
+      // One review a week, filed under its Monday.
+      const { rows } = await svc.pool.query<{ mood: number }>(
+        "select mood from dreams.weekly_reviews where week_start = '2001-01-01'",
+      );
+      expect(rows).toEqual([{ mood: 5 }]);
+      await svc.pool.query(
+        "delete from dreams.weekly_reviews where week_start = '2001-01-01'",
+      );
+      overview = await json<DreamsOverviewDto>('GET', '/overview');
+      expect(
+        overview.body.habits.find((h) => h.id === habit.body.id)?.thisWeek,
+      ).toBe(0);
+      // Deleting the dream keeps the habit, now just for you.
+      await json('DELETE', `/dreams/${dream.body.id}`);
+      overview = await json<DreamsOverviewDto>('GET', '/overview');
+      expect(
+        overview.body.habits.find((h) => h.id === habit.body.id)?.dreamId,
+      ).toBeNull();
+      await json('DELETE', `/habits/${habit.body.id}`);
+    });
   },
 );

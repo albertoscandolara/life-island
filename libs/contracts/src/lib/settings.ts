@@ -155,13 +155,6 @@ export const AI_TOOL_MODULES = [
     service: 'svc-money',
   },
   {
-    id: 'goals',
-    name: 'Goals & habits',
-    emblem: '🎯',
-    character: 'rex',
-    service: 'svc-goals',
-  },
-  {
     id: 'health',
     name: 'Health',
     emblem: '🩺',
@@ -618,32 +611,6 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
     ],
   },
   {
-    id: 'goals.coach',
-    module: 'goals',
-    name: 'Goals coach',
-    description:
-      'Looks at your goals, their steps and dates, your habits and your weekly reviews, finds where you are stuck and why, and names one small next step for each.',
-    unit: 'session',
-    trigger: 'on-demand',
-    where: { app: 'island', path: '/goals', label: 'Goals · Coach' },
-    whenOff:
-      "The advice is written by Life Island's own rules: goals with no step done for two weeks, overdue steps and habits below target.",
-    defaultEnabled: true,
-    steps: [
-      {
-        id: 'coach',
-        label: 'Coach the week',
-        modelEnv: 'GOALS_AI_MODEL',
-        defaultModel: 'claude-sonnet-5-5',
-        effort: 'medium',
-        maxTokens: 8000,
-        tools: [],
-        estimate: { inputTokens: 5000, outputTokens: 2000 },
-        always: true,
-      },
-    ],
-  },
-  {
     id: 'health.results-explainer',
     module: 'health',
     name: 'Test results explainer',
@@ -990,7 +957,6 @@ export const ISLAND_AREAS = [
   { id: 'cars', emblem: '🚗', name: 'Cars' },
   { id: 'agenda', emblem: '🗓️', name: 'Agenda' },
   { id: 'money', emblem: '💶', name: 'Money' },
-  { id: 'goals', emblem: '🎯', name: 'Goals & habits' },
   { id: 'subscriptions', emblem: '📑', name: 'Contracts & subscriptions' },
   { id: 'travel', emblem: '✈️', name: 'Travel' },
   { id: 'fitness', emblem: '🏃', name: 'Fitness' },
@@ -1056,7 +1022,6 @@ const AI_SERVICES = [
   'svc-studies',
   'svc-agenda',
   'svc-money',
-  'svc-goals',
   'svc-health',
   'svc-groceries',
   'svc-subscriptions',

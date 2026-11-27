@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+
+.review {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.moods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.moods legend {
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.mood {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  font-size: var(--text-xl);
+  cursor: pointer;
+}
+
+.mood--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.past p {
+  margin: var(--space-1) 0 0;
+}

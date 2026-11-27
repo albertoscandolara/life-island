@@ -56,6 +56,8 @@ import {
 import { AiTool } from '@life-island/settings-ui';
 import { DreamsApi } from '../api/dreams-api';
 import { DreamSky } from './dream-sky';
+import { DreamHabits } from '../habits/dream-habits';
+import { WeeklyReview } from '../habits/weekly-review';
 
 type DreamTab = 'dream' | 'questions' | 'steps' | 'check-ins' | 'safety';
 const TABS: readonly DreamTab[] = [
@@ -65,6 +67,9 @@ const TABS: readonly DreamTab[] = [
   'check-ins',
   'safety',
 ];
+/** The page's own views: your dreams, the habits you repeat, and your week. */
+type PageView = 'dreams' | 'habits' | 'week';
+const VIEWS: readonly PageView[] = ['dreams', 'habits', 'week'];
 const SERVICE = 'svc-dreams';
 
 const DREAM_FIELDS: readonly LiField[] = [
@@ -122,6 +127,19 @@ const DREAM_FIELDS: readonly LiField[] = [
     type: 'textarea',
     wide: true,
     placeholder: 'My salary every month, my evenings with the family…',
+  },
+  {
+    key: 'measure',
+    label: 'I will know it is reached when',
+    type: 'text',
+    wide: true,
+    placeholder: 'I start a job where my ideas are heard',
+  },
+  {
+    key: 'targetDate',
+    label: 'Hoping for',
+    type: 'date',
+    hint: 'Optional; a wish, not a deadline. It shows in the Agenda',
   },
 ];
 
@@ -189,6 +207,7 @@ interface CheckInDraft {
   imports: [
     LiNeedsYou,
     AiTool,
+    DreamHabits,
     DreamSky,
     LiRecordDialog,
     LiTabs,
@@ -202,6 +221,7 @@ interface CheckInDraft {
     UiEmptyState,
     UiIcon,
     UiPageHeader,
+    WeeklyReview,
   ],
   host: { 'data-character': 'ovi', class: 'dreams' },
   templateUrl: './dreams-page.html',
@@ -218,6 +238,7 @@ export class DreamsPage {
     this.route.snapshot.queryParamMap.get('dream'),
   );
   protected readonly tab = urlTab(TABS, 'dream');
+  protected readonly view = urlTab(VIEWS, 'dreams', 'view');
   protected readonly showClosed = signal(false);
   protected readonly showHistory = signal(false);
 
@@ -342,6 +363,27 @@ export class DreamsPage {
     ];
   });
 
+  protected readonly views = computed<LiTab[]>(() => {
+    const d = this.data();
+    const habitsLeft = (d?.habits ?? []).filter(
+      (h) => h.active && !h.checked.includes(d!.today),
+    ).length;
+    const waiting = (d?.dreams ?? []).reduce(
+      (n, x) => n + x.steps.filter((s) => s.awaitingCheckIn).length,
+      0,
+    );
+    return [
+      { id: 'dreams', label: 'Dreams', icon: 'flame', count: waiting },
+      { id: 'habits', label: 'Habits', icon: 'check', count: habitsLeft },
+      {
+        id: 'week',
+        label: 'Your week',
+        icon: 'calendar',
+        count: d && !d.reviewedThisWeek ? 1 : 0,
+      },
+    ];
+  });
+
   /** Where you are on the way: what to do now, in one line. */
   protected readonly nowHint = computed(() => {
     const d = this.dream();
@@ -354,6 +396,11 @@ export class DreamsPage {
       return {
         tab: 'questions',
         text: `Answer ${d.unansweredQuestions} question${d.unansweredQuestions === 1 ? '' : 's'}, when you feel like it`,
+      };
+    if (d.stuck && d.nextStep)
+      return {
+        tab: 'steps',
+        text: `${d.idleDays} days since the last step: try a smaller one, or rest`,
       };
     if (d.nextStep) return { tab: 'steps', text: `Next: ${d.nextStep.title}` };
     if (this.suggested().length)

@@ -20,6 +20,14 @@ export const SCHEMA_UPGRADE = fileURLToPath(
   ),
 );
 
+/** The one-off move of Goals & habits into Dreams (`npm run db:upgrade`). */
+export const GOALS_MOVE = fileURLToPath(
+  new URL(
+    '../../../../infra/postgres/upgrades/017-goals-into-dreams.sql',
+    import.meta.url,
+  ),
+);
+
 const logger = new Logger('Bootstrap');
 
 /** Applies this service's migrations, only ever touching the dreams schema. */
@@ -77,6 +85,38 @@ export async function ensureLocalSchema(
   }
 }
 
+/**
+ * On your machine, with the default connection, moves what Goals & habits
+ * held into Dreams right after the habits tables exist, as `npm run
+ * db:upgrade` would: `npm start` runs the upgrades before this service has
+ * added them. The move runs once (it marks itself done in the goals schema)
+ * and never fails the start: it only logs.
+ */
+export async function moveLocalGoals(
+  config: Pick<ServiceConfig, 'databaseUrl'>,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  if (config.databaseUrl !== LOCAL_DREAMS_DATABASE_URL) return;
+  const admin = new pg.Client({
+    host: 'localhost',
+    port: Number(env['POSTGRES_PORT'] || 5432),
+    user: env['POSTGRES_USER'] || 'postgres',
+    password: env['POSTGRES_PASSWORD'] || 'postgres',
+    database: 'life_island',
+  });
+  admin.on('notice', (notice) => logger.log(notice.message));
+  try {
+    await admin.connect();
+    await admin.query(await readFile(GOALS_MOVE, 'utf8'));
+  } catch (error) {
+    logger.warn(
+      `Goals & habits could not be moved into Dreams (${String(error)}). Run npm run db:upgrade.`,
+    );
+  } finally {
+    await admin.end().catch(() => undefined);
+  }
+}
+
 export async function createApp(
   config: ServiceConfig,
   options: { events?: boolean } = {},
@@ -88,6 +128,7 @@ export async function createApp(
       throw error;
     await runMigrations(config.databaseUrl);
   }
+  await moveLocalGoals(config);
   const app = await NestFactory.create(AppModule.forRoot(config, options));
   applyHttpSecurity(app, { service: 'svc-dreams', config });
   app.enableShutdownHooks();

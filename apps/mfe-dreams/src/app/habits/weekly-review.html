@@ -1,0 +1,84 @@
+<ui-card
+  [heading]="'The week of ' + dateText(data().weekStart)"
+  class="li-block"
+>
+  <p class="li-intro li-muted">
+    Five minutes on Sunday, about every dream at once: what went well, where you
+    got stuck, what comes next. A check-in is about one step; this is about the
+    whole week.
+  </p>
+  <form class="review" (submit)="$event.preventDefault(); save()">
+    <fieldset class="moods">
+      <legend>How was the week?</legend>
+      @for (m of moods; track m.value) {
+      <button
+        type="button"
+        class="mood"
+        [class.mood--on]="mood() === m.value"
+        [attr.aria-pressed]="mood() === m.value"
+        [title]="m.name"
+        [attr.aria-label]="m.name"
+        (click)="mood.set(mood() === m.value ? null : m.value)"
+      >
+        {{ m.label }}
+      </button>
+      }
+    </fieldset>
+    <label class="field">
+      <span>What went well</span>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="wins()"
+        (input)="wins.set($any($event.target).value)"
+      ></textarea>
+    </label>
+    <label class="field">
+      <span>Where I got stuck</span>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="stuck()"
+        (input)="stuck.set($any($event.target).value)"
+      ></textarea>
+    </label>
+    <label class="field">
+      <span>Next week I will</span>
+      <textarea
+        class="ui-input"
+        rows="3"
+        maxlength="2000"
+        [value]="next()"
+        (input)="next.set($any($event.target).value)"
+      ></textarea>
+    </label>
+    <div class="li-actions">
+      <button uiButton type="submit" [loading]="saving()">Save the week</button>
+      @if (saved()) { <span class="li-good li-small">Saved</span> }
+    </div>
+  </form>
+</ui-card>
+
+@if (data().reviews.length) {
+<ui-card heading="Earlier weeks" class="li-block">
+  <ul class="li-list">
+    @for (r of data().reviews; track r.id) { @if (r.weekStart !==
+    data().weekStart) {
+    <li class="past">
+      <strong
+        >{{ moodLabel(r.mood) }} Week of {{ dateText(r.weekStart) }}</strong
+      >
+      @if (r.wins) {
+      <p><span class="li-good">Went well:</span> {{ r.wins }}</p>
+      } @if (r.stuck) {
+      <p><span class="li-warn">Stuck:</span> {{ r.stuck }}</p>
+      } @if (r.next) {
+      <p><span class="li-muted">Next:</span> {{ r.next }}</p>
+      }
+    </li>
+    } }
+  </ul>
+</ui-card>
+}

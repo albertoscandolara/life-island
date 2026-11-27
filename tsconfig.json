@@ -67,9 +67,6 @@
       "path": "./apps/svc-travel"
     },
     {
-      "path": "./apps/svc-goals"
-    },
-    {
       "path": "./apps/svc-money"
     },
     {

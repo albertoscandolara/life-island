@@ -9,7 +9,6 @@
   "mfe-studies": "http://localhost:4209/remoteEntry.json",
   "mfe-agenda": "http://localhost:4210/remoteEntry.json",
   "mfe-money": "http://localhost:4211/remoteEntry.json",
-  "mfe-goals": "http://localhost:4212/remoteEntry.json",
   "mfe-health": "http://localhost:4213/remoteEntry.json",
   "mfe-subscriptions": "http://localhost:4214/remoteEntry.json",
   "mfe-travel": "http://localhost:4216/remoteEntry.json",

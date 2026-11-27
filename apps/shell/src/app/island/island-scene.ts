@@ -720,18 +720,6 @@ export class IslandScene {
             );
         break;
       }
-      case 'flag': {
-        // Goals: a flag on a summit.
-        add(this.mesh(new ConeGeometry(0.55, 0.6, 5), 'rock'), 0, 0.45, 0);
-        add(
-          this.mesh(new CylinderGeometry(0.03, 0.03, 1.1, 6), 'foam'),
-          0,
-          1.15,
-          0,
-        );
-        add(this.mesh(new BoxGeometry(0.42, 0.26, 0.03), tint), 0.22, 1.55, 0);
-        break;
-      }
       case 'antenna': {
         // Subscriptions: a kiosk with a dish on the roof.
         add(this.mesh(new BoxGeometry(0.7, 0.55, 0.6), 'foam'), 0, 0.42, 0);
