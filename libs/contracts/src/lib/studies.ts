@@ -465,6 +465,8 @@ export interface PathProgressDto {
 export const pathProgressRequestSchema = z.object({
   status: z.enum(PATH_STATUSES).nullable(),
   targetOn: isoDate.nullable().optional(),
+  /** Whether the resource scout keeps the path current; left out keeps it. */
+  watch: z.boolean().optional(),
 });
 export type PathProgressRequest = z.input<typeof pathProgressRequestSchema>;
 

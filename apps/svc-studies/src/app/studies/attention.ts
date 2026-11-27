@@ -12,6 +12,9 @@ import {
  * GET /deadlines.
  */
 
+/** Where the scout's findings wait for you: Fresh resources. */
+export const FRESH_LINK = '/studies?tab=fresh';
+
 /** Where a path opens in Studies: its tab, with the path selected. */
 export const pathLink = (pathId: string) =>
   `/studies?tab=paths&path=${encodeURIComponent(pathId)}`;
@@ -71,7 +74,7 @@ export function studyAttentionItems(
       title: `Review what the scout found for ${nameOf(pathId)}`,
       detail: parts.join(', '),
       since: e.since,
-      path: pathLink(pathId),
+      path: FRESH_LINK,
       action: 'Review',
     });
   }

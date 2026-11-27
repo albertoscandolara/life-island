@@ -14,6 +14,7 @@ import {
   aiToolUsedV1Schema,
   invalidSettingValue,
   isKnownSettingKey,
+  RETIRED_SETTING_KEYS,
   SETTING_CHANGED_EVENT,
   useCostUsd,
   validSettingValue,
@@ -174,9 +175,13 @@ export class SettingsService {
    * Many values at once (a backup): all of them are checked first, so a file
    * with one wrong value changes nothing. null resets a key.
    */
-  async import(
-    values: Record<string, AppSettingValue | null>,
-  ): Promise<number> {
+  async import(all: Record<string, AppSettingValue | null>): Promise<number> {
+    // A key that was retired since the backup was made is skipped.
+    const values = Object.fromEntries(
+      Object.entries(all).filter(
+        ([key]) => !RETIRED_SETTING_KEYS.includes(key),
+      ),
+    );
     const problems = Object.entries(values).flatMap(([key, value]) => {
       if (!isKnownSettingKey(key)) return [`${key} is not a setting`];
       const invalid = value === null ? null : invalidSettingValue(key, value);

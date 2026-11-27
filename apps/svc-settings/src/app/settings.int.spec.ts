@@ -223,10 +223,12 @@ describe.skipIf(!configured)(
         (await exportedValues())['people.warn-days.passport'],
       ).toBeUndefined();
 
+      // A setting retired since the backup was made is skipped, not refused.
       const imported = await send('PUT', '/settings', {
         values: {
           'people.warn-days.passport': 120,
           'documents.reading-time': '21:30',
+          'studies.scout-subject': 'ai-coding',
         },
       });
       expect(await imported.json()).toEqual({ imported: 2 });

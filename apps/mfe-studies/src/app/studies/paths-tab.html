@@ -157,6 +157,7 @@
       [path]="path"
       (changed)="changed.emit()"
       (failed)="failed.emit($event)"
+      (openFresh)="openFresh.emit()"
     />
 
     @for (stage of path.stages; track stage.id; let i = $index) { @let state =

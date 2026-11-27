@@ -26,13 +26,14 @@ import {
 } from '@life-island/records-ui';
 import { StudiesApi } from '../api/studies-api';
 import { CoursesTab } from './courses-tab';
+import { FreshTab } from './fresh-tab';
 import { duration, errorText, hours } from './labels';
 import { OverviewTab } from './overview-tab';
 import { PathsTab } from './paths-tab';
 import { PlatformsTab } from './platforms-tab';
 import { studiesTiles } from './tiles';
 
-export const STUDIES_VIEWS = ['overview', 'paths', 'courses'] as const;
+export const STUDIES_VIEWS = ['overview', 'paths', 'fresh', 'courses'] as const;
 export type StudiesTab = (typeof STUDIES_VIEWS)[number];
 
 /**
@@ -47,13 +48,15 @@ const OLD_TABS: Record<string, { view: StudiesTab; block: string }> = {
 /**
  * Studies (Iggy) by priority: what needs you, four tiles, then the tabs.
  * Overview answers "what do I study now?", Paths "where am I on the road?",
- * Courses and exams "what did I sign up for, and what does it cost?".
+ * Fresh resources "what did the scout find?", Courses and exams "what did I
+ * sign up for, and what does it cost?".
  */
 @Component({
   selector: 'studies-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CoursesTab,
+    FreshTab,
     LiDelta,
     LiNeedsYou,
     LiTabs,
@@ -115,10 +118,11 @@ export class StudiesPage {
       : 0;
     return [
       { id: 'overview', label: 'Overview', icon: 'home' },
+      { id: 'paths', label: 'Paths', icon: 'layers' },
       {
-        id: 'paths',
-        label: 'Paths',
-        icon: 'layers',
+        id: 'fresh',
+        label: 'Fresh resources',
+        icon: 'sparkles',
         count: scout || undefined,
       },
       {

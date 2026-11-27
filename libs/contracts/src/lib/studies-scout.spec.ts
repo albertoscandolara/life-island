@@ -11,7 +11,7 @@ import {
   scoutCadenceMonths,
   scoutStepId,
   STUDY_SCOUT_CADENCE_SETTING,
-  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_BUDGET_SETTING,
   STUDY_SCOUT_TOOL,
 } from './studies-scout.js';
 
@@ -28,19 +28,12 @@ describe('the resource scout', () => {
     ).toBe(false);
   });
 
-  it('watches one path at a time, picked in Settings', () => {
-    const subject = appSetting(STUDY_SCOUT_SUBJECT_SETTING)!;
-    expect(subject.default).toBe('none');
-    expect(subject.options?.map((o) => o.value)).toEqual([
-      'none',
-      ...LEARNING_PATHS.map((p) => p.id),
-    ]);
-    expect(
-      invalidSettingValue(STUDY_SCOUT_SUBJECT_SETTING, 'frameworks'),
-    ).toBeNull();
-    expect(
-      invalidSettingValue(STUDY_SCOUT_SUBJECT_SETTING, 'cooking'),
-    ).not.toBeNull();
+  it('watches every path you follow, within a number of scans a month', () => {
+    const budget = appSetting(STUDY_SCOUT_BUDGET_SETTING)!;
+    expect(budget.default).toBe('4');
+    expect(budget.aiTool).toBe(STUDY_SCOUT_TOOL);
+    expect(invalidSettingValue(STUDY_SCOUT_BUDGET_SETTING, '6')).toBeNull();
+    expect(invalidSettingValue(STUDY_SCOUT_BUDGET_SETTING, '0')).not.toBeNull();
     expect(invalidSettingValue(STUDY_SCOUT_CADENCE_SETTING, '2')).toBeNull();
   });
 

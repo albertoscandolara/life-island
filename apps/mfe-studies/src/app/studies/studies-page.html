@@ -40,11 +40,14 @@
       intro="An AI tool that keeps a path's resources current, because in fast-moving fields a two-year-old tutorial teaches things that are no longer true."
     >
       <p>
-        Every few months (every two for AI, frameworks and infrastructure, every
-        six for the rest) it searches the web for the best recent resources for
-        the stage you are on and the next one. It prefers official
-        documentation, the authors' own material and well-known courses, and
-        only uses addresses it actually saw.
+        It watches every path you follow. Every few months (every two for AI,
+        frameworks and infrastructure, every six for the rest) it searches the
+        web for the best recent resources for the stage you are on and the next
+        one, within a number of scans a month you set in Settings, the most
+        overdue path first. What it finds waits in
+        <strong>Fresh resources</strong>. It prefers official documentation, the
+        authors' own material and well-known courses, and only uses addresses it
+        actually saw.
       </p>
       <p>
         It also checks the resources you pinned and flags the outdated ones, and
@@ -193,6 +196,14 @@
   [data]="data"
   [pathId]="pathId()"
   (selectPath)="selectPath($event)"
+  (openFresh)="setTab('fresh')"
+  (changed)="load()"
+  (failed)="failed($event)"
+/>
+} @case ('fresh') {
+<studies-fresh
+  [data]="data"
+  (openPath)="openPath($event)"
   (changed)="load()"
   (failed)="failed($event)"
 />

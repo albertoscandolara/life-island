@@ -1,67 +1,75 @@
-@let s = scout(); @let last = scan();
+@let s = scout(); @let w = watch(); @let last = w?.lastScan;
 <ui-ai-panel
   heading="Resource scout"
-  class="li-block"
-  [state]="running() ? 'working' : 'idle'"
+  [state]="last?.status === 'running' ? 'working' : 'idle'"
   [offline]="!s.ai"
 >
-  <li-ai-tool uiAiPanelActions toolId="studies.resource-scout" />
+  <li-ai-tool
+    uiAiPanelActions
+    toolId="studies.resource-scout"
+    [compact]="true"
+  />
 
   <div class="scout-state">
-    @if (watching()) {
-    <p>
-      <strong>Keeping this path current.</strong>
-      @if (s.nextScanOn) { Next scan {{ dateText(s.nextScanOn) }}, then every {{
-      s.cadenceMonths }} month{{ s.cadenceMonths === 1 ? '' : 's' }}. }
+    @if (!w) {
+    <p class="li-small">
+      The scout keeps the paths you follow current: follow this one and it looks
+      for fresh resources for the stage you are on.
     </p>
-    <div class="li-actions">
-      <button
-        uiButton
-        type="button"
-        [disabled]="!s.ai || running()"
-        [loading]="busy() === 'refresh'"
-        (click)="refresh()"
+    } @else if (w.watching) {
+    <p class="li-small">
+      <strong>Kept current.</strong>
+      @if (w.nextScanOn) { Next scan {{ dateText(w.nextScanOn) }}, then every {{
+      w.cadenceMonths }} month{{ w.cadenceMonths === 1 ? '' : 's' }}. }
+      <span class="li-muted"
+        >{{ s.scansThisMonth }} of {{ s.monthlyScans }} scans used this
+        month.</span
       >
-        <ui-icon name="sparkles" [size]="16" /> Refresh now
-      </button>
-      <button
-        uiButton
-        variant="ghost"
-        type="button"
-        [loading]="busy() === 'watch'"
-        (click)="watch(false)"
-      >
-        Stop watching
-      </button>
-    </div>
-    } @else {
-    <p>
-      @if (otherName(); as other) { The scout is keeping
-      <strong>{{ other }}</strong> current. It watches one path at a time, so
-      watching this one stops that. } @else { The scout is not watching any
-      path. }
     </p>
     <div class="li-actions">
       <button
         uiButton
         variant="secondary"
+        size="sm"
+        type="button"
+        [disabled]="!s.ai || running() || !budgetLeft()"
+        [loading]="busy() === 'refresh'"
+        (click)="refresh()"
+      >
+        <ui-icon name="sparkles" [size]="14" /> Refresh now
+      </button>
+      <button
+        uiButton
+        variant="ghost"
+        size="sm"
         type="button"
         [loading]="busy() === 'watch'"
-        (click)="watch(true)"
+        (click)="setWatch(false)"
       >
-        {{ otherName() ? 'Watch this path instead' : 'Keep this path current' }}
+        Stop watching
+      </button>
+    </div>
+    } @else {
+    <p class="li-small">
+      You stopped the scout for this path: its steps keep their resources and
+      what you pinned.
+    </p>
+    <div class="li-actions">
+      <button
+        uiButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        [loading]="busy() === 'watch'"
+        (click)="setWatch(true)"
+      >
+        Watch this path again
       </button>
     </div>
     }
   </div>
 
-  @if (!s.ai) {
-  <p class="li-muted li-small">
-    Scans need the resource scout on in Settings → AI tools, and a Claude API
-    key. Until then each step keeps its hand-picked resources and what you
-    pinned.
-  </p>
-  } @if (last) {
+  @if (last) {
   <p class="li-small scout-last">
     @if (last.status === 'running') {
     <ui-ai-status state="working">Searching the web…</ui-ai-status>
@@ -77,49 +85,17 @@
     >
     }
   </p>
-  } @if (proposals().length) {
-  <h3 class="scout-heading">Proposed changes to the outline</h3>
-  <ul class="li-list scout-changes">
-    @for (c of proposals(); track c.id) {
-    <li class="scout-change">
-      <p>
-        @if (c.kind === 'add-step') {
-        <strong>Add “{{ c.title }}”</strong> to {{ stageTitle(c.stageId) }}@if
-        (c.hours) { · about {{ c.hours }} h } } @else {
-        <strong>Retire “{{ stepTitle(c) }}”</strong> from {{
-        stageTitle(c.stageId) }} }
-      </p>
-      @if (c.detail) {
-      <p class="li-small">{{ c.detail }}</p>
-      }
-      <p class="li-muted li-small">Why: {{ c.reason }}</p>
-      <div class="li-actions">
-        <button
-          uiButton
-          size="sm"
-          type="button"
-          [loading]="busy() === c.id"
-          (click)="decide(c, 'accepted')"
-        >
-          <ui-icon name="check" [size]="14" /> Accept
-        </button>
-        <button
-          uiButton
-          size="sm"
-          variant="ghost"
-          type="button"
-          [disabled]="busy() === c.id"
-          (click)="decide(c, 'declined')"
-        >
-          Decline
-        </button>
-      </div>
-    </li>
-    }
-  </ul>
-  <p class="li-muted li-small">
-    Your progress is kept by step: a retired step leaves the path but its notes
-    and time stay recorded.
+  } @if (waiting()) {
+  <p class="li-small scout-last">
+    <button type="button" class="li-link" (click)="openFresh.emit()">
+      {{ waiting() }} waiting for you in Fresh resources
+    </button>
+  </p>
+  } @if (!s.ai) {
+  <p class="li-muted li-small scout-last">
+    Scans need the resource scout on in Settings → AI tools, and a Claude API
+    key. Until then each step keeps its hand-picked resources and what you
+    pinned.
   </p>
   }
 </ui-ai-panel>

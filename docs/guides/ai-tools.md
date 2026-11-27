@@ -102,7 +102,7 @@ A setting has a `type`:
 | Weight goal `fitness.weight-goal`                         | svc-fitness                                                                        |
 | Daily reading switch, time and startup run `documents.*`  | the parse worker, which checks them every 15 seconds, so a change needs no restart |
 
-A setting that steers one AI tool names it in `aiTool`, and Settings → AI tools shows it next to that tool too (the path the resource scout keeps current, and how often).
+A setting that steers one AI tool names it in `aiTool`, and Settings → AI tools shows it next to that tool too (how many scans a month the resource scout starts, and how often it scans each path).
 
 To add a server setting:
 

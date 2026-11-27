@@ -199,22 +199,22 @@ describe('AiToolsPage', () => {
     // The budget and the totals step aside while you search.
     expect(element.querySelector('#budget')).toBeNull();
   });
-  it('picks the one path the resource scout keeps current, next to the tool', async () => {
+  it('sets how many scans a month the resource scout may start, next to the tool', async () => {
     const { element, http } = await setup(overview());
     const select = element.querySelector<HTMLSelectElement>(
-      '#setting-tool-studies-scout-subject',
+      '#setting-tool-studies-scout-monthly-scans',
     )!;
-    expect(select.value).toBe('none');
-    expect([...select.options].map((o) => o.value)).toContain('frameworks');
+    expect(select.value).toBe('4');
+    expect([...select.options].map((o) => o.value)).toContain('8');
     expect(
       element.querySelector('#setting-tool-studies-scout-cadence'),
     ).not.toBeNull();
-    select.value = 'frameworks';
+    select.value = '8';
     select.dispatchEvent(new Event('change'));
     const put = http.expectOne(
-      `${SETTINGS_API}/settings/studies.scout-subject`,
+      `${SETTINGS_API}/settings/studies.scout-monthly-scans`,
     );
-    expect(put.request.body).toEqual({ value: 'frameworks' });
+    expect(put.request.body).toEqual({ value: '8' });
     put.flush(null);
     await settle();
     http.expectOne(`${SETTINGS_API}/overview`).flush(overview());

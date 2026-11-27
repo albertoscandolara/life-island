@@ -1,0 +1,1 @@
+ALTER TABLE "studies"."path_progress" ADD COLUMN "scout_watch" boolean DEFAULT true NOT NULL;

@@ -574,6 +574,7 @@ export class StudiesService {
         status: request.status,
         startedOn: today,
         targetOn: request.targetOn ?? null,
+        scoutWatch: request.watch ?? true,
       })
       .onConflictDoUpdate({
         target: pathProgress.pathId,
@@ -582,8 +583,11 @@ export class StudiesService {
           ...(request.targetOn !== undefined
             ? { targetOn: request.targetOn }
             : {}),
+          ...(request.watch !== undefined ? { scoutWatch: request.watch } : {}),
         },
       });
+    // A path you start following (or watch again) gets its first scan soon.
+    if (request.status === 'following') this.scout.soon();
   }
 
   /**
@@ -605,6 +609,7 @@ export class StudiesService {
         .insert(pathProgress)
         .values({ pathId: id, status: 'following', startedOn: today })
         .onConflictDoNothing();
+      this.scout.soon();
       return { id };
     }
     const stored = await this.db
@@ -624,6 +629,7 @@ export class StudiesService {
         .values({ pathId: id, status: 'following', startedOn: today })
         .onConflictDoNothing();
     });
+    this.scout.soon();
     return { id };
   }
 

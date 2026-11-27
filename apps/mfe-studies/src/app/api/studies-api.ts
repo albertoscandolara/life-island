@@ -128,8 +128,11 @@ export class StudiesApi {
   }
 
   /** Refresh now: the resource scout scans the path under watch. */
-  scoutScan(): Observable<{ id: string }> {
-    return this.http.post<{ id: string }>(`${STUDIES_API}/scout/scans`, {});
+  /** Refresh now, for one path you follow. */
+  scoutScan(pathId: string): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${STUDIES_API}/scout/scans`, {
+      pathId,
+    });
   }
 
   decideResource(id: string, request: ScoutResourceRequest): Observable<void> {

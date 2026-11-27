@@ -10,10 +10,10 @@ import {
 
 /*
  * The resource scout of Studies (AI tool `studies.resource-scout`): it keeps
- * the resources of one learning path current. You pick the path in Settings
- * (one at a time, because every scan searches the web and costs money); the
- * scout scans the stage you are on and the next one when you pick it, then
- * every few months. Each scan:
+ * the resources of every path you follow current. It scans the stage you
+ * are on and the next one when you start following a path, then every few
+ * months, within a number of scans a month (Settings), the most overdue path
+ * first; you can stop it for one path. Each scan:
  *
  * - suggests fresh resources for each step, which you pin or dismiss;
  * - checks the resources you pinned and flags the outdated ones;
@@ -22,15 +22,19 @@ import {
  * - may propose a change to the path's outline (a step to add, one to
  *   retire), which changes nothing until you accept it.
  *
- * With the tool off, the hand-picked resources of LEARNING_PATHS stay, and so
+ * With the tool off, the hand-picked resources of each path stay, and so
  * does everything you pinned.
  */
 
 export const STUDY_SCOUT_TOOL = 'studies.resource-scout';
 
-/** The path the scout watches: one at a time, or `none`. */
-export const STUDY_SCOUT_SUBJECT_SETTING = 'studies.scout-subject';
-export const STUDY_SCOUT_NONE = 'none';
+/**
+ * The most scans the scout starts in a calendar month, over every path it
+ * watches: each one searches the web, so this is what bounds its cost.
+ */
+export const STUDY_SCOUT_BUDGET_SETTING = 'studies.scout-monthly-scans';
+export const STUDY_SCOUT_BUDGETS = [1, 2, 4, 6, 8, 12] as const;
+export const STUDY_SCOUT_BUDGET_DEFAULT = 4;
 /** How often the scout scans: `auto`, or a number of months. */
 export const STUDY_SCOUT_CADENCE_SETTING = 'studies.scout-cadence';
 export const STUDY_SCOUT_CADENCES = ['auto', '1', '2', '3', '6', '12'] as const;
@@ -165,18 +169,30 @@ export interface ScoutScanDto {
 }
 
 /** The scout's part of the Studies overview. */
-export interface StudyScoutDto {
-  /** The path under watch, or null. */
-  subject: string | null;
-  cadence: StudyScoutCadence;
-  /** Months between scans of the subject. */
+/** How the scout keeps one of the paths you follow current. */
+export interface ScoutWatchDto {
+  pathId: string;
+  /** false when you stopped it for this path. */
+  watching: boolean;
+  /** Months between its scans (the cadence, by its topic). */
   cadenceMonths: number;
+  /** When it is next due (YYYY-MM-DD); today when never scanned; null when not watched. */
+  nextScanOn: string | null;
+  /** Its latest scan. */
+  lastScan: ScoutScanDto | null;
+}
+
+export interface StudyScoutDto {
+  cadence: StudyScoutCadence;
+  /** Every path you follow, watched or not, in catalogue order. */
+  watched: ScoutWatchDto[];
+  /** The most scans a calendar month (Settings), and those started this month. */
+  monthlyScans: number;
+  scansThisMonth: number;
   /** Whether a scan can call Claude now (key and Settings switches). */
   ai: boolean;
   /** The latest scan of any path. */
   lastScan: ScoutScanDto | null;
-  /** When the subject is next scanned (YYYY-MM-DD); null with no subject. */
-  nextScanOn: string | null;
   /** Every resource found and not dismissed, of every path. */
   resources: ScoutResourceDto[];
   /** Proposed outline changes, waiting for you. */
@@ -184,6 +200,12 @@ export interface StudyScoutDto {
   /** Fast-moving or evergreen, per step the scout has scanned. */
   paces: Record<string, StepPace>;
 }
+
+/** Refresh now, for one path you follow. */
+export const scoutScanRequestSchema = z.object({
+  pathId: z.string().min(1).max(60),
+});
+export type ScoutScanRequest = z.input<typeof scoutScanRequestSchema>;
 
 export const scoutResourceRequestSchema = z.object({
   status: z.enum(['pinned', 'dismissed']),
