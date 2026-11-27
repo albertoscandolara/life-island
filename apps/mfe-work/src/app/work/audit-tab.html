@@ -46,7 +46,47 @@
     <li>{{ p }}</li>
     }
   </ul>
-  }
+  } @if (ccnl().table; as table) { @if (ccnl().schedule.length) {
+  <h3 class="values__group">
+    The {{ ccnl().level }} minimums agreed from now on
+  </h3>
+  <div class="li-table-wrap">
+    <table class="li-table li-table--nowrap">
+      <thead>
+        <tr>
+          <th scope="col">From</th>
+          <th scope="col" class="li-num">{{ ccnl().level }}</th>
+          @if (ccnl().nextLevel) {
+          <th scope="col" class="li-num">{{ ccnl().nextLevel }}</th>
+          }
+          <th scope="col" class="li-num">You over {{ ccnl().level }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of ccnl().schedule; track s.from) {
+        <tr>
+          <th scope="row">{{ periodText(s.from) }}</th>
+          <td class="li-num">{{ euro(s.minimum) }}</td>
+          @if (ccnl().nextLevel) {
+          <td class="li-num">{{ euro(s.nextMinimum) }}</td>
+          }
+          <td class="li-num">
+            {{ ccnl().salary !== null && s.minimum !== null ?
+            signedEuro((ccnl().salary ?? 0) - s.minimum) : '–' }}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="note li-muted">
+    If your superminimum is "assorbibile", a renewal can absorb it: the last
+    column is what is left of it at today's salary. {{ table.note }} Source:
+    <a [href]="table.source.url" target="_blank" rel="noopener"
+      >{{ table.source.label }}</a
+    >.
+  </p>
+  } }
   <p class="note li-muted">
     A check, not legal advice: company agreements, apprenticeships and part time
     change the rules. Ask your payroll office or union (patronato) about

@@ -9,6 +9,7 @@ import {
 import {
   documentReviewUrl,
   type AuditSeverity,
+  type CcnlComparisonDto,
   type NetChangeDto,
   type PayslipAuditDto,
 } from '@life-island/contracts';
@@ -20,7 +21,7 @@ import {
   type UiTone,
 } from '@life-island/design-system';
 import { WorkApi } from '../api/work-api';
-import { euro, periodText } from './labels';
+import { euro, periodText, signedEuro } from './labels';
 
 const SEVERITY_LABELS: Record<AuditSeverity, string> = {
   problem: 'Problem',
@@ -51,6 +52,8 @@ export class AuditTab {
 
   readonly audit = input.required<PayslipAuditDto>();
   readonly netChanges = input<NetChangeDto[]>([]);
+  /** Your level's CCNL minimums, agreed from now on. */
+  readonly ccnl = input.required<CcnlComparisonDto>();
 
   protected readonly euro = euro;
   protected readonly periodText = periodText;
@@ -76,9 +79,7 @@ export class AuditTab {
     return documentReviewUrl(this.documentsUrl, uploadId);
   }
 
-  protected signedEuro(value: number): string {
-    return `${value > 0 ? '+' : value < 0 ? '−' : ''}${euro(Math.abs(value))}`;
-  }
+  protected readonly signedEuro = signedEuro;
 
   /** A part's bar, as a share of the change's largest part. */
   protected width(change: NetChangeDto, amount: number): number {

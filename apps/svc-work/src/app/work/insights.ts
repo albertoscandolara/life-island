@@ -269,18 +269,21 @@ export function buildPackages(
   stats: CareerStatsDto,
   evaluations: EvaluationStatsDto,
 ): PackageYearDto[] {
-  const bonusOf = new Map(evaluations.years.map((y) => [y.year, y.bonus]));
+  const reviewOf = new Map(evaluations.years.map((y) => [y.year, y]));
   return stats.years.map((y) => {
-    const bonus = bonusOf.get(y.year) ?? 0;
+    const review = reviewOf.get(y.year);
     return {
       year: y.year,
       payslips: y.payslips,
       gross: y.gross,
       extraPay: y.extraPay,
+      net: y.net,
       welfare: y.welfare,
       severance: y.severance,
-      bonus,
-      total: round2(y.gross + y.welfare + y.severance),
+      employerPension: y.employerPension,
+      bonus: review?.bonus ?? 0,
+      averageScore: review?.averageScore ?? null,
+      total: round2(y.gross + y.welfare + y.severance + y.employerPension),
     };
   });
 }

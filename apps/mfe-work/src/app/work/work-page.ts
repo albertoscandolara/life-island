@@ -49,7 +49,6 @@ import {
   UiInfoGuide,
   UiInfoTopic,
   UiPageHeader,
-  type UiIconName,
   type UiTone,
 } from '@life-island/design-system';
 import { AiTool } from '@life-island/settings-ui';
@@ -85,7 +84,6 @@ import {
   dateText,
   periodText,
   safeUrl,
-  scoreText,
   signed,
   typeLabel,
   valueText,
@@ -102,8 +100,8 @@ import {
 } from '@life-island/records-ui';
 
 /**
- * Where the old tabs of Work now live: a link to `?tab=pension` (from the
- * Agenda, the 730 or a bookmark) opens the page at its section.
+ * The tabs Work once had: a link to `?tab=analysis` (from the Agenda, the 730
+ * or a bookmark) opens the block it now lives in.
  */
 export type WorkTab =
   | 'work'
@@ -136,15 +134,41 @@ export const SECTION_OF: Record<Exclude<WorkTab, 'work' | 'review'>, string> = {
   platforms: 'work-platforms',
 };
 
-/** The sections of the page, in the order you need them. */
-const SECTIONS: { id: string; label: string; icon: UiIconName }[] = [
-  { id: 'work-payslips', label: 'Payslips', icon: 'file' },
-  { id: 'work-pay', label: 'Pay', icon: 'chart' },
-  { id: 'work-career', label: 'Career', icon: 'layers' },
-  { id: 'work-later', label: 'TFR and pension', icon: 'shield' },
-  { id: 'work-next', label: 'Next move', icon: 'search' },
-  { id: 'work-workplaces', label: 'Workplaces', icon: 'home' },
-];
+/** True when `?tab=` names one of today's tabs, which `urlTab` opens. */
+function isView(value: string): value is WorkView {
+  return (WORK_VIEWS as readonly string[]).includes(value);
+}
+
+/** The views of the page, each a tab. */
+export const WORK_VIEWS = [
+  'overview',
+  'payslips',
+  'pay',
+  'career',
+  'pension',
+  'jobs',
+  'review',
+] as const;
+export type WorkView = (typeof WORK_VIEWS)[number];
+
+/** The tab each block of the page lives in, for a link or a step to open it. */
+export const VIEW_OF: Record<string, WorkView> = {
+  'work-payslips': 'payslips',
+  'work-audit': 'payslips',
+  'work-pay': 'pay',
+  'work-analysis': 'pay',
+  'work-career': 'career',
+  'work-evaluations': 'career',
+  'work-workplaces': 'career',
+  'work-later': 'pension',
+  'work-tfr': 'pension',
+  'work-pension': 'pension',
+  'work-next': 'jobs',
+  'work-tools': 'jobs',
+  'work-jobs': 'jobs',
+  'work-feedback': 'jobs',
+  'work-platforms': 'jobs',
+};
 
 /** The choices you make on one document waiting for review. */
 interface Draft {
@@ -250,7 +274,7 @@ export class WorkPage {
   protected readonly overview = signal<WorkOverviewDto | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal<string | null>(null);
-  protected readonly tab = urlTab(['work', 'review'] as const, 'work');
+  protected readonly tab = urlTab(WORK_VIEWS, 'overview');
   /** The year the payslip grid shows; null: the latest. */
   protected readonly archiveYear = signal<number | null>(null);
   /** A section to open once the page is drawn (from a link or a step). */
@@ -289,10 +313,14 @@ export class WorkPage {
   /** An offer from the job search, for the comparison in Tools. */
   protected readonly offerPrefill = signal<OfferDraft | null>(null);
 
-  protected readonly sections = SECTIONS;
   protected readonly stepBadges = WORK_STEP_BADGES;
   protected readonly tabs = computed<LiTab[]>(() => [
-    { id: 'work', label: 'Your work', icon: 'chart' },
+    { id: 'overview', label: 'Overview', icon: 'home' },
+    { id: 'payslips', label: 'Payslips', icon: 'file' },
+    { id: 'pay', label: 'Pay and taxes', icon: 'chart' },
+    { id: 'career', label: 'Career', icon: 'layers' },
+    { id: 'pension', label: 'TFR and pension', icon: 'shield' },
+    { id: 'jobs', label: 'Job search', icon: 'search' },
     {
       id: 'review',
       label: 'To review',
@@ -324,7 +352,6 @@ export class WorkPage {
   protected readonly duration = duration;
   protected readonly periodText = periodText;
   protected readonly dateText = dateText;
-  protected readonly scoreText = scoreText;
   protected readonly signed = signed;
   protected readonly fieldLabel = fieldLabel;
   protected readonly typeLabel = typeLabel;
@@ -373,44 +400,6 @@ export class WorkPage {
   );
   protected readonly stalePlatforms = computed(() =>
     this.platforms().filter((p) => p.stale),
-  );
-
-  protected readonly evaluations = computed(
-    () => this.overview()?.evaluations ?? null,
-  );
-
-  /**
-   * Pay and evaluations side by side, year by year: what the payslips say
-   * you earned and what the evaluations say about the same year.
-   */
-  protected readonly years = computed(() => {
-    const pay = this.stats()?.years ?? [];
-    const reviews = this.evaluations()?.years ?? [];
-    const all = [
-      ...new Set([...pay.map((y) => y.year), ...reviews.map((y) => y.year)]),
-    ].sort((a, b) => b - a);
-    return all.map((year) => {
-      const p = pay.find((y) => y.year === year) ?? null;
-      const r = reviews.find((y) => y.year === year) ?? null;
-      return {
-        year,
-        payslips: p?.payslips ?? 0,
-        gross: p?.gross ?? null,
-        net: p?.net ?? null,
-        evaluations: r?.evaluations ?? 0,
-        averageScore: r?.averageScore ?? null,
-        bonus: r?.bonus || null,
-        bonusShareOfGrossPct: r?.bonusShareOfGrossPct ?? null,
-        role: r?.role ?? null,
-      };
-    });
-  });
-
-  /** The latest year with both a bonus and payslips: how much of your pay the evaluations moved. */
-  protected readonly bonusShare = computed(
-    () =>
-      this.years().find((y) => y.bonus && y.bonusShareOfGrossPct !== null) ??
-      null,
   );
 
   /** Your payslips year by year, month by month, for the grid and the steps. */
@@ -471,16 +460,6 @@ export class WorkPage {
     };
   });
 
-  /** TFR held by the company and the pension fund's value (else what went in). */
-  protected readonly putAside = computed(() => {
-    const data = this.overview();
-    const tfr = data?.tfr.companyFund ?? 0;
-    const fund = data
-      ? (data.pension.totalValue ?? data.pension.totalPaidIn) || 0
-      : 0;
-    return { tfr, fund, total: tfr + fund };
-  });
-
   constructor() {
     // A link from anywhere on the island opens one workplace: /work?workplace=<id>.
     // Only a new id opens the tab, so a click on another tab is not undone.
@@ -491,10 +470,11 @@ export class WorkPage {
       opened = id;
       this.openWorkplace(id);
     });
-    // `?tab=pension` (an old link) and `#work-pension` open their section.
+    // `?tab=analysis` (an old tab) and `#work-pension` open their block.
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((query) => {
       const old = query.get('tab');
-      if (old && old in SECTION_OF) this.setTab(old as WorkTab);
+      if (old && old in SECTION_OF && !isView(old))
+        this.jump(SECTION_OF[old as keyof typeof SECTION_OF]);
     });
     this.route.fragment.pipe(takeUntilDestroyed()).subscribe((fragment) => {
       if (fragment?.startsWith('work-')) this.jump(fragment);
@@ -523,18 +503,10 @@ export class WorkPage {
     });
   }
 
-  /** Opens a view, or the section an old tab now lives in. */
-  protected setTab(tab: WorkTab): void {
-    if (tab === 'review' || tab === 'work') {
-      this.tab.set(tab);
-      return;
-    }
-    this.jump(SECTION_OF[tab]);
-  }
-
-  /** Scrolls to a section of the page, once it is drawn. */
+  /** Opens the tab a block lives in and scrolls to it, once it is drawn. */
   protected jump(id: string): void {
-    if (this.tab() !== 'work') this.tab.set('work');
+    const view = VIEW_OF[id] ?? 'overview';
+    if (this.tab() !== view) this.tab.set(view);
     this.pendingJump = id;
     if (this.overview()) this.scrollToPending();
   }

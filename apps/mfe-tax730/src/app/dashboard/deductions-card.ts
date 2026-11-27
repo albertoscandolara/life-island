@@ -211,7 +211,7 @@ const percent = (rate: number) => `${Math.round(rate * 100)}%`;
         </p>
       }
       <p class="income-hint">
-        <a href="/work?tab=pension"
+        <a href="/work?tab=pension#work-pension"
           >Follow your pension fund in Work: how it works, the yearly limit and
           your own transfers</a
         >

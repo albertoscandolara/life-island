@@ -11,7 +11,15 @@ import {
 } from '@life-island/contracts';
 import { UiCard, UiEmptyState } from '@life-island/design-system';
 import { UiColumnChart, type UiChartSeries } from '@life-island/design-system';
-import { euro, euroShort, hours, pct, periodText, shortPeriod } from './labels';
+import {
+  euro,
+  euroShort,
+  hours,
+  pct,
+  periodText,
+  shortPeriod,
+  signedEuro,
+} from './labels';
 
 /** The last 24 months of a monthly series. */
 const LAST = 24;
@@ -202,10 +210,7 @@ export class PayAnalysisTab {
 
   protected readonly hoursFormat = (v: number) => `${v} h`;
 
-  protected signedEuro(value: number | null): string {
-    if (value === null) return '–';
-    return `${value > 0 ? '+' : value < 0 ? '−' : ''}${euro(Math.abs(value))}`;
-  }
+  protected readonly signedEuro = signedEuro;
 
   protected signedHours(value: number | null): string {
     if (value === null) return '–';
@@ -214,5 +219,21 @@ export class PayAnalysisTab {
 
   protected rate(value: number | null): string {
     return value === null ? '–' : `${value.toLocaleString('it-IT')}%`;
+  }
+
+  /**
+   * How the effective IRPEF rate of the i-th year (newest first) moved from
+   * the year before, in percentage points: a rise, a bonus or a conguaglio
+   * shows here first.
+   */
+  protected rateChange(i: number): string {
+    const years = this.insights().taxYears;
+    const now = years[i]?.effectiveRatePct ?? null;
+    const before = years[i + 1]?.effectiveRatePct ?? null;
+    if (now === null || before === null) return '–';
+    const change = Math.round((now - before) * 10) / 10;
+    if (change === 0) return 'same';
+    const sign = change > 0 ? '+' : '−';
+    return `${sign}${Math.abs(change).toLocaleString('it-IT')} pt`;
   }
 }

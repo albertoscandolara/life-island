@@ -132,140 +132,28 @@
   }
 </ui-card>
 
-<div class="li-grid">
-  <!-- What the salary is made of -->
-  <ui-card heading="What your salary is made of" class="li-block">
-    @if (partsChart().buckets.length) {
-    <ui-column-chart
-      [buckets]="partsChart().buckets"
-      [series]="partsChart().series"
-      [height]="220"
-      [format]="euroShort"
-      [label]="periodText"
-      [shortLabel]="shortPeriod"
-      ariaLabel="Monthly salary split into CCNL minimum, superminimum and other items"
-    />
-    <p class="note li-muted">
-      @if (partsChart().split) { The CCNL minimum rises with every renewal; the
-      superminimum is yours, but an "assorbibile" one can be absorbed by the
-      next renewal or promotion. } @else { Your payslips do not print the CCNL
-      minimum (minimo tabellare) apart: use Parse again to read it. }
-    </p>
-    } @else {
-    <p class="li-muted">No monthly salary read from your payslips yet.</p>
-    }
-  </ui-card>
-
-  <!-- CCNL -->
-  <ui-card heading="Your pay against the CCNL" class="li-block">
-    @if (ccnl().table; as table) { @if (ccnl().minimum !== null) {
-    <dl class="facts">
-      <div>
-        <dt>Your salary</dt>
-        <dd>{{ euro(ccnl().salary) }}</dd>
-      </div>
-      <div>
-        <dt>Minimum of {{ ccnl().level }}</dt>
-        <dd>{{ euro(ccnl().minimum) }}</dd>
-      </div>
-      @if (ccnl().nextLevel) {
-      <div>
-        <dt>Minimum of {{ ccnl().nextLevel }}</dt>
-        <dd>{{ euro(ccnl().nextLevelMinimum) }}</dd>
-      </div>
-      }
-    </dl>
-    } @if (ccnl().schedule.length) {
-    <h3 class="values__group">The minimums agreed from now on</h3>
-    <div class="li-table-wrap">
-      <table class="li-table li-table--nowrap">
-        <thead>
-          <tr>
-            <th scope="col">From</th>
-            <th scope="col" class="li-num">{{ ccnl().level }}</th>
-            @if (ccnl().nextLevel) {
-            <th scope="col" class="li-num">{{ ccnl().nextLevel }}</th>
-            }
-            <th scope="col" class="li-num">You over {{ ccnl().level }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (s of ccnl().schedule; track s.from) {
-          <tr>
-            <th scope="row">{{ periodText(s.from) }}</th>
-            <td class="li-num">{{ euro(s.minimum) }}</td>
-            @if (ccnl().nextLevel) {
-            <td class="li-num">{{ euro(s.nextMinimum) }}</td>
-            }
-            <td class="li-num">
-              {{ ccnl().salary !== null && s.minimum !== null ?
-              signedEuro((ccnl().salary ?? 0) - s.minimum) : '–' }}
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <p class="note li-muted">
-      If your superminimum is "assorbibile", a renewal can absorb it: the last
-      column is what is left of it at today's salary.
-    </p>
-    }
-    <p class="note li-muted">
-      {{ table.note }} Source:
-      <a [href]="table.source.url" target="_blank" rel="noopener"
-        >{{ table.source.label }}</a
-      >.
-    </p>
-    } @else {
-    <p class="li-muted">
-      Life Island has the minimum pay tables of the Metalmeccanici industria
-      CCNL only. Your payslips say {{ ccnl().agreement ?? 'no agreement' }}.
-    </p>
-    }
-  </ui-card>
-</div>
-
-<!-- Package -->
-@if (insights().packages.length) {
-<ui-card heading="What each year really paid you" class="li-block">
-  <p class="li-muted li-intro">
-    Not only the salary: the extra months, the welfare you were credited and the
-    severance (TFR) set aside for you. The bonus is shown apart, as it is
-    usually already in the gross.
+<!-- What the salary is made of -->
+<ui-card heading="What your salary is made of" class="li-block">
+  @if (partsChart().buckets.length) {
+  <ui-column-chart
+    [buckets]="partsChart().buckets"
+    [series]="partsChart().series"
+    [height]="220"
+    [format]="euroShort"
+    [label]="periodText"
+    [shortLabel]="shortPeriod"
+    ariaLabel="Monthly salary split into CCNL minimum, superminimum and other items"
+  />
+  <p class="note li-muted">
+    @if (partsChart().split) { The CCNL minimum rises with every renewal; the
+    superminimum is yours, but an "assorbibile" one can be absorbed by the next
+    renewal or promotion. } @else { Your payslips do not print the CCNL minimum
+    (minimo tabellare) apart: use Parse again to read it. }
   </p>
-  <div class="li-table-wrap">
-    <table class="li-table li-table--nowrap">
-      <thead>
-        <tr>
-          <th scope="col">Year</th>
-          <th scope="col" class="li-num">Payslips</th>
-          <th scope="col" class="li-num">Gross</th>
-          <th scope="col" class="li-num">Of which extra months</th>
-          <th scope="col" class="li-num">Welfare</th>
-          <th scope="col" class="li-num">TFR set aside</th>
-          <th scope="col" class="li-num">Total</th>
-          <th scope="col" class="li-num">Bonus</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of insights().packages; track p.year) {
-        <tr>
-          <th scope="row">{{ p.year }}</th>
-          <td class="li-num">{{ p.payslips }}</td>
-          <td class="li-num">{{ euro(p.gross) }}</td>
-          <td class="li-num">{{ p.extraPay ? euro(p.extraPay) : '–' }}</td>
-          <td class="li-num">{{ p.welfare ? euro(p.welfare) : '–' }}</td>
-          <td class="li-num">{{ p.severance ? euro(p.severance) : '–' }}</td>
-          <td class="li-num"><strong>{{ euro(p.total) }}</strong></td>
-          <td class="li-num">{{ p.bonus ? euro(p.bonus) : '–' }}</td>
-        </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+  } @else {
+  <p class="li-muted">No monthly salary read from your payslips yet.</p>
+  }
 </ui-card>
-}
 
 <!-- Taxes -->
 <ui-card heading="Where your gross goes" class="li-block">
@@ -288,6 +176,7 @@
           <th scope="col" class="li-num">Taxable</th>
           <th scope="col" class="li-num">IRPEF withheld</th>
           <th scope="col" class="li-num">Effective rate</th>
+          <th scope="col" class="li-num">Vs the year before</th>
           <th scope="col" class="li-num">Contributions</th>
           <th scope="col" class="li-num">Taxable over 12 months</th>
           <th scope="col" class="li-num">Bracket</th>
@@ -295,12 +184,13 @@
         </tr>
       </thead>
       <tbody>
-        @for (t of insights().taxYears; track t.year) {
+        @for (t of insights().taxYears; track t.year; let i = $index) {
         <tr>
           <th scope="row">{{ t.year }}</th>
           <td class="li-num">{{ euro(t.taxable) }}</td>
           <td class="li-num">{{ euro(t.incomeTax) }}</td>
           <td class="li-num">{{ rate(t.effectiveRatePct) }}</td>
+          <td class="li-num">{{ rateChange(i) }}</td>
           <td class="li-num">
             {{ euro(t.contributions) }} ({{ rate(t.contributionRatePct) }})
           </td>

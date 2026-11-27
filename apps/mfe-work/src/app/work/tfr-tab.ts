@@ -14,7 +14,7 @@ import {
   type TfrDto,
 } from '@life-island/contracts';
 import { UiBadge, UiCard, UiEmptyState } from '@life-island/design-system';
-import { euro, parseAmount, periodText } from './labels';
+import { euro, parseAmount, periodText, signedEuro } from './labels';
 
 /** The assumptions of the comparison, as you type them. */
 export interface TfrChoiceDraft {
@@ -109,10 +109,7 @@ export class TfrTab {
     this.edits.set({});
   }
 
-  protected signedEuro(value: number | null): string {
-    if (value === null) return '–';
-    return `${value > 0 ? '+' : value < 0 ? '−' : ''}${euro(Math.abs(value))}`;
-  }
+  protected readonly signedEuro = signedEuro;
 
   /** A revaluation rate, to two decimals (ISTAT publishes six). */
   protected rate(pct: number): string {

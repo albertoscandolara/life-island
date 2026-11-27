@@ -464,12 +464,17 @@ export interface PackageYearDto {
   /** Gross on every payslip, extra months included. */
   gross: number;
   extraPay: number;
+  net: number;
   welfare: number;
   /** Severance (TFR) set aside. */
   severance: number;
+  /** The employer's contribution to your pension fund. */
+  employerPension: number;
   /** Bonus paid by the year's evaluations. */
   bonus: number;
-  /** Gross, welfare and severance (bonus is usually already in the gross). */
+  /** The average score of the year's evaluations, or null without one. */
+  averageScore: number | null;
+  /** Gross, welfare, severance and the employer's pension contribution (bonus is usually already in the gross). */
   total: number;
 }
 

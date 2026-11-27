@@ -541,6 +541,7 @@ export function buildStats(
       welfare: 0,
       severance: 0,
       pensionFund: 0,
+      employerPension: 0,
       averageNet: 0,
       extraPay: 0,
     };
@@ -556,6 +557,7 @@ export function buildStats(
       (p.reading.pensionFundEmployee ?? 0) +
       (p.reading.pensionFundEmployer ?? 0) +
       (p.reading.tfrToFund ?? 0);
+    y.employerPension += p.reading.pensionFundEmployer ?? 0;
     byYear.set(year, y);
   }
   const years = [...byYear.values()]
@@ -568,6 +570,7 @@ export function buildStats(
       welfare: round2(y.welfare),
       severance: round2(y.severance),
       pensionFund: round2(y.pensionFund),
+      employerPension: round2(y.employerPension),
       extraPay: round2(y.extraPay),
       averageNet: round2(y.net / y.payslips),
     }))
