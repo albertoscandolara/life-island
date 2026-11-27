@@ -128,38 +128,6 @@
       </div>
       } @else if (m.state === 'none' && !m.extras.length) {
       <p class="slip__empty">–</p>
-      } @for (s of m.extras; track s.doc.uploadId) {
-      <div class="slip__extra">
-        <span
-          >{{ extraNames[s.kind] }} <strong>{{ euro(s.doc.net) }}</strong></span
-        >
-        <span class="slip__extra-actions">
-          <a
-            uiButton
-            variant="ghost"
-            size="sm"
-            [href]="previewUrl(s)"
-            target="_blank"
-            rel="noopener"
-            [attr.aria-label]="'Open the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
-          >
-            <ui-icon name="eye" [size]="16" />
-          </a>
-          <a
-            uiButton
-            variant="ghost"
-            size="sm"
-            [href]="downloadUrl(s)"
-            download
-            [attr.aria-label]="'Download the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
-          >
-            <ui-icon name="download" [size]="16" />
-          </a>
-        </span>
-        @for (c of s.checks; track $index) {
-        <span class="slip__note slip__note--check">{{ c }}</span>
-        }
-      </div>
       } @if (m.welfare && !m.slips.length) {
       <ng-container
         [ngTemplateOutlet]="welfareRow"
@@ -167,7 +135,73 @@
       />
       }
     </li>
-    }
+    <!-- An extra payslip (tredicesima, quattordicesima, bonus) is a payslip of
+         its own: its own card, right after its month. -->
+    @for (s of m.extras; track s.doc.uploadId) {
+    <li
+      class="slip slip--extra"
+      [class.slip--check]="s.checks.length"
+      [attr.aria-label]="extraNames[s.kind] + ' of ' + periodText(m.period)"
+    >
+      <header class="slip__head">
+        <span
+          class="slip__month"
+          [attr.title]="extraNames[s.kind] + ' of ' + periodText(m.period)"
+          >{{ extraNames[s.kind] }}</span
+        >
+        @if (s.checks.length) {
+        <ui-icon
+          class="slip__mark slip__mark--check"
+          name="alert"
+          [size]="16"
+        />
+        } @else {
+        <ui-icon class="slip__mark slip__mark--ok" name="check" [size]="16" />
+        }
+      </header>
+      <div class="slip__pay">
+        <strong class="slip__net">{{ euro(s.doc.net) }}</strong>
+        <span class="slip__gross"
+          >gross {{ euro(s.doc.gross) }} @if (manyJobs()) { · {{ s.workplace }}
+          }</span
+        >
+        @if (s.received === 'full') {
+        <span class="slip__note slip__note--ok"
+          >Received {{ dateText(s.doc.bankPayment!.lastDate) }}</span
+        >
+        } @else if (s.received === 'part') {
+        <span class="slip__note slip__note--check"
+          >{{ euro(s.doc.bankPayment!.paid) }} received</span
+        >
+        } @for (c of s.checks; track $index) {
+        <span class="slip__note slip__note--check">{{ c }}</span>
+        }
+      </div>
+      <div class="slip__actions">
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="previewUrl(s)"
+          target="_blank"
+          rel="noopener"
+          [attr.aria-label]="'Open the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
+        >
+          <ui-icon name="eye" [size]="16" /> Open
+        </a>
+        <a
+          uiButton
+          variant="ghost"
+          size="sm"
+          [href]="downloadUrl(s)"
+          download
+          [attr.aria-label]="'Download the ' + extraNames[s.kind] + ' of ' + periodText(m.period)"
+        >
+          <ui-icon name="download" [size]="16" />
+        </a>
+      </div>
+    </li>
+    } }
   </ol>
 
   <section class="cu" aria-labelledby="cu-title">
