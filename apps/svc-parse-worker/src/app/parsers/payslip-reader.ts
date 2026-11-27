@@ -62,12 +62,15 @@ export interface PayslipReading {
 export function readExtraMonth(
   text: string,
 ): 'thirteenth' | 'fourteenth' | null {
-  const m = /mens(?:ilit[aà])?\.?\s*supplementare\s+(\d{1,2})\s*\/\s*\d{4}/i.exec(
-    text,
-  );
+  const m =
+    /mens(?:ilit[aà])?\.?\s*supplementare\s+(\d{1,2})\s*\/\s*\d{4}/i.exec(text);
   if (!m) return null;
   const month = Number(m[1]);
-  return month === 12 ? 'thirteenth' : month === 6 || month === 7 ? 'fourteenth' : null;
+  return month === 12
+    ? 'thirteenth'
+    : month === 6 || month === 7
+      ? 'fourteenth'
+      : null;
 }
 
 /**

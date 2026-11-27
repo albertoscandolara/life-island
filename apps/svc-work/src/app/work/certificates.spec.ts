@@ -42,7 +42,19 @@ const cu = (extra: Record<string, string | number | null>) =>
     }),
   }) satisfies ApprovedWorkDocument;
 
-const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'];
+const months = [
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+  '10',
+  '11',
+];
 
 describe('buildCertificates', () => {
   it("counts December's year-end conguaglio, not a summer 730 refund", () => {
@@ -54,7 +66,11 @@ describe('buildCertificates', () => {
       cu({ irpef_withheld: 3300 - 400 }),
     ];
     const [c] = buildCertificates([workplace], docs);
-    expect(c).toMatchObject({ incomeGap: 0, taxGap: 0, payslipIncomeTax: 2900 });
+    expect(c).toMatchObject({
+      incomeGap: 0,
+      taxGap: 0,
+      payslipIncomeTax: 2900,
+    });
   });
 
   it('leaves out the 5% bonus tax the payslips print with IRPEF', () => {
