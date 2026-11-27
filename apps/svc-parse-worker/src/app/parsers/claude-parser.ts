@@ -7,12 +7,14 @@ import {
   GENERAL_TARGET_KEY,
   TARGET_CATALOG,
   PAYMENT_KINDS,
+  PAYSLIP_KEYS,
   TEMPLATE_FIELD_TYPES,
   TRANSACTION_ROLES,
   findTarget,
   isNeverAnExpense,
   telematicFilingOf,
   type AiRequestStep,
+  type ExtractedFields,
   type TransactionFacts,
 } from '@life-island/contracts';
 import type { AiToolDescription } from '@life-island/be-common';
@@ -42,6 +44,7 @@ import {
   type StepOutput,
   type TransactionContext,
 } from './document-parser.js';
+import { readWelfareCredits } from './payslip-reader.js';
 import { classifyProviderError } from './provider-errors.js';
 
 export const PROMPT_VERSION = 'categories-7';
@@ -557,6 +560,32 @@ export interface ClaudeModels {
  *    if the target data breaks its schema's rules.
  * A text document too large for the context window is split into chunks.
  */
+/**
+ * Welfare lines are easy for the model to miss when they are worded unlike
+ * the template's examples (art. 100, "WELFARE CCNL"). The PDF's text layer
+ * names them plainly, so their sum is the floor of the month's welfare.
+ */
+function checkWelfareCredits(input: ParseInput, fields: ExtractedFields) {
+  const field = fields.fields[PAYSLIP_KEYS.welfare];
+  if (!field || input.document.kind === 'image' || field.editedAt) return;
+  const read = readWelfareCredits(input.document.text);
+  if (read === null) return;
+  const model = typeof field.value === 'number' ? field.value : null;
+  if (model !== null && model >= read - 0.005) return;
+  fields.fields[PAYSLIP_KEYS.welfare] = {
+    ...field,
+    value: read,
+    status: 'found',
+    raw: model === null ? (field.raw ?? null) : String(model),
+    note: 'Sum of the welfare lines in the payslip text',
+  };
+  fields.warnings.push(
+    model === null
+      ? `Welfare credits read from the payslip lines: ${read}`
+      : `Welfare credits raised from ${model} to ${read}, the sum of the payslip lines`,
+  );
+}
+
 export class ClaudeParser implements DocumentAnalyzer {
   readonly name = 'claude';
 
@@ -754,6 +783,7 @@ export class ClaudeParser implements DocumentAnalyzer {
         fields.warnings.push(
           `Read in ${parts.length} parts; target details come from part ${parts.indexOf(valid ?? parts[0]) + 1}`,
         );
+      checkWelfareCredits(input, fields);
       return {
         runs,
         // Invalid data still goes to review, flagged, instead of being lost.

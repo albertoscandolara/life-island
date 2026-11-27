@@ -50,6 +50,37 @@ export interface PayslipReading {
   gross_pay: number | null;
   total_deductions: number | null;
   net_pay: number | null;
+  welfare_credits: number | null;
+}
+
+/**
+ * A credit line that pays no cash: welfare conversion (art. 51 or art. 100),
+ * welfare from the contract (CCNL), flexible benefits, meal vouchers.
+ */
+const WELFARE_LINE =
+  /\bwelfare\b|\bconvers\w*\.?\s+benefit|flexible\s+benefit|buoni\s+pasto|ticket\s+restaurant/i;
+/** Lines that name welfare but are not a credit of the month. */
+const NOT_A_CREDIT =
+  /trattenut|recuper|imponibil|progressiv|totale|residuo|maturat/i;
+
+/**
+ * The welfare credited this month: the sum of the last amount on each welfare
+ * line ("333 Welfare convers. benefit art.100 (no netto) 888,56"). A year on
+ * the line (2026) has no decimals and is not taken for an amount.
+ */
+export function readWelfareCredits(text: string): number | null {
+  const seen = new Set<string>();
+  let sum = 0;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim().replace(/\s+/g, ' ');
+    if (!WELFARE_LINE.test(line) || NOT_A_CREDIT.test(line)) continue;
+    // A payslip of several pages can repeat a line; count it once.
+    if (seen.has(line)) continue;
+    seen.add(line);
+    const amount = moneyIn(line).at(-1);
+    if (amount && amount > 0) sum += amount;
+  }
+  return sum > 0 ? Math.round(sum * 100) / 100 : null;
 }
 
 export function readPayslipText(text: string): PayslipReading {
@@ -115,5 +146,6 @@ export function readPayslipText(text: string): PayslipReading {
     gross_pay: totals?.[0] ?? null,
     total_deductions: totals?.[1] ?? null,
     net_pay: totals?.[2] ?? null,
+    welfare_credits: readWelfareCredits(text),
   };
 }

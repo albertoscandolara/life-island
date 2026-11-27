@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -54,7 +55,7 @@ const EXTRA_NAMES: Record<string, string> = {
 @Component({
   selector: 'work-payslip-archive',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiBadge, UiButton, UiCard, UiEmptyState, UiIcon],
+  imports: [NgTemplateOutlet, UiBadge, UiButton, UiCard, UiEmptyState, UiIcon],
   templateUrl: './payslip-archive.html',
   styleUrls: ['./payslip-archive.css'],
 })
