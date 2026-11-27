@@ -77,6 +77,16 @@ export const TFR_REVALUATION_PCT: Readonly<Record<number, number>> = {
 export const TFR_REVALUATION_TAX_PCT = 17;
 /** Each year's TFR is the year's pay divided by 13.5. */
 export const TFR_DIVISOR = 13.5;
+/**
+ * The 0.5% of pay that goes to INPS (contributo aggiuntivo, L. 297/1982) is
+ * taken from the TFR: payslips print it as CONTR. AGG. TFR.
+ */
+export const TFR_EXTRA_CONTRIBUTION_PCT = 0.5;
+
+/** The TFR a pay accrues: pay / 13.5 less the 0.5% INPS contribution. */
+export function tfrOfPay(pay: number): number {
+  return pay / TFR_DIVISOR - (pay * TFR_EXTRA_CONTRIBUTION_PCT) / 100;
+}
 export const TFR_SOURCE = {
   label: 'ISTAT TFR revaluation coefficients (dottrinalavoro.it, edotto.com)',
   url: 'https://www.dottrinalavoro.it/notizie-c/tfr-aggiornato-il-coefficiente-di-rivalutazione-per-il-mese-di-dicembre-2025',

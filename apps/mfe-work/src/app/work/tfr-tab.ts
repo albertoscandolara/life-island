@@ -119,7 +119,7 @@ export class TfrTab {
     return pct.toFixed(2);
   }
 
-  /** How far the accrued TFR is from pay / 13.5, as a percentage. */
+  /** How far the accrued TFR is from pay / 13.5 less 0.5%, as a percentage. */
   protected gapPct(accrued: number, expected: number | null): number | null {
     if (!expected) return null;
     return Math.round(((accrued - expected) / expected) * 1000) / 10;

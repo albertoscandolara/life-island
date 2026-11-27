@@ -8,7 +8,8 @@ import {
   PAR_HOURS_PER_YEAR,
   SENIORITY_STEP_MONTHS,
   SENIORITY_STEPS_MAX,
-  TFR_DIVISOR,
+  TFR_EXTRA_CONTRIBUTION_PCT,
+  tfrOfPay,
   TFR_REVALUATION_TAX_PCT,
   TFR_SOURCE,
   tfrRevaluation,
@@ -310,7 +311,7 @@ export function buildAudit(
       });
   }
 
-  // 6. TFR of each full year: the year's pay over 13.5.
+  // 6. TFR of each full year: the year's pay over 13.5, less the 0.5% to INPS.
   const tfrYears = new Map<string, ApprovedWorkDocument[]>();
   for (const p of payslips) {
     const year = p.reading.period!.slice(0, 4);
@@ -320,11 +321,33 @@ export function buildAudit(
   for (const [year, list] of tfrYears) {
     const regular = list.filter((p) => kindOf(p.reading) === 'regular');
     if (regular.length < 12) continue;
+    // A month's TFR read as its 0.5% contribution (CONTR. AGG. TFR) sits
+    // next to it on the payslip: about 0.5% of pay instead of about 7%.
+    const misread = list.filter((p) => {
+      const { severance, gross } = p.reading;
+      return (
+        severance !== null &&
+        gross &&
+        severance < (gross * TFR_EXTRA_CONTRIBUTION_PCT * 2) / 100
+      );
+    });
+    if (misread.length) {
+      find({
+        kind: 'tfr_quota',
+        severity: 'check',
+        uploadId: misread.length === 1 ? misread[0].uploadId : null,
+        period: `${year}-12`,
+        title: `TFR ${year}: ${misread.length === 1 ? 'one payslip' : `${misread.length} payslips`} read the 0.5% contribution as the TFR`,
+        detail: `${misread.map((p) => p.reading.period!.slice(5, 7) + '/' + year).join(', ')}: the TFR read (${misread.map((p) => money(p.reading.severance!)).join(', ')}) is the CONTR. AGG. TFR printed next to TFR MESE. Parse ${misread.length === 1 ? 'it' : 'them'} again, or type the TFR MESE in.`,
+        amount: null,
+      });
+      continue;
+    }
     const accrued = list.reduce((s, p) => s + (p.reading.severance ?? 0), 0);
     const gross = list.reduce((s, p) => s + (p.reading.gross ?? 0), 0);
     if (!accrued || !gross) continue;
     tfrChecked++;
-    const expected = gross / TFR_DIVISOR;
+    const expected = tfrOfPay(gross);
     if (accrued < expected * 0.85)
       find({
         kind: 'tfr_quota',
@@ -333,12 +356,14 @@ export function buildAudit(
         period: `${year}-12`,
         title: `TFR ${year}: ${money(accrued)}, about ${money(expected)} expected`,
         detail:
-          'The TFR of a year is its pay divided by 13.5. Occasional items (some allowances, expense refunds) do not count, so a few percent less is normal, but this is more.',
+          'The TFR of a year is its pay divided by 13.5, less the 0.5% that goes to INPS. Occasional items (some allowances, expense refunds) do not count, so a few percent less is normal, but this is more.',
         amount: round2(expected - accrued),
       });
   }
   if (tfrChecked && !findings.some((f) => f.kind === 'tfr_quota'))
-    passed.push('The TFR of each full year is about its pay over 13.5.');
+    passed.push(
+      'The TFR of each full year is about its pay over 13.5, less the 0.5% to INPS.',
+    );
 
   // 7. Employee contributions: 9.19% for most, 10.19% above the threshold.
   let oddRates = 0;
@@ -514,7 +539,7 @@ export function buildTfr(
         payslips: list.length,
         accrued,
         toFund,
-        expected: regular >= 12 && gross ? round2(gross / TFR_DIVISOR) : null,
+        expected: regular >= 12 && gross ? round2(tfrOfPay(gross)) : null,
         revaluationPct: pct,
         revaluationEstimated: estimated || running,
         revaluation,
