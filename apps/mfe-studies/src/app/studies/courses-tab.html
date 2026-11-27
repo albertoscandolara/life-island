@@ -11,9 +11,12 @@
       <ui-icon name="plus" [size]="16" /> Add a course
     </button>
   </div>
-  <p class="li-muted li-intro">
-    The courses you take, on a platform or anywhere else. Tie one to a path step
-    and its time counts there too; its cost counts in what you spend this year.
+  @let st = data().stats;
+  <p class="li-intro spend">
+    <strong>{{ euro(st.spentThisYear) }}</strong> spent this year on courses,
+    exams and renewals · subscriptions {{ euro(st.subscriptionsPerYear) }} a
+    year · {{ st.coursesInProgress }} in progress, {{ st.coursesCompleted }}
+    completed. A course tied to a path step counts its time there too.
   </p>
 
   @if (course(); as d) {

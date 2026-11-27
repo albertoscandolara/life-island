@@ -1,22 +1,16 @@
-/* This week: the tiles, the reminders, the 12-week chart and the paths you follow. */
-.tile__of {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.reminder {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-  align-items: start;
-}
-
-.quick {
-  margin: 0;
-}
-
+/* Overview: Study now, Up next, your week and your weeks, the latest sessions. */
 .block-line {
   display: block;
+}
+
+.day {
+  white-space: nowrap;
+}
+
+.anchor {
+  display: block;
+  min-width: 0;
+  scroll-margin-top: var(--space-12);
 }
 
 .visually-hidden {
@@ -28,116 +22,152 @@
   white-space: nowrap;
 }
 
-/* ---- the 12-week chart -------------------------------------------------- */
-.chart {
-  display: grid;
-  gap: var(--space-1);
-  padding-top: var(--space-5);
-}
-
-.chart__bars,
-.chart__labels {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--space-1);
-}
-
-.chart__bars {
-  position: relative;
-  height: 10rem;
-}
-
-.chart__stack {
-  display: flex;
-  flex-direction: column-reverse;
-  min-width: 0;
-  overflow: hidden;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: var(--surface-sunken);
-}
-
-.chart__part {
-  display: block;
-  flex: none;
-  width: 100%;
-}
-
-.chart__label {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  text-align: center;
-  white-space: nowrap;
-}
-
-.chart__label--met {
-  color: var(--tone-success);
-  font-weight: 600;
-}
-
-/* The goal, as a dashed line across the bars at its height. */
-.chart__goal {
-  position: absolute;
-  right: 0;
-  left: 0;
-  z-index: 1;
-  height: 0;
-  border-top: 2px dashed var(--accent);
-  pointer-events: none;
-}
-
-.chart__goal span {
-  position: absolute;
-  top: calc(-1 * var(--space-5));
-  right: 0;
-  color: var(--accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-
-.day {
-  white-space: nowrap;
-}
-
-/* On a phone, every other week label, so they never overlap. */
-@media (max-width: 40rem) {
-  .chart__label:nth-child(even) {
-    visibility: hidden;
-  }
-}
-
-.legend {
+/* ---- Study now: the running session ------------------------------------ */
+.timer {
+  position: sticky;
+  top: var(--space-2);
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-glass);
+  box-shadow: var(--shadow-popover);
+  backdrop-filter: blur(var(--space-3));
+}
+
+.timer__clock {
+  min-width: 5ch;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.timer__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.done-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
-  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--tone-success-soft);
+}
+
+.done-ask p {
+  margin: 0;
+}
+
+/* ---- Up next ----------------------------------------------------------- */
+.next {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
   padding: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
   list-style: none;
 }
 
-/* ---- paths you follow --------------------------------------------------- */
-.follow {
+.next__item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
   align-items: center;
-  padding: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
 
-.follow__emblem {
-  font-size: var(--text-2xl);
+.next__item--on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-.follow__body {
+.next__emblem {
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-xl);
+}
+
+.next__body {
   display: grid;
   gap: var(--space-1);
   min-width: 0;
 }
 
-.follow p {
+.next__body p {
   margin: 0;
+}
+
+.next__context {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.next__title {
+  font-size: var(--text-md);
+}
+
+.next__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.next__meta .part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.next__meta .part + .part::before {
+  content: '·';
+  color: var(--text-muted);
+}
+
+.next__meta a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.next__actions {
+  display: grid;
+  justify-items: end;
+  gap: var(--space-2);
+}
+
+.next__quick {
+  margin: 0;
+}
+
+@media (width <= 40rem) {
+  .next__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .next__emblem {
+    display: none;
+  }
+
+  .next__actions {
+    justify-items: start;
+  }
 }

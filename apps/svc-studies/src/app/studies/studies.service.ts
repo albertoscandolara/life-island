@@ -58,6 +58,7 @@ import {
   subscriptionSpend,
   yearlyCost,
 } from './progress.js';
+import { pathLink, studyAttentionItems } from './attention.js';
 import { ResourceScout } from './resource-scout.js';
 import { StudyCoach } from './study-coach.js';
 
@@ -249,8 +250,8 @@ export class StudiesService {
       this.db.select().from(pathProgress),
     ]);
     const found: DeadlineDto[] = [];
-    const add = (d: Omit<DeadlineDto, 'module' | 'path'>) =>
-      found.push({ ...d, module: 'studies', path: '/studies' });
+    const add = (d: Omit<DeadlineDto, 'module'>) =>
+      found.push({ ...d, module: 'studies' });
     for (const p of platformRows)
       if (
         p.status === 'active' &&
@@ -264,6 +265,7 @@ export class StudiesService {
           detail: 'Cancel before it renews if you no longer use it.',
           date: p.renewsOn,
           amount: p.price,
+          path: '/studies?tab=courses#studies-platforms',
         });
     for (const c of certificationRows) {
       if (
@@ -277,6 +279,7 @@ export class StudiesService {
           detail: c.status === 'planned' ? 'Not booked yet.' : null,
           date: c.examOn,
           amount: c.cost,
+          path: '/studies?tab=courses',
         });
       if (c.status === 'passed' && inDeadlineWindow(c.expiresOn, window))
         add({
@@ -286,6 +289,7 @@ export class StudiesService {
           detail: 'Renew it or plan the new exam.',
           date: c.expiresOn,
           amount: null,
+          path: '/studies?tab=courses',
         });
     }
     for (const p of pathRows)
@@ -297,19 +301,22 @@ export class StudiesService {
           detail: null,
           date: p.targetOn,
           amount: null,
+          path: pathLink(p.pathId),
         });
     return found;
   }
 
   async attention(today = localToday()): Promise<StudiesAttentionDto> {
-    const { reminders } = await this.overview(today);
-    const dated = reminders.filter(
+    const overview = await this.overview(today);
+    const dated = overview.reminders.filter(
       (r) => r.kind !== 'idle' && r.kind !== 'target',
     );
+    const items = studyAttentionItems(overview);
     return {
       expired: dated.filter((r) => (r.daysLeft ?? 0) < 0).length,
       expiring: dated.filter((r) => (r.daysLeft ?? 0) >= 0).length,
-      toReview: 0,
+      toReview: items.length,
+      items,
     };
   }
 

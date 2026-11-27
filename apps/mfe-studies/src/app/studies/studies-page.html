@@ -1,28 +1,94 @@
 <ui-page-header
   emblem="📚"
   heading="Studies"
-  subtitle="Learning paths for what you want to grow in, the courses, exams and training platforms you use, your study time against a weekly goal, and a coach that plans your week."
-/>
-
-<nav class="tabs" aria-label="Studies">
-  @for (t of tabs; track t.id) {
-  <button
-    type="button"
-    class="tab"
-    [class.tab--on]="tab() === t.id"
-    [attr.aria-current]="tab() === t.id ? 'page' : null"
-    (click)="setTab(t.id)"
+  subtitle="Your learning paths, what to study next and fresh resources for each step."
+>
+  <ui-info-guide
+    uiPageActions
+    heading="Studies, in plain words"
+    [(open)]="guideOpen"
+    [(topic)]="guideTopic"
+    (closed)="onGuideClosed()"
   >
-    <ui-icon [name]="t.icon" [size]="18" /> {{ t.label }} @if (t.id ===
-    'overview' && reminderCount()) {
-    <span class="tab__count">{{ reminderCount() }}</span>
-    }
-  </button>
-  }
-</nav>
+    <ui-info-topic
+      key="paths"
+      label="Learning paths"
+      intro="A path is the road to one skill: a few stages, each a few steps to learn, build or practise, with what you can do once a step is done."
+    >
+      <p>
+        Follow the paths you care about; Overview shows the next step of each
+        one under <strong>Up next</strong>. A session logged on a step starts
+        it, and you mark it done when you can do what it promises (its
+        <em>You will</em> line).
+      </p>
+      <p>
+        Give a path a <strong>Finish by</strong> date and Studies tells you, at
+        the pace of your last weeks, whether you will make it. Your weekly goal
+        is shared among the paths you follow.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="scout"
+      label="Resource scout"
+      intro="An AI tool that keeps a path's resources current, because in fast-moving fields a two-year-old tutorial teaches things that are no longer true."
+    >
+      <p>
+        Every few months (every two for AI, frameworks and infrastructure, every
+        six for the rest) it searches the web for the best recent resources for
+        the stage you are on and the next one. It prefers official
+        documentation, the authors' own material and well-known courses, and
+        only uses addresses it actually saw.
+      </p>
+      <p>
+        It also checks the resources you pinned and flags the outdated ones, and
+        may propose a step to add or retire. Nothing changes until you pin,
+        dismiss, accept or decline. With the tool off, every step keeps its
+        hand-picked resources and what you pinned.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="coach"
+      label="Study coach"
+      intro="Plans your week from what you recorded here: the paths you follow and each step's status, courses, exams ahead and your weeks against the goal."
+    >
+      <p>
+        Your accounts and notes are never sent. Without a Claude API key, or
+        with the tool off in Settings → AI tools, the plan comes from Life
+        Island's own rules: an exam first, then the steps you are studying, then
+        the next step of each path, sized to your weekly goal.
+      </p>
+    </ui-info-topic>
+    <ui-info-topic
+      key="habits"
+      label="Studying well"
+      intro="A few habits that make an hour of study count, after a full day of work."
+    >
+      <ul>
+        <li>
+          <strong>Short and often beats long and rare.</strong> Three sessions
+          of 50 minutes in a week stick better than one afternoon.
+        </li>
+        <li>
+          <strong>Build, do not only read.</strong> Each stage has build and
+          practice steps: they are where the learning happens.
+        </li>
+        <li>
+          <strong>Write what you learned.</strong> A line in a step's notes is
+          what you reread before an exam or an interview.
+        </li>
+        <li>
+          <strong>Finish before you start.</strong> A step you are studying
+          comes before a new one.
+        </li>
+      </ul>
+    </ui-info-topic>
+  </ui-info-guide>
+</ui-page-header>
+
+<li-needs-you module="studies" (handled)="load()" />
 
 @if (error(); as message) {
-<ui-alert tone="danger" class="block">
+<ui-alert tone="danger" class="li-block">
   {{ message }}
   <button
     uiButton
@@ -35,8 +101,79 @@
   </button>
 </ui-alert>
 } @if (!overview() && !error()) {
-<p class="muted">Loading your studies…</p>
-} @if (overview(); as data) { @switch (tab()) { @case ('overview') {
+<p class="li-muted">Loading your studies…</p>
+} @if (overview(); as data) { @if (tiles(); as t) {
+<!-- Where you stand: each tile opens the tab behind it. -->
+<section class="li-tiles" aria-label="Your studies in numbers">
+  <button
+    type="button"
+    class="li-tile li-tile--lead tile"
+    (click)="setTab('overview')"
+  >
+    <span class="li-tile__label">This week</span>
+    <strong class="li-tile__value"
+      >{{ hours(t.week.minutes) }}
+      <span class="tile__of"
+        >of {{ data.stats.weeklyGoalHours }} h</span
+      ></strong
+    >
+    <ui-progress-bar [value]="t.week.share" label="Weekly goal" />
+    <span class="li-tile__hint">
+      @if (t.week.minutes >= t.week.goalMinutes) { Goal reached } @else { {{
+      duration(t.week.goalMinutes - t.week.minutes) }} to go } @if
+      (data.stats.streakWeeks) { · {{ data.stats.streakWeeks }} week{{
+      data.stats.streakWeeks === 1 ? '' : 's' }} in a row }
+    </span>
+  </button>
+  <button type="button" class="li-tile tile" (click)="setTab('paths')">
+    <span class="li-tile__label">Steps done this month</span>
+    <strong class="li-tile__value">{{ t.steps.thisMonth }}</strong>
+    <span class="li-tile__hint"
+      >{{ t.steps.open }} still open in the paths you follow</span
+    >
+    <li-delta
+      [now]="t.steps.thisMonth"
+      [before]="t.steps.lastMonth"
+      unit="number"
+      against="last month"
+    />
+  </button>
+  <button
+    type="button"
+    class="li-tile tile"
+    [class.li-tile--warning]="t.onTrack.behind.length"
+    (click)="setTab('paths')"
+  >
+    <span class="li-tile__label">Paths on track</span>
+    <strong class="li-tile__value"
+      >{{ t.onTrack.onTrack }} of {{ t.onTrack.following }}</strong
+    >
+    <span class="li-tile__hint">
+      @if (!t.onTrack.following) { Follow a path to see it here } @else if
+      (t.onTrack.behind.length) { Behind its target: {{ t.onTrack.behind.join(',
+      ') }} } @else { Against each path's target date }
+    </span>
+  </button>
+  <button type="button" class="li-tile tile" (click)="setTab('courses')">
+    <span class="li-tile__label">Proof of skill</span>
+    <strong class="li-tile__value">{{ t.proof.total }}</strong>
+    <span class="li-tile__hint"
+      >{{ t.proof.courses }} course{{ t.proof.courses === 1 ? '' : 's' }}
+      completed · {{ t.proof.certificates }} certificate{{ t.proof.certificates
+      === 1 ? '' : 's' }} · {{ t.proof.thisYear }} this year</span
+    >
+  </button>
+</section>
+}
+
+<li-tabs
+  label="Studies"
+  [tabs]="tabs()"
+  [active]="tab()"
+  (activeChange)="setTab($any($event))"
+/>
+
+@switch (tab()) { @case ('overview') {
 <studies-overview
   [data]="data"
   (changed)="load()"
@@ -54,13 +191,6 @@
 />
 } @case ('courses') {
 <studies-courses [data]="data" (changed)="load()" (failed)="failed($event)" />
-} @case ('platforms') {
+<span id="studies-platforms" class="anchor"></span>
 <studies-platforms [data]="data" (changed)="load()" (failed)="failed($event)" />
-} @case ('coach') {
-<studies-coach
-  [data]="data"
-  (changed)="load()"
-  (failed)="failed($event)"
-  (openPath)="openPath($event)"
-/>
 } } }

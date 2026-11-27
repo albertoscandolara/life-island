@@ -16,18 +16,17 @@ import {
   UiAiPanel,
   UiAiStatus,
   UiButton,
-  UiCard,
   UiIcon,
 } from '@life-island/design-system';
 import { AiTool } from '@life-island/settings-ui';
 import { StudiesApi } from '../api/studies-api';
 import { dateText, duration, errorText, numberOrNull } from './labels';
 
-/** The study coach (AI tool studies.study-coach): your week, planned from what you recorded. */
+/** Your week (AI tool studies.study-coach): the plan for this week, from what you recorded, and a question for the coach. */
 @Component({
   selector: 'studies-coach',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AiTool, UiAiPanel, UiAiStatus, UiButton, UiCard, UiIcon],
+  imports: [AiTool, UiAiPanel, UiAiStatus, UiButton, UiIcon],
   templateUrl: './coach-tab.html',
   styleUrls: ['./blocks.css', './coach-tab.css'],
 })
