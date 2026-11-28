@@ -79,12 +79,8 @@
           "tableFrom": "dream_check_ins",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -93,12 +89,8 @@
           "tableFrom": "dream_check_ins",
           "tableTo": "dream_steps",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "step_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["step_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -171,12 +163,8 @@
           "tableFrom": "dream_guidance",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -251,12 +239,8 @@
           "tableFrom": "dream_milestones",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -330,12 +314,8 @@
           "tableFrom": "dream_questions",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -484,12 +464,8 @@
           "tableFrom": "dream_steps",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -498,12 +474,8 @@
           "tableFrom": "dream_steps",
           "tableTo": "dream_milestones",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "milestone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["milestone_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -654,12 +626,8 @@
           "tableFrom": "habit_checks",
           "tableTo": "habits",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "habit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["habit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -667,10 +635,7 @@
       "compositePrimaryKeys": {
         "habit_checks_habit_id_date_pk": {
           "name": "habit_checks_habit_id_date_pk",
-          "columns": [
-            "habit_id",
-            "date"
-          ]
+          "columns": ["habit_id", "date"]
         }
       },
       "uniqueConstraints": {},
@@ -730,12 +695,8 @@
           "tableFrom": "habits",
           "tableTo": "dreams",
           "schemaTo": "dreams",
-          "columnsFrom": [
-            "dream_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dream_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -833,9 +794,7 @@
         "weekly_reviews_week_start_unique": {
           "name": "weekly_reviews_week_start_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "week_start"
-          ]
+          "columns": ["week_start"]
         }
       },
       "policies": {},
