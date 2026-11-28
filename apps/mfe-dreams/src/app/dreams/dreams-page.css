@@ -623,10 +623,11 @@
 /* The road between two milestones. */
 .path__stop:not(:last-child)::before {
   position: absolute;
-  top: calc(var(--space-2) + 2rem);
+  top: calc(var(--space-2) + var(--space-8));
   bottom: 0;
-  left: calc(1rem - 1px);
+  left: var(--space-4);
   width: 2px;
+  transform: translateX(-50%);
   background: var(--border-subtle);
   content: '';
 }
