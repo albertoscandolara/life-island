@@ -85,6 +85,7 @@ export const TRAINING_PLATFORM_PRESETS: readonly TrainingPlatformPreset[] = [
     plan: 'per-course',
     topics: [
       'ai',
+      'ai-internals',
       'frameworks',
       'infrastructure',
       'leadership',
@@ -97,21 +98,21 @@ export const TRAINING_PLATFORM_PRESETS: readonly TrainingPlatformPreset[] = [
     name: 'Coursera',
     url: 'https://www.coursera.org/',
     plan: 'subscription',
-    topics: ['ai', 'infrastructure', 'leadership', 'finance'],
+    topics: ['ai', 'ai-internals', 'infrastructure', 'leadership', 'finance'],
     note: 'University and company programmes with certificates.',
   },
   {
     name: 'DeepLearning.AI',
     url: 'https://www.deeplearning.ai/',
     plan: 'free',
-    topics: ['ai'],
+    topics: ['ai', 'ai-internals'],
     note: 'Short free courses on LLM apps, RAG and agents.',
   },
   {
     name: 'Hugging Face Learn',
     url: 'https://huggingface.co/learn',
     plan: 'free',
-    topics: ['ai'],
+    topics: ['ai', 'ai-internals'],
     note: 'Free courses on models, agents and MCP.',
   },
   {

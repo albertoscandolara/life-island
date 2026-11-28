@@ -35,6 +35,7 @@ export function hostOf(url: string): string {
 /** The chart colour of a topic: the categorical palette, one slot each. */
 export const TOPIC_COLORS: Record<StudyTopic, string> = {
   ai: 'var(--viz-1)',
+  'ai-internals': 'var(--viz-ai-internals)',
   frameworks: 'var(--viz-3)',
   infrastructure: 'var(--viz-2)',
   leadership: 'var(--viz-5)',

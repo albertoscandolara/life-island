@@ -31,6 +31,23 @@ describe('learning paths', () => {
     expect(new Set(steps).size).toBe(steps.length);
   });
 
+  it('split AI in two topics, each with one deep path climbing every level', () => {
+    const byTopic = (topic: string) =>
+      LEARNING_PATHS.filter((p) => p.topic === topic).map((p) => p.id);
+    expect(byTopic('ai')).toEqual(['ai-coding']);
+    expect(byTopic('ai-internals')).toEqual(['ai-theory']);
+    for (const id of ['ai-coding', 'ai-theory']) {
+      const path = LEARNING_PATHS.find((p) => p.id === id)!;
+      expect(path.stages.map((s) => s.level)).toContain('foundations');
+      expect(path.stages.map((s) => s.level)).toContain('expert');
+      expect(pathSteps(path).length).toBeGreaterThanOrEqual(24);
+      for (const stage of path.stages) expect(stage.checkpoint).toBeTruthy();
+    }
+    // The step that moved (migration 0004 carries your progress over).
+    expect(pathOfStep('ai-theory.assistant.sampling')?.id).toBe('ai-theory');
+    expect(pathStep('ai-coding.foundations.llm-basics')).toBeUndefined();
+  });
+
   it('give every step hours, a detail, an outcome and only https links', () => {
     for (const path of LEARNING_PATHS) {
       expect(path.stages.length).toBeGreaterThan(0);
@@ -49,6 +66,7 @@ describe('learning paths', () => {
     expect(LEARNING_PATHS.map((p) => p.topic)).toEqual(
       expect.arrayContaining([
         'ai',
+        'ai-internals',
         'frameworks',
         'infrastructure',
         'leadership',

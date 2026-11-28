@@ -115,6 +115,12 @@
   --viz-property-1: var(--viz-aqua-500);
   --viz-property-2: var(--viz-orange-500);
   --viz-property-3: var(--viz-violet-600);
+  /* Studies: the second AI topic, AI internals, next to AI engineering (--viz-1). */
+  --viz-ai-internals: color-mix(
+    in oklab,
+    var(--viz-blue-450) 50%,
+    var(--viz-violet-600)
+  );
   --viz-other: var(--ink-400);
   --viz-grid: var(--ink-100);
   --viz-axis: var(--ink-300);
@@ -199,6 +205,11 @@
   --viz-property-1: var(--viz-aqua-600);
   --viz-property-2: var(--viz-orange-600);
   --viz-property-3: var(--viz-violet-400);
+  --viz-ai-internals: color-mix(
+    in oklab,
+    var(--viz-blue-400) 50%,
+    var(--viz-violet-400)
+  );
   --viz-other: var(--abyss-400);
   --viz-grid: var(--abyss-700);
   --viz-axis: var(--abyss-600);

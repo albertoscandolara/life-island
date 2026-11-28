@@ -22,7 +22,7 @@ export interface UpNextResource {
 export interface UpNextItem {
   key: string;
   emblem: string;
-  /** "AI coding and tools · Coding with AI every day · step 5 of 16". */
+  /** "Agentic engineering · Coding agents every day · step 5 of 26". */
   context: string;
   title: string;
   /** What you can do once it is done, or the course's platform. */

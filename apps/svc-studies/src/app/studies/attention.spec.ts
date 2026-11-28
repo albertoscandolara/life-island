@@ -49,7 +49,7 @@ describe('studyAttentionItems', () => {
       {
         id: 'scout:ai-coding',
         kind: 'scout',
-        title: 'Review what the scout found for AI coding and tools',
+        title: 'Review what the scout found for Agentic engineering',
         detail: '2 new resources, 1 outdated',
         since: '2026-11-18',
         path: '/studies?tab=fresh',
