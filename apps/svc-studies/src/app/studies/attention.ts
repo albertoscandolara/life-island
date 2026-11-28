@@ -15,6 +15,9 @@ import {
 /** Where the scout's findings wait for you: Fresh resources. */
 export const FRESH_LINK = '/studies?tab=fresh';
 
+/** Where the recall questions wait: Overview, the Recall block. */
+export const RECALL_LINK = '/studies#studies-recall';
+
 /** Where a path opens in Studies: its tab, with the path selected. */
 export const pathLink = (pathId: string) =>
   `/studies?tab=paths&path=${encodeURIComponent(pathId)}`;
@@ -23,7 +26,8 @@ export function studyAttentionItems(
   overview: Pick<
     StudiesOverviewDto,
     'scout' | 'reminders' | 'catalogue' | 'paths'
-  >,
+  > &
+    Partial<Pick<StudiesOverviewDto, 'recall'>>,
 ): LifeAttentionItemDto[] {
   const items: LifeAttentionItemDto[] = [];
   const nameOf = (id: string) =>
@@ -78,6 +82,19 @@ export function studyAttentionItems(
       action: 'Review',
     });
   }
+
+  // Recall questions that came back today.
+  const due = overview.recall?.due ?? [];
+  if (due.length)
+    items.push({
+      id: 'recall',
+      kind: 'recall',
+      title: `Answer ${due.length} recall question${due.length === 1 ? '' : 's'}`,
+      detail: 'Two minutes now keeps what you studied from fading.',
+      since: due[0].dueOn,
+      path: RECALL_LINK,
+      action: 'Answer',
+    });
 
   for (const r of overview.reminders) {
     if (r.kind === 'target' && r.refId)

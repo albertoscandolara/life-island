@@ -42,6 +42,14 @@
     </button>
   </div>
 </div>
+} @if (data().recall.due.length) {
+<span id="studies-recall" class="anchor li-block">
+  <studies-recall
+    [data]="data()"
+    (changed)="changed.emit()"
+    (failed)="failed.emit($event)"
+  />
+</span>
 }
 
 <ui-card heading="Up next" class="li-block" id="studies-next">

@@ -9,11 +9,14 @@ import type {
   PathCreateRequest,
   PathOutlineRequest,
   PathProgressRequest,
+  RecallAnswerRequest,
   StepProgressRequest,
   StudiesOverviewDto,
   StudyPlanDto,
   StudyPlanRequest,
   StudySessionRequest,
+  TeachBackDto,
+  TeachBackRequest,
   TrainingPlatformRequest,
 } from '@life-island/contracts';
 import type { Observable } from 'rxjs';
@@ -117,6 +120,20 @@ export class StudiesApi {
 
   setStep(stepId: string, request: StepProgressRequest): Observable<void> {
     return this.http.put<void>(`${STUDIES_API}/steps/${stepId}`, request);
+  }
+
+  answerRecall(id: string, request: RecallAnswerRequest): Observable<void> {
+    return this.http.post<void>(`${STUDIES_API}/recall/${id}`, request);
+  }
+
+  teachBack(
+    stepId: string,
+    request: TeachBackRequest,
+  ): Observable<TeachBackDto> {
+    return this.http.post<TeachBackDto>(
+      `${STUDIES_API}/steps/${stepId}/teach-back`,
+      request,
+    );
   }
 
   writePlan(request: StudyPlanRequest): Observable<StudyPlanDto> {

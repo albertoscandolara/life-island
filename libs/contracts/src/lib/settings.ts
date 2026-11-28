@@ -28,6 +28,7 @@ import {
   STUDY_SCOUT_TOOL,
 } from './studies-scout.js';
 import { STUDY_PATH_BUILDER_TOOL } from './studies-builder.js';
+import { STUDY_RECALL_TOOL, STUDY_TEACH_BACK_TOOL } from './studies-recall.js';
 import {
   FITNESS_WEEKLY_MINUTES_DEFAULT,
   FITNESS_WEEKLY_MINUTES_SETTING,
@@ -231,7 +232,7 @@ export interface AiToolDefinition {
   /** What one use is, for "per use" ("per document", "per question"). */
   unit: string;
   /** How the tool starts. */
-  trigger: 'on-demand' | 'per-document' | 'scheduled';
+  trigger: 'on-demand' | 'per-document' | 'per-step' | 'scheduled';
   /** Where it lives in the apps: shown in Settings, with a link. */
   where: {
     app: 'documents' | 'island';
@@ -591,6 +592,61 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
         maxTokens: 16000,
         tools: [],
         estimate: { inputTokens: 8000, outputTokens: 6000 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: STUDY_RECALL_TOOL,
+    module: 'studies',
+    name: 'Recall quiz',
+    description:
+      'When you finish a step, writes a few short questions from what the step teaches and your notes. Each comes back after a day, a week and a month; one you miss starts again tomorrow. Testing yourself at growing gaps is what makes a step stick.',
+    unit: 'step',
+    trigger: 'per-step',
+    where: { app: 'island', path: '/studies', label: 'Studies · Overview' },
+    whenOff:
+      "Each finished step gets one question from its own outcome, in Life Island's words.",
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'questions',
+        label: 'Write the questions',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 2000,
+        tools: [],
+        estimate: { inputTokens: 1500, outputTokens: 600 },
+        always: true,
+      },
+    ],
+  },
+  {
+    id: STUDY_TEACH_BACK_TOOL,
+    module: 'studies',
+    name: 'Teach-back',
+    description:
+      'Reads a step explained in your own words, as you would explain it to a colleague, and says what holds, what is missing or wrong and why it matters, and the one thing to do next.',
+    unit: 'explanation',
+    trigger: 'on-demand',
+    where: {
+      app: 'island',
+      path: '/studies',
+      label: 'Studies · Learning paths',
+    },
+    whenOff: 'Read your explanation against the step’s outcome yourself.',
+    defaultEnabled: true,
+    steps: [
+      {
+        id: 'review',
+        label: 'Review the explanation',
+        modelEnv: 'STUDIES_AI_MODEL',
+        defaultModel: 'claude-sonnet-5-5',
+        effort: 'low',
+        maxTokens: 3000,
+        tools: [],
+        estimate: { inputTokens: 2500, outputTokens: 900 },
         always: true,
       },
     ],

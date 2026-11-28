@@ -17,6 +17,7 @@ import { CONFIG, SERVICE_DB, type StudiesConfig } from './config.js';
 import { HealthController } from './health.controller.js';
 import { StudiesController } from './studies/studies.controller.js';
 import { PathBuilder } from './studies/path-builder.js';
+import { RecallCoach } from './studies/recall-coach.js';
 import { ResourceScout } from './studies/resource-scout.js';
 import { StudiesService } from './studies/studies.service.js';
 import { StudyCoach } from './studies/study-coach.js';
@@ -43,6 +44,7 @@ export class AppModule {
         StudyCoach,
         ResourceScout,
         PathBuilder,
+        RecallCoach,
         ...(options.events === false
           ? []
           : [

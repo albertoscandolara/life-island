@@ -19,6 +19,7 @@ import {
   STEP_STATUSES,
   STUDY_TOPIC_LABELS,
   type LearningPath,
+  type PathStep,
   type PathOutlineRequest,
   type PathStart,
   type PathStatus,
@@ -48,6 +49,7 @@ import { AiTool } from '@life-island/settings-ui';
 import { StudiesApi } from '../api/studies-api';
 import { PathEditor } from './path-editor';
 import { ScoutPanel } from './scout-panel';
+import { TeachBack } from './teach-back';
 import {
   dateText,
   duration,
@@ -75,6 +77,7 @@ interface BuilderAsk {
     AiTool,
     PathEditor,
     ScoutPanel,
+    TeachBack,
     UiAiBadge,
     UiAiPanel,
     UiAiStatus,
@@ -116,6 +119,7 @@ export class PathsTab {
   protected readonly busy = signal<string | null>(null);
   /** The step whose notes are open. */
   protected readonly notesOpen = signal<string | null>(null);
+  protected readonly teachStep = signal<PathStep | null>(null);
   protected readonly addOpen = signal(false);
   protected readonly editorOpen = signal(false);
   /** The path the editor changes; null writes a new one. */

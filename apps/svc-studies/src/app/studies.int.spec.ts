@@ -57,6 +57,9 @@ describe.skipIf(!configured)(
       await svc.pool.query(
         "delete from studies.step_progress where path_id in ('ai-coding', '3d')",
       );
+      await svc.pool.query(
+        "delete from studies.recall_cards where path_id in ('ai-coding', '3d')",
+      );
     });
 
     afterAll(async () => {
@@ -69,6 +72,9 @@ describe.skipIf(!configured)(
       );
       await svc?.pool.query(
         "delete from studies.path_progress where path_id in ('ai-coding', '3d')",
+      );
+      await svc?.pool.query(
+        "delete from studies.recall_cards where path_id in ('ai-coding', '3d')",
       );
       await svc?.close();
       await app?.close();
@@ -165,6 +171,72 @@ describe.skipIf(!configured)(
       expect((await json('PUT', '/paths/3d', { status: null })).status).toBe(
         204,
       );
+    });
+
+    it('asks a recall question about a finished step, and brings it back later', async () => {
+      const step = 'ai-coding.agents.mcp';
+      expect(
+        (await json('PUT', `/steps/${step}`, { status: 'done' })).status,
+      ).toBe(204);
+      // Without a key the quiz writes one question from the step's outcome.
+      const card = (
+        await svc.pool.query<{ id: string; due_on: string; ai: boolean }>(
+          `select id, due_on::text, ai from studies.recall_cards where step_id = $1`,
+          [step],
+        )
+      ).rows;
+      expect(card).toHaveLength(1);
+      expect(card[0].ai).toBe(false);
+      // Marking it done again does not write a second one.
+      await json('PUT', `/steps/${step}`, { status: 'doing' });
+      await json('PUT', `/steps/${step}`, { status: 'done' });
+      expect(
+        (
+          await svc.pool.query(
+            `select 1 from studies.recall_cards where step_id = $1`,
+            [step],
+          )
+        ).rowCount,
+      ).toBe(1);
+
+      await svc.pool.query(
+        `update studies.recall_cards set due_on = current_date where id = $1`,
+        [card[0].id],
+      );
+      let { body } = await json<StudiesOverviewDto>('GET', '/overview');
+      expect(body.recall.due.map((c) => c.id)).toContain(card[0].id);
+      expect(body.aiTeachBack).toBe(false);
+      const attention = await json<StudiesAttentionDto>('GET', '/attention');
+      expect(attention.body.items?.some((i) => i.id === 'recall')).toBe(true);
+
+      expect(
+        (await json('POST', `/recall/${card[0].id}`, { result: 'got' })).status,
+      ).toBe(204);
+      ({ body } = await json<StudiesOverviewDto>('GET', '/overview'));
+      expect(body.recall.due.map((c) => c.id)).not.toContain(card[0].id);
+      expect(
+        (await json('POST', `/recall/${card[0].id}`, { result: 'maybe' }))
+          .status,
+      ).toBe(400);
+
+      // Teach-back needs the Claude API: a 503 that says what to do.
+      const teach = await json<{ message: string }>(
+        'POST',
+        `/steps/${step}/teach-back`,
+        {
+          explanation:
+            'An MCP server exposes tools, resources and prompts to a client such as Claude Code, over a standard protocol.',
+        },
+      );
+      expect(teach.status).toBe(503);
+      expect(teach.body.message).toMatch(/ANTHROPIC_API_KEY|Settings/);
+      expect(
+        (
+          await json('POST', `/steps/${step}/teach-back`, {
+            explanation: 'Too short.',
+          })
+        ).status,
+      ).toBe(400);
     });
 
     it('tracks a course on a platform step and an exam', async () => {

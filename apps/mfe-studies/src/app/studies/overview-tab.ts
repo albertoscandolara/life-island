@@ -28,6 +28,7 @@ import {
 } from '@life-island/design-system';
 import { StudiesApi } from '../api/studies-api';
 import { CoachTab } from './coach-tab';
+import { RecallBlock } from './recall-block';
 import type { StudiesTab } from './studies-page';
 import {
   dateText,
@@ -59,6 +60,7 @@ interface SessionDraft {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CoachTab,
+    RecallBlock,
     UiBadge,
     UiButton,
     UiCard,

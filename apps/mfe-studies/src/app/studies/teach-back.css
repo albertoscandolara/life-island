@@ -1,0 +1,35 @@
+.teach {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.teach__field {
+  display: grid;
+}
+
+.teach__result {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.teach__result h4 {
+  margin: 0 0 var(--space-1);
+  color: var(--text-muted);
+}
+
+.teach__result ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.teach__next {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
