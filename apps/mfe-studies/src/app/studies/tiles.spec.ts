@@ -25,6 +25,7 @@ const path = (over: object) => ({
 const data = {
   stats: { weeklyGoalHours: 5, weekMinutes: 150, streakWeeks: 0 },
   catalogue: [...LEARNING_PATHS],
+  templates: [],
   courses: [
     { status: 'completed', completedOn: '2026-11-03' },
     { status: 'in_progress', completedOn: null },

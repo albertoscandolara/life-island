@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   LEARNING_PATHS,
+  pathSteps,
   type LearningPath,
   type PathStep,
   type StepKind,
@@ -275,11 +276,18 @@ export function applyOutlineChanges(
     const retired = new Set(
       mine.filter((c) => c.kind === 'retire-step').map((c) => c.stepId),
     );
+    // A step you already have (you edited the path after accepting it) is not added twice.
+    const have = new Set(pathSteps(path).map((s) => s.id));
     return {
       ...path,
       stages: path.stages.map((stage) => {
         const added: PathStep[] = mine
-          .filter((c) => c.kind === 'add-step' && c.stageId === stage.id)
+          .filter(
+            (c) =>
+              c.kind === 'add-step' &&
+              c.stageId === stage.id &&
+              !have.has(c.stepId),
+          )
           .map((c) => ({
             id: c.stepId,
             title: c.title ?? 'New step',

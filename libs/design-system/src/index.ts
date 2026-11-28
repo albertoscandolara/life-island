@@ -28,3 +28,4 @@ export * from './lib/charts/line-chart';
 export * from './lib/charts/scale';
 export * from './lib/charts/segmented-bar';
 export * from './lib/charts/sparkline';
+export * from './lib/trail/trail';

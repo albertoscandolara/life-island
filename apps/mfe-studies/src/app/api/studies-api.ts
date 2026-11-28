@@ -5,6 +5,8 @@ import type {
   OutlineDecisionRequest,
   ScoutResourceRequest,
   CourseRequest,
+  PathCreateRequest,
+  PathOutlineRequest,
   PathProgressRequest,
   StepProgressRequest,
   StudiesOverviewDto,
@@ -81,6 +83,21 @@ export class StudiesApi {
 
   removeSession(id: string): Observable<void> {
     return this.http.delete<void>(`${STUDIES_API}/sessions/${id}`);
+  }
+
+  addPath(request: PathCreateRequest): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>(`${STUDIES_API}/paths`, request);
+  }
+
+  editPath(pathId: string, outline: PathOutlineRequest): Observable<void> {
+    return this.http.put<void>(
+      `${STUDIES_API}/paths/${pathId}/outline`,
+      outline,
+    );
+  }
+
+  removePath(pathId: string): Observable<void> {
+    return this.http.delete<void>(`${STUDIES_API}/paths/${pathId}`);
   }
 
   setPath(pathId: string, request: PathProgressRequest): Observable<void> {

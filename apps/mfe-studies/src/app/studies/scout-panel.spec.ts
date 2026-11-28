@@ -42,6 +42,7 @@ function render(state: StudyScoutDto) {
   fixture.componentRef.setInput('data', {
     scout: state,
     catalogue: [...LEARNING_PATHS],
+    templates: [],
   } as unknown as StudiesOverviewDto);
   fixture.componentRef.setInput('path', frameworks);
   fixture.detectChanges();

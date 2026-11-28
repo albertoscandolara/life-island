@@ -317,6 +317,11 @@ describe.skipIf(!configured)(
         "delete from studies.settings_replica where key = 'studies.scout-subject'",
       );
       expect((await json('POST', '/scout/scans')).status).toBe(400);
+      // Only a path of yours is watched.
+      expect(
+        (await json('PUT', '/paths/frameworks', { status: 'following' }))
+          .status,
+      ).toBe(204);
       await svc.pool.query(
         "insert into studies.settings_replica (key, value, changed_at) values ('studies.scout-subject', '\"frameworks\"', now())",
       );
@@ -328,6 +333,78 @@ describe.skipIf(!configured)(
       await svc.pool.query(
         "delete from studies.settings_replica where key = 'studies.scout-subject'",
       );
+      expect((await json('DELETE', '/paths/frameworks')).status).toBe(204);
+    });
+
+    it('adds a curated path and one of your own, changes it and removes it', async () => {
+      await json('DELETE', '/paths/finance');
+      const { body: before } = await json<StudiesOverviewDto>(
+        'GET',
+        '/overview',
+      );
+      expect(before.templates.some((t) => t.id === 'finance')).toBe(true);
+      expect(before.catalogue.some((p) => p.id === 'finance')).toBe(false);
+      expect(
+        (await json('POST', '/paths', { template: 'finance' })).status,
+      ).toBe(201);
+      expect(
+        (await json('POST', '/paths', { template: 'finance' })).status,
+      ).toBe(409);
+
+      const outline = {
+        name: `Public speaking ${run}`,
+        emblem: '🎤',
+        topic: 'leadership',
+        stages: [
+          {
+            title: 'Short demos',
+            steps: [{ title: 'A 5 minute demo', kind: 'practice', hours: 2 }],
+          },
+        ],
+      };
+      const added = await json<{ id: string }>('POST', '/paths', { outline });
+      expect(added.status).toBe(201);
+      const id = added.body.id;
+      expect(id).toBe(`public-speaking-${run.toLowerCase()}`);
+      const stepId = `${id}.short-demos.a-5-minute-demo`;
+      expect(
+        (await json('PUT', `/steps/${stepId}`, { status: 'done' })).status,
+      ).toBe(204);
+
+      // Rename the step and add one: the kept step keeps its progress.
+      expect(
+        (
+          await json('PUT', `/paths/${id}/outline`, {
+            ...outline,
+            stages: [
+              {
+                id: 'short-demos',
+                title: 'Short demos',
+                steps: [
+                  { id: stepId, title: 'A demo', kind: 'practice', hours: 2 },
+                  { title: 'A team talk', kind: 'build', hours: 4 },
+                ],
+              },
+            ],
+          })
+        ).status,
+      ).toBe(204);
+      let { body } = await json<StudiesOverviewDto>('GET', '/overview');
+      const mine = body.paths.find((p) => p.pathId === id)!;
+      expect(mine.status).toBe('following');
+      expect(mine.totalSteps).toBe(2);
+      expect(mine.doneSteps).toBe(1);
+      expect(
+        body.catalogue.find((p) => p.id === id)!.stages[0].steps[0].title,
+      ).toBe('A demo');
+      expect(body.templates.some((t) => t.id === 'finance')).toBe(false);
+
+      expect((await json('DELETE', `/paths/${id}`)).status).toBe(204);
+      expect((await json('DELETE', '/paths/finance')).status).toBe(204);
+      expect((await json('DELETE', `/paths/${id}`)).status).toBe(404);
+      ({ body } = await json<StudiesOverviewDto>('GET', '/overview'));
+      expect(body.catalogue.some((p) => p.id === id)).toBe(false);
+      expect(body.templates.some((t) => t.id === 'finance')).toBe(true);
     });
 
     it('writes a scan: new suggestions replace the old ones, pinned ones are checked', async () => {

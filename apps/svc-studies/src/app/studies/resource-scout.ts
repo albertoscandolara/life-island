@@ -20,7 +20,6 @@ import {
   type AiAssistantStep,
 } from '@life-island/be-nest';
 import {
-  applyOutlineChanges,
   learningPath,
   nextScanOn,
   scoutCadenceMonths,
@@ -44,8 +43,11 @@ import {
 } from '@life-island/contracts';
 import { and, desc, eq, inArray, lt, ne } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type StudiesConfig } from '../config.js';
+import { yourCatalogue } from './paths.js';
 import {
+  learningPaths,
   outlineChanges,
+  pathProgress,
   scoutResources,
   scoutScans,
   scoutSteps,
@@ -136,11 +138,15 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     return this.ai.active();
   }
 
-  /** The path under watch and how often, from the settings replica. */
-  async settings(): Promise<{
+  /**
+   * The path under watch and how often, from the settings replica. A path
+   * you have not added (or removed) is not watched.
+   */
+  async settings(catalogue?: readonly LearningPath[]): Promise<{
     subject: string | null;
     cadence: StudyScoutCadence;
   }> {
+    const paths = catalogue ?? (await this.catalogue());
     const values = await readSettings(this.svc.pool, this.svc.schema, [
       STUDY_SCOUT_SUBJECT_SETTING,
       STUDY_SCOUT_CADENCE_SETTING,
@@ -151,7 +157,7 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
       subject:
         typeof subject === 'string' &&
         subject !== STUDY_SCOUT_NONE &&
-        learningPath(subject)
+        learningPath(subject, paths)
           ? subject
           : null,
       cadence: STUDY_SCOUT_CADENCES.includes(cadence as StudyScoutCadence)
@@ -160,14 +166,29 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
-  /** The learning paths with the outline changes you accepted. */
+  /**
+   * Your learning paths (the templates you added and the paths you wrote or
+   * changed) with the outline changes you accepted.
+   */
   async catalogue(): Promise<LearningPath[]> {
-    const accepted = await this.db
-      .select()
-      .from(outlineChanges)
-      .where(eq(outlineChanges.status, 'accepted'))
-      .orderBy(outlineChanges.decidedAt);
-    return applyOutlineChanges(accepted.map(changeDto));
+    const [stored, followed, started, accepted] = await Promise.all([
+      this.db.select().from(learningPaths).orderBy(learningPaths.createdAt),
+      this.db.select({ id: pathProgress.pathId }).from(pathProgress),
+      this.db.selectDistinct({ id: stepProgress.pathId }).from(stepProgress),
+      this.db
+        .select()
+        .from(outlineChanges)
+        .where(eq(outlineChanges.status, 'accepted'))
+        .orderBy(outlineChanges.decidedAt),
+    ]);
+    return yourCatalogue({
+      stored,
+      yours: new Set([...followed, ...started].map((r) => r.id)),
+      changes: accepted.map((row) => ({
+        ...changeDto(row),
+        decidedAt: row.decidedAt,
+      })),
+    });
   }
 
   /** The scout's part of the overview. */
@@ -177,7 +198,7 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
   ): Promise<StudyScoutDto> {
     const [settings, ai, resourceRows, proposalRows, paceRows, [last]] =
       await Promise.all([
-        this.settings(),
+        this.settings(catalogue),
         this.usesAi(),
         this.db
           .select()
@@ -250,9 +271,11 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
           lt(scoutScans.startedAt, new Date(now.getTime() - STALE_MS)),
         ),
       );
-    const { subject, cadence } = await this.settings();
-    if (!subject || this.running || !(await this.usesAi())) return null;
-    const path = learningPath(subject)!;
+    const catalogue = await this.catalogue();
+    const { subject, cadence } = await this.settings(catalogue);
+    const path = subject ? learningPath(subject, catalogue) : undefined;
+    if (!subject || !path || this.running || !(await this.usesAi()))
+      return null;
     const done = await this.lastDone(subject);
     if (done) {
       const due = nextScanOn(
@@ -280,7 +303,7 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     const { subject } = await this.settings();
     if (!subject)
       throw new BadRequestException(
-        'Pick the path to keep current first (Settings → App settings → Studies).',
+        'Pick one of your paths to keep current first (Settings → App settings → Studies).',
       );
     if (!this.ai.configured)
       throw new ServiceUnavailableException(

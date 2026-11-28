@@ -19,6 +19,8 @@ import {
   courseRequestSchema,
   outlineDecisionRequestSchema,
   scoutResourceRequestSchema,
+  pathCreateRequestSchema,
+  pathOutlineRequestSchema,
   pathProgressRequestSchema,
   stepProgressRequestSchema,
   studyPlanRequestSchema,
@@ -153,6 +155,32 @@ export class StudiesController {
   }
 
   // ---- paths
+  /** Add a topic: a curated template or a path of your own, followed from today. */
+  @Post('paths')
+  addPath(@Body() body: unknown): Promise<{ id: string }> {
+    return this.studies.addPath(parseOrThrow(pathCreateRequestSchema, body));
+  }
+
+  /** Changes a path's card, stages and steps; your progress on kept steps stays. */
+  @Put('paths/:pathId/outline')
+  @HttpCode(204)
+  editPath(
+    @Param('pathId') pathId: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.studies.editPath(
+      pathId,
+      parseOrThrow(pathOutlineRequestSchema, body),
+    );
+  }
+
+  /** Removes a path from yours, with its step progress; sessions stay logged. */
+  @Delete('paths/:pathId')
+  @HttpCode(204)
+  removePath(@Param('pathId') pathId: string): Promise<void> {
+    return this.studies.removePath(pathId);
+  }
+
   @Put('paths/:pathId')
   @HttpCode(204)
   setPath(
