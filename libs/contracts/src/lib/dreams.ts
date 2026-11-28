@@ -22,6 +22,14 @@ import {
  * a dream can say how you will know it is reached and by when, the habits
  * you repeat for it (a few days a week, with streaks), and a short weekly
  * review that covers every dream.
+ *
+ * Ovi works the way a psychologist helps someone out of a comfort zone:
+ * the dream is tied to why it matters, then turned into a path of a few
+ * milestones, each step serves one of them, a chosen step gets a plan for
+ * when and where and an "if this gets in the way, then I will…" line, you
+ * forecast how hard it will be and say afterwards how hard it was (fear
+ * usually overestimates), and what each step showed you is kept as proof
+ * that you can. Steps that go well let the next ones stretch further.
  */
 
 export const DREAM_AREAS = [
@@ -274,9 +282,39 @@ export const dreamStepRequestSchema = z.object({
   /** A smaller version, for when this one feels too much. */
   smaller: lifeNote(300),
   status: z.enum(DREAM_STEP_STATUSES).optional(),
+  /** The day you will do it. */
   dueDate: lifeOptionalDate,
+  /** The milestone of the path this step moves you towards. */
+  milestoneId: z.uuid().nullable().optional(),
+  /** When and where: "Saturday after breakfast, at the kitchen table". */
+  cue: lifeNote(200),
+  /** "If I feel like putting it off, then I do the smaller version for 10 minutes." */
+  ifThen: lifeNote(300),
+  /** How hard you expect it to be, 1 (easy) to 5 (very hard), before you do it. */
+  expectedHard: z.number().int().min(1).max(5).nullable().optional(),
 });
 export type DreamStepRequest = z.input<typeof dreamStepRequestSchema>;
+
+/** A milestone of a dream's path: what is true once you reach it. */
+export const dreamMilestoneRequestSchema = z.object({
+  dreamId: z.uuid(),
+  title: lifeName(160),
+  /** What reaching it gives you, or why it comes at this point. */
+  why: lifeNote(400),
+  position: z.number().int().min(0).max(20).optional(),
+  /** The day you reached it; null while it is ahead. */
+  reachedOn: lifeOptionalDate,
+});
+export type DreamMilestoneRequest = z.input<typeof dreamMilestoneRequestSchema>;
+
+/** How hard a step feels, before and after: the words for 1 to 5. */
+export const DREAM_HARDNESS = [
+  { value: 1, label: 'Easy' },
+  { value: 2, label: 'A little hard' },
+  { value: 3, label: 'Hard' },
+  { value: 4, label: 'Very hard' },
+  { value: 5, label: 'Scary' },
+] as const;
 
 export const dreamAnswerRequestSchema = z.object({
   answer: lifeNote(1500),
@@ -292,6 +330,10 @@ export const dreamCheckInRequestSchema = z.object({
   feeling: z.number().int().min(1).max(5),
   note: lifeNote(1500),
   nextPace: z.enum(DREAM_NEXT_PACES).optional(),
+  /** How hard it really was, 1 to 5, against what you expected. */
+  actualHard: z.number().int().min(1).max(5).nullable().optional(),
+  /** What it showed you about yourself: kept as proof that you can. */
+  learned: lifeNote(600),
 });
 export type DreamCheckInRequest = z.input<typeof dreamCheckInRequestSchema>;
 
@@ -352,9 +394,36 @@ export const dreamStepsOutputSchema = z.object({
         smaller: z
           .string()
           .describe('A smaller version for a day it feels too much'),
+        milestone: z
+          .number()
+          .describe(
+            'The number (1, 2, 3…) of the milestone of the path this step moves towards',
+          ),
+        cue: z
+          .string()
+          .describe(
+            'A suggested when and where, concrete: "Saturday morning, after breakfast"',
+          ),
+        ifThen: z
+          .string()
+          .describe(
+            'An if-then plan for the most likely obstacle: "If …, then I will …"',
+          ),
       }),
     )
     .describe('Two to four small steps, the first one the easiest'),
+  milestones: z
+    .array(
+      z.object({
+        title: z
+          .string()
+          .describe('What is true once it is reached, in a few words'),
+        why: z.string().describe('What reaching it gives, in one sentence'),
+      }),
+    )
+    .describe(
+      'The path to the dream in three to five milestones, first to last; empty when the dream already has a path',
+    ),
   notYet: z
     .array(
       z.object({
@@ -400,6 +469,10 @@ export type DreamStepDto = LifeRecord<{
   status: DreamStepStatus;
   dueDate: string | null;
   doneOn: string | null;
+  milestoneId: string | null;
+  cue: string | null;
+  ifThen: string | null;
+  expectedHard: number | null;
   /** 'goals': a step done in Goals & habits before the merge. */
   source: 'claude' | 'offline' | 'you' | 'goals';
 }> & {
@@ -414,7 +487,27 @@ export type DreamCheckInDto = LifeRecord<{
   feeling: number;
   note: string | null;
   nextPace: DreamNextPace;
-}> & { stepTitle: string | null };
+  actualHard: number | null;
+  learned: string | null;
+}> & {
+  stepTitle: string | null;
+  /** What you expected of the step, to set against actualHard. */
+  expectedHard: number | null;
+};
+
+export type DreamMilestoneDto = LifeRecord<{
+  dreamId: string;
+  title: string;
+  why: string | null;
+  position: number;
+  reachedOn: string | null;
+  source: 'claude' | 'offline' | 'you';
+}> & {
+  /** The first one not reached yet: where you are on the path. */
+  current: boolean;
+  doneSteps: number;
+  openSteps: number;
+};
 
 /** The reflection and the bigger moves of the last suggestions, kept with the dream. */
 export interface DreamGuidanceDto {
@@ -442,6 +535,8 @@ export type DreamDto = LifeRecord<{
 }> & {
   opening: string | null;
   questions: DreamQuestionDto[];
+  /** The path, first milestone first. */
+  milestones: DreamMilestoneDto[];
   /** Chosen first, then suggested, then done and skipped. */
   steps: DreamStepDto[];
   /** Newest first. */
@@ -564,7 +659,7 @@ export function stretchRank(stretch: DreamStretch): number {
  * How far the next steps may reach. The pace you chose sets the start; the
  * latest check-in moves it: "smaller" or a step that felt too much brings it
  * down, "bigger" after a step that felt good lets it up by one, never past
- * "brave". Two uneasy check-ins in a row make the next round tiny and short,
+ * "brave", and so do two good steps in a row, unasked. Two uneasy check-ins in a row make the next round tiny and short,
  * and say so. Feelings are about the check-ins, newest first.
  */
 export function dreamReach(
@@ -589,6 +684,12 @@ export function dreamReach(
     } else if (last.nextPace === 'bigger' && last.feeling >= 3) {
       level = Math.min(2, level + 1);
       reason = 'The last step went well and you said you can go a bit further.';
+    } else if (last.feeling >= 4 && (before?.feeling ?? 0) >= 4) {
+      // Growth: two steps in a row that went well are the evidence that the
+      // comfort zone has grown, so the next ones reach a little further.
+      level = Math.min(2, level + 1);
+      reason =
+        'Your last two steps went well: the next ones stretch a little further. Ask for smaller any time.';
     } else reason = `Your pace is ${pace}, and the last step felt about right.`;
   }
   const maxStretch = DREAM_STRETCHES[level]!;

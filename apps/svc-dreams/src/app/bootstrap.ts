@@ -20,11 +20,13 @@ export const SCHEMA_UPGRADE = fileURLToPath(
   ),
 );
 
-/** The one-off move of Goals & habits into Dreams (`npm run db:upgrade`). */
-export const GOALS_MOVE = fileURLToPath(
-  new URL(
-    '../../../../infra/postgres/upgrades/017-goals-into-dreams.sql',
-    import.meta.url,
+/** The one-off move of Goals & habits into Dreams, then the removal of what is left (`npm run db:upgrade`). */
+export const GOALS_MOVE = [
+  '017-goals-into-dreams.sql',
+  '018-drop-goals.sql',
+].map((name) =>
+  fileURLToPath(
+    new URL(`../../../../infra/postgres/upgrades/${name}`, import.meta.url),
   ),
 );
 
@@ -87,10 +89,11 @@ export async function ensureLocalSchema(
 
 /**
  * On your machine, with the default connection, moves what Goals & habits
- * held into Dreams right after the habits tables exist, as `npm run
- * db:upgrade` would: `npm start` runs the upgrades before this service has
- * added them. The move runs once (it marks itself done in the goals schema)
- * and never fails the start: it only logs.
+ * held into Dreams right after the habits tables exist, then removes the
+ * goals schema and role, as `npm run db:upgrade` would: `npm start` runs the
+ * upgrades before this service has added the tables. Once done there is no
+ * goals schema left, so both are no-ops; it never fails the start, it only
+ * logs.
  */
 export async function moveLocalGoals(
   config: Pick<ServiceConfig, 'databaseUrl'>,
@@ -107,7 +110,8 @@ export async function moveLocalGoals(
   admin.on('notice', (notice) => logger.log(notice.message));
   try {
     await admin.connect();
-    await admin.query(await readFile(GOALS_MOVE, 'utf8'));
+    for (const file of GOALS_MOVE)
+      await admin.query(await readFile(file, 'utf8'));
   } catch (error) {
     logger.warn(
       `Goals & habits could not be moved into Dreams (${String(error)}). Run npm run db:upgrade.`,

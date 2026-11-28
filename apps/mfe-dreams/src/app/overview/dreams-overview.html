@@ -1,0 +1,216 @@
+<ui-card heading="Up next" class="li-block" id="dreams-next">
+  <button
+    uiCardActions
+    uiButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    (click)="addDream.emit()"
+  >
+    <ui-icon name="plus" [size]="16" /> New dream
+  </button>
+  @if (!items().length) {
+  <ui-empty-state heading="No dream on the move" icon="flame">
+    <p class="li-muted">
+      Write something you would love to reach. Ovi asks a few questions, draws
+      the path, and the first small step shows up here.
+    </p>
+    <button uiButton type="button" (click)="addDream.emit()">
+      Write a dream
+    </button>
+  </ui-empty-state>
+  } @else {
+  <ul class="next">
+    @for (item of items(); track item.key; let first = $first) {
+    <li class="next__item" [class.next__item--stuck]="item.stuck">
+      <span class="next__emblem" aria-hidden="true">{{ item.emblem }}</span>
+      <div class="next__body">
+        <span class="next__context">{{ item.context }}</span>
+        <strong class="next__title">{{ item.title }}</strong>
+        <p class="li-muted li-small">{{ item.purpose }}</p>
+        @if (item.kind === 'step' && item.step; as s) {
+        <dl class="plan li-small">
+          <div>
+            <dt>When</dt>
+            <dd [class.li-warn]="late(s)">
+              {{ whenText(s) }}@if (s.cue) { · {{ s.cue }} }
+            </dd>
+          </div>
+          @if (s.ifThen) {
+          <div>
+            <dt>If it gets hard</dt>
+            <dd>{{ s.ifThen }}</dd>
+          </div>
+          } @if (s.expectedHard) {
+          <div>
+            <dt>You expect</dt>
+            <dd>{{ hardText(s.expectedHard) }}</dd>
+          </div>
+          }
+        </dl>
+        } @if (item.stuck) {
+        <p class="li-small li-warn">
+          {{ item.dream.idleDays }} days since the last step. A smaller one
+          still counts.
+        </p>
+        }
+      </div>
+      <div class="next__actions">
+        @switch (item.kind) { @case ('check-in') {
+        <button
+          uiButton
+          [variant]="first ? 'primary' : 'secondary'"
+          size="sm"
+          type="button"
+          (click)="checkIn.emit({ step: item.step!, outcome: null })"
+        >
+          <ui-icon name="check" [size]="14" /> Check in
+        </button>
+        } @case ('step') { @if (item.step!.dueDate) {
+        <button
+          uiButton
+          [variant]="first ? 'primary' : 'secondary'"
+          size="sm"
+          type="button"
+          (click)="checkIn.emit({ step: item.step!, outcome: 'done' })"
+        >
+          <ui-icon name="check" [size]="14" /> I did it
+        </button>
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="plan.emit(item.step!)"
+        >
+          Change the plan
+        </button>
+        } @else {
+        <button
+          uiButton
+          [variant]="first ? 'primary' : 'secondary'"
+          size="sm"
+          type="button"
+          (click)="plan.emit(item.step!)"
+        >
+          <ui-icon name="calendar" [size]="14" /> Plan it
+        </button>
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="checkIn.emit({ step: item.step!, outcome: 'done' })"
+        >
+          Already done
+        </button>
+        } @if (item.step!.smaller) {
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="smaller.emit(item.step!)"
+        >
+          Too big? Take the smaller one
+        </button>
+        } } @default {
+        <button
+          uiButton
+          [variant]="first ? 'primary' : 'secondary'"
+          size="sm"
+          type="button"
+          (click)="open(item)"
+        >
+          {{ item.kind === 'questions' ? 'Answer' : 'See the steps' }}
+        </button>
+        } }
+        <button
+          type="button"
+          class="li-link li-small"
+          (click)="openDream.emit({ dream: item.dream, tab: 'steps' })"
+        >
+          Open the dream
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+
+<div class="li-grid">
+  <ui-card heading="Proof you can">
+    @if (!proof().length) {
+    <ui-empty-state heading="Your proof starts with one step" icon="check">
+      <p class="li-muted">
+        After each step, write what it showed you: “I can ask a stranger a
+        question”. Read them again on the days you doubt yourself.
+      </p>
+    </ui-empty-state>
+    } @else {
+    <ul class="proof">
+      @for (p of proof(); track p.id) {
+      <li class="proof__item">
+        <span class="proof__emblem" aria-hidden="true">{{ p.emblem }}</span>
+        <div>
+          <p class="proof__text">“{{ p.learned }}”</p>
+          <span class="li-small li-muted"
+            >@if (p.step) { After “{{ p.step }}” · } {{ dateText(p.date)
+            }}</span
+          >
+        </div>
+      </li>
+      }
+    </ul>
+    }
+  </ui-card>
+
+  <ui-card heading="What you feared, and how it went">
+    @if (pairs().length < 2) {
+    <ui-empty-state heading="Forecast your next step" icon="chart">
+      <p class="li-muted">
+        When you plan a step, say how hard you expect it to be; when you check
+        in, how hard it really was. After a few steps you see your own fear
+        forecast against what happened.
+      </p>
+    </ui-empty-state>
+    } @else {
+    <p class="li-intro li-muted">
+      @if (fearSummary().easier) {
+      <strong class="li-good"
+        >{{ fearSummary().easier }} of {{ pairs().length }} steps were easier
+        than you feared.</strong
+      >
+      } @else { Your last {{ pairs().length }} steps, before and after. } From
+      Easy to Scary.
+    </p>
+    <ui-column-chart
+      mode="grouped"
+      [buckets]="chart().buckets"
+      [series]="chart().series"
+      [maxValue]="5"
+      [format]="hardAxis"
+      [label]="stepLabel"
+      [shortLabel]="stepShort"
+      [height]="220"
+      ariaLabel="How hard you feared each step, against how hard it was"
+    />
+    <table class="ui-visually-hidden">
+      <caption>
+        How hard you feared each step, against how hard it was
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Step</th>
+          <th scope="col">Feared</th>
+          <th scope="col">Real</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of pairs(); track p.stepId) {
+        <tr>
+          <th scope="row">{{ p.title }}</th>
+          <td>{{ hardText(p.expected) }}</td>
+          <td>{{ hardText(p.actual) }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+    }
+  </ui-card>
+</div>

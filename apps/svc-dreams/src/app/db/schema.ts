@@ -70,6 +70,24 @@ export const dreamQuestions = dreamsSchema.table('dream_questions', {
 });
 export type DreamQuestionRow = typeof dreamQuestions.$inferSelect;
 
+/** A milestone of the path to a dream: what is true once you reach it. */
+export const dreamMilestones = dreamsSchema.table('dream_milestones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dreamId: uuid('dream_id')
+    .notNull()
+    .references(() => dreams.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  why: text('why'),
+  position: integer('position').notNull().default(0),
+  reachedOn: date('reached_on'),
+  source: text('source')
+    .$type<'claude' | 'offline' | 'you'>()
+    .notNull()
+    .default('you'),
+  createdAt: createdAt(),
+});
+export type DreamMilestoneRow = typeof dreamMilestones.$inferSelect;
+
 /** One small step: suggested, chosen by you, done or skipped. */
 export const dreamSteps = dreamsSchema.table('dream_steps', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -88,6 +106,15 @@ export const dreamSteps = dreamsSchema.table('dream_steps', {
   status: text('status').$type<DreamStepStatus>().notNull().default('chosen'),
   dueDate: date('due_date'),
   doneOn: date('done_on'),
+  milestoneId: uuid('milestone_id').references(() => dreamMilestones.id, {
+    onDelete: 'set null',
+  }),
+  /** When and where you will do it. */
+  cue: text('cue'),
+  /** "If …, then I will …". */
+  ifThen: text('if_then'),
+  /** How hard you expect it to be, 1 to 5. */
+  expectedHard: integer('expected_hard'),
   source: text('source')
     .$type<'claude' | 'offline' | 'you' | 'goals'>()
     .notNull()
@@ -109,6 +136,10 @@ export const dreamCheckIns = dreamsSchema.table('dream_check_ins', {
   feeling: integer('feeling').notNull(),
   note: text('note'),
   nextPace: text('next_pace').$type<DreamNextPace>().notNull().default('same'),
+  /** How hard it really was, 1 to 5. */
+  actualHard: integer('actual_hard'),
+  /** What it showed you: proof that you can. */
+  learned: text('learned'),
   createdAt: createdAt(),
 });
 export type DreamCheckInRow = typeof dreamCheckIns.$inferSelect;

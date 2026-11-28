@@ -286,5 +286,87 @@ describe.skipIf(!configured)(
       ).toBeNull();
       await json('DELETE', `/habits/${habit.body.id}`);
     });
+
+    it('gives the dream a path, plans a step and keeps what it showed you', async () => {
+      const created = await json<{ id: string }>('POST', '/dreams', {
+        title: 'Speak at a meetup',
+        area: 'creativity',
+      });
+      const id = created.body.id;
+      dreamIds.push(id);
+      const suggested = await json<DreamDto>(
+        'POST',
+        `/dreams/${id}/suggestions`,
+        {},
+      );
+      // The first suggestions bring the path, and each step names its milestone.
+      expect(suggested.body.milestones).toHaveLength(5);
+      expect(suggested.body.milestones[0]).toMatchObject({ current: true });
+      const step = suggested.body.steps.find((s) => s.status === 'suggested')!;
+      expect(
+        suggested.body.milestones.some((m) => m.id === step.milestoneId),
+      ).toBe(true);
+      expect(step.cue).toBeTruthy();
+      expect(step.ifThen).toMatch(/^If /);
+
+      // Asking again keeps the path.
+      const again = await json<DreamDto>(
+        'POST',
+        `/dreams/${id}/suggestions`,
+        {},
+      );
+      expect(again.body.milestones.map((m) => m.id)).toEqual(
+        suggested.body.milestones.map((m) => m.id),
+      );
+
+      // Choose it without a day: Needs you asks for one.
+      const next = again.body.steps.find((s) => s.status === 'suggested')!;
+      await json('PUT', `/steps/${next.id}/status`, { status: 'chosen' });
+      let attention = await json<LifeAttentionDto>('GET', '/attention');
+      expect(
+        (attention.body.items ?? []).some((i) => i.id === `plan:${next.id}`),
+      ).toBe(true);
+      // Plan it: a day, a place, an if-then and how hard it looks.
+      expect(
+        (
+          await json('PUT', `/steps/${next.id}`, {
+            dueDate: isoAddDays(today(), 2),
+            cue: 'Saturday after breakfast',
+            ifThen: 'If I freeze, then I write one line',
+            expectedHard: 4,
+          })
+        ).status,
+      ).toBe(204);
+      attention = await json<LifeAttentionDto>('GET', '/attention');
+      expect(
+        (attention.body.items ?? []).some((i) => i.id === `plan:${next.id}`),
+      ).toBe(false);
+
+      // Done, and easier than feared: the check-in keeps both and the lesson.
+      await json('POST', '/check-ins', {
+        dreamId: id,
+        stepId: next.id,
+        outcome: 'done',
+        feeling: 4,
+        actualHard: 2,
+        learned: 'I can ask a stranger a question.',
+      });
+      const overview = await json<DreamsOverviewDto>('GET', '/overview');
+      const dream = overview.body.dreams.find((d) => d.id === id)!;
+      expect(dream.checkIns[0]).toMatchObject({
+        expectedHard: 4,
+        actualHard: 2,
+        learned: 'I can ask a stranger a question.',
+      });
+
+      // Reaching a milestone moves you on to the next one.
+      await json('PUT', `/milestones/${dream.milestones[0]!.id}`, {
+        reachedOn: today(),
+      });
+      const moved = (
+        await json<DreamsOverviewDto>('GET', '/overview')
+      ).body.dreams.find((d) => d.id === id)!;
+      expect(moved.milestones[1]?.current).toBe(true);
+    });
   },
 );
