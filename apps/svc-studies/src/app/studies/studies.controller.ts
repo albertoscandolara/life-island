@@ -24,6 +24,9 @@ import {
   pathCreateRequestSchema,
   pathOutlineRequestSchema,
   pathProgressRequestSchema,
+  recallAnswerRequestSchema,
+  teachBackRequestSchema,
+  type TeachBackDto,
   stepProgressRequestSchema,
   studyPlanRequestSchema,
   studySessionRequestSchema,
@@ -214,6 +217,32 @@ export class StudiesController {
     return this.studies.setStep(
       stepId,
       parseOrThrow(stepProgressRequestSchema, body),
+    );
+  }
+
+  /** Teach-back (AI tool): reviews a step you explained in your own words. */
+  @Post('steps/:stepId/teach-back')
+  @HttpCode(200)
+  teachBack(
+    @Param('stepId') stepId: string,
+    @Body() body: unknown,
+  ): Promise<TeachBackDto> {
+    return this.studies.teachBack(
+      stepId,
+      parseOrThrow(teachBackRequestSchema, body),
+    );
+  }
+
+  /** Your answer to a recall question: it comes back later, or starts again. */
+  @Post('recall/:id')
+  @HttpCode(204)
+  answerRecall(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    return this.studies.answerRecall(
+      id,
+      parseOrThrow(recallAnswerRequestSchema, body),
     );
   }
 

@@ -1,0 +1,105 @@
+@let s = step(); @let r = review();
+<ui-dialog
+  [heading]="'Teach it back: ' + (s?.title ?? '')"
+  [open]="open()"
+  (openChange)="open.set($event)"
+>
+  @if (s) {
+  <div class="teach">
+    <ui-ai-panel heading="Teach-back" [state]="busy() ? 'working' : 'idle'">
+      <li-ai-tool
+        uiAiPanelActions
+        toolId="studies.teach-back"
+        [compact]="true"
+      />
+      <p class="li-small">
+        Explain the step as you would to a colleague who never studied it: what
+        it is, why it matters, how you would use it at work. Claude checks it
+        against what the step should teach.
+      </p>
+      <label class="teach__field">
+        <span class="visually-hidden">Your explanation</span>
+        <textarea
+          class="ui-input"
+          rows="8"
+          maxlength="6000"
+          [placeholder]="'In my own words, ' + s.outcome.charAt(0).toLowerCase() + s.outcome.slice(1)"
+          [value]="text()"
+          [disabled]="busy()"
+          (input)="text.set($any($event.target).value)"
+        ></textarea>
+      </label>
+      <div class="li-actions">
+        <button
+          uiButton
+          type="button"
+          [disabled]="!ai() || short()"
+          [loading]="busy()"
+          (click)="send()"
+        >
+          <ui-icon name="sparkles" [size]="16" /> Review my explanation
+        </button>
+        @if (busy()) {
+        <ui-ai-status state="working">Reading your explanation…</ui-ai-status>
+        } @else if (error(); as e) {
+        <ui-ai-status state="error">{{ e }}</ui-ai-status>
+        } @else if (!ai()) {
+        <ui-ai-status state="off"
+          >Off: check it against the step’s outcome yourself.</ui-ai-status
+        >
+        } @else if (short()) {
+        <span class="li-small li-muted"
+          >A few sentences at least ({{ text().trim().length }} of {{ min }}
+          characters).</span
+        >
+        }
+      </div>
+    </ui-ai-panel>
+
+    @if (r) {
+    <ui-ai-panel kind="result" [heading]="verdicts[r.verdict]">
+      <div class="teach__result" [attr.data-verdict]="r.verdict">
+        @if (r.strengths.length) {
+        <div>
+          <h4 class="li-small">What holds</h4>
+          <ul>
+            @for (p of r.strengths; track $index) {
+            <li>{{ p }}</li>
+            }
+          </ul>
+        </div>
+        } @if (r.gaps.length) {
+        <div>
+          <h4 class="li-small">What is missing</h4>
+          <ul>
+            @for (g of r.gaps; track $index) {
+            <li>
+              <strong>{{ g.point }}</strong>
+              <span class="li-muted"> {{ g.why }}</span>
+            </li>
+            }
+          </ul>
+        </div>
+        }
+        <p class="teach__next">
+          <span class="li-small li-muted">Next</span> {{ r.next }}
+        </p>
+        <div class="li-actions">
+          <button uiButton variant="secondary" type="button" (click)="again()">
+            Try again
+          </button>
+          <button
+            uiButton
+            variant="ghost"
+            type="button"
+            (click)="open.set(false)"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </ui-ai-panel>
+    }
+  </div>
+  }
+</ui-dialog>

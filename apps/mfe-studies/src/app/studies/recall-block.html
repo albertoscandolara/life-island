@@ -1,0 +1,56 @@
+@let r = recall(); @let c = card();
+<ui-ai-panel heading="Recall" [offline]="!r.ai && !c?.ai">
+  <li-ai-tool uiAiPanelActions toolId="studies.recall-quiz" [compact]="true" />
+
+  @if (c) {
+  <div class="recall">
+    <p class="recall__meta li-small li-muted">
+      <span>{{ position() }} of {{ total() }}</span>
+      <span>{{ context() }}</span>
+      @if (c.ai) { <ui-ai-badge label="AI" [muted]="true" /> }
+    </p>
+    <p class="recall__question">{{ c.question }}</p>
+
+    @if (revealed()) {
+    <div class="recall__answer">
+      <span class="li-small li-muted">A good answer says</span>
+      <p>{{ c.answer }}</p>
+    </div>
+    <div class="li-actions">
+      <button uiButton type="button" [loading]="busy()" (click)="answer('got')">
+        <ui-icon name="check" [size]="16" /> I had it
+      </button>
+      <button
+        uiButton
+        variant="secondary"
+        type="button"
+        [disabled]="busy()"
+        (click)="answer('missed')"
+      >
+        I missed it
+      </button>
+      <span class="li-small li-muted">
+        @if (c.round + 1 < intervals.length) { Had it: back in {{
+        intervals[c.round + 1] }} days. } @else { Had it: learned. } Missed:
+        back tomorrow.
+      </span>
+    </div>
+    } @else {
+    <div class="li-actions">
+      <button uiButton type="button" (click)="revealed.set(true)">
+        Show the answer
+      </button>
+      <span class="li-small li-muted"
+        >Answer in your head first, or out loud.</span
+      >
+    </div>
+    }
+  </div>
+  } @else {
+  <p class="li-small">
+    <strong>All answered.</strong>
+    @if (gotToday()) { You had {{ gotToday() }} of {{ total() }}. } @if
+    (r.nextOn) { The next one comes back {{ dateText(r.nextOn) }}. }
+  </p>
+  }
+</ui-ai-panel>

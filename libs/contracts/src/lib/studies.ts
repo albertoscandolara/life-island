@@ -8,6 +8,7 @@ import {
   type LearningPath,
 } from './studies-paths.js';
 import type { StudyScoutDto } from './studies-scout.js';
+import type { StudyRecallDto } from './studies-recall.js';
 
 /*
  * The Studies area (svc-studies, mfe-studies), run by Iggy: the training
@@ -673,6 +674,10 @@ export interface StudiesOverviewDto {
   aiCoach: boolean;
   /** Whether the path builder can draft a path now (a key, its switches, the budget). */
   aiPathBuilder: boolean;
+  /** Whether teach-back can review an explanation now. */
+  aiTeachBack: boolean;
+  /** The recall questions of the steps you finished. */
+  recall: StudyRecallDto;
   /** The reminder windows from Settings, in days. */
   reminderDays: StudyReminderDays;
   /**

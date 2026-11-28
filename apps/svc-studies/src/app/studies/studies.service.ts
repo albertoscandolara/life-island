@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { readNumberSettings, type ServiceDb } from '@life-island/be-common';
@@ -25,7 +26,11 @@ import {
   type PathCreateRequest,
   type PathOutlineRequest,
   type PathProgressRequest,
+  nextRecall,
+  type RecallAnswerRequest,
   type StepProgressRequest,
+  type TeachBackDto,
+  type TeachBackRequest,
   type StudiesAttentionDto,
   type StudiesOverviewDto,
   type StudyPlanDto,
@@ -51,6 +56,8 @@ import {
   pathProgress,
   scoutResources,
   scoutSteps,
+  recallCards,
+  recallLearned,
   stepProgress,
   studyPlans,
   studySessions,
@@ -72,6 +79,8 @@ import {
 import { pathLink, studyAttentionItems } from './attention.js';
 import { outlinePath, pathTemplates } from './paths.js';
 import { PathBuilder } from './path-builder.js';
+import { RecallCoach } from './recall-coach.js';
+import { findStep, firstDue, recallStatus, stepMaterial } from './recall.js';
 import { ResourceScout } from './resource-scout.js';
 import { StudyCoach } from './study-coach.js';
 
@@ -96,11 +105,14 @@ const iso = (date: Date | null) => (date ? date.toISOString() : null);
 
 @Injectable()
 export class StudiesService {
+  private readonly logger = new Logger(StudiesService.name);
+
   constructor(
     @Inject(SERVICE_DB) private readonly svc: ServiceDb,
     @Inject(StudyCoach) private readonly coach: StudyCoach,
     @Inject(ResourceScout) private readonly scout: ResourceScout,
     @Inject(PathBuilder) private readonly builder: PathBuilder,
+    @Inject(RecallCoach) private readonly recall: RecallCoach,
   ) {}
 
   private get db() {
@@ -144,6 +156,10 @@ export class StudiesService {
       aiCoach,
       catalogue,
       aiPathBuilder,
+      recallRows,
+      learnedRows,
+      aiRecall,
+      aiTeachBack,
     ] = await Promise.all([
       this.db.select().from(trainingPlatforms).orderBy(trainingPlatforms.name),
       this.db.select().from(courses).orderBy(desc(courses.updatedAt)),
@@ -178,6 +194,10 @@ export class StudiesService {
       this.coach.usesAi(),
       this.scout.catalogue(),
       this.builder.usesAi(),
+      this.db.select().from(recallCards),
+      this.db.select({ n: sql<number>`count(*)::int` }).from(recallLearned),
+      this.recall.quizUsesAi(),
+      this.recall.teachBackUsesAi(),
     ]);
 
     const platformName = new Map(platformRows.map((p) => [p.id, p.name]));
@@ -249,6 +269,13 @@ export class StudiesService {
       plans: planRows.map(planDto),
       aiCoach,
       aiPathBuilder,
+      aiTeachBack,
+      recall: recallStatus({
+        cards: recallRows,
+        learned: learnedRows[0]?.n ?? 0,
+        ai: aiRecall,
+        today,
+      }),
       reminderDays: settings.days,
       catalogue,
       templates: pathTemplates(catalogue),
@@ -675,6 +702,7 @@ export class StudiesService {
     await this.svc.db.transaction(async (tx) => {
       await tx.delete(pathProgress).where(eq(pathProgress.pathId, pathId));
       await tx.delete(stepProgress).where(eq(stepProgress.pathId, pathId));
+      await tx.delete(recallCards).where(eq(recallCards.pathId, pathId));
       await tx.delete(learningPaths).where(eq(learningPaths.id, pathId));
       if (curated) {
         await tx
@@ -743,6 +771,88 @@ export class StudiesService {
           .values({ pathId: step.id, status: 'following', startedOn: today })
           .onConflictDoNothing();
     });
+    if (request.status === 'done' && current?.status !== 'done') {
+      // The quiz may take a few seconds with Claude: the step is saved first.
+      const job = this.makeRecall(stepId, notes, today);
+      if (await this.recall.quizUsesAi())
+        job.catch((error: unknown) =>
+          this.logger.warn(`Recall questions failed: ${String(error)}`),
+        );
+      else await job;
+    }
+  }
+
+  // ---- recall and teach-back -------------------------------------------
+
+  /** Writes the recall questions of a step you finished, once. */
+  async makeRecall(
+    stepId: string,
+    notes: string | null,
+    today = localToday(),
+  ): Promise<void> {
+    const found = findStep(stepId, await this.scout.catalogue());
+    if (!found) return;
+    const [existing] = await this.db
+      .select({ id: recallCards.id })
+      .from(recallCards)
+      .where(eq(recallCards.stepId, stepId))
+      .limit(1);
+    if (existing) return;
+    const { questions, ai } = await this.recall.questions(
+      stepMaterial(found.path, found.stage, found.step),
+      notes,
+      found.step,
+    );
+    await this.db.insert(recallCards).values(
+      questions.map((q) => ({
+        stepId,
+        pathId: found.path.id,
+        question: q.question,
+        answer: q.answer,
+        dueOn: firstDue(today),
+        ai,
+      })),
+    );
+  }
+
+  /** Records an answer: the card comes back later, or starts again. */
+  async answerRecall(
+    id: string,
+    request: RecallAnswerRequest,
+    today = localToday(),
+  ): Promise<void> {
+    const [card] = await this.db
+      .select()
+      .from(recallCards)
+      .where(eq(recallCards.id, id));
+    if (!card) throw new NotFoundException('Recall question not found');
+    const next = nextRecall(card.round, request.result, today);
+    if (!next) {
+      await this.svc.db.transaction(async (tx) => {
+        await tx.delete(recallCards).where(eq(recallCards.id, id));
+        await tx
+          .insert(recallLearned)
+          .values({ stepId: card.stepId, learnedOn: today });
+      });
+      return;
+    }
+    await this.db
+      .update(recallCards)
+      .set({ ...next, lastResult: request.result })
+      .where(eq(recallCards.id, id));
+  }
+
+  /** Teach-back: reviews a step you explained in your own words. */
+  async teachBack(
+    stepId: string,
+    request: TeachBackRequest,
+  ): Promise<TeachBackDto> {
+    const found = findStep(stepId, await this.scout.catalogue());
+    if (!found) throw new NotFoundException('Step not found');
+    return this.recall.teachBack(
+      stepMaterial(found.path, found.stage, found.step),
+      request.explanation.trim(),
+    );
   }
 
   // ---- coach ---------------------------------------------------------------

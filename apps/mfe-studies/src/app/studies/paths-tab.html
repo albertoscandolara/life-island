@@ -331,6 +331,15 @@
             >
               {{ sp?.notes ? 'Your notes' : 'Add notes' }}
             </button>
+            @if (sp?.status === 'doing' || sp?.status === 'done') {
+            <button
+              type="button"
+              class="li-link li-small"
+              (click)="teachStep.set(step)"
+            >
+              Teach it back
+            </button>
+            }
           </div>
           @if (notesOpen() === step.id || sp?.notes) { @if (notesOpen() ===
           step.id) {
@@ -499,6 +508,13 @@
     </li>
   </ul>
 </ui-dialog>
+
+<studies-teach-back
+  [step]="teachStep()"
+  [ai]="data().aiTeachBack"
+  [open]="!!teachStep()"
+  (openChange)="!$event && teachStep.set(null)"
+/>
 
 <studies-path-editor
   [path]="editing()"

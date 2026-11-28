@@ -46,3 +46,4 @@ export * from './lib/ai-guard.js';
 export * from './lib/payables.js';
 export * from './lib/images.js';
 export * from './lib/studies-builder.js';
+export * from './lib/studies-recall.js';

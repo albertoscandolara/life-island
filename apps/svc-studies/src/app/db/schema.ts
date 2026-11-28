@@ -24,6 +24,7 @@ import type {
   CourseStatus,
   PathStage,
   PathStatus,
+  RecallResult,
   StepStatus,
   StudyPlanOutput,
   StudyTopic,
@@ -266,6 +267,38 @@ export const outlineChanges = studies.table('outline_changes', {
   decidedAt: timestamp('decided_at', { withTimezone: true }),
 });
 export type OutlineChangeRow = typeof outlineChanges.$inferSelect;
+
+/**
+ * Recall questions of the steps you finished: each comes back after a day,
+ * a week and a month; one you miss starts again. Learned cards are deleted.
+ */
+export const recallCards = studies.table(
+  'recall_cards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    stepId: text('step_id').notNull(),
+    pathId: text('path_id').notNull(),
+    question: text('question').notNull(),
+    answer: text('answer').notNull(),
+    round: integer('round').notNull().default(0),
+    dueOn: date('due_on').notNull(),
+    lastResult: text('last_result').$type<RecallResult>(),
+    ai: boolean('ai').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('recall_cards_due_idx').on(table.dueOn),
+    index('recall_cards_step_idx').on(table.stepId),
+  ],
+);
+export type RecallCardRow = typeof recallCards.$inferSelect;
+
+/** Steps you learned by heart: their cards answered right three times. */
+export const recallLearned = studies.table('recall_learned', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stepId: text('step_id').notNull(),
+  learnedOn: date('learned_on').notNull(),
+});
 
 /**
  * svc-studies' copy of the settings it reads (AI switches, the weekly goal,

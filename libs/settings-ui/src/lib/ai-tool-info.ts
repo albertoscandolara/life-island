@@ -304,6 +304,7 @@ export class AiToolInfo {
   protected readonly triggers = {
     'on-demand': 'When you ask',
     'per-document': 'On every document read',
+    'per-step': 'When you finish a step',
     scheduled: 'On a schedule, and when you start it',
   } as const;
 
