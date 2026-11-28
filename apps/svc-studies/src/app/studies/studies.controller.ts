@@ -19,6 +19,7 @@ import {
   courseRequestSchema,
   outlineDecisionRequestSchema,
   scoutResourceRequestSchema,
+  pathBuilderRequestSchema,
   pathCreateRequestSchema,
   pathOutlineRequestSchema,
   pathProgressRequestSchema,
@@ -26,6 +27,7 @@ import {
   studyPlanRequestSchema,
   studySessionRequestSchema,
   trainingPlatformRequestSchema,
+  type PathOutlineRequest,
   type StudiesAttentionDto,
   type StudiesOverviewDto,
   type StudyPlanDto,
@@ -159,6 +161,15 @@ export class StudiesController {
   @Post('paths')
   addPath(@Body() body: unknown): Promise<{ id: string }> {
     return this.studies.addPath(parseOrThrow(pathCreateRequestSchema, body));
+  }
+
+  /** The path builder (AI tool): a draft path for a topic, for the editor; nothing is saved. */
+  @Post('paths/draft')
+  @HttpCode(200)
+  draftPath(
+    @Body() body: unknown,
+  ): Promise<{ outline: PathOutlineRequest; model: string }> {
+    return this.studies.draftPath(parseOrThrow(pathBuilderRequestSchema, body));
   }
 
   /** Changes a path's card, stages and steps; your progress on kept steps stays. */

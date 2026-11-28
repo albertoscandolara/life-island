@@ -212,6 +212,16 @@ describe.skipIf(!configured)(
       const { body } = await json<StudiesOverviewDto>('GET', '/overview');
       expect(body.plans[0].id).toBe(plan.body.id);
       expect(body.aiCoach).toBe(false);
+      // No key either for the path builder: it says so instead of drafting.
+      expect(body.aiPathBuilder).toBe(false);
+      const draft = await json<{ message: string }>('POST', '/paths/draft', {
+        subject: 'Rust',
+      });
+      expect(draft.status).toBe(503);
+      expect(draft.body.message).toContain('ANTHROPIC_API_KEY');
+      expect(
+        (await json('POST', '/paths/draft', { subject: 'x' })).status,
+      ).toBe(400);
       expect((await json('DELETE', `/plans/${plan.body.id}`)).status).toBe(204);
     });
 

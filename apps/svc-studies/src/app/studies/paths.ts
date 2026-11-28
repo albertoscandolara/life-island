@@ -138,7 +138,14 @@ export function outlinePath(
         resources: step.resources,
       };
     });
-    return { id: stageId, title: stage.title, goal: stage.goal, steps };
+    return {
+      id: stageId,
+      title: stage.title,
+      goal: stage.goal,
+      ...(stage.level ? { level: stage.level } : {}),
+      ...(stage.checkpoint ? { checkpoint: stage.checkpoint } : {}),
+      steps,
+    };
   });
   return {
     id,

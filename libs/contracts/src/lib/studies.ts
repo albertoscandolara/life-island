@@ -2,6 +2,7 @@ import type { LifeAttentionDto } from './life-schemas.js';
 import { z } from 'zod';
 import {
   PATH_ID_PATTERN,
+  PATH_LEVELS,
   STUDY_TOPICS,
   type StudyTopic,
   type LearningPath,
@@ -513,6 +514,8 @@ const stageSchema = z.object({
   id: z.string().max(60).nullable().optional(),
   title: z.string().trim().min(1).max(120),
   goal: z.string().trim().max(500).default(''),
+  level: z.enum(PATH_LEVELS).nullable().optional(),
+  checkpoint: z.string().trim().max(500).nullable().optional(),
   steps: z.array(stepSchema).min(1).max(20),
 });
 
@@ -665,6 +668,8 @@ export interface StudiesOverviewDto {
   plans: StudyPlanDto[];
   /** Whether the study coach calls Claude now (key and Settings switch). */
   aiCoach: boolean;
+  /** Whether the path builder can draft a path now (a key, its switches, the budget). */
+  aiPathBuilder: boolean;
   /** The reminder windows from Settings, in days. */
   reminderDays: StudyReminderDays;
   /**

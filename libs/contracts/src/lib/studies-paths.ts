@@ -60,10 +60,41 @@ export interface PathStep {
   resources: readonly PathResource[];
 }
 
+/**
+ * The four levels a path climbs, from knowing the words to teaching others.
+ * Each stage sits at one level and ends with a checkpoint: a proof you can
+ * show that you reached it.
+ */
+export const PATH_LEVELS = [
+  'foundations',
+  'working',
+  'professional',
+  'expert',
+] as const;
+export type PathLevel = (typeof PATH_LEVELS)[number];
+
+export const PATH_LEVEL_LABELS: Record<PathLevel, string> = {
+  foundations: 'Foundations',
+  working: 'Working',
+  professional: 'Professional',
+  expert: 'Expert',
+};
+
+export const PATH_LEVEL_HINTS: Record<PathLevel, string> = {
+  foundations: 'You know the words and can follow along.',
+  working: 'You do it on your own, on real work.',
+  professional: 'Others rely on you for it.',
+  expert: 'You shape how others do it, and teach it.',
+};
+
 export interface PathStage {
   id: string;
   title: string;
   goal: string;
+  /** Where the stage takes you, Foundations to Expert. */
+  level?: PathLevel;
+  /** How you know you got there: a proof you can show. */
+  checkpoint?: string;
   steps: readonly PathStep[];
 }
 
@@ -112,6 +143,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'foundations',
         title: 'How language models work',
         goal: 'Know what a model sees and why it answers the way it does.',
+        level: 'foundations',
+        checkpoint:
+          'Explain to a colleague, without notes, why a model invents an API and how you would stop it.',
         steps: [
           {
             id: 'ai-coding.foundations.llm-basics',
@@ -174,6 +208,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'daily',
         title: 'Coding with AI every day',
         goal: 'Make an AI coding agent part of your day, safely.',
+        level: 'working',
+        checkpoint:
+          'A week of real tickets done with an agent, every diff reviewed and merged by you.',
         steps: [
           {
             id: 'ai-coding.daily.claude-code',
@@ -225,6 +262,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'api',
         title: 'Building with the Claude API',
         goal: 'Call a model from your own code and control cost and shape.',
+        level: 'working',
+        checkpoint:
+          'A small feature that calls the Claude API with structured output, its cost per use known.',
         steps: [
           {
             id: 'ai-coding.api.messages',
@@ -287,6 +327,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'agents',
         title: 'Agents and MCP',
         goal: 'Know when an agent beats a fixed workflow, and connect tools to it.',
+        level: 'professional',
+        checkpoint:
+          'An MCP server or agent of yours that a colleague uses without your help.',
         steps: [
           {
             id: 'ai-coding.agents.patterns',
@@ -340,6 +383,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'rag',
         title: 'Your data: embeddings and RAG',
         goal: 'Let a model answer from documents it was never trained on.',
+        level: 'professional',
+        checkpoint:
+          'A question-answering tool over your own documents that cites its sources.',
         steps: [
           {
             id: 'ai-coding.rag.embeddings',
@@ -380,6 +426,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'production',
         title: 'Evals, safety and production',
         goal: 'Ship AI features you can trust and measure.',
+        level: 'expert',
+        checkpoint:
+          'An eval set that catches a regression before it ships, and a talk to your team on how you built it.',
         steps: [
           {
             id: 'ai-coding.production.evals',
@@ -422,6 +471,253 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
     ],
   },
 
+  // --------------------------------------------------------------- angular
+  {
+    id: 'angular',
+    topic: 'frameworks',
+    emblem: '🅰️',
+    name: 'Modern Angular, to expert',
+    summary:
+      'From signals and the new control flow to zoneless apps, architecture at scale and the tools that shape how a whole team writes Angular.',
+    why: 'Angular is your daily tool. This path keeps you current as it changes fast (signals, zoneless, SSR) and takes you from using it well to being the person a team asks.',
+    level: 'beginner',
+    capstone:
+      'A Life Island library of your own (a schematic, a lint rule or a shared component set) adopted by every area, with a short talk explaining it.',
+    certifications: [],
+    stages: [
+      {
+        id: 'modern',
+        title: 'Modern Angular',
+        goal: 'Write Angular the way the current docs do.',
+        level: 'foundations',
+        checkpoint:
+          'A screen of yours rewritten with standalone components, signals and the new control flow, with no NgModule left.',
+        steps: [
+          {
+            id: 'angular.modern.signals',
+            title: 'Signals, computed and effects',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'What a signal is, how computed and effect track what they read, when an effect is the wrong tool, and input(), output() and model() as signals.',
+            outcome:
+              'You can replace a BehaviorSubject in a component with a signal and say what changed.',
+            resources: [
+              r('Angular docs, Signals', 'https://angular.dev/guide/signals'),
+              r(
+                'Angular docs, Learn Angular tutorial',
+                'https://angular.dev/tutorials/learn-angular',
+              ),
+            ],
+          },
+          {
+            id: 'angular.modern.templates',
+            title: 'Standalone components and the new control flow',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Standalone components and their imports, @if, @for with track, @switch, @let and @defer for lazy parts of a page.',
+            outcome:
+              'You can read and write any template in this repository without looking anything up.',
+            resources: [
+              r(
+                'Angular docs, Components',
+                'https://angular.dev/guide/components',
+              ),
+              r(
+                'Angular docs, Templates',
+                'https://angular.dev/guide/templates',
+              ),
+            ],
+          },
+          {
+            id: 'angular.modern.migrate',
+            title: 'Migrate a screen',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'Take one older screen, run the official migrations (standalone, control flow, signal inputs), then finish by hand what they leave.',
+            outcome:
+              'A screen with no NgModule, no *ngIf and no @Input left, and its tests green.',
+            resources: [
+              r(
+                'Angular docs, Migrations',
+                'https://angular.dev/reference/migrations',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'apps',
+        title: 'Signal-first apps',
+        goal: 'Build whole features on signals, from data to forms.',
+        level: 'working',
+        checkpoint:
+          'A feature that loads, edits and saves data with signals end to end, running without zone.js.',
+        steps: [
+          {
+            id: 'angular.apps.data',
+            title: 'Loading data: resource, HttpClient and RxJS where it fits',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'resource() and httpResource() for data a signal depends on, HttpClient for commands, and the few places where RxJS still earns its keep (streams, debouncing, cancellation).',
+            outcome:
+              'You choose between a resource, a plain request and an observable for a given case, and can say why.',
+            resources: [
+              r('Angular docs, HTTP', 'https://angular.dev/guide/http'),
+              r('RxJS, overview', 'https://rxjs.dev/guide/overview'),
+            ],
+          },
+          {
+            id: 'angular.apps.forms',
+            title: 'Forms that scale',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Typed reactive forms, validation and error messages, and what the newer signal-based forms change.',
+            outcome:
+              'You can build a long form with cross-field validation that a user never loses work in.',
+            resources: [
+              r('Angular docs, Forms', 'https://angular.dev/guide/forms'),
+            ],
+          },
+          {
+            id: 'angular.apps.zoneless',
+            title: 'Zoneless change detection',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'How change detection runs without zone.js, OnPush everywhere, and what breaks (setTimeout updates, third-party code) when you turn zone.js off.',
+            outcome:
+              'One app of yours running zoneless, with nothing stale on screen.',
+            resources: [
+              r('Angular docs, Zoneless', 'https://angular.dev/guide/zoneless'),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'scale',
+        title: 'Architecture at scale',
+        goal: 'Keep a large Angular codebase fast and easy to change.',
+        level: 'professional',
+        checkpoint:
+          'A measured improvement on a real app (bundle size, load time or build time) with the numbers before and after.',
+        steps: [
+          {
+            id: 'angular.scale.libraries',
+            title: 'Libraries, boundaries and Nx',
+            kind: 'learn',
+            hours: 5,
+            detail:
+              'Split an app into libraries with clear owners, enforce who may import what (Nx tags), and share code without a big shared folder.',
+            outcome:
+              "You can explain this repository's libs and tags and add a library the right way.",
+            resources: [
+              r(
+                'Angular docs, Creating libraries',
+                'https://angular.dev/tools/libraries/creating-libraries',
+              ),
+              r('Nx documentation', 'https://nx.dev'),
+            ],
+          },
+          {
+            id: 'angular.scale.performance',
+            title: 'Runtime performance and SSR',
+            kind: 'learn',
+            hours: 5,
+            detail:
+              'Profile with the Angular DevTools, find needless change detection, lazy-load with @defer, and when server-side rendering and hydration pay off.',
+            outcome: 'You can find and fix the slowest interaction of a page.',
+            resources: [
+              r(
+                'Angular docs, Runtime performance',
+                'https://angular.dev/best-practices/runtime-performance',
+              ),
+              r(
+                'Angular docs, Server-side rendering',
+                'https://angular.dev/guide/ssr',
+              ),
+              r('web.dev, Core Web Vitals', 'https://web.dev/articles/vitals'),
+            ],
+          },
+          {
+            id: 'angular.scale.testing',
+            title: 'Testing that holds',
+            kind: 'practice',
+            hours: 6,
+            detail:
+              'Component tests that read like a user (harnesses, testing the DOM, not internals), and a few end-to-end tests where they matter.',
+            outcome:
+              'A feature of yours with tests that survived a refactor without being touched.',
+            resources: [
+              r('Angular docs, Testing', 'https://angular.dev/guide/testing'),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'expert',
+        title: 'Shaping how a team writes Angular',
+        goal: 'Make the right way the easy way, for everyone.',
+        level: 'expert',
+        checkpoint:
+          'A tool or guideline of yours that the team uses without you, and a talk or post that teaches it.',
+        steps: [
+          {
+            id: 'angular.expert.schematics',
+            title: 'Schematics and generators',
+            kind: 'build',
+            hours: 6,
+            detail:
+              'Write a generator that scaffolds a feature the way your team wants it, so no one copies an old folder again.',
+            outcome: 'A generator your team runs instead of copying files.',
+            resources: [
+              r(
+                'Angular docs, Authoring schematics',
+                'https://angular.dev/tools/cli/schematics-authoring',
+              ),
+            ],
+          },
+          {
+            id: 'angular.expert.design-system',
+            title: 'A design system with accessibility built in',
+            kind: 'build',
+            hours: 8,
+            detail:
+              'Components with a small API, design tokens, keyboard and screen reader support by default, documented with examples.',
+            outcome: 'A shared component others use without asking you how.',
+            resources: [
+              r(
+                'Angular docs, Accessibility',
+                'https://angular.dev/best-practices/a11y',
+              ),
+              r(
+                'W3C, ARIA Authoring Practices Guide',
+                'https://www.w3.org/WAI/ARIA/apg/',
+              ),
+            ],
+          },
+          {
+            id: 'angular.expert.follow',
+            title: 'Follow the framework as it moves',
+            kind: 'practice',
+            hours: 3,
+            detail:
+              'Read the release notes and RFCs of each major version, try what changed on a branch, and tell your team what to adopt and what to wait for.',
+            outcome:
+              'A short note to your team for each major version: what to adopt now, what later.',
+            resources: [
+              r('The Angular blog', 'https://blog.angular.dev'),
+              r('Angular on GitHub', 'https://github.com/angular/angular'),
+            ],
+          },
+        ],
+      },
+    ],
+  },
   // ------------------------------------------------------------ frameworks
   {
     id: 'frameworks',
@@ -440,6 +736,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'react',
         title: 'React for an Angular developer',
         goal: 'Map what you know (components, signals, DI) onto React.',
+        level: 'working',
+        checkpoint:
+          'A small React app that does what one of your Angular screens does.',
         steps: [
           {
             id: 'frameworks.react.learn',
@@ -477,6 +776,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'other-front',
         title: 'A second view of the front end',
         goal: 'See a different take on reactivity.',
+        level: 'working',
+        checkpoint:
+          'A short write-up comparing reactivity in Angular and one other framework.',
         steps: [
           {
             id: 'frameworks.other-front.vue-svelte',
@@ -497,6 +799,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'backend',
         title: 'The back end',
         goal: 'Write and own a service, from the HTTP request to the table.',
+        level: 'professional',
+        checkpoint:
+          'A service of yours in production, with its tests, its migrations and its logs.',
         steps: [
           {
             id: 'frameworks.backend.node',
@@ -780,6 +1085,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'role',
         title: 'What a tech lead does',
         goal: 'Know the job before you ask for it.',
+        level: 'foundations',
+        checkpoint:
+          'Your own one-page description of the tech lead job, agreed with your manager.',
         steps: [
           {
             id: 'leadership.role.read',
@@ -810,6 +1118,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'people',
         title: 'People',
         goal: 'Help each person do their best work.',
+        level: 'working',
+        checkpoint:
+          'A month of regular one-on-ones, each ending with an agreed next step.',
         steps: [
           {
             id: 'leadership.people.mentoring',
@@ -863,6 +1174,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'delivery',
         title: 'Delivery',
         goal: 'Get a team to ship, predictably.',
+        level: 'professional',
+        checkpoint:
+          'A quarter where the team shipped what it planned, and you can say why.',
         steps: [
           {
             id: 'leadership.delivery.delegation',
@@ -907,6 +1221,9 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         id: 'team',
         title: 'The team as a system',
         goal: 'Shape how the team works, not only what it does.',
+        level: 'expert',
+        checkpoint:
+          'A change to how the team works (a ritual, a process, a hire) that still holds months later.',
         steps: [
           {
             id: 'leadership.team.safety',

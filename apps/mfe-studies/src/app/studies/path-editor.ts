@@ -11,12 +11,20 @@ import {
   untracked,
 } from '@angular/core';
 import {
+  PATH_LEVEL_LABELS,
+  PATH_LEVELS,
   STEP_KIND_LABELS,
   STUDY_TOPIC_LABELS,
   STUDY_TOPICS,
   type LearningPath,
+  type PathOutlineRequest,
 } from '@life-island/contracts';
-import { UiButton, UiDialog, UiIcon } from '@life-island/design-system';
+import {
+  UiAiBadge,
+  UiButton,
+  UiDialog,
+  UiIcon,
+} from '@life-island/design-system';
 import { StudiesApi } from '../api/studies-api';
 import { errorText } from './labels';
 import {
@@ -26,6 +34,7 @@ import {
   draftOutline,
   draftProblem,
   moved,
+  outlineDraft,
   pathDraft,
   type PathDraft,
   type StageDraft,
@@ -39,7 +48,7 @@ import {
 @Component({
   selector: 'studies-path-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UiButton, UiDialog, UiIcon],
+  imports: [UiAiBadge, UiButton, UiDialog, UiIcon],
   templateUrl: './path-editor.html',
   styleUrl: './path-editor.css',
 })
@@ -49,12 +58,16 @@ export class PathEditor {
   readonly open = model(false);
   /** The path to change; null writes a new one. */
   readonly path = input<LearningPath | null>(null);
+  /** A new path's start: the path builder's draft. */
+  readonly drafted = input<PathOutlineRequest | null>(null);
   readonly saved = output<string>();
 
   protected readonly topics = STUDY_TOPICS;
   protected readonly topicLabels = STUDY_TOPIC_LABELS;
   protected readonly kinds = ['learn', 'build', 'practice'] as const;
   protected readonly kindLabels = STEP_KIND_LABELS;
+  protected readonly levels = PATH_LEVELS;
+  protected readonly levelLabels = PATH_LEVEL_LABELS;
   protected readonly draft = signal<PathDraft>(blankDraft());
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -66,8 +79,15 @@ export class PathEditor {
     effect(() => {
       if (!this.open()) return;
       const path = this.path();
+      const drafted = this.drafted();
       untracked(() => {
-        this.draft.set(path ? pathDraft(path) : blankDraft());
+        this.draft.set(
+          path
+            ? pathDraft(path)
+            : drafted
+              ? outlineDraft(drafted)
+              : blankDraft(),
+        );
         this.error.set(null);
         this.tried.set(false);
       });

@@ -176,7 +176,13 @@
           } @else { {{ i + 1 }} }
         </span>
         <span class="stage__text">
-          <span class="stage__title">{{ stage.title }}</span>
+          <span class="stage__title"
+            >{{ stage.title }}@if (stage.level) {
+            <span class="stage__level" [title]="levelHints[stage.level]"
+              >{{ levelLabels[stage.level] }}</span
+            >
+            }</span
+          >
           @if (stage.goal) {
           <span class="li-muted li-small">{{ stage.goal }}</span>
           }
@@ -341,6 +347,18 @@
         </li>
         }
       </ol>
+      @if (stage.checkpoint) {
+      <div class="checkpoint" [class.checkpoint--done]="state === 'done'">
+        <ui-icon [name]="state === 'done' ? 'check' : 'shield'" [size]="16" />
+        <div>
+          <span class="label"
+            >Checkpoint@if (stage.level) { · {{ levelLabels[stage.level] }}
+            }</span
+          >
+          <p>{{ stage.checkpoint }}</p>
+        </div>
+      </div>
+      }
     </details>
     }
   </div>
@@ -365,9 +383,82 @@
   [open]="addOpen()"
   (openChange)="addOpen.set($event)"
 >
-  <p class="li-muted add-intro">
-    Start from a curated path, change it as you go, or write your own.
-  </p>
+  <ui-ai-panel
+    class="builder"
+    heading="Path builder"
+    kind="tool"
+    [state]="drafting() ? 'working' : 'idle'"
+    [offline]="!data().aiPathBuilder"
+  >
+    <li-ai-tool
+      uiAiPanelActions
+      toolId="studies.path-builder"
+      [compact]="true"
+    />
+    <p class="li-small">
+      Name any topic: it searches the web and drafts a path in four levels,
+      Foundations to Expert, each with a checkpoint that proves it. You check
+      the draft before it is added.
+    </p>
+    <form class="builder__form" (submit)="$event.preventDefault(); draftPath()">
+      <label class="builder__subject">
+        <span>Topic</span>
+        <input
+          class="ui-input"
+          maxlength="120"
+          placeholder="Rust for web services"
+          [value]="ask().subject"
+          (input)="setAsk({ subject: $any($event.target).value })"
+        />
+      </label>
+      <label>
+        <span>Where you start</span>
+        <select
+          class="ui-input"
+          (change)="setAsk({ start: $any($event.target).value })"
+        >
+          @for (st of starts; track st) {
+          <option [value]="st" [selected]="ask().start === st">
+            {{ startLabels[st] }}
+          </option>
+          }
+        </select>
+      </label>
+      <label class="builder__goal">
+        <span>Where you want to get (optional)</span>
+        <input
+          class="ui-input"
+          maxlength="300"
+          placeholder="Ship a service at work and review others' code"
+          [value]="ask().goal"
+          (input)="setAsk({ goal: $any($event.target).value })"
+        />
+      </label>
+      <div class="builder__row">
+        <button
+          uiButton
+          type="submit"
+          [loading]="drafting()"
+          [disabled]="!data().aiPathBuilder"
+        >
+          <ui-icon name="sparkles" [size]="16" /> Draft the path
+        </button>
+        @if (drafting()) {
+        <ui-ai-status state="working"
+          >Searching for the best material…</ui-ai-status
+        >
+        } @else if (draftError(); as message) {
+        <ui-ai-status state="error">{{ message }}</ui-ai-status>
+        } @else if (!data().aiPathBuilder) {
+        <ui-ai-status state="off"
+          >Off: start from a curated path or write your own</ui-ai-status
+        >
+        }
+      </div>
+    </form>
+  </ui-ai-panel>
+
+  <h3 class="add-heading">Or start from a curated path</h3>
   <ul class="templates">
     @for (t of data().templates; track t.id) {
     <li class="template">
@@ -410,6 +501,7 @@
 
 <studies-path-editor
   [path]="editing()"
+  [drafted]="drafted()"
   [open]="editorOpen()"
   (openChange)="editorOpen.set($event)"
   (saved)="onSaved($event)"

@@ -81,6 +81,25 @@
   width: auto;
 }
 
+.stage__level {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: var(--space-2);
+  margin-left: calc(var(--space-8) + var(--space-2));
+}
+
+.drafted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-md);
+  background: var(--ai-soft);
+}
+
 .steps {
   gap: var(--space-2);
   margin-left: calc(var(--space-8) + var(--space-2));
@@ -157,8 +176,13 @@
   }
 
   .stage__goal,
+  .stage__level,
   .steps,
   .add {
     margin-left: 0;
+  }
+
+  .stage__level {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

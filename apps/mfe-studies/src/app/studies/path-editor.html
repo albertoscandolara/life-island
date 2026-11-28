@@ -1,7 +1,13 @@
 @let d = draft();
 <ui-dialog
   size="lg"
-  [heading]="path() ? 'Edit ' + path()!.name : 'Write your own path'"
+  [heading]="
+    path()
+      ? 'Edit ' + path()!.name
+      : drafted()
+        ? 'Your drafted path'
+        : 'Write your own path'
+  "
   [open]="open()"
   [dismissible]="!saving()"
   (openChange)="open.set($event)"
@@ -11,6 +17,13 @@
     class="editor"
     (submit)="$event.preventDefault(); save()"
   >
+    @if (!path() && drafted()) {
+    <p class="drafted li-small">
+      <ui-ai-badge label="Drafted by AI" /> Check the steps and resources,
+      change what does not fit you, then add it. Resources without an address
+      were not confirmed by the search: look them up before you rely on them.
+    </p>
+    }
     <div class="card-fields">
       <label class="emblem">
         <span>Emblem</span>
@@ -151,6 +164,28 @@
           [value]="stage.goal"
           (input)="setStage(i, { goal: value($event) })"
         />
+        <div class="stage__level">
+          <select
+            class="ui-input"
+            [attr.aria-label]="'Stage ' + (i + 1) + ' level'"
+            (change)="setStage(i, { level: $any(value($event)) || null })"
+          >
+            <option value="" [selected]="!stage.level">No level</option>
+            @for (l of levels; track l) {
+            <option [value]="l" [selected]="stage.level === l">
+              {{ levelLabels[l] }}
+            </option>
+            }
+          </select>
+          <input
+            class="ui-input"
+            maxlength="500"
+            placeholder="Checkpoint: the proof you reached it, e.g. a talk to your team"
+            [attr.aria-label]="'Stage ' + (i + 1) + ' checkpoint'"
+            [value]="stage.checkpoint"
+            (input)="setStage(i, { checkpoint: value($event) })"
+          />
+        </div>
 
         <ol class="steps" [attr.aria-label]="'Steps of stage ' + (i + 1)">
           @for (step of stage.steps; track $index; let j = $index; let lastStep
