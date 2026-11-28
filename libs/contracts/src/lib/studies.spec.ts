@@ -31,6 +31,20 @@ describe('learning paths', () => {
     expect(new Set(steps).size).toBe(steps.length);
   });
 
+  it('split AI in two: the applied path and the theory, each climbing every level', () => {
+    const ai = LEARNING_PATHS.filter((p) => p.topic === 'ai').map((p) => p.id);
+    expect(ai).toEqual(['ai-coding', 'ai-theory']);
+    for (const id of ai) {
+      const path = LEARNING_PATHS.find((p) => p.id === id)!;
+      expect(path.stages.map((s) => s.level)).toContain('foundations');
+      expect(path.stages.map((s) => s.level)).toContain('expert');
+      for (const stage of path.stages) expect(stage.checkpoint).toBeTruthy();
+    }
+    // The step that moved (migration 0004 carries your progress over).
+    expect(pathOfStep('ai-theory.assistant.sampling')?.id).toBe('ai-theory');
+    expect(pathStep('ai-coding.foundations.llm-basics')).toBeUndefined();
+  });
+
   it('give every step hours, a detail, an outcome and only https links', () => {
     for (const path of LEARNING_PATHS) {
       expect(path.stages.length).toBeGreaterThan(0);

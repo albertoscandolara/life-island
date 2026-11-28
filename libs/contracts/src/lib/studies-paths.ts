@@ -123,50 +123,30 @@ const r = (label: string, url: string | null, free = true): PathResource => ({
 });
 
 export const LEARNING_PATHS: readonly LearningPath[] = [
-  // -------------------------------------------------------------------- AI
+  // ------------------------------------------------------- AI, applied
   {
     id: 'ai-coding',
     topic: 'ai',
     emblem: '✨',
-    name: 'AI coding and tools',
+    name: 'Agentic engineering',
     summary:
-      'From how a language model works to agents, MCP, RAG and evals: code with AI every day, and build AI features that hold up.',
-    why: 'Life Island already calls Claude from several modules. This path turns that into skill you own: you will understand every AI tool in Settings, write your own and measure it.',
+      'Ship real software with AI: coding agents, model APIs, tools, skills and MCP, agentic architectures, then testing, security and cost in production.',
+    why: 'This is your edge as a developer in the AI wave: use agents better than anyone around you, build agentic features that hold up in production, and lead your team doing it. The theory behind it lives in its own path, How AI works, inside out.',
     level: 'beginner',
     capstone:
-      'An MCP server that lets Claude read your Life Island data (one module, read-only), with a small eval set that proves its answers.',
+      'An agentic feature for Life Island built end to end: an MCP server over one module, a skill and a subagent that use it, an eval suite with traces, and a security review of its data flow.',
     certifications: [
       'Anthropic Academy course certificates (Claude Code in Action, Building with the Claude API, Introduction to MCP)',
     ],
     stages: [
       {
         id: 'foundations',
-        title: 'How language models work',
-        goal: 'Know what a model sees and why it answers the way it does.',
+        title: 'Working with AI well',
+        goal: 'Ask clearly, pick the right model and judge what comes back.',
         level: 'foundations',
         checkpoint:
-          'Explain to a colleague, without notes, why a model invents an API and how you would stop it.',
+          'Three vague prompts from your real work rewritten so each gives the same right answer five times in a row.',
         steps: [
-          {
-            id: 'ai-coding.foundations.llm-basics',
-            title: 'Tokens, context window and sampling',
-            kind: 'learn',
-            hours: 4,
-            detail:
-              'What a token is, why the context window limits what the model knows, what temperature changes, why the same prompt can answer differently, and what a model cannot know (anything after its training).',
-            outcome:
-              'You can explain why a long chat gets worse and why a model invents an API.',
-            resources: [
-              r(
-                'Andrej Karpathy, Intro to Large Language Models (1 h video)',
-                'https://www.youtube.com/watch?v=zjkBMFhNj_g',
-              ),
-              r(
-                '3Blue1Brown, Neural networks (visual series)',
-                'https://www.3blue1brown.com/topics/neural-networks',
-              ),
-            ],
-          },
           {
             id: 'ai-coding.foundations.ai-fluency',
             title: 'AI Fluency: working with AI well',
@@ -202,12 +182,32 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
               ),
             ],
           },
+          {
+            id: 'ai-coding.foundations.models',
+            title: 'Pick the model for the job',
+            kind: 'practice',
+            hours: 2,
+            detail:
+              'Quality, speed and price pull in different directions. Run the same task on a small, a mid and a frontier model, compare answer, latency and cost, and learn when the small one is enough.',
+            outcome:
+              'You choose a model with numbers, not by habit, and can defend the choice.',
+            resources: [
+              r(
+                'Claude docs, Models overview',
+                'https://docs.claude.com/en/docs/about-claude/models/overview',
+              ),
+              r(
+                'Artificial Analysis (independent model comparisons)',
+                'https://artificialanalysis.ai/',
+              ),
+            ],
+          },
         ],
       },
       {
         id: 'daily',
-        title: 'Coding with AI every day',
-        goal: 'Make an AI coding agent part of your day, safely.',
+        title: 'Coding agents every day',
+        goal: 'Make a coding agent part of your day, and keep the quality bar yours.',
         level: 'working',
         checkpoint:
           'A week of real tickets done with an agent, every diff reviewed and merged by you.',
@@ -256,15 +256,35 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
               'An agent that follows your project’s rules without being told twice.',
             resources: [r('Claude Code docs', 'https://code.claude.com/docs')],
           },
+          {
+            id: 'ai-coding.daily.workflows',
+            title: 'Agentic workflows: plan, parallel and headless',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'Plan first and approve the plan, write the spec and the test before the code, run two agents in parallel in separate git worktrees, and run one headless in CI to fix lint or review a pull request.',
+            outcome:
+              'You run several agents at once on one feature and stay in control of each.',
+            resources: [
+              r(
+                'Anthropic, Claude Code best practices for agentic coding',
+                'https://www.anthropic.com/engineering/claude-code-best-practices',
+              ),
+              r(
+                'Claude Code docs, Common workflows',
+                'https://code.claude.com/docs/en/common-workflows',
+              ),
+            ],
+          },
         ],
       },
       {
         id: 'api',
-        title: 'Building with the Claude API',
-        goal: 'Call a model from your own code and control cost and shape.',
+        title: 'Building on model APIs',
+        goal: 'Call a model from your own code and control its shape, speed and cost.',
         level: 'working',
         checkpoint:
-          'A small feature that calls the Claude API with structured output, its cost per use known.',
+          'A small feature that calls the Claude API with structured output, its cost per use and its slowest answers measured.',
         steps: [
           {
             id: 'ai-coding.api.messages',
@@ -308,16 +328,25 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
           },
           {
             id: 'ai-coding.api.cost',
-            title: 'Prompt caching, effort and cost',
+            title: 'Tokens, latency and cost',
             kind: 'practice',
-            hours: 3,
+            hours: 4,
             detail:
-              'Cache a long system prompt, compare effort levels, and read the cost per use that Settings → AI tools shows for each tool.',
-            outcome: 'You can halve the cost of a tool without losing quality.',
+              'Count tokens before you send, cache a long system prompt, compare effort levels, batch what can wait, and stream what a person watches. Read the cost per use that Settings → AI tools shows for each tool.',
+            outcome:
+              'You can halve the cost or the wait of a tool without losing quality.',
             resources: [
               r(
                 'Claude docs, Prompt caching',
                 'https://docs.claude.com/en/docs/build-with-claude/prompt-caching',
+              ),
+              r(
+                'Claude docs, Batch processing',
+                'https://docs.claude.com/en/docs/build-with-claude/batch-processing',
+              ),
+              r(
+                'Claude docs, Token counting',
+                'https://docs.claude.com/en/docs/build-with-claude/token-counting',
               ),
             ],
           },
@@ -325,11 +354,11 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
       },
       {
         id: 'agents',
-        title: 'Agents and MCP',
-        goal: 'Know when an agent beats a fixed workflow, and connect tools to it.',
+        title: 'Agents, tools, skills and MCP',
+        goal: 'Know when an agent beats a fixed workflow, and give it tools it uses well.',
         level: 'professional',
         checkpoint:
-          'An MCP server or agent of yours that a colleague uses without your help.',
+          'An MCP server or skill of yours that a colleague uses without your help.',
         steps: [
           {
             id: 'ai-coding.agents.patterns',
@@ -347,6 +376,22 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
             ],
           },
           {
+            id: 'ai-coding.agents.tools',
+            title: 'Design tools an agent can use',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'A tool is an interface for a model, not for a program: few tools that each do one job, clear names, errors the model can act on, results short enough to fit. Rewrite one tool and measure the difference.',
+            outcome:
+              'Tools that an agent picks correctly the first time, with fewer tokens.',
+            resources: [
+              r(
+                'Anthropic, Writing effective tools for agents',
+                'https://www.anthropic.com/engineering/writing-tools-for-agents',
+              ),
+            ],
+          },
+          {
             id: 'ai-coding.agents.mcp',
             title: 'Model Context Protocol',
             kind: 'build',
@@ -360,6 +405,26 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
                 'https://anthropic.skilljar.com/',
               ),
               r('modelcontextprotocol.io', 'https://modelcontextprotocol.io/'),
+            ],
+          },
+          {
+            id: 'ai-coding.agents.skills',
+            title: 'Agent Skills',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'A skill is a folder of instructions, scripts and references an agent loads only when the task needs it. Write one for a procedure your team repeats, and keep its description sharp enough that it triggers at the right time.',
+            outcome:
+              'A skill your team shares, that turns a ten-step procedure into one ask.',
+            resources: [
+              r(
+                'Anthropic, Equipping agents for the real world with Agent Skills',
+                'https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills',
+              ),
+              r(
+                'Claude docs, Agent Skills',
+                'https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview',
+              ),
             ],
           },
           {
@@ -381,8 +446,8 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
       },
       {
         id: 'rag',
-        title: 'Your data: embeddings and RAG',
-        goal: 'Let a model answer from documents it was never trained on.',
+        title: 'Context from your data: retrieval and memory',
+        goal: 'Give a model the right knowledge at the right time, and nothing more.',
         level: 'professional',
         checkpoint:
           'A question-answering tool over your own documents that cites its sources.',
@@ -420,15 +485,94 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
               ),
             ],
           },
+          {
+            id: 'ai-coding.rag.context',
+            title: 'Context engineering and memory',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'The context window is a budget. Decide what goes in, what an agent fetches only when needed, what it writes down to remember between sessions, and what you compact away.',
+            outcome:
+              'An agent that stays sharp on a long task instead of drowning in its own history.',
+            resources: [
+              r(
+                'Anthropic, Effective context engineering for AI agents',
+                'https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents',
+              ),
+              r(
+                'Claude docs, Memory tool',
+                'https://docs.claude.com/en/docs/agents-and-tools/tool-use/memory-tool',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'architecture',
+        title: 'Agentic architectures',
+        goal: 'Design systems of agents that are worth their cost and fail safely.',
+        level: 'professional',
+        checkpoint:
+          'An architecture decision record for a real feature: the pattern chosen, its token budget, its failure modes and the fallback, reviewed by a peer.',
+        steps: [
+          {
+            id: 'ai-coding.architecture.multi-agent',
+            title: 'Orchestrators, subagents and multi-agent systems',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'An orchestrator that hands parallel work to subagents, each with its own clean context. Learn where it shines (broad research) and what it costs: several times the tokens of one agent.',
+            outcome:
+              'You can say when a second agent pays for itself, and when it only adds cost.',
+            resources: [
+              r(
+                'Anthropic, How we built our multi-agent research system',
+                'https://www.anthropic.com/engineering/multi-agent-research-system',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.architecture.long-running',
+            title:
+              'Long-running agents: state, retries and a human in the loop',
+            kind: 'build',
+            hours: 8,
+            detail:
+              'An agent that works for hours must survive a crash: save progress as it goes, make tools safe to repeat, retry with a limit, and stop for a person before anything it cannot undo.',
+            outcome:
+              'An agent job that resumes where it stopped and never acts twice.',
+            resources: [
+              r(
+                'Anthropic, Effective harnesses for long-running agents',
+                'https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.architecture.design',
+            title: 'Design review: workflow, agent or many agents',
+            kind: 'practice',
+            hours: 3,
+            detail:
+              'Take a feature you would build at work and write the decision: which pattern, which model where, the tokens per run and per month, what happens when the model is wrong, and the simpler option you rejected.',
+            outcome:
+              'A design you can defend in front of a senior architect and a finance lead.',
+            resources: [
+              r(
+                'Exercise: write the decision record for one AI feature of Life Island',
+                null,
+              ),
+            ],
+          },
         ],
       },
       {
         id: 'production',
-        title: 'Evals, safety and production',
-        goal: 'Ship AI features you can trust and measure.',
+        title: 'Testing, security and operations',
+        goal: 'Ship agentic features you can measure, trust and run.',
         level: 'expert',
         checkpoint:
-          'An eval set that catches a regression before it ships, and a talk to your team on how you built it.',
+          'An eval suite that catches a regression before it ships, and a talk to your team on how you built and secured it.',
         steps: [
           {
             id: 'ai-coding.production.evals',
@@ -444,6 +588,54 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
                 'Claude docs, Define success and build evals',
                 'https://docs.claude.com/en/docs/test-and-evaluate/define-success',
               ),
+            ],
+          },
+          {
+            id: 'ai-coding.production.testing-agents',
+            title: 'Test agents, not only answers',
+            kind: 'build',
+            hours: 6,
+            detail:
+              'An agent can reach the right answer the wrong way. Check its path too: which tools it called, in what order, with what arguments. Record runs to replay them, grade with a model only once you checked the grader against your own judgement, and run the suite in CI.',
+            outcome:
+              'A regression suite for an agent that fails the build when it gets worse.',
+            resources: [
+              r(
+                'Claude docs, Create strong empirical evaluations',
+                'https://docs.claude.com/en/docs/test-and-evaluate/develop-tests',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.production.safety',
+            title: 'Prompt injection and data security',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Text inside a document or a tool result is never an instruction. Keep secrets and personal data out of prompts, give each agent the least access it needs, sandbox what it runs, and know the OWASP list of LLM risks.',
+            outcome:
+              'You can spot the injection or data leak in a feature before it ships.',
+            resources: [
+              r(
+                'OWASP Top 10 for LLM applications',
+                'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.production.observability',
+            title: 'Observability: traces, tokens and latency',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'Trace every model and tool call with its tokens, cost and time, so a slow or expensive run is a query away. Alert on cost per day and on the slowest answers, not only on errors.',
+            outcome:
+              'A dashboard that shows what each AI feature costs and where its time goes.',
+            resources: [
+              r(
+                'OpenTelemetry semantic conventions for generative AI',
+                'https://opentelemetry.io/docs/specs/semconv/gen-ai/',
+              ),
               r(
                 'Langfuse docs (tracing and evals)',
                 'https://langfuse.com/docs',
@@ -451,18 +643,345 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
             ],
           },
           {
-            id: 'ai-coding.production.safety',
-            title: 'Prompt injection and data safety',
+            id: 'ai-coding.production.lead',
+            title: 'Lead AI adoption on your team',
+            kind: 'practice',
+            hours: 4,
+            detail:
+              'Write the team’s rules for AI code (what an agent may do, what a person must review), share the skills and project instructions that work, and measure the effect honestly: lead time and defects, not lines written.',
+            outcome:
+              'Your team works faster with agents, and you can show it with numbers.',
+            resources: [
+              r(
+                'DORA research on AI in software delivery',
+                'https://dora.dev/research/ai/',
+              ),
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // -------------------------------------------------------- AI, theory
+  {
+    id: 'ai-theory',
+    topic: 'ai',
+    emblem: '🧠',
+    name: 'How AI works, inside out',
+    summary:
+      'The theory under the tools: neural networks, the transformer, how a base model becomes an assistant, and an agent harness you build yourself.',
+    why: 'Most developers stop at the tools. Knowing what happens inside the model is what lets you predict where an agent will fail, debug it when it does, and build your own harness instead of only using one.',
+    level: 'beginner',
+    capstone:
+      'Your own coding-agent harness in TypeScript over the raw model API (tools, context compaction, permissions), with a write-up that explains each part down to the transformer.',
+    certifications: [
+      'Hugging Face LLM Course (free certificate)',
+      'DeepLearning.AI Deep Learning Specialization (Coursera, paid)',
+    ],
+    stages: [
+      {
+        id: 'ml',
+        title: 'The machine learning underneath',
+        goal: 'Know how a network learns, from a loss to a gradient.',
+        level: 'foundations',
+        checkpoint:
+          'A tiny neural network you wrote yourself, trained, with every line of its backpropagation explained.',
+        steps: [
+          {
+            id: 'ai-theory.ml.networks',
+            title: 'Neural networks and gradient descent',
+            kind: 'learn',
+            hours: 5,
+            detail:
+              'A neuron, a layer, a loss that says how wrong the network is, and gradient descent that nudges every weight to be less wrong. Watch it visually before you read any maths.',
+            outcome:
+              'You can explain what training changes, and why it needs so much data.',
+            resources: [
+              r(
+                '3Blue1Brown, Neural networks (visual series)',
+                'https://www.3blue1brown.com/topics/neural-networks',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.ml.micrograd',
+            title: 'Backpropagation from scratch',
+            kind: 'build',
+            hours: 6,
+            detail:
+              'Write a tiny automatic differentiation engine and train a small network with it, following along line by line. Rewrite it in TypeScript if that helps it stick.',
+            outcome: 'Backpropagation is code you wrote, not a word you heard.',
+            resources: [
+              r(
+                'Andrej Karpathy, Neural Networks: Zero to Hero',
+                'https://karpathy.ai/zero-to-hero.html',
+              ),
+              r('micrograd', 'https://github.com/karpathy/micrograd'),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'transformer',
+        title: 'Inside a language model',
+        goal: 'Follow a token from text to the next-word guess.',
+        level: 'working',
+        checkpoint:
+          'A transformer block drawn on a whiteboard, with a token walked through it, to a colleague.',
+        steps: [
+          {
+            id: 'ai-theory.transformer.tokens',
+            title: 'Tokens and embeddings',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'How text becomes tokens (byte-pair encoding), how a token becomes a vector, and why tokens explain odd failures: spelling, counting letters, arithmetic, other languages costing more.',
+            outcome:
+              'You can predict which inputs a model will find hard, and why.',
+            resources: [
+              r(
+                "Andrej Karpathy, Let's build the GPT tokenizer (video)",
+                'https://www.youtube.com/watch?v=zduSFxRajkE',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.transformer.attention',
+            title: 'Attention and the transformer',
+            kind: 'learn',
+            hours: 5,
+            detail:
+              'Attention lets each token look at the others and decide what matters. Then many heads, positions, the feed-forward layer and the residual stream that carries it all. Read the original paper last.',
+            outcome:
+              'You can explain why a model sees a whole context at once, and what that costs.',
+            resources: [
+              r(
+                'Jay Alammar, The Illustrated Transformer',
+                'https://jalammar.github.io/illustrated-transformer/',
+              ),
+              r(
+                'Vaswani et al., Attention Is All You Need (paper)',
+                'https://arxiv.org/abs/1706.03762',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.transformer.gpt',
+            title: 'Build a small GPT',
+            kind: 'build',
+            hours: 10,
+            detail:
+              'Train a character-level GPT on a small text, from an empty file to generated sentences. Change the context length and the number of layers, and watch what each does.',
+            outcome:
+              'A language model you trained yourself, and no part of it is magic.',
+            resources: [
+              r(
+                "Andrej Karpathy, Let's build GPT from scratch (video)",
+                'https://www.youtube.com/watch?v=kCc8FmEb1nY',
+              ),
+              r('nanoGPT', 'https://github.com/karpathy/nanoGPT'),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'assistant',
+        title: 'From base model to assistant',
+        goal: 'Know how training, sampling and reasoning shape what you get back.',
+        level: 'working',
+        checkpoint:
+          'Explain, without notes, why the same prompt can answer differently, why a model invents an API, and what a context window really limits.',
+        steps: [
+          {
+            id: 'ai-theory.assistant.training',
+            title: 'Pretraining, fine-tuning and feedback',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Pretraining on the internet makes a document completer. Fine-tuning on conversations and learning from feedback (people’s or a written constitution) make it an assistant. Know what each stage adds and what it cannot fix.',
+            outcome:
+              'You can say where a model’s knowledge, style and refusals come from.',
+            resources: [
+              r(
+                'Andrej Karpathy, Deep dive into LLMs like ChatGPT (video)',
+                'https://www.youtube.com/watch?v=7xTGNNLPyMI',
+              ),
+              r(
+                'Anthropic, Constitutional AI',
+                'https://www.anthropic.com/research/constitutional-ai-harmlessness-from-ai-feedback',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.assistant.sampling',
+            title: 'Tokens, context window and sampling',
+            kind: 'practice',
+            hours: 4,
+            detail:
+              'Why the context window limits what the model knows, what temperature changes, why the same prompt can answer differently, and what a model cannot know (anything after its training). Try each one on the API.',
+            outcome:
+              'You can explain why a long chat gets worse and why a model invents an API.',
+            resources: [
+              r(
+                'Andrej Karpathy, Intro to Large Language Models (1 h video)',
+                'https://www.youtube.com/watch?v=zjkBMFhNj_g',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.assistant.reasoning',
+            title: 'Reasoning and tool calls',
             kind: 'learn',
             hours: 3,
             detail:
-              'Why text inside a document must never be taken as an instruction, what to keep out of a prompt (tax codes, keys), and the OWASP list of LLM risks.',
+              'Thinking before answering spends tokens to buy accuracy. A tool call is just text the model writes in a format the harness reads. Knowing both explains most of what an agent does.',
             outcome:
-              'You can spot the injection risk in a feature before it ships.',
+              'You can read an agent’s transcript and say why it did each step.',
             resources: [
               r(
-                'OWASP Top 10 for LLM applications',
-                'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
+                'Claude docs, Extended thinking',
+                'https://docs.claude.com/en/docs/build-with-claude/extended-thinking',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'harness',
+        title: 'Build your own agent harness',
+        goal: 'Write the loop that turns a model into an agent, with no framework.',
+        level: 'professional',
+        checkpoint:
+          'Your harness runs a multi-step coding task with tools, survives a full context window and asks before a risky command.',
+        steps: [
+          {
+            id: 'ai-theory.harness.loop',
+            title: 'The agent loop',
+            kind: 'build',
+            hours: 8,
+            detail:
+              'On the raw Messages API: send the conversation, read why the model stopped, run the tool it asked for, add the result, repeat. Give it three tools: read a file, write a file, run a command.',
+            outcome:
+              'A working coding agent in a few hundred lines that you fully understand.',
+            resources: [
+              r(
+                'Claude docs, Tool use',
+                'https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview',
+              ),
+              r(
+                'Anthropic, Building effective agents',
+                'https://www.anthropic.com/engineering/building-effective-agents',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.harness.context',
+            title: 'Manage the context window',
+            kind: 'build',
+            hours: 6,
+            detail:
+              'Your loop will fill the window. Trim old tool results, summarise and compact the history, keep the stable part of the prompt first so it caches, and hand a search to a subagent so its noise stays out.',
+            outcome:
+              'A harness that keeps working on a long task at a cost you predicted.',
+            resources: [
+              r(
+                'Claude docs, Context windows',
+                'https://docs.claude.com/en/docs/build-with-claude/context-windows',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.harness.safety',
+            title: 'Permissions and a sandbox',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'Decide what the agent may do alone and what needs a yes. Run commands in a sandbox, keep secrets out of reach, and treat every tool result as data that may try to give orders.',
+            outcome: 'A harness you would let run on your own machine.',
+            resources: [
+              r(
+                'Claude Code docs, Security',
+                'https://code.claude.com/docs/en/security',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.harness.compare',
+            title: 'Read a real harness',
+            kind: 'practice',
+            hours: 3,
+            detail:
+              'Read an open-source coding agent and the Agent SDK, and compare them with yours: how they plan, compact, ask for permission and recover from errors. Steal one idea.',
+            outcome:
+              'You know what a production harness does that yours does not, and why.',
+            resources: [
+              r(
+                'Claude docs, Agent SDK',
+                'https://docs.claude.com/en/docs/agent-sdk/overview',
+              ),
+              r(
+                'Aider (open-source coding agent)',
+                'https://github.com/Aider-AI/aider',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'research',
+        title: 'Interpretability and the frontier',
+        goal: 'Keep up with the research, and explain it to others.',
+        level: 'expert',
+        checkpoint:
+          'A talk or write-up that takes developers on your team from a token to an answer, and what we still do not understand.',
+        steps: [
+          {
+            id: 'ai-theory.research.interpretability',
+            title: 'Interpretability: what a model thinks',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Features, superposition and circuits: how researchers find the concepts inside a model and trace how it plans an answer. It changes how you think about prompts.',
+            outcome:
+              'You can explain what is known about how a model reaches an answer, and what is not.',
+            resources: [
+              r(
+                'Anthropic, Tracing the thoughts of a large language model',
+                'https://www.anthropic.com/research/tracing-thoughts-language-model',
+              ),
+              r(
+                'Transformer Circuits thread',
+                'https://transformer-circuits.pub/',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.research.papers',
+            title: 'Read a paper a month',
+            kind: 'practice',
+            hours: 6,
+            detail:
+              'Abstract, figures, then the method; skip the proofs on a first read. Write five lines on each paper: the claim, the evidence, and what it changes for your work.',
+            outcome:
+              'A habit, and a notebook of papers you can actually discuss.',
+            resources: [
+              r('Hugging Face, Daily papers', 'https://huggingface.co/papers'),
+            ],
+          },
+          {
+            id: 'ai-theory.research.teach',
+            title: 'Teach it',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'Explaining is the test of understanding. Prepare a 30-minute session for your team on one part of this path, with a live demo of your GPT or your harness.',
+            outcome:
+              'Your team asks you when they need to understand AI, not only use it.',
+            resources: [
+              r(
+                'Exercise: give the session and collect three questions you could not answer',
+                null,
               ),
             ],
           },

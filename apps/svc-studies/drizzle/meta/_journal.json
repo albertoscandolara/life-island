@@ -29,6 +29,13 @@
       "when": 1795791908798,
       "tag": "0003_scout-every-path",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795855767934,
+      "tag": "0004_split-ai-path",
+      "breakpoints": true
     }
   ]
 }

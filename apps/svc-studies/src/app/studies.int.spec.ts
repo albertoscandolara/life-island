@@ -116,7 +116,7 @@ describe.skipIf(!configured)(
     });
 
     it('follows a path, logs a session on a step and moves the step to done', async () => {
-      const step = 'ai-coding.foundations.llm-basics';
+      const step = 'ai-coding.foundations.ai-fluency';
       const session = await json<{ id: string }>('POST', '/sessions', {
         date: localToday(),
         minutes: 50,
@@ -151,7 +151,7 @@ describe.skipIf(!configured)(
       ai = body.paths.find((p) => p.pathId === 'ai-coding')!;
       expect(ai.doneSteps).toBe(1);
       expect(ai.targetOn).toBe('2027-06-30');
-      expect(ai.nextStepId).toBe('ai-coding.foundations.ai-fluency');
+      expect(ai.nextStepId).toBe('ai-coding.foundations.prompting');
 
       expect(
         (await json('PUT', '/steps/nope.nope.nope', { status: 'done' })).status,
@@ -231,8 +231,8 @@ describe.skipIf(!configured)(
       const [suggested, other] = (
         await svc.pool.query<{ id: string }>(
           `insert into studies.scout_resources (path_id, step_id, url, title, kind, why, status)
-           values ('ai-coding', 'ai-coding.foundations.llm-basics', $1, 'Fresh guide', 'docs', 'Current.', 'suggested'),
-                  ('ai-coding', 'ai-coding.foundations.llm-basics', $2, 'Old video', 'video', 'Popular.', 'suggested')
+           values ('ai-coding', 'ai-coding.foundations.prompting', $1, 'Fresh guide', 'docs', 'Current.', 'suggested'),
+                  ('ai-coding', 'ai-coding.foundations.prompting', $2, 'Old video', 'video', 'Popular.', 'suggested')
            returning id`,
           [
             `https://example.com/${run}/guide`,
