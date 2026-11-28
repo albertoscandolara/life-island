@@ -12,6 +12,7 @@
 
 export const STUDY_TOPICS = [
   'ai',
+  'ai-internals',
   'frameworks',
   'infrastructure',
   'leadership',
@@ -22,7 +23,8 @@ export const STUDY_TOPICS = [
 export type StudyTopic = (typeof STUDY_TOPICS)[number];
 
 export const STUDY_TOPIC_LABELS: Record<StudyTopic, string> = {
-  ai: 'AI coding',
+  ai: 'AI engineering',
+  'ai-internals': 'AI internals',
   frameworks: 'Frameworks',
   infrastructure: 'Infrastructure',
   leadership: 'Leadership',
@@ -442,6 +444,26 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
               ),
             ],
           },
+          {
+            id: 'ai-coding.agents.computer-use',
+            title: 'Browser and computer-use agents',
+            kind: 'practice',
+            hours: 4,
+            detail:
+              'Agents that click and type: a browser driven through Playwright MCP, then the computer-use tool. Where they beat an API, why they are slow and fragile, and how to keep them in a sandbox.',
+            outcome:
+              'You know when an agent should use a screen and when it needs an API.',
+            resources: [
+              r(
+                'Claude docs, Computer use tool',
+                'https://docs.claude.com/en/docs/agents-and-tools/tool-use/computer-use-tool',
+              ),
+              r(
+                'Playwright MCP',
+                'https://github.com/microsoft/playwright-mcp',
+              ),
+            ],
+          },
         ],
       },
       {
@@ -567,6 +589,134 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         ],
       },
       {
+        id: 'product',
+        title: 'AI features people trust',
+        goal: 'Ship AI inside a web app: streaming, honest about mistakes, useful without it.',
+        level: 'professional',
+        checkpoint:
+          'One AI feature in Life Island that streams, shows where its answer came from, lets you edit it, and still works with the tool off.',
+        steps: [
+          {
+            id: 'ai-coding.product.streaming',
+            title: 'Streaming into an Angular UI',
+            kind: 'build',
+            hours: 6,
+            detail:
+              'Stream the model through a Nest endpoint as server-sent events into signals: partial text and partial structured output, a stop button that really cancels, errors mid-stream.',
+            outcome: 'An answer that starts appearing in under a second.',
+            resources: [
+              r(
+                'Claude docs, Streaming messages',
+                'https://docs.claude.com/en/docs/build-with-claude/streaming',
+              ),
+              r(
+                'MDN, Server-sent events',
+                'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.product.ux',
+            title: 'Design for a model that can be wrong',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Show sources, make every output editable, ask before acting, explain what data is sent, and keep a path that works without AI. The guidelines from teams that shipped AI to millions.',
+            outcome: 'AI features users rely on because they can check them.',
+            resources: [
+              r(
+                'Google PAIR, People + AI Guidebook',
+                'https://pair.withgoogle.com/guidebook/',
+              ),
+              r(
+                'Microsoft, Guidelines for Human-AI Interaction',
+                'https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.product.documents',
+            title: 'Images, PDFs and citations',
+            kind: 'practice',
+            hours: 3,
+            detail:
+              'Send a payslip PDF or a photo, get structured data back, and cite the exact passage each value came from so the user can check it.',
+            outcome: 'Document features with answers anyone can verify.',
+            resources: [
+              r(
+                'Claude docs, PDF support',
+                'https://docs.claude.com/en/docs/build-with-claude/pdf-support',
+              ),
+              r(
+                'Claude docs, Citations',
+                'https://docs.claude.com/en/docs/build-with-claude/citations',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'scale',
+        title: 'Cost, speed and compliance at scale',
+        goal: 'Run AI features for many users at a cost and risk you can defend.',
+        level: 'expert',
+        checkpoint:
+          'One AI feature’s cost per use cut by half with caching, batching or routing, measured, and a one-page data and AI Act note for it.',
+        steps: [
+          {
+            id: 'ai-coding.scale.caching',
+            title: 'Prompt caching and batches',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'Put the stable part of the prompt first and cache it; send work that can wait as a batch at half the price. Measure the hit rate and the saving on a real feature.',
+            outcome: 'The same feature at a fraction of the cost.',
+            resources: [
+              r(
+                'Claude docs, Prompt caching',
+                'https://docs.claude.com/en/docs/build-with-claude/prompt-caching',
+              ),
+              r(
+                'Claude docs, Batch processing',
+                'https://docs.claude.com/en/docs/build-with-claude/batch-processing',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.scale.routing',
+            title: 'Routing, fallbacks and limits',
+            kind: 'build',
+            hours: 4,
+            detail:
+              'Send easy requests to a small model and hard ones to a large one, retry with backoff, fall back when a model is down, and cap spend per user and per day.',
+            outcome: 'A feature that stays up and inside its budget.',
+            resources: [
+              r(
+                'Claude docs, Rate limits',
+                'https://docs.claude.com/en/api/rate-limits',
+              ),
+            ],
+          },
+          {
+            id: 'ai-coding.scale.governance',
+            title: 'Privacy, data and the EU AI Act',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'What data leaves your system and where it is kept, removing personal data before a prompt, retention and logs, and what the EU AI Act asks of a company that deploys AI by risk level.',
+            outcome:
+              'You can answer the legal and security questions about an AI feature before they are asked.',
+            resources: [
+              r(
+                'EU Artificial Intelligence Act (explorer)',
+                'https://artificialintelligenceact.eu/',
+              ),
+              r('Anthropic Trust Center', 'https://trust.anthropic.com/'),
+            ],
+          },
+        ],
+      },
+      {
         id: 'production',
         title: 'Testing, security and operations',
         goal: 'Ship agentic features you can measure, trust and run.',
@@ -666,7 +816,7 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
   // -------------------------------------------------------- AI, theory
   {
     id: 'ai-theory',
-    topic: 'ai',
+    topic: 'ai-internals',
     emblem: '🧠',
     name: 'How AI works, inside out',
     summary:
@@ -688,6 +838,25 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         checkpoint:
           'A tiny neural network you wrote yourself, trained, with every line of its backpropagation explained.',
         steps: [
+          {
+            id: 'ai-theory.ml.maths',
+            title: 'The maths you actually need',
+            kind: 'learn',
+            hours: 6,
+            detail:
+              'Vectors and matrices, the dot product as similarity, derivatives and the chain rule, probability, softmax and log-likelihood. Just enough to read a model diagram and a paper without stopping at every line.',
+            outcome: 'Equations in an AI paper read as ideas, not as a wall.',
+            resources: [
+              r(
+                '3Blue1Brown, Essence of linear algebra',
+                'https://www.3blue1brown.com/topics/linear-algebra',
+              ),
+              r(
+                'Mathematics for Machine Learning (free book)',
+                'https://mml-book.github.io/',
+              ),
+            ],
+          },
           {
             id: 'ai-theory.ml.networks',
             title: 'Neural networks and gradient descent',
@@ -848,6 +1017,128 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
         ],
       },
       {
+        id: 'training',
+        title: 'Train and adapt a model',
+        goal: 'Know what scale, data and fine-tuning really buy, by doing it.',
+        level: 'professional',
+        checkpoint:
+          'A small open model fine-tuned with LoRA on a task of yours, beating its base model on an eval you wrote, with the numbers.',
+        steps: [
+          {
+            id: 'ai-theory.training.scaling',
+            title: 'Scaling laws and data',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Why loss falls predictably with parameters, data and compute; why data quality and deduplication matter as much as size; where synthetic data helps and where it collapses.',
+            outcome:
+              'You can explain why models got better, and what will and will not keep improving.',
+            resources: [
+              r(
+                'Kaplan et al., Scaling Laws for Neural Language Models (paper)',
+                'https://arxiv.org/abs/2001.08361',
+              ),
+              r(
+                'Hoffmann et al., Training Compute-Optimal LLMs (Chinchilla, paper)',
+                'https://arxiv.org/abs/2203.15556',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.training.finetune',
+            title: 'Fine-tune a small open model',
+            kind: 'build',
+            hours: 8,
+            detail:
+              'Prepare a small dataset, fine-tune an open model with LoRA on a free GPU notebook, and compare it with the base model and with a good prompt. Most of the time the prompt wins: find the case where it does not.',
+            outcome:
+              'You know when fine-tuning is worth it, from a model you trained.',
+            resources: [
+              r(
+                'Hugging Face, LLM Course',
+                'https://huggingface.co/learn/llm-course',
+              ),
+              r('Hu et al., LoRA (paper)', 'https://arxiv.org/abs/2106.09685'),
+            ],
+          },
+          {
+            id: 'ai-theory.training.benchmarks',
+            title: 'Benchmarks and their limits',
+            kind: 'practice',
+            hours: 4,
+            detail:
+              'What a benchmark measures, contamination, why leaderboard gaps rarely show up in your task, and how to run a standard eval on a model yourself.',
+            outcome: 'You read a model launch’s numbers with the right doubt.',
+            resources: [
+              r(
+                'EleutherAI, LM Evaluation Harness',
+                'https://github.com/EleutherAI/lm-evaluation-harness',
+              ),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'inference',
+        title: 'Inference: from weights to tokens',
+        goal: 'Know why output tokens cost what they cost, and run a model yourself.',
+        level: 'professional',
+        checkpoint:
+          'A model running on your machine at two quantisations, with tokens per second, memory and quality measured and explained.',
+        steps: [
+          {
+            id: 'ai-theory.inference.kv-cache',
+            title: 'The KV cache and batching',
+            kind: 'learn',
+            hours: 4,
+            detail:
+              'Reading the prompt is parallel, writing the answer is one token at a time. The KV cache, prompt caching, batching and paged attention explain latency, price per token and why long contexts are expensive.',
+            outcome:
+              'You can predict the latency and cost of a request from its shape.',
+            resources: [
+              r(
+                'Hugging Face, Transformers docs: caching',
+                'https://huggingface.co/docs/transformers/en/kv_cache',
+              ),
+              r(
+                'vLLM, PagedAttention',
+                'https://blog.vllm.ai/2023/06/20/vllm.html',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.inference.local',
+            title: 'Run a model on your machine',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'Run an open model locally, then quantise it: 16, 8 and 4 bits. Measure tokens per second, memory and the drop in quality on a few prompts of yours.',
+            outcome:
+              'You know when a local model is enough and what it costs you.',
+            resources: [
+              r('llama.cpp', 'https://github.com/ggml-org/llama.cpp'),
+              r('Ollama', 'https://ollama.com/'),
+            ],
+          },
+          {
+            id: 'ai-theory.inference.decoding',
+            title: 'Decoding: sampling, structure and speed',
+            kind: 'learn',
+            hours: 3,
+            detail:
+              'Greedy, temperature and top-p; constrained decoding that guarantees JSON; speculative decoding that uses a small model to speed up a big one.',
+            outcome:
+              'You know how structured outputs are guaranteed and how serving gets faster.',
+            resources: [
+              r(
+                'Leviathan et al., Fast Inference via Speculative Decoding (paper)',
+                'https://arxiv.org/abs/2211.17192',
+              ),
+            ],
+          },
+        ],
+      },
+      {
         id: 'harness',
         title: 'Build your own agent harness',
         goal: 'Write the loop that turns a model into an agent, with no framework.',
@@ -907,6 +1198,32 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
             ],
           },
           {
+            id: 'ai-theory.harness.mcp',
+            title: 'Speak MCP',
+            kind: 'build',
+            hours: 5,
+            detail:
+              'Add a Model Context Protocol client to your harness: connect a server, list its tools, call them, show their results. Then write a tiny server and plug it in.',
+            outcome:
+              'Your harness uses any MCP server, and you know the protocol from both sides.',
+            resources: [
+              r(
+                'Model Context Protocol, specification',
+                'https://modelcontextprotocol.io/',
+              ),
+            ],
+          },
+          {
+            id: 'ai-theory.harness.evals',
+            title: 'Evaluate your harness',
+            kind: 'practice',
+            hours: 4,
+            detail:
+              'Ten real tasks with a check that passes or fails, run on every change to the harness: success rate, tokens and time. Learn how the public coding-agent benchmarks are built.',
+            outcome: 'You change the harness with numbers, not impressions.',
+            resources: [r('SWE-bench', 'https://www.swebench.com/')],
+          },
+          {
             id: 'ai-theory.harness.compare',
             title: 'Read a real harness',
             kind: 'practice',
@@ -954,6 +1271,20 @@ export const LEARNING_PATHS: readonly LearningPath[] = [
                 'Transformer Circuits thread',
                 'https://transformer-circuits.pub/',
               ),
+            ],
+          },
+          {
+            id: 'ai-theory.research.alignment',
+            title: 'Alignment and safety',
+            kind: 'learn',
+            hours: 5,
+            detail:
+              'Reward hacking, sycophancy, deception in evaluations, model specifications and constitutions: why making a model behave is a research problem, and what it means for agents you deploy.',
+            outcome:
+              'You can explain why an agent might game its goal, and design against it.',
+            resources: [
+              r('Anthropic, Research', 'https://www.anthropic.com/research'),
+              r('BlueDot Impact, AI safety courses', 'https://bluedot.org/'),
             ],
           },
           {

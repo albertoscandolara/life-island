@@ -39,6 +39,7 @@ describe('the resource scout', () => {
 
   it('scans fast-moving subjects every two months and the others every six', () => {
     expect(scoutCadenceMonths('auto', 'ai')).toBe(2);
+    expect(scoutCadenceMonths('auto', 'ai-internals')).toBe(2);
     expect(scoutCadenceMonths('auto', 'leadership')).toBe(6);
     expect(scoutCadenceMonths('3', 'leadership')).toBe(3);
   });

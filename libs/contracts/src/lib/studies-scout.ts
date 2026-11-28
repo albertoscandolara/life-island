@@ -43,6 +43,7 @@ export type StudyScoutCadence = (typeof STUDY_SCOUT_CADENCES)[number];
 /** Topics that change fast enough to scan every two months; the rest every six. */
 export const FAST_MOVING_TOPICS: readonly StudyTopic[] = [
   'ai',
+  'ai-internals',
   'frameworks',
   'infrastructure',
 ];
