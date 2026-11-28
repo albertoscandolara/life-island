@@ -19,6 +19,7 @@ import {
   courseRequestSchema,
   outlineDecisionRequestSchema,
   scoutResourceRequestSchema,
+  scoutScanRequestSchema,
   pathBuilderRequestSchema,
   pathCreateRequestSchema,
   pathOutlineRequestSchema,
@@ -230,11 +231,13 @@ export class StudiesController {
   }
 
   // ---- resource scout
-  /** Refresh now: scans the path under watch in the background. */
+  /** Refresh now: scans one path you follow in the background. */
   @Post('scout/scans')
   @HttpCode(202)
-  scan(): Promise<{ id: string }> {
-    return this.scout.refresh();
+  scan(@Body() body: unknown): Promise<{ id: string }> {
+    return this.scout.refresh(
+      parseOrThrow(scoutScanRequestSchema, body).pathId,
+    );
   }
 
   /** Pin a resource the scout found (or keep a flagged one), or dismiss it. */

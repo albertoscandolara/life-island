@@ -20,11 +20,11 @@ import {
   DIGEST_WEEKDAY_SETTING,
   DIGEST_WEEKDAYS,
 } from './digest.js';
-import { LEARNING_PATHS } from './studies-paths.js';
 import {
   STUDY_SCOUT_CADENCE_SETTING,
-  STUDY_SCOUT_NONE,
-  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_BUDGET_DEFAULT,
+  STUDY_SCOUT_BUDGETS,
+  STUDY_SCOUT_BUDGET_SETTING,
   STUDY_SCOUT_TOOL,
 } from './studies-scout.js';
 import { STUDY_PATH_BUILDER_TOOL } from './studies-builder.js';
@@ -523,7 +523,7 @@ export const AI_TOOLS: readonly AiToolDefinition[] = [
     module: 'studies',
     name: 'Resource scout',
     description:
-      'Keeps the resources of one learning path current: it searches the web for the best recent material for the stage you are on and the next one, checks the resources you pinned for anything outdated, and may propose a step to add or retire. It watches one path at a time (Settings → App settings → Studies), and scans it every few months.',
+      'Keeps the resources of every path you follow current: it searches the web for the best recent material for the stage you are on and the next one, checks the resources you pinned for anything outdated, and may propose a step to add or retire. Each path is scanned every few months, within a number of scans a month you set (Settings → App settings → Studies).',
     unit: 'scan',
     trigger: 'scheduled',
     where: {
@@ -1235,17 +1235,17 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     usedBy: ['svc-studies'],
   },
   {
-    key: STUDY_SCOUT_SUBJECT_SETTING,
+    key: STUDY_SCOUT_BUDGET_SETTING,
     group: 'Studies',
-    label: 'Resource scout: path to keep current',
+    label: 'Resource scout: scans a month',
     description:
-      'The one learning path the resource scout keeps current. It scans it as soon as you pick it, then on its schedule. One at a time, because every scan searches the web: picking another path stops the first.',
+      'The scout keeps every path you follow current (stop it for one in Studies → Paths). Each scan searches the web, so this caps how many it starts in a calendar month; the most overdue path goes first and the rest wait for next month.',
     type: 'choice',
-    options: [
-      { value: STUDY_SCOUT_NONE, label: 'None' },
-      ...LEARNING_PATHS.map((path) => ({ value: path.id, label: path.name })),
-    ],
-    default: STUDY_SCOUT_NONE,
+    options: STUDY_SCOUT_BUDGETS.map((n) => ({
+      value: String(n),
+      label: `${n} scan${n === 1 ? '' : 's'} a month`,
+    })),
+    default: String(STUDY_SCOUT_BUDGET_DEFAULT),
     scope: 'server',
     usedBy: ['svc-studies'],
     aiTool: STUDY_SCOUT_TOOL,
@@ -1255,7 +1255,7 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     group: 'Studies',
     label: 'Resource scout: how often',
     description:
-      'How often the resource scout scans its path. Automatic is every 2 months for AI, frameworks and infrastructure, and every 6 for the slower subjects.',
+      'How often the resource scout scans each path. Automatic is every 2 months for AI, frameworks and infrastructure, and every 6 for the slower subjects.',
     type: 'choice',
     options: [
       { value: 'auto', label: 'Automatic' },
@@ -1426,6 +1426,15 @@ export function appSetting(key: string): AppSettingDefinition | undefined {
 export function aiToolSettingKey(toolId: string): string {
   return `ai-tool.${toolId}`;
 }
+
+/**
+ * Settings that no longer exist. A backup made before they went may still
+ * carry them: loading it skips them instead of refusing the file.
+ */
+export const RETIRED_SETTING_KEYS: readonly string[] = [
+  // The resource scout watched one path; it now watches every path you follow.
+  'studies.scout-subject',
+];
 
 /** Every key svc-settings accepts: the server app settings, and a switch and a model per AI tool. */
 export function isKnownSettingKey(key: string): boolean {

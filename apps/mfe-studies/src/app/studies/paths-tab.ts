@@ -97,6 +97,7 @@ export class PathsTab {
   readonly data = input.required<StudiesOverviewDto>();
   readonly pathId = input<string | null>(null);
   readonly selectPath = output<string>();
+  readonly openFresh = output<void>();
   readonly changed = output<void>();
   readonly failed = output<string>();
 

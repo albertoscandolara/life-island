@@ -1,0 +1,86 @@
+/* Fresh resources: what the scout found, grouped by path. */
+.summary {
+  margin: 0 0 var(--space-2);
+}
+
+.group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.group__emblem {
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-xl);
+}
+
+.group__title {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.sub {
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.changes,
+.resources {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.change {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-md);
+  background: var(--ai-soft);
+}
+
+.change p {
+  margin: 0 0 var(--space-1);
+}
+
+.step-title {
+  margin: var(--space-3) 0 var(--space-1);
+  font-weight: 600;
+}
+
+.resource {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.resource:first-child {
+  border-top: 0;
+}
+
+.resource__text {
+  display: grid;
+  flex: 1 1 18rem;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.resource__text a {
+  color: var(--accent);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

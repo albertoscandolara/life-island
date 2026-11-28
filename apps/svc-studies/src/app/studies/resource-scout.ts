@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -21,14 +20,12 @@ import {
 } from '@life-island/be-nest';
 import {
   learningPath,
-  nextScanOn,
-  scoutCadenceMonths,
   scoutOutputSchema,
   stagesToScan,
   STUDY_SCOUT_CADENCE_SETTING,
   STUDY_SCOUT_CADENCES,
-  STUDY_SCOUT_NONE,
-  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_BUDGET_DEFAULT,
+  STUDY_SCOUT_BUDGET_SETTING,
   STUDY_SCOUT_TOOL,
   type LearningPath,
   type OutlineChangeDto,
@@ -37,13 +34,15 @@ import {
   type ScoutResourceDto,
   type ScoutScanDto,
   type ScoutScanReason,
+  type ScoutWatchDto,
   type StepPace,
   type StudyScoutCadence,
   type StudyScoutDto,
 } from '@life-island/contracts';
-import { and, desc, eq, inArray, lt, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { CONFIG, SERVICE_DB, type StudiesConfig } from '../config.js';
 import { yourCatalogue } from './paths.js';
+import { monthStart, nextToScan, scoutWatches } from './scout-watch.js';
 import {
   learningPaths,
   outlineChanges,
@@ -138,31 +137,81 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     return this.ai.active();
   }
 
-  /**
-   * The path under watch and how often, from the settings replica. A path
-   * you have not added (or removed) is not watched.
-   */
-  async settings(catalogue?: readonly LearningPath[]): Promise<{
-    subject: string | null;
+  /** How often, and the most scans a month, from the settings replica. */
+  async settings(): Promise<{
     cadence: StudyScoutCadence;
+    monthlyScans: number;
   }> {
-    const paths = catalogue ?? (await this.catalogue());
     const values = await readSettings(this.svc.pool, this.svc.schema, [
-      STUDY_SCOUT_SUBJECT_SETTING,
       STUDY_SCOUT_CADENCE_SETTING,
+      STUDY_SCOUT_BUDGET_SETTING,
     ]).catch(() => new Map<string, unknown>());
-    const subject = values.get(STUDY_SCOUT_SUBJECT_SETTING);
     const cadence = values.get(STUDY_SCOUT_CADENCE_SETTING);
+    const budget = Number(values.get(STUDY_SCOUT_BUDGET_SETTING));
     return {
-      subject:
-        typeof subject === 'string' &&
-        subject !== STUDY_SCOUT_NONE &&
-        learningPath(subject, paths)
-          ? subject
-          : null,
       cadence: STUDY_SCOUT_CADENCES.includes(cadence as StudyScoutCadence)
         ? (cadence as StudyScoutCadence)
         : 'auto',
+      monthlyScans:
+        Number.isInteger(budget) && budget >= 1 && budget <= 50
+          ? budget
+          : STUDY_SCOUT_BUDGET_DEFAULT,
+    };
+  }
+
+  /** Every path you follow with when it is next scanned, and the month's scans. */
+  async watches(
+    catalogue: readonly LearningPath[],
+    today: string,
+    now = new Date(),
+  ): Promise<{
+    watched: ScoutWatchDto[];
+    cadence: StudyScoutCadence;
+    monthlyScans: number;
+    scansThisMonth: number;
+  }> {
+    const [settings, rows, scans, [month]] = await Promise.all([
+      this.settings(),
+      this.db.select().from(pathProgress),
+      this.db
+        .selectDistinctOn([scoutScans.pathId, scoutScans.status])
+        .from(scoutScans)
+        .orderBy(
+          scoutScans.pathId,
+          scoutScans.status,
+          desc(scoutScans.startedAt),
+        ),
+      this.db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(scoutScans)
+        .where(
+          and(
+            gte(scoutScans.startedAt, monthStart(now)),
+            ne(scoutScans.status, 'error'),
+          ),
+        ),
+    ]);
+    const lastDone = new Map<string, string>();
+    const latest = new Map<string, ScoutScanDto>();
+    for (const row of scans) {
+      if (row.status === 'done')
+        lastDone.set(row.pathId, row.startedAt.toISOString());
+      const known = latest.get(row.pathId);
+      if (!known || known.startedAt < row.startedAt.toISOString())
+        latest.set(row.pathId, scanDto(row));
+    }
+    return {
+      watched: scoutWatches({
+        catalogue,
+        rows,
+        lastDone,
+        latest,
+        cadence: settings.cadence,
+        today,
+      }),
+      cadence: settings.cadence,
+      monthlyScans: settings.monthlyScans,
+      scansThisMonth: month?.n ?? 0,
     };
   }
 
@@ -196,9 +245,9 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
     catalogue: readonly LearningPath[],
     today: string,
   ): Promise<StudyScoutDto> {
-    const [settings, ai, resourceRows, proposalRows, paceRows, [last]] =
+    const [watch, ai, resourceRows, proposalRows, paceRows, [last]] =
       await Promise.all([
-        this.settings(catalogue),
+        this.watches(catalogue, today),
         this.usesAi(),
         this.db
           .select()
@@ -217,45 +266,28 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
           .orderBy(desc(scoutScans.startedAt))
           .limit(1),
       ]);
-    const path = settings.subject
-      ? learningPath(settings.subject, catalogue)
-      : undefined;
-    const months = scoutCadenceMonths(settings.cadence, path?.topic ?? null);
-    let next: string | null = null;
-    if (path) {
-      const done = await this.lastDone(path.id);
-      next = done ? nextScanOn(done.startedAt.toISOString(), months) : today;
-    }
+    const yours = new Set(catalogue.map((p) => p.id));
     return {
-      subject: path?.id ?? null,
-      cadence: settings.cadence,
-      cadenceMonths: months,
+      ...watch,
       ai,
       lastScan: last ? scanDto(last) : null,
-      nextScanOn: next,
-      resources: resourceRows.map(resourceDto),
-      proposals: proposalRows.map(changeDto),
+      // What the scout found for a path you removed waits until you add it again.
+      resources: resourceRows
+        .filter((r) => yours.has(r.pathId))
+        .map(resourceDto),
+      proposals: proposalRows.filter((c) => yours.has(c.pathId)).map(changeDto),
       paces: Object.fromEntries(
         paceRows.map((row) => [row.stepId, row.pace]),
       ) as Record<string, StepPace>,
     };
   }
 
-  private async lastDone(pathId: string): Promise<ScoutScanRow | undefined> {
-    const [row] = await this.db
-      .select()
-      .from(scoutScans)
-      .where(and(eq(scoutScans.pathId, pathId), eq(scoutScans.status, 'done')))
-      .orderBy(desc(scoutScans.startedAt))
-      .limit(1);
-    return row;
-  }
-
   // ---- scheduling ----------------------------------------------------------
 
   /**
-   * Starts a scan of the path under watch when one is due: none yet for it
-   * (you just picked it), or its last one is older than the cadence.
+   * Starts a scan when one is due: the watched path you follow whose scan is
+   * due longest ago (a path never scanned is due at once), while the month
+   * has scans left. One at a time; the next tick starts the next.
    */
   async tick(now = new Date()): Promise<string | null> {
     await this.db
@@ -271,40 +303,28 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
           lt(scoutScans.startedAt, new Date(now.getTime() - STALE_MS)),
         ),
       );
-    const catalogue = await this.catalogue();
-    const { subject, cadence } = await this.settings(catalogue);
-    const path = subject ? learningPath(subject, catalogue) : undefined;
-    if (!subject || !path || this.running || !(await this.usesAi()))
-      return null;
-    const done = await this.lastDone(subject);
-    if (done) {
-      const due = nextScanOn(
-        done.startedAt.toISOString(),
-        scoutCadenceMonths(cadence, path.topic),
-      );
-      if (now.toISOString().slice(0, 10) < due) return null;
-    }
-    const [latest] = await this.db
-      .select()
-      .from(scoutScans)
-      .where(eq(scoutScans.pathId, subject))
-      .orderBy(desc(scoutScans.startedAt))
-      .limit(1);
-    if (
-      latest?.status === 'error' &&
-      now.getTime() - latest.startedAt.getTime() < RETRY_AFTER_MS
-    )
-      return null;
-    return this.start(subject, done ? 'schedule' : 'subject');
+    if (this.running || !(await this.usesAi())) return null;
+    const watch = await this.watches(
+      await this.catalogue(),
+      now.toISOString().slice(0, 10),
+      now,
+    );
+    const pathId = nextToScan({
+      ...watch,
+      watches: watch.watched,
+      now,
+      retryMs: RETRY_AFTER_MS,
+    });
+    if (!pathId) return null;
+    const scanned = watch.watched.find((w) => w.pathId === pathId)?.lastScan;
+    return this.start(pathId, scanned ? 'schedule' : 'subject');
   }
 
-  /** Refresh now: scans the path under watch at once. */
-  async refresh(): Promise<{ id: string }> {
-    const { subject } = await this.settings();
-    if (!subject)
-      throw new BadRequestException(
-        'Pick one of your paths to keep current first (Settings → App settings → Studies).',
-      );
+  /** Refresh now: scans one path you follow at once, within the month's scans. */
+  async refresh(pathId: string, now = new Date()): Promise<{ id: string }> {
+    const catalogue = await this.catalogue();
+    if (!learningPath(pathId, catalogue))
+      throw new NotFoundException('Path not found');
     if (!this.ai.configured)
       throw new ServiceUnavailableException(
         'The resource scout searches the web with the Claude API: set ANTHROPIC_API_KEY in .env and restart svc-studies.',
@@ -314,7 +334,16 @@ export class ResourceScout implements OnApplicationBootstrap, OnModuleDestroy {
         'The resource scout is turned off in Settings → AI tools. Turn it on there to scan.',
       );
     if (this.running) throw new ConflictException('A scan is already running.');
-    return { id: await this.start(subject, 'manual') };
+    const watch = await this.watches(
+      catalogue,
+      now.toISOString().slice(0, 10),
+      now,
+    );
+    if (watch.scansThisMonth >= watch.monthlyScans)
+      throw new ConflictException(
+        `This month's ${watch.monthlyScans} scans are used. Raise the number in Settings → App settings → Studies, or wait for next month.`,
+      );
+    return { id: await this.start(pathId, 'manual') };
   }
 
   /** Records the scan as running and runs it in the background. */

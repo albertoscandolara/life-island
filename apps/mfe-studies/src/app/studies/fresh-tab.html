@@ -1,0 +1,188 @@
+@let s = scout();
+<ui-ai-panel
+  heading="Resource scout"
+  class="li-block"
+  [state]="running() ? 'working' : 'idle'"
+  [offline]="!s.ai"
+>
+  <li-ai-tool uiAiPanelActions toolId="studies.resource-scout" />
+  <p class="summary">
+    @if (watching().length) {
+    <strong
+      >Keeping {{ watching().length }} path{{ watching().length === 1 ? '' : 's'
+      }} current.</strong
+    >
+    @if (running(); as name) { Scanning {{ name }} now. } @else if (next(); as
+    n) { Next: {{ n.name }}, {{ dateText(n.on) }}. }
+    <span class="li-muted"
+      >{{ s.scansThisMonth }} of {{ s.monthlyScans }} scans used this
+      month.</span
+    >
+    } @else { The scout keeps the paths you follow current. Follow a path and it
+    looks for fresh resources for the stage you are on. }
+  </p>
+  @if (running()) {
+  <ui-ai-status state="working">Searching the web…</ui-ai-status>
+  } @if (!s.ai) {
+  <p class="li-muted li-small">
+    Scans need the resource scout on in Settings → AI tools, and a Claude API
+    key. Until then each step keeps its hand-picked resources and what you
+    pinned.
+  </p>
+  }
+</ui-ai-panel>
+
+@for (g of groups(); track g.path.id) {
+<ui-card class="li-block group">
+  <div class="group__head">
+    <span class="group__emblem" aria-hidden="true">{{ g.path.emblem }}</span>
+    <h2 class="group__title">{{ g.path.name }}</h2>
+    <button
+      type="button"
+      class="li-link li-small"
+      (click)="openPath.emit(g.path.id)"
+    >
+      Open the path
+    </button>
+  </div>
+
+  @if (g.changes.length) {
+  <h3 class="sub">What changed in this topic</h3>
+  <ul class="li-list changes">
+    @for (c of g.changes; track c.id) {
+    <li class="change">
+      <p>
+        @if (c.kind === 'add-step') {
+        <strong>Add “{{ c.title }}”</strong> to {{ stageTitle(g.path, c.stageId)
+        }}@if (c.hours) { · about {{ c.hours }} h } } @else {
+        <strong>Retire “{{ stepTitle(c) }}”</strong> from {{ stageTitle(g.path,
+        c.stageId) }} }
+      </p>
+      @if (c.detail) {
+      <p class="li-small">{{ c.detail }}</p>
+      }
+      <p class="li-muted li-small">Why: {{ c.reason }}</p>
+      <div class="li-actions">
+        <button
+          uiButton
+          size="sm"
+          type="button"
+          [loading]="busy() === c.id"
+          (click)="decide(c, 'accepted')"
+        >
+          <ui-icon name="check" [size]="14" /> Accept
+        </button>
+        <button
+          uiButton
+          size="sm"
+          variant="ghost"
+          type="button"
+          [disabled]="busy() === c.id"
+          (click)="decide(c, 'declined')"
+        >
+          Decline
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  } @if (g.steps.length) {
+  <h3 class="sub">New resources</h3>
+  @for (step of g.steps; track step.id) {
+  <p class="step-title li-small">{{ step.title }}</p>
+  <ul class="li-list resources">
+    @for (r of step.resources; track r.id) {
+    <li class="resource">
+      <div class="resource__text">
+        @if (safeUrl(r.url); as url) {
+        <a [href]="url" target="_blank" rel="noopener noreferrer"
+          >{{ r.title }} <ui-icon name="external" [size]="12"
+        /></a>
+        } @else { {{ r.title }} }
+        <span class="li-muted li-small"
+          >{{ kinds[r.kind] }}@if (r.publishedOn) { · {{ r.publishedOn }} } · {{
+          r.free ? 'Free' : 'Paid' }} · found {{ dateText(r.foundAt.slice(0,
+          10)) }}</span
+        >
+        <span class="li-small">{{ r.why }}</span>
+      </div>
+      <div class="li-actions">
+        <button
+          uiButton
+          size="sm"
+          variant="secondary"
+          type="button"
+          [disabled]="busy() === r.id"
+          (click)="keep(r, 'pinned')"
+        >
+          <ui-icon name="check" [size]="14" /> Pin
+        </button>
+        <button
+          uiButton
+          size="sm"
+          variant="ghost"
+          type="button"
+          [disabled]="busy() === r.id"
+          [attr.aria-label]="'Dismiss ' + r.title"
+          (click)="keep(r, 'dismissed')"
+        >
+          <ui-icon name="x" [size]="14" /> Dismiss
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  } } @if (g.outdated.length) {
+  <h3 class="sub">Pinned, but outdated</h3>
+  <ul class="li-list resources">
+    @for (r of g.outdated; track r.id) {
+    <li class="resource">
+      <div class="resource__text">
+        @if (safeUrl(r.url); as url) {
+        <a [href]="url" target="_blank" rel="noopener noreferrer"
+          >{{ r.title }} <ui-icon name="external" [size]="12"
+        /></a>
+        } @else { {{ r.title }} }
+        <span class="li-warn li-small"
+          ><ui-icon name="alert" [size]="12" /> {{ r.outdated }}</span
+        >
+      </div>
+      <div class="li-actions">
+        <button
+          uiButton
+          size="sm"
+          variant="secondary"
+          type="button"
+          [disabled]="busy() === r.id"
+          (click)="keep(r, 'pinned')"
+        >
+          Keep it
+        </button>
+        <button
+          uiButton
+          size="sm"
+          variant="ghost"
+          type="button"
+          [disabled]="busy() === r.id"
+          [attr.aria-label]="'Remove ' + r.title"
+          (click)="keep(r, 'dismissed')"
+        >
+          <ui-icon name="x" [size]="14" /> Remove
+        </button>
+      </div>
+    </li>
+    }
+  </ul>
+  }
+</ui-card>
+} @empty {
+<ui-card class="li-block">
+  <ui-empty-state heading="Nothing new from the scout" icon="sparkles">
+    <p>
+      @if (next(); as n) { It scans {{ n.name }} next, {{ dateText(n.on) }}:
+      what it finds waits here for you to pin or dismiss. } @else { Follow a
+      path and the scout looks for fresh resources for the stage you are on. }
+    </p>
+  </ui-empty-state>
+</ui-card>
+}

@@ -155,6 +155,8 @@ export const pathProgress = studies.table('path_progress', {
   status: text('status').$type<PathStatus>().notNull(),
   startedOn: date('started_on').notNull(),
   targetOn: date('target_on'),
+  /** Whether the resource scout keeps this path current while you follow it. */
+  scoutWatch: boolean('scout_watch').notNull().default(true),
 });
 export type PathProgressRow = typeof pathProgress.$inferSelect;
 

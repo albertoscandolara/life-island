@@ -243,7 +243,7 @@ export class AiToolsPage {
     );
   }
 
-  /** The choices that steer a tool (the path the resource scout keeps current). */
+  /** The choices that steer a tool (how many scans a month the resource scout starts). */
   protected toolSettings(toolId: string): AppSettingDefinition[] {
     return APP_SETTINGS.filter(
       (s) => s.aiTool === toolId && s.type === 'choice',

@@ -322,27 +322,38 @@ describe.skipIf(!configured)(
       ).toBe(404);
     });
 
-    it('refreshes only the path you picked, and only with the scout on', async () => {
-      await svc.pool.query(
-        "delete from studies.settings_replica where key = 'studies.scout-subject'",
-      );
-      expect((await json('POST', '/scout/scans')).status).toBe(400);
-      // Only a path of yours is watched.
+    it('watches every path you follow, unless you stop it, and refreshes one with the scout on', async () => {
+      expect(
+        (await json('POST', '/scout/scans', { pathId: 'cooking' })).status,
+      ).toBe(404);
+      expect((await json('POST', '/scout/scans', {})).status).toBe(400);
       expect(
         (await json('PUT', '/paths/frameworks', { status: 'following' }))
           .status,
       ).toBe(204);
-      await svc.pool.query(
-        "insert into studies.settings_replica (key, value, changed_at) values ('studies.scout-subject', '\"frameworks\"', now())",
-      );
-      const { body } = await json<StudiesOverviewDto>('GET', '/overview');
-      expect(body.scout.subject).toBe('frameworks');
-      expect(body.scout.cadenceMonths).toBe(2);
+      let { body } = await json<StudiesOverviewDto>('GET', '/overview');
+      let watch = body.scout.watched.find((w) => w.pathId === 'frameworks')!;
+      expect(watch.watching).toBe(true);
+      expect(watch.cadenceMonths).toBe(2);
+      expect(watch.nextScanOn).not.toBeNull();
+      expect(body.scout.monthlyScans).toBe(4);
+      // Stop it for this path: still followed, no longer watched.
+      expect(
+        (
+          await json('PUT', '/paths/frameworks', {
+            status: 'following',
+            watch: false,
+          })
+        ).status,
+      ).toBe(204);
+      ({ body } = await json<StudiesOverviewDto>('GET', '/overview'));
+      watch = body.scout.watched.find((w) => w.pathId === 'frameworks')!;
+      expect(watch.watching).toBe(false);
+      expect(watch.nextScanOn).toBeNull();
       // No API key in this test: the scout cannot scan.
-      expect((await json('POST', '/scout/scans')).status).toBe(503);
-      await svc.pool.query(
-        "delete from studies.settings_replica where key = 'studies.scout-subject'",
-      );
+      expect(
+        (await json('POST', '/scout/scans', { pathId: 'frameworks' })).status,
+      ).toBe(503);
       expect((await json('DELETE', '/paths/frameworks')).status).toBe(204);
     });
 

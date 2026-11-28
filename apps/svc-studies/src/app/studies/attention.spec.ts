@@ -2,12 +2,12 @@ import { LEARNING_PATHS } from '@life-island/contracts';
 import { studyAttentionItems } from './attention.js';
 
 const scout = {
-  subject: 'ai-coding',
   cadence: 'auto' as const,
-  cadenceMonths: 2,
+  watched: [],
+  monthlyScans: 4,
+  scansThisMonth: 0,
   ai: true,
   lastScan: null,
-  nextScanOn: null,
   paces: {},
   proposals: [],
   resources: [],
@@ -52,7 +52,7 @@ describe('studyAttentionItems', () => {
         title: 'Review what the scout found for AI coding and tools',
         detail: '2 new resources, 1 outdated',
         since: '2026-11-18',
-        path: '/studies?tab=paths&path=ai-coding',
+        path: '/studies?tab=fresh',
         action: 'Review',
       },
     ]);

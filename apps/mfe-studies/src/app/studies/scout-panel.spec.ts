@@ -17,12 +17,20 @@ const frameworks = LEARNING_PATHS.find((p) => p.id === 'frameworks')!;
 
 function scout(over: Partial<StudyScoutDto> = {}): StudyScoutDto {
   return {
-    subject: 'frameworks',
     cadence: 'auto',
-    cadenceMonths: 2,
+    watched: [
+      {
+        pathId: 'frameworks',
+        watching: true,
+        cadenceMonths: 2,
+        nextScanOn: '2027-01-12',
+        lastScan: null,
+      },
+    ],
+    monthlyScans: 4,
+    scansThisMonth: 1,
     ai: true,
     lastScan: null,
-    nextScanOn: '2027-01-12',
     resources: [],
     proposals: [],
     paces: {},
@@ -58,18 +66,41 @@ const button = (element: HTMLElement, text: string) =>
   )!;
 
 describe('ScoutPanel', () => {
-  it('says it keeps the path current, when it scans next, and refreshes now', () => {
+  it('says when it scans this path next, the month’s scans, and refreshes it now', () => {
     const { element, http } = render(scout());
-    expect(element.textContent).toContain('Keeping this path current.');
+    expect(element.textContent).toContain('Kept current.');
     expect(element.textContent).toContain('every 2 months');
+    expect(element.textContent).toContain('1 of 4 scans used this month');
     button(element, 'Refresh now').click();
-    http.expectOne({ method: 'POST', url: `${STUDIES_API}/scout/scans` });
+    const post = http.expectOne({
+      method: 'POST',
+      url: `${STUDIES_API}/scout/scans`,
+    });
+    expect(post.request.body).toEqual({ pathId: 'frameworks' });
   });
 
-  it('watches one path at a time and says which one it watches now', () => {
-    const { element } = render(scout({ subject: 'ai-coding' }));
-    expect(element.textContent).toContain('AI coding and tools');
-    expect(button(element, 'Watch this path instead')).toBeTruthy();
+  it('stops watching this path', () => {
+    const { element, http } = render(scout());
+    button(element, 'Stop watching').click();
+    const put = http.expectOne(`${STUDIES_API}/paths/frameworks`);
+    expect(put.request.body).toEqual({ status: 'following', watch: false });
+  });
+
+  it('offers to watch a path again', () => {
+    const { element } = render(
+      scout({
+        watched: [
+          {
+            pathId: 'frameworks',
+            watching: false,
+            cadenceMonths: 2,
+            nextScanOn: null,
+            lastScan: null,
+          },
+        ],
+      }),
+    );
+    expect(button(element, 'Watch this path again')).toBeTruthy();
   });
 
   it('cannot refresh while the scout is off, and says why', () => {
@@ -78,33 +109,8 @@ describe('ScoutPanel', () => {
     expect(element.textContent).toContain('Settings → AI tools');
   });
 
-  it('lets you accept a proposed step', () => {
-    const stage = frameworks.stages[0];
-    const { element, http } = render(
-      scout({
-        proposals: [
-          {
-            id: 'c1',
-            pathId: 'frameworks',
-            kind: 'add-step',
-            stageId: stage.id,
-            stepId: `frameworks.${stage.id}.scout-signals`,
-            title: 'Signals everywhere',
-            detail: 'What changed.',
-            outcome: 'You can use them.',
-            stepKind: 'learn',
-            hours: 3,
-            reason: 'Every framework moved to signals.',
-            status: 'proposed',
-            createdAt: '2026-11-12T10:00:00Z',
-          },
-        ],
-      }),
-    );
-    expect(element.textContent).toContain('Add “Signals everywhere”');
-    expect(element.textContent).toContain(stage.title);
-    button(element, 'Accept').click();
-    const put = http.expectOne(`${STUDIES_API}/scout/changes/c1`);
-    expect(put.request.body).toEqual({ decision: 'accepted' });
+  it('cannot refresh once the month’s scans are used', () => {
+    const { element } = render(scout({ scansThisMonth: 4 }));
+    expect(button(element, 'Refresh now').disabled).toBe(true);
   });
 });

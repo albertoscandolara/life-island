@@ -9,7 +9,8 @@ import { EventsRuntime } from '@life-island/be-nest';
 import {
   aiToolSettingKey,
   SETTING_CHANGED_EVENT,
-  STUDY_SCOUT_SUBJECT_SETTING,
+  STUDY_SCOUT_BUDGET_SETTING,
+  STUDY_SCOUT_CADENCE_SETTING,
   STUDY_SCOUT_TOOL,
 } from '@life-island/contracts';
 import { CONFIG, SERVICE_DB, type StudiesConfig } from './config.js';
@@ -84,15 +85,16 @@ export class AppModule {
 type SettingHandler = ReturnType<typeof settingChangedHandler>;
 
 /**
- * Picking the path to keep current, or turning the scout on, starts its
- * first scan within seconds, not at the next check.
+ * Raising the month's scans, changing the cadence or turning the scout on
+ * starts a due scan within seconds, not at the next check.
  */
 function scoutAware(
   handle: SettingHandler,
   scout: ResourceScout,
 ): SettingHandler {
   const watched = [
-    STUDY_SCOUT_SUBJECT_SETTING,
+    STUDY_SCOUT_BUDGET_SETTING,
+    STUDY_SCOUT_CADENCE_SETTING,
     aiToolSettingKey(STUDY_SCOUT_TOOL),
   ];
   return async (event, client) => {
